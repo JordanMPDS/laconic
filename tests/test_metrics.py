@@ -93,6 +93,13 @@ check("contracted auxiliaries are counted", contraction_test["aux_verb_rate"] > 
 abbrev_test = metrics.score("We tested it, e.g. running the code.")
 check("abbreviation periods don't trip lowercase-start", abbrev_test["sentence_initial_lowercase"] == 0)
 
+# Test sentence-ending abbreviations still catch lowercase starts
+etc_test = metrics.score("That is impossible, etc. it makes no sense.")
+check("sentence-ending abbrevs catch real violations (etc)", etc_test["sentence_initial_lowercase"] >= 1)
+
+st_test = metrics.score("We turned onto Main St. it was getting dark.")
+check("sentence-ending abbrevs catch real violations (St)", st_test["sentence_initial_lowercase"] >= 1)
+
 check("never_cut_missing finds absent keywords",
       metrics.never_cut_missing("the sessions cascade", ["cascade", "invoices"])
       == ["invoices"])

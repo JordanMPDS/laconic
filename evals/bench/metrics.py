@@ -31,7 +31,12 @@ SYMBOLS = re.compile(r"(->|=>|→)")
 ABBREV = re.compile(
     r"\b(impl|req|resp|func|val|obj|arg|msg|err)\b|\bw/|\bb/c\b", re.I
 )
-ABBREV_DOT = re.compile(r"\b(e\.g|i\.e|etc|vs|cf|al|Dr|Mr|Mrs|Ms|Prof|Inc|Ltd|Fig|approx|Ave|St)\.", re.I)
+# Mask only abbreviations that never end sentences. e.g., i.e., vs., etc. mid-sentence
+# should not be treated as sentence boundaries. Deliberately excludes etc, al, Inc, Ltd,
+# St, Ave because these commonly *do* end sentences, and masking them would hide real
+# lowercase-start violations. This list must stay small; adding "helpful" abbreviations
+# costs recall without gaining precision on the false-positive side.
+ABBREV_DOT = re.compile(r"\b(e\.g|i\.e|cf|vs|approx|Fig|Dr|Mr|Mrs|Ms|Prof)\.", re.I)
 SENTENCE_SPLIT = re.compile(r"(?<=[.!?])\s+")
 # Lines that are structural markdown, not paragraph flow. Bullets legitimately
 # start lowercase, so checking them would fire on correct writing.

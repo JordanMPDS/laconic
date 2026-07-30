@@ -2,9 +2,9 @@
 
 **Status:** DONE
 
-**Commit:** ca7f94dbd838b6102ae8bcec889eb9d7fe267d29
+**Commit:** cd2db0ee3d31a741fa56c842d17b458beffc912d
 
-**Test Summary:** All 29 unit tests pass (original 17 + 12 new). Resume check (4→0 runs) and failure recording (recorded: 1 usable: 0) both verified.
+**Test Summary:** All 31 unit tests pass (original 17 + 14 new). Resume check (4→0 runs) and failure recording (recorded: 1 usable: 0) both verified.
 
 ## Fixes Applied
 
@@ -126,3 +126,47 @@ wrote /tmp/snapfail.json (1 runs, 1 failed)
 $ python3 -c "import json,sys; sys.path.insert(0,'evals/bench'); import run; s=json.load(open('/tmp/snapfail.json')); print('recorded:', len(s['runs']), 'usable:', len(run.usable(s['runs'])))"
 recorded: 1 usable: 0
 ```
+
+---
+
+## Final Re-Review Fix
+
+### 7. Tighten Guard: Reject Non-Executable Files and Directories
+**Problem:** The guard `if not (shutil.which(claude_bin) or Path(claude_bin).exists())` was too loose. It admitted:
+- Non-executable files: `Path.exists()` returns True, but file can't execute
+- Directories: `Path.exists()` returns True, but directory can't execute
+
+Both then fail with `PermissionError`/`IsADirectoryError`, caught as `OSError` in `call()`, recorded as `ok: false`. Same silent-100%-failure symptom.
+
+**Solution:** Drop the `Path.exists()` fallback and use only `shutil.which()`:
+```python
+if not shutil.which(claude_bin):
+    sys.exit("claude binary not found or not executable: %s "
+             "(set --claude-bin or fix PATH)" % args.claude_bin)
+```
+
+`shutil.which()` already rejects both non-executable files and directories; it only accepts genuinely executable files or bare commands found in PATH.
+
+**Proof old guard was loose:**
+```python
+# Old guard with Path.exists() fallback
+non_exec_file = Path("/tmp/file")  # exists but not executable
+non_exec_file.write_text("#!/bin/sh\necho hi")
+shutil.which(str(non_exec_file))    # None (rejects it)
+Path(non_exec_file).exists()         # True (old guard allows it!)
+
+directory = Path("/tmp/dir")
+directory.mkdir()
+shutil.which(str(directory))         # None (rejects it)
+Path(directory).exists()             # True (old guard allows it!)
+```
+
+**Assertions added (2 new):**
+- `shutil.which rejects non-executable file` — verifies the guard catches this
+- `shutil.which rejects directory` — verifies the guard catches this
+
+**Test coverage:** Both assertions pass with strict guard, would fail with loose guard.
+
+**Final verification:** All 31 tests pass. Both Step 6 end-to-end checks confirmed:
+- Resume (4→0): ✓
+- Failure (recorded: 1, usable: 0): ✓

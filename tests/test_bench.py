@@ -616,6 +616,40 @@ check("output token dispersion: stdev guarded for n<2 (no crash, reads 0.0)",
 check("output token dispersion is published in the rendered markdown",
       "min:" in md and "max:" in md and "stdev:" in md)
 
+# --- The "totals" table must render a sum, not a median across cases ---
+# _by_arm_model takes a median across cases by default. A table headed
+# "total across responses" that uses the default renders a median-of-
+# per-case-totals under a "total" label - self-contradicting the gate
+# immediately below it, which fires on the real sum. Three cases with
+# per-case violations_total [5, 0, 0]: sum is 5, median is 0.
+FIVE_ARROW_TEXT = ("A fails -> B happens. C fails -> D happens. "
+                   "E fails -> F happens. G fails -> H happens. I fails -> J happens.")
+totals_synthetic = {
+    "metadata": {"reps": 1, "models": ["haiku"], "laconic_level": "full",
+                 "rules_cksum": "1", "generated_at": "x", "git_commit": "y",
+                 "claude_cli_version": "z"},
+    "arms": {"laconic": {"system_prompt": "r"}},
+    "runs": [
+        {"case": "c1", "arm": "laconic", "model": "haiku", "rep": 0, "ok": True,
+         "text": FIVE_ARROW_TEXT, "output_tokens": 10, "total_cost_usd": 0.001, "duration_ms": 500},
+        {"case": "c2", "arm": "laconic", "model": "haiku", "rep": 0, "ok": True,
+         "text": "It removes the file.", "output_tokens": 10, "total_cost_usd": 0.001, "duration_ms": 500},
+        {"case": "c3", "arm": "laconic", "model": "haiku", "rep": 0, "ok": True,
+         "text": "It removes the file.", "output_tokens": 10, "total_cost_usd": 0.001, "duration_ms": 500},
+    ],
+}
+totals_agg = bench_report.aggregate(totals_synthetic)
+per_case_totals = [totals_agg[("c1", "laconic", "haiku")]["violations_total"],
+                   totals_agg[("c2", "laconic", "haiku")]["violations_total"],
+                   totals_agg[("c3", "laconic", "haiku")]["violations_total"]]
+check("fixture actually has sum != median (sanity check on the fixture itself)",
+      sum(per_case_totals) == 5 and _statistics.median(per_case_totals) == 0)
+md_totals = bench_report.render(totals_synthetic, {"judgments": []}, 0.70)
+check("the 'total across responses' table renders the sum (5), not the median (0)",
+      "| laconic | 5 |" in md_totals)
+check("the 'responses with >=1 violation' table also renders a sum, not a median",
+      "| laconic | 1 |" in md_totals)
+
 # --- D: never-cut must show checked vs unchecked, not a bare failure count ---
 # floor's never_cut is [] (nothing to check); destructive's is non-empty.
 # "0 failures" must not be readable as "everything was verified".

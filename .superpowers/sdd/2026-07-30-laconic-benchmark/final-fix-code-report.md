@@ -207,3 +207,45 @@ readability-total failures (the real regressions, including the genuine
 `ordered-steps/sonnet` arrow chain in running prose) are untouched by this
 change - they gate on `violations_total`, not the rate/count logic - and
 both still fire.
+
+## Follow-up 2: the "totals" table rendered a median, not a total
+
+Coordinator caught this while extracting numbers for the writeup:
+`_by_arm_model` medians across cases unconditionally, so the tables headed
+"Readability violations (total across responses; this is what gates)" and
+"Responses with >=1 readability violation" both rendered a
+median-of-per-case-totals under a "total" label. For laconic/sonnet the
+per-case `violations_total` values are `[5, 1, 0, 0, 0, 0, 0, 0]` - sum 6,
+median 0 - so the table printed 0 next to a gate reporting 5. Same defect
+shape as the gate-message fix above, one level up in the rendering.
+
+**Fix:** `_by_arm_model` now takes an `agg_fn` parameter (default
+`_median`, unchanged for the seven other tables that use it - output
+tokens, dispersion, article/aux rate, cost, duration). The two
+violation-count tables pass `agg_fn=sum`, since they're explicitly labeled
+totals and sum is what `gate_failures()` actually uses. One shared
+function, no duplicate table-rendering code.
+
+Proof: added a 3-case fixture (`c1`/`c2`/`c3`) with per-case
+`violations_total` of `[5, 0, 0]` (sum 5, median 0) and asserted the
+rendered row shows `| laconic | 5 |`. `git stash` on `report.py` alone (on
+top of the already-committed fixes) reran it: `FAIL` pre-fix. Restored,
+passes. Applied the same fixture/assertion to the flagged-responses table
+(`[1, 0, 0]` -> expected `1`) since it has the identical defect - also
+proven to fail on the same isolated pre-fix code, now passes.
+
+Regenerated `/tmp/bench-tables-v4.md` from the same committed snapshot (no
+new model calls, `evals/snapshots/` untouched). Corrected totals table:
+
+| arm | haiku | sonnet | row total |
+|---|--:|--:|--:|
+| baseline | 0 | 2 | 2 |
+| terse-control | 1 | 3 | 4 |
+| word-compression | 0 | 5 | 5 |
+| laconic | 0 | 6 | 6 |
+
+Row totals match the coordinator's independent 80-response check exactly
+(baseline 2, terse-control 4, word-compression 5, laconic 6). Gate outcome
+re-verified unchanged - still exactly 4 failures: `badnews/haiku` and
+`conditional/sonnet` (article rate), `ordered-steps/sonnet` (5 violations
+across 5 responses), `walkthrough/sonnet` (1 violation across 5 responses).

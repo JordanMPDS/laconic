@@ -132,14 +132,20 @@ def _models_present(agg):
     return sorted(set(k[2] for k in agg))
 
 
-def _by_arm_model(agg, field, arms, models, fmt="%s"):
+def _by_arm_model(agg, field, arms, models, fmt="%s", agg_fn=_median):
+    """agg_fn combines the per-case values for one arm/model into one cell.
+    Defaults to the median (what every display table wants). A table
+    labeled "total" must pass agg_fn=sum instead - a median-of-per-case-
+    totals is not a total, and rendering one under a "total" heading next
+    to a gate that fires on the real sum is a published self-contradiction.
+    """
     rows = ["| arm | " + " | ".join(models) + " |",
             "|---|" + "|".join("--:" for _ in models) + "|"]
     for arm in arms:
         cells = []
         for m in models:
             vals = [v[field] for k, v in agg.items() if k[1] == arm and k[2] == m]
-            cells.append(fmt % _median(vals) if vals else "-")
+            cells.append(fmt % agg_fn(vals) if vals else "-")
         rows.append("| %s | %s |" % (arm, " | ".join(cells)))
     return "\n".join(rows)
 
@@ -194,9 +200,9 @@ def render(snap, judg, threshold):
     out.append("### Readability violations (median per response)\n")
     out.append(_by_arm_model(agg, "violations", arms, models, "%.1f") + "\n")
     out.append("### Readability violations (total across responses; this is what gates)\n")
-    out.append(_by_arm_model(agg, "violations_total", arms, models, "%d") + "\n")
+    out.append(_by_arm_model(agg, "violations_total", arms, models, "%d", agg_fn=sum) + "\n")
     out.append("### Responses with >=1 readability violation\n")
-    out.append(_by_arm_model(agg, "violations_flagged_responses", arms, models, "%d") + "\n")
+    out.append(_by_arm_model(agg, "violations_flagged_responses", arms, models, "%d", agg_fn=sum) + "\n")
     out.append("### Article rate\n")
     out.append(_by_arm_model(agg, "article_rate", arms, models, "%.3f") + "\n")
     out.append("### Auxiliary-verb rate\n")

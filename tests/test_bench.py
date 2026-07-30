@@ -213,5 +213,73 @@ with tempfile.TemporaryDirectory() as td_judge_e2e:
     check("judge: guard runs before any grading, no judgments file written",
           not out_path.exists())
 
+import report as bench_report  # noqa: E402
+
+synthetic = {
+    "metadata": {"reps": 2, "models": ["haiku"], "laconic_level": "full",
+                 "rules_cksum": "1", "generated_at": "x", "git_commit": "y",
+                 "claude_cli_version": "z"},
+    "arms": {"baseline": {"system_prompt": None}, "laconic": {"system_prompt": "r"}},
+    "runs": [
+        {"case": "floor", "arm": "baseline", "model": "haiku", "rep": 0, "ok": True,
+         "text": "The command removes the file from the staging area. It is safe.",
+         "output_tokens": 100, "total_cost_usd": 0.01, "duration_ms": 1000},
+        {"case": "floor", "arm": "baseline", "model": "haiku", "rep": 1, "ok": True,
+         "text": "The command removes the file from the staging area. It is safe.",
+         "output_tokens": 120, "total_cost_usd": 0.01, "duration_ms": 1000},
+        {"case": "floor", "arm": "laconic", "model": "haiku", "rep": 0, "ok": True,
+         "text": "It removes the file from the staging area and does not touch the disk.",
+         "output_tokens": 40, "total_cost_usd": 0.005, "duration_ms": 500},
+        {"case": "floor", "arm": "laconic", "model": "haiku", "rep": 1, "ok": False},
+    ],
+}
+
+agg = bench_report.aggregate(synthetic)
+check("aggregates by case/arm/model", ("floor", "baseline", "haiku") in agg)
+check("median output tokens", agg[("floor", "baseline", "haiku")]["output_tokens"] == 110)
+check("failed runs excluded from n", agg[("floor", "laconic", "haiku")]["n"] == 1)
+check("clean arms show no violations", agg[("floor", "laconic", "haiku")]["violations"] == 0)
+
+check("clean run passes gates", bench_report.gate_failures(agg, 0.70) == [])
+
+dirty = json.loads(json.dumps(synthetic))
+dirty["runs"][2]["text"] = "removes file -> staging area. impl detail."
+dirty["runs"][3] = dict(dirty["runs"][2], rep=1)
+bad_agg = bench_report.aggregate(dirty)
+fails_found = bench_report.gate_failures(bad_agg, 0.70)
+check("degraded prose trips a gate", len(fails_found) > 0)
+check("gate failure names the case", any("floor" in f for f in fails_found))
+
+md = bench_report.render(synthetic, {"judgments": []}, 0.70)
+check("report renders markdown", "| arm |" in md.lower() or "arm" in md)
+check("report states the excluded count", "excluded" in md.lower())
+
+# Cases with an empty never_cut list (decision, floor, ordered-steps in the
+# real case set) must aggregate cleanly - an empty list has no missing
+# keywords, so never_cut_missing() should return [] and never_cut_failures
+# should be 0, not an exception and not a false failure.
+check("empty never_cut list scores as zero failures, not a crash",
+      agg[("floor", "laconic", "haiku")]["never_cut_failures"] == 0)
+
+# judge.py records an infrastructure failure (subprocess/parse error) as
+# verdict "not_exercised", reason "judge call failed" - distinct from a
+# genuine "the trap never fired" not_exercised verdict. Folding the two
+# together would make a run of judge outages look like a run of clean
+# responses. The trap-verdicts table must keep them apart in a separate
+# judge_failed column.
+judg_mixed = {"judgments": [
+    {"case": "floor", "arm": "laconic", "model": "haiku", "rep": 0,
+     "verdict": "not_exercised", "quote": "", "reason": "judge call failed"},
+    {"case": "floor", "arm": "laconic", "model": "haiku", "rep": 1,
+     "verdict": "not_exercised", "quote": "", "reason": "asked for missing context"},
+    {"case": "floor", "arm": "laconic", "model": "haiku", "rep": 2,
+     "verdict": "pass", "quote": "q", "reason": "fine"},
+]}
+md_mixed = bench_report.render(synthetic, judg_mixed, 0.70)
+check("judge_failed column present in trap-verdicts table",
+      "judge_failed" in md_mixed)
+check("judge call failures counted separately from genuine not_exercised",
+      "| floor | laconic | 1 | 0 | 1 | 1 |" in md_mixed)
+
 print("\n%d failure(s)" % fails)
 sys.exit(1 if fails else 0)

@@ -157,6 +157,8 @@ harness. Credit to that project for the approach.
 
 ```bash
 bash tests/test_rules.sh && bash tests/test_laconic.sh \
+  && bash tests/test_evals_layout.sh \
+  && python3 tests/test_metrics.py && python3 tests/test_bench.py \
   && claude plugin validate . --strict \
   && claude plugin validate .claude-plugin/plugin.json --strict
 ```
@@ -173,11 +175,10 @@ marketplace manifest and does not check skills or commands; pointing it at
 
 Runs the four eval cases (`decision`, `walkthrough`, `destructive`, `badnews`)
 with and without the rules, writing paired output under
-`evals/results/<level>/<case>.md` for you to read side by side. Grading
+`evals/scratch/<level>/<case>.md` for you to read side by side. Grading
 criteria and the trap each case is checking for are in `evals/CRITERIA.md`.
 These are single-sample, cheapest-model runs meant to catch regressions in the
-rule set, not a benchmark — there's no validated token-reduction number to
-quote here, only pass/fail against the criteria in that file.
+rule set, not a benchmark.
 
 ### End-to-end check
 
@@ -194,3 +195,34 @@ In a fresh session:
 4. Run `/laconic off`.
 5. `cat ~/.claude/.laconic-level` → prints `off`.
 6. Ask something else — no `LACONIC MODE ACTIVE` line on that turn or after.
+
+## Benchmark
+
+`evals/bench/` runs the actual benchmark: 320 single-turn calls (8 cases × 5 reps
+× 2 models × 4 arms — baseline, a terse-only control, a synthetic word-compression
+foil, and laconic), scored on compression, readability, trap-avoidance, and a
+deterministic never-cut safety check. Full methodology, every honesty note, and
+every table: [`evals/results/2026-07-30-benchmark.md`](evals/results/2026-07-30-benchmark.md).
+
+**The result is mixed — read both halves.** Median output tokens are **15% below
+baseline on Sonnet (740 vs 874) but 5% *above* baseline on Haiku (618 vs 588)**:
+the compression this plugin claims holds on the stronger model and does not on
+the weaker one. Laconic also costs *more* per call than baseline on both models
+($0.0159 vs $0.0139 haiku, $0.0674 vs $0.0605 sonnet) — the injected rules' own
+token cost, reported net rather than left out.
+
+Readability violations scored 0.0 median for every arm, including the
+word-compression foil, so the readability axis produced no usable signal in
+this run — the foil never degraded its prose enough to give the detector
+anything to catch. The deterministic never-cut safety check held everywhere
+laconic was tested: 0 failures across 80 checked responses.
+
+These are single-turn `--append-system-prompt` calls, not multi-turn sessions,
+so the per-call cost above **overstates** what a real session pays once the
+first turn's cache write becomes a cache read.
+
+```bash
+python3 evals/bench/run.py      # generate (~320 calls, 1.5-2 hr)
+python3 evals/bench/judge.py    # blind trap grading
+python3 evals/bench/report.py   # offline tables; exits 1 if a gate fails
+```

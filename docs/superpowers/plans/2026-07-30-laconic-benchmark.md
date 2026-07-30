@@ -1739,3 +1739,45 @@ The defects found, recorded so they are not reintroduced:
 5. **`Path.match("*" + cases + "*")`** worked only by accident on the default, and
    `judge.py` used substring matching for the same flag. Both now use `fnmatch` on the
    case name, so `--cases` selects identically in both tools.
+
+---
+
+## Amendments during execution
+
+The plan's code blocks above are the text as written before execution. Review found
+defects in some of it; the committed implementation differs as follows, and the
+committed code is authoritative.
+
+**Task 2, `metrics.py` — abbreviation-aware sentence splitting (rounds 1-2).**
+`SENTENCE_SPLIT` alone treats `e.g.` / `i.e.` / `vs.` as sentence ends, so the
+lowercase continuation scored as a fragment. That over-reports violations on correct
+prose in *every* arm, and the laconic gate is `violations == 0`, so one false positive
+fails the gate outright. Fixed with an `ABBREV_DOT` mask applied before splitting.
+Round 2 narrowed the masked list after the first attempt masked unconditionally and
+hid real violations when an abbreviation genuinely ended a sentence (`"…, etc. it
+makes no sense."`). Final rule: mask only abbreviations that are essentially never
+sentence-final (`e.g i.e cf vs approx Fig Dr Mr Mrs Ms Prof`); never mask ones that
+commonly are (`etc al Inc Ltd St Ave`).
+
+`AUX` also gained the contracted negations (`doesn't`, `isn't`, `can't`, …), which the
+original set counted as zero auxiliaries, plus assertions covering `aux_verb_rate` —
+a gated interface key that had none. Suite grew 16 → 23 assertions.
+
+**Task 3, `never_cut` keywords (rounds 1-2).** `never_cut` is a case-insensitive
+*substring* match, and the plan's original keywords ignored that. `"if"` on
+`conditional` — the flagship case — matched inside *different*, *specify*, *identify*,
+making the check vacuous. `"refresh"`, `"sign"`, and `"stag"` were the literal topic of
+their own prompts. `"3 failed"` and `"test_billing"` missed correct paraphrases.
+
+The governing principle, now recorded in `CRITERIA.md`: **`never_cut` carries only
+tokens a correct answer cannot avoid** — literal identifiers, flags, status codes,
+schema names. Conceptual requirements have many valid phrasings and belong to the
+judge's `trap` instead, because a substring check a correctly-phrased answer can miss
+produces false alarms. Round 2 applied it to two keywords that survived round 1 on the
+same flaw: `inflight` (the natural idiom is "in-flight", which has no contiguous
+match) and `expir` (the trap's own prose says "lifetime").
+
+Final values — `decision` `[]`, `walkthrough` `["401"]`, `destructive`
+`["cascade","invoices"]`, `badnews` `["proration"]`, `conditional` `["leak"]`,
+`ordered-steps` `[]`, `floor` `[]`, `code-fidelity` `["-size","-mtime"]`.
+The three empty lists are deliberate and documented as such.

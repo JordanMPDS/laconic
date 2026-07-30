@@ -1,10 +1,10 @@
 # Task 4 Report: Generation Harness
 
-**Status:** DONE
+**Status:** DONE (round 4)
 
-**Commit:** cd2db0ee3d31a741fa56c842d17b458beffc912d
+**Commit:** cd2db0ee3d31a741fa56c842d17b458beffc912d (round 3); see "Round 4" section below for the final fix and its commit.
 
-**Test Summary:** All 31 unit tests pass (original 17 + 14 new). Resume check (4→0 runs) and failure recording (recorded: 1 usable: 0) both verified.
+**Test Summary:** 34 unit tests pass. Resume check (4→0 runs) and failure recording (recorded: 1 usable: 0) both verified. Guard is now covered by an extracted predicate plus a subprocess end-to-end test; loose-guard reintroduction now fails the suite (see Round 4).
 
 ## Fixes Applied
 
@@ -170,3 +170,60 @@ Path(directory).exists()             # True (old guard allows it!)
 **Final verification:** All 31 tests pass. Both Step 6 end-to-end checks confirmed:
 - Resume (4→0): ✓
 - Failure (recorded: 1, usable: 0): ✓
+
+---
+
+## Round 4: Genuine Guard Coverage
+
+**Problem:** The two assertions added in round 3 ("shutil.which rejects non-executable file", "shutil.which rejects directory") tested `shutil.which` directly — a stdlib function, not the guard in `main()`. Restoring the old loose guard (`if not (shutil.which(claude_bin) or Path(claude_bin).exists())`) and re-running the suite gave 0 failures: every assertion still passed against the reintroduced defect. No test exercised `main()`'s guard branch at all.
+
+**Fix, two parts:**
+
+1. **Extracted the guard's condition** into a named predicate in `run.py` so the test and the guard cannot diverge:
+   ```python
+   def claude_bin_usable(claude_bin):
+       """The fail-fast guard's condition, factored out so tests exercise the
+       real thing instead of re-deriving it. Rejects missing paths, directories,
+       and non-executable files - shutil.which() already handles all three."""
+       return bool(shutil.which(claude_bin))
+   ```
+   `main()` now calls `claude_bin_usable(claude_bin)` instead of inlining the check. The two hollow `shutil.which(...)` assertions in `tests/test_bench.py` were replaced with assertions against `claude_bin_usable` itself: non-executable file → False, directory → False, the resolved stub → True.
+
+2. **Added an end-to-end subprocess test**, immune to refactoring games: invokes `evals/bench/run.py` via `sys.executable` with `--claude-bin` pointing at a non-executable temp file and a fresh temp `--snapshot` path, then asserts the exit code is non-zero and the snapshot file was never created (the guard runs before any work, so this is fast — no live model calls).
+
+**Acceptance-bar check (per instructions):** temporarily restored the loose guard in `run.py`:
+```python
+def claude_bin_usable(claude_bin):
+    """LOOSE GUARD FOR ACCEPTANCE-BAR TEST ONLY."""
+    return bool(shutil.which(claude_bin) or Path(claude_bin).exists())
+```
+Ran the full suite — **4 failures, exit code 1**:
+```
+ok   claude_bin_usable accepts a real executable
+FAIL claude_bin_usable rejects non-executable file
+FAIL claude_bin_usable rejects directory
+FAIL subprocess: guard exits non-zero for non-executable claude-bin
+FAIL subprocess: guard runs before any work, no snapshot written
+...
+4 failure(s)
+EXIT CODE: 1
+```
+Restored the correct guard, re-ran — **0 failures, exit code 0**, all 34 assertions pass (31 original + 3 net new: one added `claude_bin_usable accepts a real executable` check plus the two subprocess checks; the two hollow `shutil.which` checks were replaced in place, not added to).
+
+**Final verification, all still hold:**
+- Full suite: 34/34 pass, `0 failure(s)`, exit code 0.
+- Resume (4→0):
+  ```
+  wrote /tmp/snap.json (4 runs, 0 failed)   [first run]
+  wrote /tmp/snap.json (4 runs, 0 failed)   [second run, no new output lines]
+  runs: 4
+  all ok: True
+  ```
+- Forced failure:
+  ```
+  [1/1] floor          baseline         haiku   rep0 FAILED
+  wrote /tmp/snapfail.json (1 runs, 1 failed)
+  recorded: 1 usable: 0
+  ```
+
+**Status:** DONE.

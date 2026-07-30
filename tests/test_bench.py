@@ -2,6 +2,7 @@
 """Validates harness logic against stubs - no live model calls."""
 import json
 import os
+import subprocess
 import sys
 import tempfile
 from pathlib import Path
@@ -98,21 +99,42 @@ check("unresolvable name doesn't exist as path", not Path(unresolvable).exists()
 # shutil.which returns None for unresolvable names, so resolve returns the arg unchanged
 check("resolve returns bare name when not in PATH", unresolvable == "nonexistent-command-xyz")
 
-# Test fail-fast check: non-executable files are rejected
+# Test the guard's actual predicate (claude_bin_usable), not shutil.which
+# directly - this is the function main() calls, so the test and the guard
+# cannot diverge.
+check("claude_bin_usable accepts a real executable",
+      bench_run.claude_bin_usable(resolved_rel) is True)
+
 with tempfile.TemporaryDirectory() as td_nonexec:
     nonexec_file = Path(td_nonexec) / "not-executable"
     nonexec_file.write_text("#!/bin/sh\necho hi")
-    # File exists but is not executable - shutil.which rejects it
-    check("shutil.which rejects non-executable file",
-          not bench_run.shutil.which(str(nonexec_file)))
+    # File exists but is not executable
+    check("claude_bin_usable rejects non-executable file",
+          bench_run.claude_bin_usable(str(nonexec_file)) is False)
 
-# Test fail-fast check: directories are rejected
 with tempfile.TemporaryDirectory() as td_dir:
     dir_path = Path(td_dir) / "is-a-directory"
     dir_path.mkdir()
-    # Directory exists but is not executable - shutil.which rejects it
-    check("shutil.which rejects directory",
-          not bench_run.shutil.which(str(dir_path)))
+    check("claude_bin_usable rejects directory",
+          bench_run.claude_bin_usable(str(dir_path)) is False)
+
+# End-to-end: invoke run.py as a real subprocess so the guard is exercised
+# through main() itself, not just through the extracted predicate. This
+# cannot be fooled by refactoring the predicate away from what main() calls.
+with tempfile.TemporaryDirectory() as td_e2e:
+    bad_bin = Path(td_e2e) / "not-executable"
+    bad_bin.write_text("#!/bin/sh\necho hi")
+    snap_path = Path(td_e2e) / "snap.json"
+    proc = subprocess.run(
+        [sys.executable, str(ROOT / "evals" / "bench" / "run.py"),
+         "--claude-bin", str(bad_bin), "--models", "haiku", "--reps", "1",
+         "--cases", "floor", "--snapshot", str(snap_path)],
+        capture_output=True, text=True,
+    )
+    check("subprocess: guard exits non-zero for non-executable claude-bin",
+          proc.returncode != 0)
+    check("subprocess: guard runs before any work, no snapshot written",
+          not snap_path.exists())
 
 with tempfile.TemporaryDirectory() as td:
     snap_path = Path(td) / "results.json"

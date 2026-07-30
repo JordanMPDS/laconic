@@ -61,6 +61,13 @@ def resolve_claude_bin(arg):
     return shutil.which(arg) or arg
 
 
+def claude_bin_usable(claude_bin):
+    """The fail-fast guard's condition, factored out so tests exercise the
+    real thing instead of re-deriving it. Rejects missing paths, directories,
+    and non-executable files - shutil.which() already handles all three."""
+    return bool(shutil.which(claude_bin))
+
+
 def parse_cli_json(raw):
     blank = {"ok": False, "text": "", "output_tokens": 0, "input_tokens": 0,
              "cache_creation_input_tokens": 0, "cache_read_input_tokens": 0,
@@ -177,7 +184,7 @@ def main():
     args = ap.parse_args()
 
     claude_bin = resolve_claude_bin(args.claude_bin)
-    if not shutil.which(claude_bin):
+    if not claude_bin_usable(claude_bin):
         sys.exit("claude binary not found or not executable: %s "
                  "(set --claude-bin or fix PATH)" % args.claude_bin)
 

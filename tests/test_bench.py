@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 """Validates harness logic against stubs - no live model calls."""
 import json
+import os
 import sys
 import tempfile
 from pathlib import Path
@@ -51,10 +52,32 @@ rules = bench_run.laconic_rules(ROOT, "full")
 check("laconic rules come from the hook and are non-empty", len(rules) > 200)
 check("laconic rules carry the thesis sentinel", "fewer claims" in rules)
 
+# Test resolve_claude_bin: bare names must not resolve to nonexistent <cwd>/claude
+resolved_bare = bench_run.resolve_claude_bin("claude")
+check("resolve bare claude doesn't return nonexistent repo/claude",
+      resolved_bare != str(ROOT / "claude"))
+# Either it found it in PATH, or it returned the bare name for PATH lookup by subprocess
+check("resolve bare claude returns either a found path or the bare name",
+      Path(resolved_bare).exists() or resolved_bare == "claude")
+
+# Test resolve_claude_bin: relative paths become absolute
+resolved_rel = bench_run.resolve_claude_bin("tests/stubs/claude-stub.sh")
+check("resolve relative path returns absolute", Path(resolved_rel).is_absolute())
+check("resolve relative path returns existing file", Path(resolved_rel).exists())
+
+# Test call() with resolved stub path (absolute path that exists)
+stub_result = bench_run.call(resolved_rel, "haiku", "test prompt", None, "/tmp")
+check("call with resolved stub path returns ok", stub_result["ok"] is True)
+check("call with resolved stub extracts text", stub_result["text"] == "stub answer")
+
 with tempfile.TemporaryDirectory() as td:
     snap_path = Path(td) / "results.json"
     snap = bench_run.new_snapshot(reps=1, models=["haiku"], level="full",
                                   rules_cksum="123", arms=bench_run.ARMS)
+    check("snapshot laconic arm has source field",
+          "source" in snap["arms"]["laconic"])
+    check("snapshot laconic source contains level",
+          "full" in snap["arms"]["laconic"]["source"])
     snap["runs"].append({"case": "decision", "arm": "baseline",
                          "model": "haiku", "rep": 0, "ok": True, "text": "x"})
     bench_run.save_snapshot(snap_path, snap)

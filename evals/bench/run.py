@@ -53,6 +53,14 @@ def laconic_rules(root, level):
         shutil.rmtree(tmp, ignore_errors=True)
 
 
+def resolve_claude_bin(arg):
+    """Bare command names resolve via PATH; path-like arguments resolve to
+    absolute, because call() runs with cwd set to a scratch dir."""
+    if os.sep in arg or (os.altsep and os.altsep in arg):
+        return str(Path(arg).resolve())
+    return shutil.which(arg) or arg
+
+
 def parse_cli_json(raw):
     blank = {"ok": False, "text": "", "output_tokens": 0, "input_tokens": 0,
              "cache_creation_input_tokens": 0, "cache_read_input_tokens": 0,
@@ -91,6 +99,12 @@ def usable(runs):
 
 
 def new_snapshot(reps, models, level, rules_cksum, arms):
+    arms_dict = {}
+    for k, v in arms.items():
+        entry = {"system_prompt": v}
+        if k == "laconic":
+            entry["source"] = "hooks/laconic.sh start @ %s" % level
+        arms_dict[k] = entry
     return {
         "metadata": {
             "generated_at": datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
@@ -101,7 +115,7 @@ def new_snapshot(reps, models, level, rules_cksum, arms):
             "reps": reps,
             "models": models,
         },
-        "arms": {k: {"system_prompt": v} for k, v in arms.items()},
+        "arms": arms_dict,
         "runs": [],
     }
 
@@ -130,7 +144,9 @@ def load_snapshot(path):
 def save_snapshot(path, snap):
     p = Path(path)
     p.parent.mkdir(parents=True, exist_ok=True)
-    p.write_text(json.dumps(snap, indent=2, sort_keys=True) + "\n")
+    tmp = p.with_suffix(p.suffix + ".tmp")
+    tmp.write_text(json.dumps(snap, indent=2, sort_keys=True) + "\n")
+    os.replace(str(tmp), str(p))
 
 
 def call(claude_bin, model, prompt, system_prompt, cwd):
@@ -160,8 +176,7 @@ def main():
     ap.add_argument("--claude-bin", default="claude")
     args = ap.parse_args()
 
-    # Resolve claude-bin to absolute path so it works with subprocess cwd changes
-    claude_bin = str(Path(args.claude_bin).resolve())
+    claude_bin = resolve_claude_bin(args.claude_bin)
 
     models = [m.strip() for m in args.models.split(",") if m.strip()]
     arm_names = [a.strip() for a in args.arms.split(",") if a.strip()]

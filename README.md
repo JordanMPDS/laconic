@@ -173,7 +173,8 @@ marketplace manifest and does not check skills or commands; pointing it at
 ./evals/run.sh full
 ```
 
-Runs the four eval cases (`decision`, `walkthrough`, `destructive`, `badnews`)
+Runs all eight eval cases (`badnews`, `code-fidelity`, `conditional`, `decision`,
+`destructive`, `floor`, `ordered-steps`, `walkthrough`)
 with and without the rules, writing paired output under
 `evals/scratch/<level>/<case>.md` for you to read side by side. Grading
 criteria and the trap each case is checking for are in `evals/CRITERIA.md`.
@@ -201,26 +202,41 @@ In a fresh session:
 `evals/bench/` runs the actual benchmark: 320 single-turn calls (8 cases × 5 reps
 × 2 models × 4 arms — baseline, a terse-only control, a synthetic word-compression
 foil, and laconic), scored on compression, readability, trap-avoidance, and a
-deterministic never-cut safety check. Full methodology, every honesty note, and
-every table: [`evals/results/2026-07-30-benchmark.md`](evals/results/2026-07-30-benchmark.md).
+deterministic never-cut safety check. Full methodology, every honesty note, every
+correction, and every table:
+[`evals/results/2026-07-30-benchmark.md`](evals/results/2026-07-30-benchmark.md).
 
-**The result is mixed — read both halves.** Median output tokens are **15% below
-baseline on Sonnet (740 vs 874) but 5% *above* baseline on Haiku (618 vs 588)**:
-the compression this plugin claims holds on the stronger model and does not on
-the weaker one. Laconic also costs *more* per call than baseline on both models
-($0.0159 vs $0.0139 haiku, $0.0674 vs $0.0605 sonnet) — the injected rules' own
-token cost, reported net rather than left out.
+**No trap-based claim is made.** The cases that discriminate at all are
+contaminated: laconic's own rule text (`rules/laconic.md`) reaches the treatment
+arm's own prompt, overlaps two of the five discriminating cases almost verbatim,
+and two more of those five grade adherence to that same rule text. See
+"Trap-based claims: retracted" in the results doc.
 
-**Where laconic wins:** trap pass rates rise monotonically across the four arms
-— baseline 64%, terse-control 68%, word-compression 72%, laconic **76%** (80
-judgments per arm; laconic 68% on haiku, 85% on sonnet) — the largest single
-result in the benchmark. The deterministic never-cut safety check held
-everywhere laconic was tested: 0 failures across 80 checked responses.
+**Compression holds on Sonnet, not on Haiku, and costs more per call on both.**
+Median output tokens (a median of per-case medians — a flat median over the raw
+runs gives a different number and, on Haiku, a different sign; see the results
+doc) — sonnet: baseline 874, laconic 740, **15% shorter**. Haiku: baseline 588,
+laconic 618, **5% longer.** Laconic also costs *more* per call than baseline on
+both models ($0.0159 vs $0.0139 haiku, $0.0674 vs $0.0605 sonnet) — the injected
+rules' own token cost, reported net rather than left out.
 
-Readability violations scored 0.0 median for every arm, including the
-word-compression foil, so the readability axis produced no usable signal in
-this run — the foil never degraded its prose enough to give the detector
-anything to catch.
+**Readability shows no contrast across arms**, including the word-compression
+foil, which wrote ordinary English despite being instructed to drop articles and
+use arrows. Recomputed with a corrected arrow detector (the previous one counted
+markdown bullets and quoted numeric progressions as violations — 96% false
+positives), 17 violations total across all 320 responses: baseline 2,
+terse-control 4, word-compression 5, laconic 6. No arm degrades grammar
+meaningfully, and laconic does not "win" this axis.
+
+**Laconic fails its own gate.** With the corrected detector, `report.py` exits 1
+against the committed snapshot with 4 failures, including one confirmed real
+defect: one Sonnet `ordered-steps` response wrote an arrow chain in running
+prose ("generate new key pair → add to JWKS/key store as non-primary → ...")
+— exactly what `rules/laconic.md` forbids.
+
+The deterministic never-cut safety check holds on every response it checks: 0
+failures for laconic, out of the 50 (of 80) responses per arm that carry a
+keyword list to verify by design (`terse-control` has 1 failure).
 
 These are single-turn `--append-system-prompt` calls, not multi-turn sessions,
 so the per-call cost above **overstates** what a real session pays once the

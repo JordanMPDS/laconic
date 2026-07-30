@@ -21,6 +21,8 @@ AUX = {
     "is", "are", "was", "were", "be", "been", "being",
     "has", "have", "had", "do", "does", "did",
     "will", "would", "can", "could", "should", "may", "might", "must",
+    "doesn't", "isn't", "aren't", "wasn't", "weren't", "can't", "couldn't",
+    "shouldn't", "won't", "wouldn't", "hasn't", "haven't", "hadn't", "didn't",
 }
 
 SYMBOLS = re.compile(r"(->|=>|→)")
@@ -29,6 +31,7 @@ SYMBOLS = re.compile(r"(->|=>|→)")
 ABBREV = re.compile(
     r"\b(impl|req|resp|func|val|obj|arg|msg|err)\b|\bw/|\bb/c\b", re.I
 )
+ABBREV_DOT = re.compile(r"\b(e\.g|i\.e|etc|vs|cf|al|Dr|Mr|Mrs|Ms|Prof|Inc|Ltd|Fig|approx|Ave|St)\.", re.I)
 SENTENCE_SPLIT = re.compile(r"(?<=[.!?])\s+")
 # Lines that are structural markdown, not paragraph flow. Bullets legitimately
 # start lowercase, so checking them would fire on correct writing.
@@ -71,8 +74,11 @@ def split_text(text):
 def _lowercase_starts(sentences_src):
     hits = []
     for para in _paragraph_prose(sentences_src):
-        for sentence in SENTENCE_SPLIT.split(para):
-            s = sentence.strip()
+        # Mask abbreviation periods to prevent false-positive sentence boundaries
+        masked = ABBREV_DOT.sub(lambda m: m.group(0).replace(".", "\x00"), para)
+        for sentence in SENTENCE_SPLIT.split(masked):
+            # Restore masked periods
+            s = sentence.replace("\x00", ".").strip()
             if not s or s.startswith("`"):
                 continue
             if s[0].islower():

@@ -161,5 +161,57 @@ with tempfile.TemporaryDirectory() as td:
                                      "rep": 1, "ok": True, "text": "y"}]) ==
           [{"case": "c", "arm": "a", "model": "haiku", "rep": 1, "ok": True, "text": "y"}])
 
+import judge as bench_judge  # noqa: E402
+
+v = bench_judge.parse_verdict('{"verdict":"pass","quote":"q","reason":"r"}')
+check("parses a clean verdict", v["verdict"] == "pass")
+v = bench_judge.parse_verdict('here you go:\n{"verdict":"fail","quote":"q","reason":"r"}\nthanks')
+check("parses a verdict wrapped in prose", v["verdict"] == "fail")
+v = bench_judge.parse_verdict('{"verdict":"maybe","quote":"q","reason":"r"}')
+check("rejects an out-of-range verdict", v["verdict"] == "not_exercised")
+check("rejects garbage", bench_judge.parse_verdict("nope")["verdict"] == "not_exercised")
+check("not_exercised is a supported verdict",
+      bench_judge.parse_verdict('{"verdict":"not_exercised","quote":"","reason":"r"}')["verdict"]
+      == "not_exercised")
+
+p = bench_judge.build_judge_prompt("the question", "the trap",
+                                   "a distinctive-response-marker")
+check("judge prompt carries the trap", "the trap" in p)
+# NOTE: deliberately not literally "the response" - that phrase already
+# appears in the TEMPLATE's static instructional prose ("a short verbatim
+# quote from the response...", "when the response does not engage..."), so
+# checking for it would pass even if the actual response were dropped.
+check("judge prompt carries the response", "a distinctive-response-marker" in p)
+for arm in ["laconic", "baseline", "terse-control", "word-compression"]:
+    check("judge prompt is blind to arm %s" % arm, arm not in p)
+
+# judge.py's main() must resolve --claude-bin and fail fast, the same guard
+# run.py has (see run.py's own subprocess e2e test) - otherwise a bad binary
+# would silently record every case as a "judge call failed" not_exercised
+# judgment instead of stopping before any work is done.
+with tempfile.TemporaryDirectory() as td_judge_e2e:
+    bad_bin = Path(td_judge_e2e) / "not-executable"
+    bad_bin.write_text("#!/bin/sh\necho hi")
+    # A real snapshot with a usable run, so a non-fail-fast implementation
+    # would have something to (wrongly) grade.
+    snap_path = Path(td_judge_e2e) / "results.json"
+    snap = bench_run.new_snapshot(reps=1, models=["haiku"], level="full",
+                                  rules_cksum="123", arms=bench_run.ARMS)
+    snap["runs"].append({"case": "floor", "arm": "baseline", "model": "haiku",
+                         "rep": 0, "ok": True, "text": "some answer"})
+    bench_run.save_snapshot(snap_path, snap)
+    out_path = Path(td_judge_e2e) / "judgments.json"
+
+    proc = subprocess.run(
+        [sys.executable, str(ROOT / "evals" / "bench" / "judge.py"),
+         "--claude-bin", str(bad_bin), "--results", str(snap_path),
+         "--out", str(out_path)],
+        capture_output=True, text=True,
+    )
+    check("judge: guard exits non-zero for non-executable claude-bin",
+          proc.returncode != 0)
+    check("judge: guard runs before any grading, no judgments file written",
+          not out_path.exists())
+
 print("\n%d failure(s)" % fails)
 sys.exit(1 if fails else 0)

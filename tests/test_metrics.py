@@ -64,6 +64,20 @@ check("good prose keeps a normal article rate", g["article_rate"] >= 0.05)
 check("good prose aux_verb_rate is non-zero", g["aux_verb_rate"] > 0)
 check("good prose bullets do not trip lowercase-start",
       g["sentence_initial_lowercase"] == 0)
+# NOTE: the check above is tautological against the GOOD fixture - its
+# bullets start with "-", and "-".islower() is False regardless of whether
+# STRUCTURAL actually filters them. A single-sentence bullet doesn't
+# discriminate either: the leading marker survives as the sentence's first
+# character even with STRUCTURAL disabled, so it never reads as lowercase.
+# A two-sentence bullet does: with STRUCTURAL correctly dropping the whole
+# bulleted line, there is no paragraph at all and this scores 0. With
+# STRUCTURAL disabled, the line becomes its own paragraph and the sentence
+# split lands after "first.", exposing "then confirm..." - genuinely
+# lowercase-initial - as its own sentence.
+lowercase_after_marker = metrics.score("- run the check first. then confirm the migration.")
+check("bullet text starting lowercase after the marker does not trip "
+      "lowercase-start (STRUCTURAL drops the whole bulleted line)",
+      lowercase_after_marker["sentence_initial_lowercase"] == 0)
 
 check("bad prose is flagged", b["violations"] >= 5)
 check("bad prose arrows counted", b["symbol_connectors"] >= 3)
@@ -79,6 +93,26 @@ check("code blocks do not trip detectors", c["violations"] == 0)
 check("inline code does not trip detectors", c["symbol_connectors"] == 0)
 check("code-block identifiers are not counted as abbreviations",
       c["abbreviated_prose"] == 0)
+
+# The three checks above all survive deleting FENCE entirely: CODE's fenced
+# block has an even number of backticks (3 to open + 3 to close), so INLINE's
+# `[^`]*` pairing incidentally consumes the whole thing anyway (it just pairs
+# adjacent backticks two at a time). A fence with a single stray backtick
+# inside breaks that parity: the arrow ends up in the *gap* between two
+# INLINE matches, not inside either one, so only FENCE (which matches the
+# whole ``` ... ``` span regardless of what's inside it) can strip it.
+FENCE_ONLY = """Example:
+
+```
+`weird -> marker in the fence.
+```
+
+See above.
+"""
+fence_only = metrics.score(FENCE_ONLY)
+check("a fenced block with an odd internal backtick count (INLINE alone "
+      "cannot consume it) still has its arrow stripped by FENCE",
+      fence_only["symbol_connectors"] == 0)
 
 # The rule forbids arrows "in running prose" specifically - a bullet's arrow
 # is structural markdown, not prose, and a numeric progression's arrow isn't

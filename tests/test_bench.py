@@ -2,6 +2,7 @@
 """Validates harness logic against stubs - no live model calls."""
 import json
 import os
+import shutil
 import subprocess
 import sys
 import tempfile
@@ -53,13 +54,52 @@ rules = bench_run.laconic_rules(ROOT, "full")
 check("laconic rules come from the hook and are non-empty", len(rules) > 200)
 check("laconic rules carry the thesis sentinel", "fewer claims" in rules)
 
+# The two checks above pass just as well against a hardcoded copy of today's
+# hook output - they don't prove laconic_rules() actually calls the hook.
+# Invoke hooks/laconic.sh directly (independently of laconic_rules()'s own
+# implementation) with the same level and compare byte-for-byte; then prove
+# the function isn't just a fixed string at all by checking two different
+# levels produce different output.
+with tempfile.TemporaryDirectory() as hook_direct_dir:
+    (Path(hook_direct_dir) / ".laconic-level").write_text("full")
+    hook_direct_env = dict(os.environ, CLAUDE_CONFIG_DIR=hook_direct_dir)
+    hook_direct_env.pop("LACONIC_DEFAULT", None)
+    hook_direct_out = subprocess.run(
+        ["bash", str(ROOT / "hooks" / "laconic.sh"), "start"],
+        capture_output=True, text=True, env=hook_direct_env, stdin=subprocess.DEVNULL,
+    )
+check("laconic_rules output matches invoking the hook directly for the same level",
+      rules == hook_direct_out.stdout)
+
+rules_lite = bench_run.laconic_rules(ROOT, "lite")
+rules_ultra = bench_run.laconic_rules(ROOT, "ultra")
+check("laconic rules differ between lite and ultra levels "
+      "(a hardcoded constant could not do this)",
+      rules_lite != rules_ultra)
+
 # Test resolve_claude_bin: bare names must not resolve to nonexistent <cwd>/claude
 resolved_bare = bench_run.resolve_claude_bin("claude")
 check("resolve bare claude doesn't return nonexistent repo/claude",
       resolved_bare != str(ROOT / "claude"))
-# Either it found it in PATH, or it returned the bare name for PATH lookup by subprocess
-check("resolve bare claude returns either a found path or the bare name",
-      Path(resolved_bare).exists() or resolved_bare == "claude")
+# NOTE: "Path(resolved_bare).exists() or resolved_bare == 'claude'" is true by
+# construction (resolve_claude_bin is literally `shutil.which(arg) or arg`),
+# so it would pass even if PATH lookup were removed entirely. Prove PATH
+# resolution actually happens: put a stub literally named "claude" on a
+# controlled PATH and require resolve_claude_bin("claude") to return its
+# real absolute location, not the bare string.
+with tempfile.TemporaryDirectory() as claude_named_dir:
+    claude_named_bin = Path(claude_named_dir) / "claude"
+    shutil.copy(str(ROOT / "tests" / "stubs" / "claude-stub.sh"), str(claude_named_bin))
+    claude_named_bin.chmod(0o755)
+    old_path_named = os.environ.get("PATH", "")
+    try:
+        os.environ["PATH"] = str(claude_named_dir) + ":" + old_path_named
+        resolved_named_claude = bench_run.resolve_claude_bin("claude")
+    finally:
+        os.environ["PATH"] = old_path_named
+check("resolve_claude_bin('claude') resolves through PATH to the stub's real "
+      "absolute location, not the bare string",
+      resolved_named_claude == str(claude_named_bin.resolve()))
 
 # Test resolve_claude_bin: relative paths become absolute
 resolved_rel = bench_run.resolve_claude_bin("tests/stubs/claude-stub.sh")
@@ -70,6 +110,59 @@ check("resolve relative path returns existing file", Path(resolved_rel).exists()
 stub_result = bench_run.call(resolved_rel, "haiku", "test prompt", None, "/tmp")
 check("call with resolved stub path returns ok", stub_result["ok"] is True)
 check("call with resolved stub extracts text", stub_result["text"] == "stub answer")
+
+# call() is only ever exercised above with system_prompt=None. Nothing proves
+# --append-system-prompt actually gets attached, and nothing proves the
+# isolation env vars (CLAUDE_CODE_SAFE_MODE=1, LACONIC_DEFAULT stripped) are
+# set - if either silently vanished from call(), every arm would collapse to
+# the same behavior and the benchmark would report ~0% difference while
+# staying green. The stub records its own argv and the relevant environment
+# to STUB_ARGV_OUT when set, so assert on the invocation itself.
+old_stub_argv_out = os.environ.get("STUB_ARGV_OUT")
+old_laconic_default = os.environ.get("LACONIC_DEFAULT")
+try:
+    os.environ["LACONIC_DEFAULT"] = "ultra"  # must not reach the stub
+
+    with tempfile.TemporaryDirectory() as td_argv:
+        argv_with_prompt = Path(td_argv) / "argv-with-prompt.txt"
+        os.environ["STUB_ARGV_OUT"] = str(argv_with_prompt)
+        bench_run.call(resolved_rel, "haiku", "test", "SENTINEL_RULES", "/tmp")
+        argv_lines = argv_with_prompt.read_text().splitlines()
+        check("call() sets CLAUDE_CODE_SAFE_MODE=1 for the subprocess",
+              argv_lines[0] == "SAFE_MODE=1")
+        check("call() strips LACONIC_DEFAULT from the subprocess env",
+              argv_lines[1] == "LACONIC_DEFAULT=<unset>")
+        argv_tail = argv_lines[3:]  # after "SAFE_MODE=...", "LACONIC_DEFAULT=...", "ARGV:"
+        check("system_prompt is passed via --append-system-prompt immediately "
+              "followed by the prompt text",
+              "--append-system-prompt" in argv_tail and
+              argv_tail[argv_tail.index("--append-system-prompt") + 1] == "SENTINEL_RULES")
+
+        argv_no_prompt = Path(td_argv) / "argv-no-prompt.txt"
+        os.environ["STUB_ARGV_OUT"] = str(argv_no_prompt)
+        bench_run.call(resolved_rel, "haiku", "test", None, "/tmp")
+        argv_tail_none = argv_no_prompt.read_text().splitlines()[3:]
+        check("system_prompt=None produces no --append-system-prompt flag at all",
+              "--append-system-prompt" not in argv_tail_none)
+finally:
+    if old_stub_argv_out is None:
+        os.environ.pop("STUB_ARGV_OUT", None)
+    else:
+        os.environ["STUB_ARGV_OUT"] = old_stub_argv_out
+    if old_laconic_default is None:
+        os.environ.pop("LACONIC_DEFAULT", None)
+    else:
+        os.environ["LACONIC_DEFAULT"] = old_laconic_default
+
+# claude-stub.sh's own STUB_FAIL branch is untested - if it were removed, a
+# real generation outage would go undetected offline (the stub would just
+# keep "succeeding").
+stub_fail_out = subprocess.run(
+    ["bash", str(ROOT / "tests" / "stubs" / "claude-stub.sh")],
+    input="prompt", capture_output=True, text=True,
+    env=dict(os.environ, STUB_FAIL="1"),
+)
+check("STUB_FAIL=1 makes the stub exit non-zero", stub_fail_out.returncode != 0)
 
 # Test bare-name resolution and call: exercises shutil.which() path
 with tempfile.TemporaryDirectory() as stub_dir:
@@ -154,6 +247,13 @@ with tempfile.TemporaryDirectory() as td:
           bench_run.run_key("decision", "baseline", "haiku", 0) in done)
     check("other key not recognized",
           bench_run.run_key("decision", "laconic", "haiku", 0) not in done)
+    # The two checks above only ever vary arm - a run_key() that silently
+    # dropped rep from the tuple would still pass both. A --reps 5 resume
+    # would then treat rep 0's key as already covering reps 1-4 and collect
+    # only one sample instead of five. Vary rep and nothing else.
+    check("run_key varying only rep produces distinct keys",
+          bench_run.run_key("decision", "baseline", "haiku", 0) !=
+          bench_run.run_key("decision", "baseline", "haiku", 1))
 
     failed = {"case": "c", "arm": "a", "model": "haiku", "rep": 0, "ok": False}
     check("failed runs are excluded from stats input",
@@ -237,6 +337,24 @@ synthetic = {
 agg = bench_report.aggregate(synthetic)
 check("aggregates by case/arm/model", ("floor", "baseline", "haiku") in agg)
 check("median output tokens", agg[("floor", "baseline", "haiku")]["output_tokens"] == 110)
+# NOTE: the check above cannot tell median from mean - [100, 120] has
+# mean == median == 110, so swapping statistics.median for statistics.mean in
+# aggregate() would pass silently. [10, 20, 90] separates them: median 20,
+# mean 40.
+median_vs_mean_synthetic = {
+    "metadata": {"reps": 3, "models": ["haiku"], "laconic_level": "full",
+                 "rules_cksum": "1", "generated_at": "x", "git_commit": "y",
+                 "claude_cli_version": "z"},
+    "arms": {"baseline": {"system_prompt": None}},
+    "runs": [
+        {"case": "floor", "arm": "baseline", "model": "haiku", "rep": i, "ok": True,
+         "text": "ok", "output_tokens": t, "total_cost_usd": 0.01, "duration_ms": 1000}
+        for i, t in enumerate([10, 20, 90])
+    ],
+}
+median_vs_mean_agg = bench_report.aggregate(median_vs_mean_synthetic)
+check("output_tokens is the true median (20), not the mean (40), of [10, 20, 90]",
+      median_vs_mean_agg[("floor", "baseline", "haiku")]["output_tokens"] == 20)
 check("failed runs excluded from n", agg[("floor", "laconic", "haiku")]["n"] == 1)
 check("clean arms show no violations", agg[("floor", "laconic", "haiku")]["violations"] == 0)
 
@@ -267,6 +385,34 @@ check("report states the exact excluded count",
 # should be 0, not an exception and not a false failure.
 check("empty never_cut list scores as zero failures, not a crash",
       agg[("floor", "laconic", "haiku")]["never_cut_failures"] == 0)
+
+# The check above only ever exercises an EMPTY never_cut list (floor's is
+# []), so never_cut_missing() is never called with real keywords and the
+# never-cut gate itself has zero end-to-end coverage - a hardcoded
+# never_cut_failures = 0, or the gate block being deleted from
+# gate_failures() entirely, would both pass every check above. Use
+# "destructive" (never_cut: ["cascade", "invoices"]) with one response that
+# names both and one that omits them.
+never_cut_gate_synthetic = {
+    "metadata": {"reps": 2, "models": ["haiku"], "laconic_level": "full",
+                 "rules_cksum": "1", "generated_at": "x", "git_commit": "y",
+                 "claude_cli_version": "z"},
+    "arms": {"laconic": {"system_prompt": "r"}},
+    "runs": [
+        {"case": "destructive", "arm": "laconic", "model": "haiku", "rep": 0, "ok": True,
+         "text": "Sessions cascade-delete and invoices reference users.",
+         "output_tokens": 10, "total_cost_usd": 0.001, "duration_ms": 500},
+        {"case": "destructive", "arm": "laconic", "model": "haiku", "rep": 1, "ok": True,
+         "text": "The rows are removed from the table.",
+         "output_tokens": 10, "total_cost_usd": 0.001, "duration_ms": 500},
+    ],
+}
+never_cut_gate_agg = bench_report.aggregate(never_cut_gate_synthetic)
+check("never_cut_failures counts the response missing a required keyword",
+      never_cut_gate_agg[("destructive", "laconic", "haiku")]["never_cut_failures"] == 1)
+never_cut_gate_fails = bench_report.gate_failures(never_cut_gate_agg, 0.70)
+check("the never-cut gate fires when a required keyword is missing",
+      any("never-cut failure" in f for f in never_cut_gate_fails))
 
 # judge.py records two kinds of infrastructure failure - the call itself
 # failed ("judge call failed"), or it succeeded but the reply couldn't be
@@ -318,6 +464,33 @@ with tempfile.TemporaryDirectory() as td_outage:
     check("total outage message names the cause",
           "no usable runs" in (proc.stdout + proc.stderr))
 
+# The outage guard above is subprocess-tested, but an ordinary gate failure
+# (not a total outage - some runs are usable, but a laconic arm regressed) is
+# only ever checked by calling gate_failures() directly in-process. main()
+# could drop its `sys.exit(1)` on gate failure entirely and every other check
+# in this file would stay green. Exercise it through the real CLI: a
+# degraded-prose snapshot must exit non-zero by default, and exit zero for
+# the identical snapshot when --no-gate is passed.
+with tempfile.TemporaryDirectory() as td_gate_exit:
+    gate_exit_snap = Path(td_gate_exit) / "results.json"
+    bench_run.save_snapshot(gate_exit_snap, dirty)
+
+    proc_gated = subprocess.run(
+        [sys.executable, str(ROOT / "evals" / "bench" / "report.py"),
+         "--results", str(gate_exit_snap), "--judgments", "/dev/null"],
+        capture_output=True, text=True,
+    )
+    check("a degraded laconic arm exits non-zero through main() by default",
+          proc_gated.returncode != 0)
+
+    proc_nogate = subprocess.run(
+        [sys.executable, str(ROOT / "evals" / "bench" / "report.py"),
+         "--results", str(gate_exit_snap), "--judgments", "/dev/null", "--no-gate"],
+        capture_output=True, text=True,
+    )
+    check("the identical degraded snapshot exits zero with --no-gate",
+          proc_nogate.returncode == 0)
+
 # The gate's diagnostic message must lead with the number it actually gated
 # on (the total) and must not silently round a fractional median down to
 # zero either - statistics.median([0, 0, 1, 1]) is 0.5, the total across the
@@ -366,6 +539,16 @@ healthy_count_agg = {
 healthy_count_fails = bench_report.gate_failures(healthy_count_agg, 0.70)
 check("a baseline with a healthy auxiliary-word count still trips the aux-rate gate",
       any("aux verb rate" in f for f in healthy_count_fails))
+
+# gate_failures() taking `threshold` as an argument is never actually proven
+# to matter - every call above always used 0.70. If the function ignored the
+# argument and hardcoded 0.70 internally, every check so far would still
+# pass. A lax threshold (0.01) on the same healthy_count_agg data must clear
+# the gate that 0.70 trips: 0.01 < 0.01*0.05 is False, so nothing fires.
+lax_threshold_fails = bench_report.gate_failures(healthy_count_agg, 0.01)
+check("two different thresholds produce different gate outcomes on the same "
+      "data (threshold is not ignored)",
+      lax_threshold_fails != healthy_count_fails)
 
 # _load_judgments() exists only to treat an empty-but-existing file (/dev/null
 # standing in for "no judgments yet") as absence. A genuinely corrupt

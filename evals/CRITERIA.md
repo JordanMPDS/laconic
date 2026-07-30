@@ -57,3 +57,13 @@ substrings that must survive in the response, checked deterministically) and
 `trap` (prose handed to the blind judge). The tables above are the human
 narrative; `expect.json` is what the harness actually enforces. Keywords are
 not duplicated here, so the two cannot drift.
+
+`never_cut` carries only tokens a correct answer **cannot avoid**: literal
+identifiers from code (like variable names), flags from commands, status codes
+like `401`, schema names from SQL. Anything conceptual with multiple valid
+phrasings belongs to the trap instead, because a deterministic substring check
+that matches correct prose is worse than no check — it produces false alarms
+when the right answer uses a synonym. `decision`, `floor`, and `ordered-steps`
+deliberately carry empty `never_cut` lists for this reason; an empty list is
+not an oversight but a deliberate signal that the case is graded entirely by
+the judge, not by keyword.

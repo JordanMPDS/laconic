@@ -70,6 +70,34 @@ stub_result = bench_run.call(resolved_rel, "haiku", "test prompt", None, "/tmp")
 check("call with resolved stub path returns ok", stub_result["ok"] is True)
 check("call with resolved stub extracts text", stub_result["text"] == "stub answer")
 
+# Test bare-name resolution and call: exercises shutil.which() path
+with tempfile.TemporaryDirectory() as stub_dir:
+    import shutil as shutil_module
+    # Create a bare-name symlink to the stub
+    stub_name = "claude-stub-test"
+    stub_link = Path(stub_dir) / stub_name
+    shutil_module.copy(resolved_rel, str(stub_link))
+    stub_link.chmod(0o755)
+
+    # Resolve with custom PATH
+    old_path = os.environ.get("PATH", "")
+    try:
+        os.environ["PATH"] = str(stub_dir) + ":" + old_path
+        resolved_bare_name = bench_run.resolve_claude_bin(stub_name)
+        check("resolve bare name finds it in PATH", Path(resolved_bare_name).exists())
+
+        # Call with the bare name resolved
+        bare_result = bench_run.call(resolved_bare_name, "haiku", "test", None, "/tmp")
+        check("call with bare-name resolution succeeds", bare_result["ok"] is True)
+    finally:
+        os.environ["PATH"] = old_path
+
+# Test fail-fast check: unresolvable names must be rejected early
+unresolvable = bench_run.resolve_claude_bin("nonexistent-command-xyz")
+check("unresolvable name doesn't exist as path", not Path(unresolvable).exists())
+# shutil.which returns None for unresolvable names, so resolve returns the arg unchanged
+check("resolve returns bare name when not in PATH", unresolvable == "nonexistent-command-xyz")
+
 with tempfile.TemporaryDirectory() as td:
     snap_path = Path(td) / "results.json"
     snap = bench_run.new_snapshot(reps=1, models=["haiku"], level="full",

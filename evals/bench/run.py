@@ -177,6 +177,8 @@ def main():
     args = ap.parse_args()
 
     claude_bin = resolve_claude_bin(args.claude_bin)
+    if not (shutil.which(claude_bin) or Path(claude_bin).exists()):
+        sys.exit("claude binary not found: %s (set --claude-bin or fix PATH)" % args.claude_bin)
 
     models = [m.strip() for m in args.models.split(",") if m.strip()]
     arm_names = [a.strip() for a in args.arms.split(",") if a.strip()]

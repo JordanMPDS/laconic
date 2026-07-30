@@ -130,6 +130,86 @@ running_prose_arrow = metrics.score("Deploy failed -> restart.")
 check("genuine running-prose arrow still scores 1",
       running_prose_arrow["symbol_connectors"] == 1)
 
+# B1: STRUCTURAL required no following whitespace for -*+, so a bolded prose
+# paragraph like "**Request A**: ..." matched as a bullet and the whole line
+# was skipped by _symbol_hits - an arrow chain in running prose scored 0.
+# This is the regression this fix exists to prevent: it MUST still count.
+bolded_arrow_chain = metrics.score(
+    "**Request A**: Calls `currentToken()` -> token is expired -> calls "
+    "`refresh()` -> `inFlight` is null -> starts the fetch."
+)
+check("a bolded-label prose line with an arrow chain is counted, not mistaken "
+      "for a bullet (the regression this whole fix prevents)",
+      bolded_arrow_chain["symbol_connectors"] == 4)
+
+# Same root cause, two more false negatives: a bare arrow at line start, and an
+# arrow left with only leading whitespace after an inline-code span is erased.
+# Neither is a bullet; both must still count their arrow.
+bare_arrow_line = metrics.score("-> then drain the queue.")
+check("a line starting with a bare arrow (not a markdown bullet) counts its "
+      "arrow", bare_arrow_line["symbol_connectors"] == 1)
+
+erased_inline_code_arrow = metrics.score("`pool.max` -> raise it to 40")
+check("an arrow stranded after an inline-code span is stripped to leading "
+      "whitespace still counts (not mistaken for a '-' bullet)",
+      erased_inline_code_arrow["symbol_connectors"] == 1)
+
+# The genuine catch must not weaken: a real ordered-steps arrow chain in
+# running prose (not bulleted, not bolded) still scores every arrow.
+runbook_arrow_chain = metrics.score(
+    "Rough runbook: generate new key pair -> add to JWKS/key store as "
+    "non-primary -> let it propagate to all verifiers (respect any cache "
+    "TTL) -> cut over signing to the new key -> wait out the old token TTL "
+    "-> remove the old key."
+)
+check("a genuine running-prose arrow chain still scores every arrow",
+      runbook_arrow_chain["symbol_connectors"] == 5)
+
+# B3: a sentence legitimately opening with a lowercase filename/dotted
+# identifier (not wrapped in backticks) must not be flagged as a grammar
+# violation - "auth.js is self-contained" is correct usage, not a broken
+# sentence start.
+filename_sentence_start = metrics.score(
+    "auth.js is self-contained, no callers in this repo."
+)
+check("a sentence opening with a bare dotted identifier (filename) is not "
+      "flagged as a lowercase sentence start",
+      filename_sentence_start["sentence_initial_lowercase"] == 0)
+
+# A genuine lowercase-start violation must still be caught even though it
+# isn't a dotted identifier.
+genuine_lowercase_start = metrics.score(
+    "This is fine. then the response starts a new sentence lowercase."
+)
+check("a genuine lowercase sentence start (not a filename) is still caught",
+      genuine_lowercase_start["sentence_initial_lowercase"] >= 1)
+
+# B3: FENCE.sub(" ", text) leaves the removed fenced block as a lone
+# whitespace-only line, which _paragraph_prose reads as a paragraph break -
+# turning the grammatical continuation after the fence into a false "new
+# sentence" that starts lowercase.
+fence_orphaned_continuation = metrics.score(
+    "Here's the safer sequence:\n"
+    "```sql\n"
+    "TRUNCATE users RESTART IDENTITY CASCADE;\n"
+    "```\n"
+    "or if you do want to actually drop/recreate: run the migration by hand."
+)
+check("prose split by a fenced code block stays one paragraph, so the "
+      "continuation after the fence is not flagged as a new lowercase "
+      "sentence", fence_orphaned_continuation["sentence_initial_lowercase"] == 0)
+
+fence_orphaned_with_blank_lines = metrics.score(
+    "Suggested approach:\n\n"
+    "```sql\n"
+    "TRUNCATE users RESTART IDENTITY CASCADE;\n"
+    "```\n\n"
+    "then reseed from the fixture once the schema is back."
+)
+check("prose split by a fenced code block flanked by blank lines also stays "
+      "one paragraph, not a false lowercase sentence start",
+      fence_orphaned_with_blank_lines["sentence_initial_lowercase"] == 0)
+
 check("violations are auditable", len(b["spans"]) == b["violations"])
 
 # Direct auxiliary verb counting on a short known string

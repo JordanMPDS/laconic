@@ -38,10 +38,16 @@ scored. What changed and where:
    artifact, not an absence of violations, and the raw counts behind it were 96% false
    positives from a detector bug. The detector has since been fixed. See "Readability"
    below.
-3. **New disclosure: laconic fails its own gate.** With the corrected detector and a
-   sum-based gate, `report.py` now exits 1 against this exact snapshot, with 4 failures,
-   one of them a confirmed real defect. This was not disclosed in the previous version.
-   See "Laconic fails its own gate" below.
+3. **The gate-failure disclosure is corrected, not introduced.** The claim that laconic
+   failing its own gate "was not disclosed in the previous version" was itself false, and
+   is retracted here: the version before this one disclosed it twice — in prose ("Rate
+   gates are unvalidated," which named the failing case/model cells directly) and in a
+   `**FAILED (9):**` block in its own full-tables section. What is actually new in this
+   revision is threefold: the gate now sums violations per cell (`violations_total`)
+   rather than reporting a per-cell median, which is why the failure count differs from
+   nine; the `ordered-steps/sonnet` failure has been verified by reading the actual
+   response text, not just counted; and the finding has been promoted out of a buried
+   table into its own body section, "Laconic fails its own gate," below.
 4. **The compression headline's aggregation convention is now named.** "Median output
    tokens" is a median of per-case medians; a flat median over the 40 raw runs per
    arm/model gives a different number and, on Haiku, a different sign. See "Compression"
@@ -57,6 +63,19 @@ scored. What changed and where:
    while presenting every favorable result with no uncertainty at all. Since no
    trap-based claim survives this revision, the interval is simply dropped rather than
    applied selectively.
+8. **A second detector bug, still favoring laconic, is now fixed.** The arrow detector
+   corrected in item 2 above matched a markdown bullet marker (`-`, `*`, `+`, `#`) with no
+   requirement for a following space, so a bolded prose paragraph opening with `**Request
+   A**: ...` was misread as a bullet and skipped whole — arrows inside it never reached
+   the count. laconic's responses use exactly that "**Bolded label**: step → step → step"
+   construction more than any other arm does, so this bug suppressed violations
+   disproportionately in the arm under test, not evenly. A second, related fix corrected a
+   fenced-code-removal bug that manufactured false lowercase-sentence-start violations
+   (roughly evenly distributed across arms, unlike the arrow bug). Recomputing with both
+   fixes raises the run's total from 17 to 25 violations and laconic's own count from 6 to
+   16 — the largest of any arm by a wide margin, not a near-tie — and adds a fifth gate
+   failure, at `walkthrough/haiku`. See "Readability" and "Laconic fails its own gate,"
+   below.
 
 A benchmark that quietly revises its own numbers is worth less than one that shows its
 corrections. This section stays in future revisions of this document as long as any of
@@ -81,14 +100,19 @@ not be marketed as model-independent.
 (haiku), $0.0674 vs $0.0605 (sonnet). That gap is the injected rules' own token cost.
 Reported net, not hidden (Honesty note 4).
 
-**Readability shows no contrast across arms, for a different and better-understood reason
-than previously published.** With a corrected arrow detector, 17 violations total across
-all 320 responses; no arm — including the word-compression foil, which wrote ordinary
-English despite being instructed to drop articles and use arrows — degrades grammar
-meaningfully. Laconic does not "win" this axis. See "Readability," below.
+**Laconic has the most readability violations of any arm, and a further detector fix is
+why this is now visible.** A second arrow-detector bug (see "This revision corrects the
+previous publication," item 8) was hiding arrows specifically in laconic's own
+`**Bolded label**: step → step → step` paragraphs — a construction that arm's responses
+use more than any other's. With both fixes applied, the run totals 25 violations, up from
+17: baseline 0, terse-control 5, word-compression 4, laconic 16. Laconic alone accounts
+for 64% of the violations in a 320-response run, against a 25%-of-runs share, and two of
+its responses are confirmed genuine arrow-chains in running prose, not detector noise. The
+word-compression foil, explicitly instructed to "use arrows instead of conjunctions,"
+still wrote fewer violations than laconic did unprompted. See "Readability," below.
 
 **Laconic fails its own gate.** `report.py` (sum-based gate, corrected detector) exits 1
-against this snapshot: 4 failures, one of them a confirmed real arrow-chain violation in
+against this snapshot: 5 failures, two of them confirmed real arrow-chain violations in
 running prose. See "Laconic fails its own gate," below.
 
 **The never-cut safety gate holds on every response it checks.** Deterministic,
@@ -115,11 +139,12 @@ $0.0139 (haiku), $0.0674 vs $0.0605 (sonnet) — the injected rules' own token c
 `report.py` first takes the median output-token count within each (case, arm, model)
 bucket (5 reps), then medians those 8 per-case values into the single number shown per
 arm/model. A flat median over the 40 raw per-arm-per-model runs (8 cases × 5 reps, no
-intermediate per-case step) gives **sonnet 13.7% shorter** (not 15%) and **haiku roughly
-break-even at +0.9%** (not +5% longer) — same direction on Sonnet, a **different sign on
-Haiku**. A reader recomputing this figure directly from `evals/snapshots/results.json`
-without matching this convention will get a different number, and on Haiku, a different
-conclusion. This convention is named here because nothing enforces it implicitly.
+intermediate per-case step) gives **sonnet 13.7% shorter** (not 15%) — same direction, a
+smaller figure. On Haiku it gives a **different sign**: laconic 598.5 vs baseline 604.0,
+laconic **0.9% shorter** (not the per-case-median convention's 5% *longer*). A reader
+recomputing this figure directly from `evals/snapshots/results.json` without matching this
+convention will get a different number, and on Haiku, the opposite conclusion. This
+convention is named here because nothing enforces it implicitly.
 
 Dispersion across reps (median across cases), from the same snapshot:
 
@@ -158,51 +183,97 @@ These are single-turn `--append-system-prompt` calls, not multi-turn sessions, s
 per-call cost above **overstates** what a real session pays once the first turn's cache
 write becomes a cache read (Honesty note 2).
 
-## Readability: no contrast, for a corrected reason
+## Readability: laconic has the most violations, once the detector stops hiding them
 
 The previous version of this document stated: "every arm scored 0.0 violations, the foil
 never degraded its prose, the detector is not at fault." **That was wrong in both
-directions.**
+directions,** and the version after it — while it corrected the median artifact and one
+class of false positive — was still wrong in laconic's favor specifically. Both errors are
+recounted here because both shaped a published conclusion this document once made and no
+longer makes.
 
-The 0.0 was a median artifact — violations concentrate in a minority of responses per
-cell, and a median across 5 reps reads as 0.0 even when individual responses have several.
-And the raw counts behind that median were themselves wrong: **96% of the symbol hits
-were false positives.** The arrow detector was firing on two things it should never have
-counted: markdown bullets (`- step one → step two`, which is structural, not prose) and
-numeric progressions quoted out of a log fixture (`7 → 11 → 14`, which is data, not a
-conjunction). The rule the detector enforces — `rules/laconic.md`'s "No arrows standing in
-for conjunctions in running prose" — forbids arrows in running prose *specifically*; it
-does not forbid them in a bulleted procedure or a quoted number sequence.
+**First correction (previous revision).** The 0.0 was a median artifact — violations
+concentrate in a minority of responses per cell, and a median across 5 reps reads as 0.0
+even when individual responses have several. And the raw counts behind that median were
+themselves wrong: 96% of the symbol hits were false positives, from an arrow detector
+firing on markdown bullets (`- step one → step two`, structural, not prose) and numeric
+progressions quoted out of a log fixture (`7 → 11 → 14`, data, not a conjunction). That
+correction dropped real symbol hits from 269 to 12 project-wide.
 
-The detector has since been corrected: structural lines (bullets, headings, table rows)
-and numeric progressions are now excluded before counting. That correction dropped real
-symbol hits from 269 to 12 project-wide. Recomputed from the **same, unmodified**
-snapshots — no re-generation, no re-judging — violations across 80 responses per arm:
+**Second correction (this revision).** The bullet check itself was wrong: it matched `-`,
+`*`, `+`, and `#` with no requirement for a following space, so a bolded prose paragraph
+opening with `**Request A**: ...` was misread as a bullet marker and the entire line —
+arrows included — was skipped rather than counted. laconic's responses use exactly that
+`**Bolded label**: step → step → step` construction more than any other arm's do, so this
+bug suppressed violations disproportionately in the arm under test, not evenly across arms.
+A second, unrelated bug in the same detector run — a fenced-code-block removal that left a
+lone whitespace-only line behind, which a paragraph-boundary check then read as a sentence
+break — manufactured 5 false "lowercase sentence start" violations, split 3-and-2 between
+`destructive` (a fence-adjacent continuation, e.g. "...safer sequence: ```sql...``` or if
+you do want to actually drop/recreate: ...") and `walkthrough` (a bare filename, `auth.js`,
+opening a sentence). Both are now fixed; see `evals/bench/metrics.py` and
+`tests/test_metrics.py` for the fixture-level proof for each.
+
+Recomputed from the **same, unmodified** snapshots — no re-generation, no re-judging —
+violations across 80 responses per arm:
 
 | arm | haiku | sonnet | total |
 |---|--:|--:|--:|
-| baseline | 0 | 2 | 2 |
-| terse-control | 1 | 3 | 4 |
-| word-compression | 0 | 5 | 5 |
-| laconic | 0 | 6 | 6 |
+| baseline | 0 | 0 | 0 |
+| terse-control | 2 | 3 | 5 |
+| word-compression | 0 | 4 | 4 |
+| laconic | 8 | 8 | 16 |
 
-17 violations across all 320 responses. The honest conclusion: **no arm degrades grammar
-meaningfully, including the word-compression foil** — which wrote ordinary English despite
-being instructed to "Drop articles and filler words, abbreviate common terms, and use
-arrows instead of conjunctions." The readability axis still yields no contrast between
-arms, but for a different and better-understood reason than previously published, and
-laconic does not "win" it: 6 of the 17 violations across the entire run belong to laconic,
-the largest count of any arm, not the smallest.
+25 violations across all 320 responses, up from 17. **This does not read as "no contrast"
+anymore.** Laconic accounts for 16 of the 25 (64%) on a quarter of the runs, and two of its
+responses are confirmed, not merely detector output:
 
-**Rate gates are unvalidated for the same underlying reason.** The spec committed to
-revising the 0.70 article/aux-verb-rate threshold if `baseline` and `word-compression`
-separated by at least 2×, calibrated on the article rate. Observed separation (median of
-per-case medians): 1.01× on haiku, 0.96× on sonnet — nowhere near 2×, and inverted on
-Sonnet. The threshold was not revised, because there is no valid signal to revise it
-against: nothing in this run produces the degraded, article-dropping prose the gates were
-built to catch, on any arm, including the foil designed to produce exactly that. Read the
-0.70 thresholds as unvalidated placeholders, not as evidence that laconic's grammar rate
-is fine — see "Laconic fails its own gate" for two cells where the threshold does fire.
+- `ordered-steps/sonnet` rep 2 wrote a five-arrow runbook in running prose (quoted in full
+  in "Laconic fails its own gate," below).
+- `walkthrough/haiku` rep 2 wrote two bolded-label paragraphs, each chaining four arrows in
+  place of "and then": *"**Request A**: Calls `currentToken()` → token is expired → calls
+  `refresh()` → `inFlight` is null → starts the fetch..."* and a matching **Request B**
+  paragraph — eight arrows total, exactly the construction the previous bullet-check bug
+  was hiding.
+
+A third laconic response (`walkthrough/sonnet` rep 3) contributes 3 more from the same
+bolded-label pattern, applied to a quoted hypothetical ("If your mental model was 'make
+request → get 401 → refresh → retry'...") rather than a direct instruction — arguably
+milder, still counted, still the same construction. The word-compression foil, explicitly
+instructed to "use arrows instead of conjunctions," produced 4 violations doing so on
+purpose; laconic produced 16 without being asked to. **Laconic does not "win" this axis —
+it has the worst count of any arm in this run, driven by a stylistic habit (bolded-label
+paragraphs chaining arrows) that the earlier, buggier detector was specifically blind to.**
+
+**Two known detector gaps remain, neither triggered in this run.** `_is_numeric_progression`
+decides an arrow is data, not a conjunction, by checking for a digit on both sides — it
+cannot distinguish *"the queue climbed 7 → 11 → 14"* (a quoted measurement, correctly
+excluded) from *"scale replicas 2 → 4 to fix it"* (an arrow standing in for "to," which the
+digit-adjacency check would also excuse). Both read identically to the detector; only the
+first is actually data. Separately, `SYMBOLS` matches `->`, `=>`, and `→` but not `⇒`,
+`~>`, or `>>`, so any response using one of those instead would score zero for that arrow
+regardless of context. Neither gap fired in this snapshot — every response was checked
+directly, not just re-scored — but a future run should not assume they can't.
+
+**Rate gates are unvalidated for a related reason, and not just in laconic's favor.** The
+spec committed to revising the 0.70 article/aux-verb-rate threshold if `baseline` and
+`word-compression` separated by at least 2×, calibrated on the article rate. Observed
+separation (median of per-case medians): 1.01× on haiku, 0.96× on sonnet — nowhere near 2×,
+and inverted on Sonnet. The threshold was not revised, because there is no valid signal to
+revise it against: nothing in this run produces the degraded, article-dropping prose the
+gates were built to catch, on any arm, including the foil designed to produce exactly that.
+Read the 0.70 thresholds as unvalidated placeholders, not as evidence that laconic's
+grammar rate is fine — see "Laconic fails its own gate" for two cells where the threshold
+does fire, and where the same skepticism this section applies to the *suppressed* readings
+(below the absolute-count floor) is owed to the two readings that *do* fire: `badnews/haiku`
+clears the floor at exactly 5.0 (per-rep baseline article counts 4, 3, 6, 5, 5 — a coin-flip
+away from being suppressed too) and expects 4.7 articles (0.076 baseline rate × 62 median
+laconic words) against 3.0 observed; `conditional/sonnet` expects 8.4 (0.102 × 82) against
+5.0 observed, from a baseline ranging 3 to 15 article words per rep. Neither is a stronger
+signal than the readings this document declines to gate on; both are reported anyway
+because the gate fires on them and suppressing a firing reading with the same reasoning
+used to suppress a non-firing one would be the selective skepticism this document exists to
+correct.
 
 ## Trap-based claims: retracted
 
@@ -231,19 +302,25 @@ instructions — the control arms were never given a chance to fail by that stan
 because the standard did not exist for them.
 
 **Excluding just those two cases (`decision`, `floor`), the ordering inverts.** Out of 60
-(6 remaining cases × 10 reps-and-models each):
+(6 remaining cases × 10 reps-and-models each) — except `word-compression`, which has one
+`judge_failed` cell (`destructive/word-compression`, an infrastructure failure, not a
+verdict) and so is out of 59, not 60:
 
 | arm | pass | rate |
 |---|--:|--:|
+| word-compression | 50/59 | 85% |
 | terse-control | 50/60 | 83% |
-| word-compression | 50/60 | 83% |
 | laconic | 48/60 | 80% |
 | baseline | 46/60 | 77% |
 
-**Laconic goes from first to third of four.** This is not offered as a corrected trap
-claim either — six cases at n=10 is still too little to support one, and three of those
-six carry no signal at all (below). It is offered as proof that the retracted claim was
-an artifact of which cases were included, not a robust result that merely needs a caveat.
+Correcting the denominator moves `word-compression` fractionally above `terse-control` (85%
+vs 83%, previously misreported as a tie at 83%/83%) — a small reordering within the two
+control arms. It does not change the point this table exists to make: **laconic goes from
+first to third of four**, and baseline stays last, both unaffected by the correction. This
+is not offered as a corrected trap claim either — six cases at n=10 is still too little to
+support one, and three of those six carry no signal at all (below). It is offered as proof
+that the retracted claim was an artifact of which cases were included, not a robust result
+that merely needs a caveat.
 
 **Three of eight cases discriminate nothing.** `badnews`, `code-fidelity`, and
 `walkthrough` scored 10/10 (of 5 reps × 2 models) for every arm, including `baseline`, in
@@ -283,7 +360,7 @@ For raw data only — **not evidence for any claim in this document** — pass c
 With the corrected detector and the sum-based gate (`violations_total`, not the
 per-response median — a median cannot see a regression concentrated in a minority of
 responses), `python3 evals/bench/report.py --judgments evals/snapshots/judgments.json`
-exits 1 against this exact, unmodified snapshot, with 4 failures:
+exits 1 against this exact, unmodified snapshot, with 5 failures:
 
 - `badnews/haiku` — article rate 0.048 vs 70% of baseline 0.076 (baseline had ~5.0 article
   words)
@@ -291,22 +368,46 @@ exits 1 against this exact, unmodified snapshot, with 4 failures:
   article words)
 - `ordered-steps/sonnet` — 5 readability violations across 5 responses (median displays as
   0.0 — see below)
-- `walkthrough/sonnet` — 1 readability violation across 5 responses
+- `walkthrough/haiku` — 8 readability violations across 5 responses (median displays as 0.0)
+- `walkthrough/sonnet` — 3 readability violations across 5 responses (median displays as 0.0)
 
-**The `ordered-steps/sonnet` failure is genuine, verified by reading the response.** All 5
-violations in that cell come from a single response (rep 2 of laconic/sonnet/ordered-steps),
-which wrote:
+**The `ordered-steps/sonnet` and `walkthrough/haiku` failures are both genuine, verified by
+reading the response.**
+
+All 5 violations in the `ordered-steps/sonnet` cell come from a single response (rep 2 of
+laconic/sonnet/ordered-steps), which wrote:
 
 > Rough runbook: generate new key pair → add to JWKS/key store as non-primary → let it
 > propagate to all verifiers (respect any cache TTL) → cut over signing to the new key →
 > wait out the old token TTL → remove the old key.
 
 Five arrows standing in for conjunctions, in running prose, in one sentence — exactly what
-`rules/laconic.md` forbids ("No arrows standing in for conjunctions in running prose"). The
-other 4 responses in that cell have zero violations; the per-response median for the cell
-is 0.0, which is why this is reported as "5 violations across 5 responses (median 0.0)"
-rather than as a median. This is a real finding about the plugin, not a detector artifact:
-laconic's own rule text is what this response broke.
+`rules/laconic.md` forbids ("No arrows standing in for conjunctions in running prose").
+
+All 8 violations in the `walkthrough/haiku` cell come from a single response (rep 2 of
+laconic/haiku/walkthrough), which wrote:
+
+> **Request A**: Calls `currentToken()` → token is expired → calls `refresh()` →
+> `inFlight` is null → starts the fetch, stores Promise in `inFlight`
+>
+> **Request B** (microseconds later): Calls `currentToken()` → token is still expired →
+> calls `refresh()` → `inFlight` is not null → **returns the same Promise** that Request A
+> is already waiting on
+
+Two bolded-label paragraphs, four arrows each, none of them bulleted or fenced — running
+prose by the same rule. This is the exact construction that the previous revision's
+bullet-check bug hid (see "Readability," above): a bolded label followed by a colon, read
+as a markdown bullet, dropped from the count entirely. It is real laconic output, in the
+committed, unmodified snapshot, and it was invisible to every version of this document
+before this one.
+
+The `walkthrough/sonnet` cell's 3 violations come from a third response (rep 3), applying
+the same bolded-label-and-arrow pattern to a quoted hypothetical rather than a direct
+instruction — see "Readability," above, for the text. In all three cases, the other 4
+responses in the cell have zero violations; the per-response median is 0.0, which is why
+each is reported as "N violations across 5 responses (median 0.0)" rather than as a median.
+These are real findings about the plugin, not a detector artifact: laconic's own rule text
+is what these responses broke.
 
 **Three further rate-gate readings were suppressed as artifacts, not as passes**, because
 the baseline cell had fewer than 5 article/auxiliary words to begin with:
@@ -319,13 +420,16 @@ the baseline cell had fewer than 5 article/auxiliary words to begin with:
 threshold specifically because a ratio of small integers is not evidence: one short,
 correct answer with zero auxiliary verbs in it is terse English, not a degraded ratio.
 Below the floor, the gate does not fire regardless of what the rate says. This is disclosed
-here so "4 failures" is not misread as "these 3 other candidate readings passed on their
-merits" — they did not pass; they were excluded as not meaningful.
+here so "5 failures" is not misread as "these 3 other candidate readings passed on their
+merits" — they did not pass; they were excluded as not meaningful. The two rate-gate
+readings that *do* fire (`badnews/haiku`, `conditional/sonnet`) are themselves close to that
+same floor and are not stronger evidence than the suppressed three — see "Readability,"
+above, for why they are reported anyway rather than quietly suppressed too.
 
 This gate result is reported here, in the body of this document, rather than only
 discoverable by running the command: laconic — the arm under test — currently fails the
-readability/rate gate this benchmark itself defines, on 4 of the case/model cells checked,
-one of which is a confirmed defect in the plugin's own adherence to its own rule.
+readability/rate gate this benchmark itself defines, on 5 of the case/model cells checked,
+two of which are confirmed defects in the plugin's own adherence to its own rule.
 
 ## Never-cut: denominator corrected
 
@@ -377,7 +481,11 @@ automatically did not exist when this snapshot was produced.
    figure is net. Both reference harnesses list this as unmeasured.
 5. Readability detectors are heuristics with a validation suite, not a grammar
    parser. `article_rate` and `aux_verb_rate` are proxies for degraded grammar. The
-   symbol-connector detector was corrected during this revision (see "Readability").
+   symbol-connector and lowercase-sentence-start detectors have now been corrected
+   twice, across two revisions of this document — see "Readability" — and two narrow
+   gaps remain disclosed there (a numeric-progression check that cannot tell a quoted
+   measurement from a digit-adjacent conjunction, and arrow variants `⇒`/`~>`/`>>` the
+   regex does not match).
 6. n=5 on two models separates a rule defect from adherence noise. **Corrected:** the
    previous version of this document claimed min/max/stdev were published here; they
    were not. They are now — see "Compression."
@@ -458,19 +566,19 @@ stdev:
 
 | arm | haiku | sonnet |
 |---|--:|--:|
-| baseline | 0 | 2 |
-| terse-control | 1 | 3 |
-| word-compression | 0 | 5 |
-| laconic | 0 | 6 |
+| baseline | 0 | 0 |
+| terse-control | 2 | 3 |
+| word-compression | 0 | 4 |
+| laconic | 8 | 8 |
 
 ### Responses with >=1 readability violation
 
 | arm | haiku | sonnet |
 |---|--:|--:|
-| baseline | 0 | 2 |
+| baseline | 0 | 0 |
 | terse-control | 1 | 2 |
 | word-compression | 0 | 3 |
-| laconic | 0 | 2 |
+| laconic | 1 | 2 |
 
 ### Article rate
 
@@ -556,14 +664,15 @@ stdev:
 
 ### Gates
 
-**FAILED (4):**
+**FAILED (5):**
 
 - badnews/haiku: article rate 0.048 below 70% of baseline 0.076 (baseline had ~5.0 article words)
 - conditional/sonnet: article rate 0.067 below 70% of baseline 0.102 (baseline had ~10.0 article words)
 - ordered-steps/sonnet: 5 readability violation(s) across 5 response(s) (median 0.0) sample: ['→', '→', '→', '→', '→']
-- walkthrough/sonnet: 1 readability violation(s) across 5 response(s) (median 0.0) sample: ['auth.js is self-contained — 40 lines, no']
+- walkthrough/haiku: 8 readability violation(s) across 5 response(s) (median 0.0) sample: ['→', '→', '→', '→', '→']
+- walkthrough/sonnet: 3 readability violation(s) across 5 response(s) (median 0.0) sample: ['→', '→', '→']
 
 This is why `python3 evals/bench/report.py --judgments evals/snapshots/judgments.json`
 (no `--no-gate`) exits 1 against this snapshot, and why this document was generated with
-`--no-gate`. See "Laconic fails its own gate," above, for what these four failures do and
+`--no-gate`. See "Laconic fails its own gate," above, for what these five failures do and
 do not mean.

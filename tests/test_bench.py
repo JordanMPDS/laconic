@@ -740,6 +740,14 @@ with tempfile.TemporaryDirectory() as td_retry:
     written = json.loads(out_path.read_text())
     check("judge records a real result after the retry succeeds, not 'judge call failed'",
           written["judgments"][0]["reason"] != bench_judge.REASON_JUDGE_CALL_FAILED)
+    # The guard key is named for what it actually holds (the rules checksum
+    # out of results.json's metadata), not "results_cksum" - a name that
+    # would wrongly imply two runs with different responses but unchanged
+    # rules are detected as stale.
+    check("judge writes the checksum guard under 'rules_cksum', matching "
+          "what the value actually is",
+          written["metadata"].get("rules_cksum") == "1" and
+          "results_cksum" not in written["metadata"])
 
 # --- F.2: judge.py must hard-exit on a results/judgments checksum mismatch ---
 with tempfile.TemporaryDirectory() as td_cksum:
@@ -856,6 +864,22 @@ with tempfile.TemporaryDirectory() as td_corrupt_cli:
     check("corrupt judgments file exits non-zero", proc.returncode != 0)
     check("corrupt judgments file message names the file, not a raw traceback",
           "Traceback" not in proc.stderr and str(corrupt_cli) in (proc.stdout + proc.stderr))
+
+# --- G: report.py must exit cleanly (not a raw traceback) on a corrupt results file ---
+# bench_run.load_snapshot() has the identical unguarded json.loads() as
+# _load_judgments() had before its own fix - main() called it four lines
+# earlier with no try/except at all.
+with tempfile.TemporaryDirectory() as td_corrupt_results:
+    corrupt_results = Path(td_corrupt_results) / "results.json"
+    corrupt_results.write_text("{not valid json")
+    proc = subprocess.run(
+        [sys.executable, str(ROOT / "evals" / "bench" / "report.py"),
+         "--results", str(corrupt_results), "--no-gate"],
+        capture_output=True, text=True,
+    )
+    check("corrupt results file exits non-zero", proc.returncode != 0)
+    check("corrupt results file message names the file, not a raw traceback",
+          "Traceback" not in proc.stderr and str(corrupt_results) in (proc.stdout + proc.stderr))
 
 # --- G: tests/stubs/claude-stub.sh must escape STUB_TEXT for the JSON it sits in ---
 stub_env = dict(os.environ, STUB_TEXT='He said "stop".')

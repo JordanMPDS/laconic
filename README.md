@@ -220,19 +220,25 @@ laconic 618, **5% longer.** Laconic also costs *more* per call than baseline on
 both models ($0.0159 vs $0.0139 haiku, $0.0674 vs $0.0605 sonnet) — the injected
 rules' own token cost, reported net rather than left out.
 
-**Readability shows no contrast across arms**, including the word-compression
-foil, which wrote ordinary English despite being instructed to drop articles and
-use arrows. Recomputed with a corrected arrow detector (the previous one counted
-markdown bullets and quoted numeric progressions as violations — 96% false
-positives), 17 violations total across all 320 responses: baseline 2,
-terse-control 4, word-compression 5, laconic 6. No arm degrades grammar
-meaningfully, and laconic does not "win" this axis.
+**Laconic has the most readability violations of any arm.** The arrow detector
+has been corrected twice: first for counting markdown bullets and quoted numeric
+progressions as violations (96% false positives), then for a second bug that
+matched a bolded prose paragraph (`**Request A**: ...`) as a bullet and skipped
+its arrows entirely — hiding violations specifically in laconic's own
+`**Bolded label**: step → step → step` writing habit, more than in any other
+arm's output. With both fixes, 25 violations total across all 320 responses:
+baseline 0, terse-control 5, word-compression 4, laconic 16 — 64% of the total
+on a quarter of the runs. The word-compression foil, told outright to use
+arrows instead of conjunctions, produced fewer violations than laconic did
+unprompted. See "Readability" in the results doc.
 
 **Laconic fails its own gate.** With the corrected detector, `report.py` exits 1
-against the committed snapshot with 4 failures, including one confirmed real
-defect: one Sonnet `ordered-steps` response wrote an arrow chain in running
-prose ("generate new key pair → add to JWKS/key store as non-primary → ...")
-— exactly what `rules/laconic.md` forbids.
+against the committed snapshot with 5 failures, including two confirmed real
+defects: one Sonnet `ordered-steps` response wrote a five-arrow runbook in
+running prose ("generate new key pair → add to JWKS/key store as non-primary →
+..."), and one Haiku `walkthrough` response chained four arrows apiece in two
+back-to-back bolded-label paragraphs — exactly what `rules/laconic.md` forbids,
+and exactly the construction the earlier detector bug was blind to.
 
 The deterministic never-cut safety check holds on every response it checks: 0
 failures for laconic, out of the 50 (of 80) responses per arm that carry a

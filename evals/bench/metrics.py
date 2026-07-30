@@ -11,7 +11,14 @@ command are correct usage, and counting them would make the metric worthless.
 """
 import re
 
-FENCE = re.compile(r"```.*?```", re.S)
+# Surrounding whitespace/newlines are swallowed along with the fence itself
+# (not just the ```...``` span) so the removal doesn't leave a lone
+# whitespace-only line behind. _paragraph_prose reads a whitespace-only line
+# as a paragraph break, which turns the grammatical continuation after a
+# fenced code block into a false new "sentence" (see _lowercase_starts).
+# Collapsing the surrounding blank lines merges the prose back into one
+# paragraph, matching how the fence reads to a person: interruption, not break.
+FENCE = re.compile(r"\s*```.*?```\s*", re.S)
 INLINE = re.compile(r"`[^`]*`")
 URL = re.compile(r"https?://\S+")
 
@@ -38,9 +45,21 @@ ABBREV = re.compile(
 # costs recall without gaining precision on the false-positive side.
 ABBREV_DOT = re.compile(r"\b(e\.g|i\.e|cf|vs|approx|Fig|Dr|Mr|Mrs|Ms|Prof)\.", re.I)
 SENTENCE_SPLIT = re.compile(r"(?<=[.!?])\s+")
+# A sentence legitimately opening with a bare filename or dotted identifier
+# ("auth.js is self-contained", "pool.max controls...") is correct usage, not
+# a broken sentence start. _lowercase_starts already skips a sentence opening
+# with a backtick-wrapped identifier; this catches the same thing bare.
+DOTTED_IDENTIFIER = re.compile(r"^[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+")
 # Lines that are structural markdown, not paragraph flow. Bullets legitimately
 # start lowercase, so checking them would fire on correct writing.
-STRUCTURAL = re.compile(r"^\s*([-*+>|#]|\d+[.)])")
+# -, *, +, # and an ordered-list digit only count as structural when followed
+# by whitespace (a real marker: "- item", "* item", "1. item") - without that
+# requirement "**Request A**: ..." (a bolded prose paragraph) and "-> ..." (an
+# arrow, or an arrow left behind when an inline-code span is stripped to a
+# leading space) both matched as bullets, hiding whatever followed on the line
+# from every other detector. > and | still need no trailing whitespace
+# (blockquotes and table rows are structural either way).
+STRUCTURAL = re.compile(r"^\s*([-*+#]\s|[>|]|\d+[.)]\s)")
 
 
 def _paragraph_prose(sentences_src):
@@ -84,7 +103,7 @@ def _lowercase_starts(sentences_src):
         for sentence in SENTENCE_SPLIT.split(masked):
             # Restore masked periods
             s = sentence.replace("\x00", ".").strip()
-            if not s or s.startswith("`"):
+            if not s or s.startswith("`") or DOTTED_IDENTIFIER.match(s):
                 continue
             if s[0].islower():
                 hits.append(s[:40])

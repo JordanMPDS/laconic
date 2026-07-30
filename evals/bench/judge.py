@@ -127,12 +127,21 @@ def main():
     # would publish stale verdicts under a fresh provenance stamp. Only fires
     # once prior actually carries a stamp; a fresh/empty judgments file has
     # nothing to conflict with.
-    results_cksum = snap["metadata"].get("rules_cksum")
-    prior_cksum = prior.get("metadata", {}).get("results_cksum")
-    if prior_cksum and prior_cksum != results_cksum:
+    #
+    # Stored/read as "rules_cksum" - it is the rules checksum out of
+    # results.json's own metadata, not a hash of results.json's content, so
+    # two different results.json runs against unchanged rules share this
+    # value and are (correctly) treated as compatible even though the actual
+    # response text differs. "results_cksum" is read as a fallback so
+    # judgments files written before this field was renamed still enforce
+    # the guard.
+    rules_cksum = snap["metadata"].get("rules_cksum")
+    prior_meta = prior.get("metadata", {})
+    prior_cksum = prior_meta.get("rules_cksum", prior_meta.get("results_cksum"))
+    if prior_cksum and prior_cksum != rules_cksum:
         sys.exit("judgments were generated from different results (cksum %s vs %s); "
                  "move %s aside before regenerating"
-                 % (prior_cksum, results_cksum, args.out))
+                 % (prior_cksum, rules_cksum, args.out))
 
     done = set((j["case"], j["arm"], j["model"], j["rep"]) for j in prior["judgments"])
 
@@ -153,7 +162,7 @@ def main():
         v.update({"case": r["case"], "arm": r["arm"], "model": r["model"], "rep": r["rep"]})
         prior["judgments"].append(v)
         prior["metadata"] = {"judge_model": args.model,
-                             "results_cksum": results_cksum}
+                             "rules_cksum": rules_cksum}
         bench_run.save_snapshot(args.out, prior)
         print("[%d/%d] %-14s %-16s %-7s rep%d -> %s"
               % (i, len(runs), r["case"], r["arm"], r["model"], r["rep"], v["verdict"]))

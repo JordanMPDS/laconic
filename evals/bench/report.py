@@ -314,7 +314,14 @@ def main():
     ap.add_argument("--markdown")
     args = ap.parse_args()
 
-    snap = bench_run.load_snapshot(args.results)
+    # load_snapshot has the identical corrupt-file defect _load_judgments is
+    # guarded against below: json.loads on a non-empty, invalid file raises
+    # ValueError uncaught, surfacing a raw traceback instead of a message
+    # naming the file.
+    try:
+        snap = bench_run.load_snapshot(args.results)
+    except ValueError as e:
+        sys.exit("corrupt results file %s: %s" % (args.results, e))
     if snap is None:
         sys.exit("no snapshot at %s - run run.py first" % args.results)
 

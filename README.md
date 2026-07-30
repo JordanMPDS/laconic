@@ -211,11 +211,16 @@ the weaker one. Laconic also costs *more* per call than baseline on both models
 ($0.0159 vs $0.0139 haiku, $0.0674 vs $0.0605 sonnet) — the injected rules' own
 token cost, reported net rather than left out.
 
+**Where laconic wins:** trap pass rates rise monotonically across the four arms
+— baseline 64%, terse-control 68%, word-compression 72%, laconic **76%** (80
+judgments per arm; laconic 68% on haiku, 85% on sonnet) — the largest single
+result in the benchmark. The deterministic never-cut safety check held
+everywhere laconic was tested: 0 failures across 80 checked responses.
+
 Readability violations scored 0.0 median for every arm, including the
 word-compression foil, so the readability axis produced no usable signal in
 this run — the foil never degraded its prose enough to give the detector
-anything to catch. The deterministic never-cut safety check held everywhere
-laconic was tested: 0 failures across 80 checked responses.
+anything to catch.
 
 These are single-turn `--append-system-prompt` calls, not multi-turn sessions,
 so the per-call cost above **overstates** what a real session pays once the

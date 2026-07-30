@@ -97,9 +97,10 @@ factual errors about the schema, elsewhere in the same response.
 
 The spec committed to revising the 0.70 rate-gate threshold if the arms fail to separate
 by at least 2×, using `baseline` vs `word-compression` article rate as the calibration
-signal (Step 4 of the task plan). Observed separation: **1.07× on haiku, 0.96× on
-sonnet** — below 1×, i.e., no separation at all, in the same direction the design
-expected. The article-rate and aux-verb-rate gates currently pass trivially for every
+signal (Step 4 of the task plan). Observed separation (median of per-case medians, as in
+the Article rate table below): **1.01× on haiku, 0.96× on sonnet** — nowhere near the
+required 2×, and inverted on sonnet (`word-compression`'s article rate is higher than
+`baseline`'s, not lower). The article-rate and aux-verb-rate gates currently pass trivially for every
 arm because nothing in this run produces the degraded, article-dropping prose they were
 built to catch. The threshold was **not** revised, because there is no valid signal to
 revise it against: the calibration is deferred until a foil that actually degrades prose

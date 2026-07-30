@@ -67,7 +67,7 @@ def gate_failures(agg, threshold):
             continue
         base = agg.get((case, "baseline", model))
         if v["violations"] > 0:
-            out.append("%s/%s: %d readability violation(s) %s"
+            out.append("%s/%s: %.1f readability violation(s) %s"
                        % (case, model, v["violations"], v["spans"]))
         if v["never_cut_failures"] > 0:
             out.append("%s/%s: %d never-cut failure(s)"
@@ -201,13 +201,17 @@ def render(snap, judg, threshold):
 
 def _load_judgments(path):
     """Same as bench_run.load_snapshot, but tolerant of an empty-but-existing
-    file (e.g. /dev/null used as a stand-in for "no judgments yet") - judge.py
-    only ever writes valid JSON or nothing at all, so an empty read here means
-    absence, not corruption."""
-    try:
-        return bench_run.load_snapshot(path) or {"judgments": []}
-    except ValueError:
+    file (e.g. /dev/null used as a stand-in for "no judgments yet"). Scoped to
+    exactly that case: a non-empty file that fails to parse is a real
+    corruption, not an absence, and must raise rather than silently render a
+    report with the trap-verdicts table quietly missing."""
+    p = Path(path)
+    if not p.exists():
         return {"judgments": []}
+    text = p.read_text()
+    if not text.strip():
+        return {"judgments": []}
+    return json.loads(text) or {"judgments": []}
 
 
 def main():
@@ -222,6 +226,18 @@ def main():
     snap = bench_run.load_snapshot(args.results)
     if snap is None:
         sys.exit("no snapshot at %s - run run.py first" % args.results)
+
+    # A total generation outage (every run recorded ok=False) makes
+    # aggregate() return {} and gate_failures() vacuously return [] - a
+    # second line of defense would silently bless it as "gates pass". Task 4
+    # shipped exactly this failure mode once already (every call in a real
+    # run recorded as a failure); this must not recur unnoticed. Fires
+    # regardless of --no-gate - an empty snapshot is not a report anyone
+    # wants rendered, gated or not.
+    usable_runs = len(bench_run.usable(snap["runs"]))
+    if usable_runs == 0:
+        sys.exit("no usable runs in %s - every call failed; nothing to report" % args.results)
+
     judg = _load_judgments(args.judgments)
 
     md = render(snap, judg, args.threshold)

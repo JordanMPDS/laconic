@@ -281,5 +281,59 @@ check("judge_failed column present in trap-verdicts table",
 check("judge call failures counted separately from genuine not_exercised",
       "| floor | laconic | 1 | 0 | 1 | 1 |" in md_mixed)
 
+# A total generation outage (every run recorded ok=False) must not be blessed
+# as "gates pass" - aggregate() returns {} and gate_failures() vacuously
+# returns [] for an empty agg, so report.py needs an explicit guard in main()
+# that fires before rendering, regardless of --no-gate. Task 4 shipped this
+# exact failure mode once (every call in a real run recorded as a failure);
+# this is the second line of defense against a recurrence. Exercised as a
+# real subprocess so the guard is proven through main() itself, the same way
+# run.py's and judge.py's claude-bin guards are tested above.
+with tempfile.TemporaryDirectory() as td_outage:
+    outage_snap = Path(td_outage) / "results.json"
+    snap_all_failed = bench_run.new_snapshot(reps=1, models=["haiku"], level="full",
+                                             rules_cksum="1", arms=bench_run.ARMS)
+    snap_all_failed["runs"].append({"case": "floor", "arm": "laconic", "model": "haiku",
+                                    "rep": 0, "ok": False})
+    bench_run.save_snapshot(outage_snap, snap_all_failed)
+
+    proc = subprocess.run(
+        [sys.executable, str(ROOT / "evals" / "bench" / "report.py"),
+         "--results", str(outage_snap), "--judgments", "/dev/null", "--no-gate"],
+        capture_output=True, text=True,
+    )
+    check("total outage exits non-zero even with --no-gate", proc.returncode != 0)
+    check("total outage message names the cause",
+          "no usable runs" in (proc.stdout + proc.stderr))
+
+# The gate's diagnostic message must not round a fractional median down to
+# zero via %d - statistics.median([0, 0, 1, 1]) is 0.5, the gate correctly
+# fires (0.5 > 0), but a developer reading "0 readability violation(s)" would
+# be told the wrong thing while trying to diagnose exactly this failure.
+frac_agg = {
+    ("floor", "baseline", "haiku"): {"article_rate": 0.0, "aux_verb_rate": 0.0},
+    ("floor", "laconic", "haiku"): {"violations": 0.5, "never_cut_failures": 0,
+                                    "article_rate": 0.0, "aux_verb_rate": 0.0,
+                                    "spans": []},
+}
+frac_fails = bench_report.gate_failures(frac_agg, 0.70)
+check("fractional violation median doesn't round down to zero in the gate message",
+      any("0.5 readability violation" in f for f in frac_fails))
+
+# _load_judgments() exists only to treat an empty-but-existing file (/dev/null
+# standing in for "no judgments yet") as absence. A genuinely corrupt
+# non-empty judgments file is a real problem and must surface as an error,
+# not be swallowed into a clean, silently judgment-free report.
+check("empty judgments file still treated as no judgments",
+      bench_report._load_judgments("/dev/null") == {"judgments": []})
+with tempfile.TemporaryDirectory() as td_corrupt:
+    corrupt_path = Path(td_corrupt) / "judgments.json"
+    corrupt_path.write_text("{not valid json")
+    try:
+        bench_report._load_judgments(str(corrupt_path))
+        check("corrupt non-empty judgments file is not silently swallowed", False)
+    except ValueError:
+        check("corrupt non-empty judgments file is not silently swallowed", True)
+
 print("\n%d failure(s)" % fails)
 sys.exit(1 if fails else 0)

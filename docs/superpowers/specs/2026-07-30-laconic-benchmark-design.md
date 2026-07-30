@@ -144,10 +144,20 @@ positives against correct prose and inflate every arm's score.
 
 *Reported rates* — proxies, never a standalone verdict:
 
-- `article_rate` = count of `the|a|an` ÷ prose words. Normal English runs ~7–9%;
-  telegraphic prose falls to 1–2%.
+- `article_rate` = count of `the|a|an` ÷ prose words.
 - `aux_verb_rate` = count of `is|are|was|were|be|been|being|has|have|had|do|does|did|will|would|can|could|should|may|might|must` ÷ prose words. Word-deletion strips
   auxiliaries and copulas first, so this drops sharply when grammar degrades.
+
+These are compared **against the baseline arm on the same case**, never against a
+fixed band. An earlier draft of this spec asserted that normal English runs 7–9%
+articles; measuring the detector's own fixtures put ordinary technical prose at 17–20%
+and the telegraphic rewrite at 0%. The absolute figure varies too much with length and
+style to gate on, and the relative comparison is what the claim actually needs.
+
+Rate gates are ratios of small integers on short answers, so they apply only when the
+baseline's own rate clears a floor of 0.02. Below that the baseline carries too few
+articles or auxiliaries for the ratio to mean anything, and gating would yield flaky
+failures rather than findings.
 
 ### Gates
 

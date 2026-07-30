@@ -2,9 +2,9 @@
 
 **Status:** DONE
 
-**Commit:** c947f30ceab9f5f7dcf945a80f97ddb9b61e8a1c
+**Commit:** ca7f94dbd838b6102ae8bcec889eb9d7fe267d29
 
-**Test Summary:** All 25 unit tests pass (original 17 + 8 new). Resume check (4→0 runs) and failure recording (recorded: 1 usable: 0) both verified.
+**Test Summary:** All 29 unit tests pass (original 17 + 12 new). Resume check (4→0 runs) and failure recording (recorded: 1 usable: 0) both verified.
 
 ## Fixes Applied
 
@@ -58,3 +58,71 @@ Snapshot:   recorded: 1, usable: 0
 ```
 
 Both verified with fixed code.
+
+---
+
+## Re-Review Fixes
+
+### 5. Fail-Fast Binary Validation (residual gap in Finding 1)
+**Problem:** When `shutil.which()` returns None for an unresolvable binary, `resolve_claude_bin` falls back to the bare name. The call then fails silently, recording all 320 calls as failures. Same outcome as the original Critical, reached by a different path.
+
+**Solution:** Added guard in `main()` right after resolving:
+```python
+if not (shutil.which(claude_bin) or Path(claude_bin).exists()):
+    sys.exit("claude binary not found: %s (set --claude-bin or fix PATH)" % args.claude_bin)
+```
+
+**Verification:** Tested with restricted PATH to confirm guard triggers:
+```bash
+PATH=/usr/bin:/bin python3 evals/bench/run.py --claude-bin claude --models haiku --reps 1 --cases floor
+# Output: claude binary not found: claude (set --claude-bin or fix PATH)
+```
+
+Confirmed guard does NOT fire when binary is resolvable, so normal runs are unaffected.
+
+### 6. Complete Bare-Name Test Coverage (Finding 4 - partial coverage)
+**Problem:** Previous test only exercised path-like arguments (relative paths → absolute). The `shutil.which()` branch was never tested end-to-end, leaving the residual gap in Finding 1 undetected.
+
+**Solution:** Added bare-name test that:
+1. Creates temp dir with copy of stub executable
+2. Modifies PATH to include that dir
+3. Tests `resolve_claude_bin(bare_name)` finds it via `shutil.which()`
+4. Tests `call(bare_name, ...)` succeeds end-to-end
+5. Restores PATH even if assertion fails
+
+**Added tests (4 new):**
+- `resolve bare name finds it in PATH`
+- `call with bare-name resolution succeeds`
+- `unresolvable name doesn't exist as path`
+- `resolve returns bare name when not in PATH`
+
+All assertions exercised both success and failure paths. Verified that the new fail-fast guard catches the unresolvable case before it reaches `call()`.
+
+## Final Verification Summary
+
+All 29 tests pass. Both Step 6 end-to-end verifications confirmed:
+
+**Resume (4→0):**
+```
+$ rm -f /tmp/snap.json
+$ python3 evals/bench/run.py --claude-bin tests/stubs/claude-stub.sh --models haiku --reps 1 --cases floor --snapshot /tmp/snap.json
+[1/4] floor baseline haiku rep0 ok
+[2/4] floor terse-control haiku rep0 ok
+[3/4] floor word-compression haiku rep0 ok
+[4/4] floor laconic haiku rep0 ok
+wrote /tmp/snap.json (4 runs, 0 failed)
+$ python3 evals/bench/run.py --claude-bin tests/stubs/claude-stub.sh --models haiku --reps 1 --cases floor --snapshot /tmp/snap.json
+wrote /tmp/snap.json (4 runs, 0 failed)
+$ python3 -c "import json; s=json.load(open('/tmp/snap.json')); print('runs:', len(s['runs']), 'all ok:', all(r['ok'] for r in s['runs']))"
+runs: 4 all ok: True
+```
+
+**Failure (recorded: 1, usable: 0):**
+```
+$ rm -f /tmp/snapfail.json
+$ STUB_FAIL=1 python3 evals/bench/run.py --claude-bin tests/stubs/claude-stub.sh --models haiku --reps 1 --cases floor --arms baseline --snapshot /tmp/snapfail.json
+[1/1] floor baseline haiku rep0 FAILED
+wrote /tmp/snapfail.json (1 runs, 1 failed)
+$ python3 -c "import json,sys; sys.path.insert(0,'evals/bench'); import run; s=json.load(open('/tmp/snapfail.json')); print('recorded:', len(s['runs']), 'usable:', len(run.usable(s['runs'])))"
+recorded: 1 usable: 0
+```

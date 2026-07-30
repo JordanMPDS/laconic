@@ -11,7 +11,7 @@ set -uo pipefail
 LEVEL="${1:-full}"
 GLOB="${2:-*}"
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
-OUT="$ROOT/evals/results/$LEVEL"
+OUT="$ROOT/evals/scratch/$LEVEL"
 
 case "$LEVEL" in
   lite|full|ultra) ;;
@@ -43,7 +43,7 @@ unset LACONIC_DEFAULT
 
 mkdir -p "$OUT"
 matched=0
-for dir in "$ROOT"/evals/$GLOB/; do
+for dir in "$ROOT"/evals/cases/$GLOB/; do
   [ -f "$dir/prompt.md" ] || continue
   matched=$((matched + 1))
   name=$(basename "$dir")

@@ -161,3 +161,49 @@ excluded):
 `abbreviated_prose` is 0 in both before and after for every arm (unaffected,
 unchanged). The 12 post-fix symbol hits match the review's own estimate of
 "12 candidate running prose" arrows exactly.
+
+## Follow-up: absolute-count floor on rate gates, and gate message clarity
+
+Coordinator flagged two issues after independently verifying the A-G wave.
+
+**1. Rate gates false-fired on baselines with too little raw material.**
+`RATE_FLOOR` floors the *rate*, which a short answer clears trivially even
+with ~1 auxiliary word in it. Added `ABS_COUNT_FLOOR = 5` and two new
+`aggregate()` fields, `article_count`/`aux_count` (median of `words *
+rate` per response - the actual count the rate is built from). Each rate
+gate now additionally requires `base["article_count"]` /
+`base["aux_count"] >= 5` before it applies; `RATE_FLOOR` kept as a cheap
+secondary check per the coordinator's "keep it if you like."
+
+Proof: `git stash` on `report.py` alone (isolating this one change on top of
+the already-committed A-G fixes), reran the two new assertions - both
+failed pre-fix (`a baseline with ~1 auxiliary word does not trip the
+aux-rate gate` failed; the "healthy count still gates" counterpart already
+passed, confirming it wasn't a vacuous test). Restored the fix, both pass.
+
+**2. Gate message contradicted itself.** Reworded to lead with the number
+the gate used: `"%d readability violation(s) across %d response(s) (median
+%.1f) sample: %s"` - total first, median still shown (not rounded away),
+`spans` relabeled `sample:` since it's pooled and truncated to 5 regardless
+of the actual violation count. Proof: same stash isolation - the old format
+string doesn't contain `"N readability violation(s) across N response(s)"`,
+so both new message-format assertions failed pre-fix.
+
+**`ordered-steps/sonnet` confirmed to survive.** Regenerated
+`/tmp/bench-tables-v3.md` from the same committed snapshot (no new model
+calls, no `evals/snapshots/` changes). Gate failures dropped from 7 to 4:
+
+```
+- badnews/haiku: article rate 0.048 below 70% of baseline 0.076 (baseline had ~5.0 article words)
+- conditional/sonnet: article rate 0.067 below 70% of baseline 0.102 (baseline had ~10.0 article words)
+- ordered-steps/sonnet: 5 readability violation(s) across 5 response(s) (median 0.0) sample: ['→', '→', '→', '→', '→']
+- walkthrough/sonnet: 1 readability violation(s) across 5 response(s) (median 0.0) sample: ['auth.js is self-contained — 40 lines, no']
+```
+
+Suppressed (baseline had <5 article/aux words - not enough raw material for
+"below 70%" to mean anything): `code-fidelity/haiku` (aux, ~1.0 words),
+`floor/haiku` (aux, ~2.0 words), `floor/sonnet` (aux, ~4.0 words). Both
+readability-total failures (the real regressions, including the genuine
+`ordered-steps/sonnet` arrow chain in running prose) are untouched by this
+change - they gate on `violations_total`, not the rate/count logic - and
+both still fire.

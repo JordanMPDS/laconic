@@ -22,10 +22,17 @@ CASES = ROOT / "evals" / "cases"
 RESULTS = ROOT / "evals" / "snapshots" / "results.json"
 JUDGMENTS = ROOT / "evals" / "snapshots" / "judgments.json"
 ARM_ORDER = ["baseline", "terse-control", "word-compression", "laconic"]
-# Rate gates are ratios of small integers on short answers. Below this floor the
-# baseline itself carries too few articles or auxiliaries for the ratio to mean
-# anything, and gating on it would produce flaky failures rather than findings.
+# A ratio of small integers is not evidence: floor/sonnet laconic (26 words,
+# 0 auxiliary verbs) and code-fidelity/haiku baseline (49 words, ~1 auxiliary
+# verb) both clear a *rate* floor trivially - one short correct answer with
+# no auxiliary in it is terse English, not a degraded ratio. What actually
+# protects the comparison is an absolute floor on how many article/auxiliary
+# words the baseline had to begin with: below ABS_COUNT_FLOOR that case/model
+# has too little raw material for "below 70% of baseline" to mean anything,
+# regardless of what the rate says. RATE_FLOOR is kept as a cheap secondary
+# sanity check, but ABS_COUNT_FLOOR is the one doing the real work.
 RATE_FLOOR = 0.02
+ABS_COUNT_FLOOR = 5
 
 
 def _median(xs, default=0):
@@ -63,6 +70,10 @@ def aggregate(snap):
             "violations_flagged_responses": sum(1 for s in scored if s["violations"] > 0),
             "article_rate": _median([s["article_rate"] for s in scored], 0.0),
             "aux_verb_rate": _median([s["aux_verb_rate"] for s in scored], 0.0),
+            # Absolute article/auxiliary word counts, per response then
+            # medianed - what the rate-floor gate actually checks against.
+            "article_count": _median([s["words"] * s["article_rate"] for s in scored], 0.0),
+            "aux_count": _median([s["words"] * s["aux_verb_rate"] for s in scored], 0.0),
             # Cases with an empty never_cut list (decision, floor,
             # ordered-steps) are not verified by this check at all - a "0
             # failures" reading must not be mistaken for "checked and clean".
@@ -83,22 +94,33 @@ def gate_failures(agg, threshold):
             continue
         base = agg.get((case, "baseline", model))
         if v["violations_total"] > 0:
-            out.append("%s/%s: %.1f readability violation(s) (total %d) %s"
-                       % (case, model, v["violations"], v["violations_total"], v["spans"]))
+            # Lead with the number the gate actually used (the total), not
+            # the median - "0.0 readability violation(s)" reporting a
+            # failure reads as self-contradictory. spans are pooled across
+            # the bucket and truncated to 5, so label them as a sample: the
+            # list length is unrelated to violations_total.
+            out.append("%s/%s: %d readability violation(s) across %d response(s) "
+                       "(median %.1f) sample: %s"
+                       % (case, model, v["violations_total"], v["n"], v["violations"],
+                          v["spans"]))
         if v["never_cut_failures"] > 0:
             out.append("%s/%s: %d never-cut failure(s)"
                        % (case, model, v["never_cut_failures"]))
         if base:
-            if (base["article_rate"] >= RATE_FLOOR
+            if (base["article_count"] >= ABS_COUNT_FLOOR
+                    and base["article_rate"] >= RATE_FLOOR
                     and v["article_rate"] < threshold * base["article_rate"]):
-                out.append("%s/%s: article rate %.3f below %.0f%% of baseline %.3f"
+                out.append("%s/%s: article rate %.3f below %.0f%% of baseline %.3f "
+                           "(baseline had ~%.1f article words)"
                            % (case, model, v["article_rate"], threshold * 100,
-                              base["article_rate"]))
-            if (base["aux_verb_rate"] >= RATE_FLOOR
+                              base["article_rate"], base["article_count"]))
+            if (base["aux_count"] >= ABS_COUNT_FLOOR
+                    and base["aux_verb_rate"] >= RATE_FLOOR
                     and v["aux_verb_rate"] < threshold * base["aux_verb_rate"]):
-                out.append("%s/%s: aux verb rate %.3f below %.0f%% of baseline %.3f"
+                out.append("%s/%s: aux verb rate %.3f below %.0f%% of baseline %.3f "
+                           "(baseline had ~%.1f auxiliary words)"
                            % (case, model, v["aux_verb_rate"], threshold * 100,
-                              base["aux_verb_rate"]))
+                              base["aux_verb_rate"], base["aux_count"]))
     return out
 
 

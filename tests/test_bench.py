@@ -318,20 +318,54 @@ with tempfile.TemporaryDirectory() as td_outage:
     check("total outage message names the cause",
           "no usable runs" in (proc.stdout + proc.stderr))
 
-# The gate's diagnostic message must not round a fractional median down to
-# zero via %d - statistics.median([0, 0, 1, 1]) is 0.5, the gate correctly
-# fires (0.5 > 0), but a developer reading "0 readability violation(s)" would
-# be told the wrong thing while trying to diagnose exactly this failure.
+# The gate's diagnostic message must lead with the number it actually gated
+# on (the total) and must not silently round a fractional median down to
+# zero either - statistics.median([0, 0, 1, 1]) is 0.5, the total across the
+# same 4 responses is 2, and the gate correctly fires on the total. A message
+# that only said "0.0 readability violation(s)" would read as self-
+# contradictory (a failure reporting zero); the median must still be visible
+# so a developer isn't told a rounded-to-zero number while diagnosing this
+# exact failure mode.
 frac_agg = {
-    ("floor", "baseline", "haiku"): {"article_rate": 0.0, "aux_verb_rate": 0.0},
-    ("floor", "laconic", "haiku"): {"violations": 0.5, "violations_total": 2,
+    ("floor", "baseline", "haiku"): {"article_rate": 0.0, "aux_verb_rate": 0.0,
+                                     "article_count": 0.0, "aux_count": 0.0},
+    ("floor", "laconic", "haiku"): {"violations": 0.5, "violations_total": 2, "n": 4,
                                     "never_cut_failures": 0,
                                     "article_rate": 0.0, "aux_verb_rate": 0.0,
                                     "spans": []},
 }
 frac_fails = bench_report.gate_failures(frac_agg, 0.70)
-check("fractional violation median doesn't round down to zero in the gate message",
-      any("0.5 readability violation" in f for f in frac_fails))
+check("gate message leads with the total the gate used, not the median",
+      any("2 readability violation(s) across 4 response(s)" in f for f in frac_fails))
+check("gate message still shows the fractional median, not rounded to zero",
+      any("median 0.5" in f for f in frac_fails))
+
+# A ratio of small integers is not evidence: a baseline that only had ~1
+# auxiliary word to begin with (code-fidelity/haiku's real baseline: 49
+# words, aux_rate 0.021) clears RATE_FLOOR trivially even though there is no
+# meaningful count behind it. The absolute-count floor must suppress this;
+# a baseline with a healthy count must still gate on the same rate drop.
+low_count_agg = {
+    ("lowcount", "baseline", "haiku"): {"article_rate": 0.0, "article_count": 0.0,
+                                        "aux_verb_rate": 0.021, "aux_count": 1.0},
+    ("lowcount", "laconic", "haiku"): {"violations_total": 0, "n": 1, "violations": 0.0,
+                                       "never_cut_failures": 0, "article_rate": 0.0,
+                                       "aux_verb_rate": 0.0, "spans": []},
+}
+low_count_fails = bench_report.gate_failures(low_count_agg, 0.70)
+check("a baseline with ~1 auxiliary word does not trip the aux-rate gate",
+      not any("aux verb rate" in f for f in low_count_fails))
+
+healthy_count_agg = {
+    ("healthy", "baseline", "haiku"): {"article_rate": 0.0, "article_count": 0.0,
+                                       "aux_verb_rate": 0.05, "aux_count": 6.0},
+    ("healthy", "laconic", "haiku"): {"violations_total": 0, "n": 1, "violations": 0.0,
+                                      "never_cut_failures": 0, "article_rate": 0.0,
+                                      "aux_verb_rate": 0.01, "spans": []},
+}
+healthy_count_fails = bench_report.gate_failures(healthy_count_agg, 0.70)
+check("a baseline with a healthy auxiliary-word count still trips the aux-rate gate",
+      any("aux verb rate" in f for f in healthy_count_fails))
 
 # _load_judgments() exists only to treat an empty-but-existing file (/dev/null
 # standing in for "no judgments yet") as absence. A genuinely corrupt

@@ -251,8 +251,15 @@ check("degraded prose trips a gate", len(fails_found) > 0)
 check("gate failure names the case", any("floor" in f for f in fails_found))
 
 md = bench_report.render(synthetic, {"judgments": []}, 0.70)
-check("report renders markdown", "| arm |" in md.lower() or "arm" in md)
-check("report states the excluded count", "excluded" in md.lower())
+# NOTE: "arm" in md is tautological - it also matches the literal string
+# "warm" (e.g. in a word like "warmup"), so it passes whether or not a table
+# actually rendered. Check the real table header instead, built from the
+# synthetic fixture's own models list.
+check("report renders a markdown table with the arm/model header",
+      "| arm | haiku |" in md)
+# synthetic has exactly one ok=False run (floor/laconic/haiku/rep1) out of 4.
+check("report states the exact excluded count",
+      "Excluded runs (call failed, never scored): 1" in md)
 
 # Cases with an empty never_cut list (decision, floor, ordered-steps in the
 # real case set) must aggregate cleanly - an empty list has no missing
@@ -261,25 +268,30 @@ check("report states the excluded count", "excluded" in md.lower())
 check("empty never_cut list scores as zero failures, not a crash",
       agg[("floor", "laconic", "haiku")]["never_cut_failures"] == 0)
 
-# judge.py records an infrastructure failure (subprocess/parse error) as
-# verdict "not_exercised", reason "judge call failed" - distinct from a
-# genuine "the trap never fired" not_exercised verdict. Folding the two
-# together would make a run of judge outages look like a run of clean
-# responses. The trap-verdicts table must keep them apart in a separate
-# judge_failed column.
+# judge.py records two kinds of infrastructure failure - the call itself
+# failed ("judge call failed"), or it succeeded but the reply couldn't be
+# parsed as a verdict ("unparseable") - both distinct from a genuine "the
+# trap never fired" not_exercised verdict. Folding either into not_exercised
+# would make a run of judge outages or parse failures look like a run of
+# clean responses. The trap-verdicts table must keep them apart in a
+# separate judge_failed column, routed through the shared constants in
+# judge.py (not a magic string re-typed here and in report.py).
 judg_mixed = {"judgments": [
     {"case": "floor", "arm": "laconic", "model": "haiku", "rep": 0,
-     "verdict": "not_exercised", "quote": "", "reason": "judge call failed"},
+     "verdict": "not_exercised", "quote": "", "reason": bench_judge.REASON_JUDGE_CALL_FAILED},
     {"case": "floor", "arm": "laconic", "model": "haiku", "rep": 1,
      "verdict": "not_exercised", "quote": "", "reason": "asked for missing context"},
     {"case": "floor", "arm": "laconic", "model": "haiku", "rep": 2,
      "verdict": "pass", "quote": "q", "reason": "fine"},
+    {"case": "floor", "arm": "laconic", "model": "haiku", "rep": 3,
+     "verdict": "not_exercised", "quote": "", "reason": bench_judge.REASON_UNPARSEABLE},
 ]}
 md_mixed = bench_report.render(synthetic, judg_mixed, 0.70)
 check("judge_failed column present in trap-verdicts table",
       "judge_failed" in md_mixed)
-check("judge call failures counted separately from genuine not_exercised",
-      "| floor | laconic | 1 | 0 | 1 | 1 |" in md_mixed)
+check("judge call failures and unparseable replies both counted separately "
+      "from genuine not_exercised",
+      "| floor | laconic | 1 | 0 | 1 | 2 |" in md_mixed)
 
 # A total generation outage (every run recorded ok=False) must not be blessed
 # as "gates pass" - aggregate() returns {} and gate_failures() vacuously
@@ -312,7 +324,8 @@ with tempfile.TemporaryDirectory() as td_outage:
 # be told the wrong thing while trying to diagnose exactly this failure.
 frac_agg = {
     ("floor", "baseline", "haiku"): {"article_rate": 0.0, "aux_verb_rate": 0.0},
-    ("floor", "laconic", "haiku"): {"violations": 0.5, "never_cut_failures": 0,
+    ("floor", "laconic", "haiku"): {"violations": 0.5, "violations_total": 2,
+                                    "never_cut_failures": 0,
                                     "article_rate": 0.0, "aux_verb_rate": 0.0,
                                     "spans": []},
 }
@@ -334,6 +347,275 @@ with tempfile.TemporaryDirectory() as td_corrupt:
         check("corrupt non-empty judgments file is not silently swallowed", False)
     except ValueError:
         check("corrupt non-empty judgments file is not silently swallowed", True)
+
+import statistics as _statistics  # noqa: E402
+
+# --- B: the readability gate must see every violation, not the median ---
+# Two of five laconic responses carry 2 running-prose-arrow violations each,
+# three are clean. statistics.median([0,0,0,2,2]) == 0, so a median-based
+# gate reads this as "clean". The total (4) and the flagged-response count
+# (2) both correctly show a regression, and the gate must use one of those.
+BAD_ARROW_TEXT = "It skips -> avoids the extra check. It removes -> deletes the file."
+minority_synthetic = {
+    "metadata": {"reps": 5, "models": ["haiku"], "laconic_level": "full",
+                 "rules_cksum": "1", "generated_at": "x", "git_commit": "y",
+                 "claude_cli_version": "z"},
+    "arms": {"laconic": {"system_prompt": "r"}},
+    "runs": [
+        {"case": "floor", "arm": "laconic", "model": "haiku", "rep": i, "ok": True,
+         "text": "It removes the file from the staging area.",
+         "output_tokens": 20, "total_cost_usd": 0.001, "duration_ms": 500}
+        for i in range(3)
+    ] + [
+        {"case": "floor", "arm": "laconic", "model": "haiku", "rep": i, "ok": True,
+         "text": BAD_ARROW_TEXT,
+         "output_tokens": 20, "total_cost_usd": 0.001, "duration_ms": 500}
+        for i in range(3, 5)
+    ],
+}
+minority_agg = bench_report.aggregate(minority_synthetic)
+minority_key = ("floor", "laconic", "haiku")
+check("minority regression: median reads as clean",
+      minority_agg[minority_key]["violations"] == 0)
+check("minority regression: total correctly shows it",
+      minority_agg[minority_key]["violations_total"] == 4)
+check("minority regression: flagged-response count correctly shows it",
+      minority_agg[minority_key]["violations_flagged_responses"] == 2)
+minority_gate_fails = bench_report.gate_failures(minority_agg, 0.70)
+check("a minority-of-responses regression trips the readability gate",
+      any("floor" in f for f in minority_gate_fails))
+
+# --- C: output-token dispersion (min/max/stdev) must actually be computed ---
+# synthetic's floor/baseline/haiku bucket has output_tokens [100, 120].
+check("output token dispersion: min is computed",
+      agg[("floor", "baseline", "haiku")]["output_tokens_min"] == 100)
+check("output token dispersion: max is computed",
+      agg[("floor", "baseline", "haiku")]["output_tokens_max"] == 120)
+check("output token dispersion: stdev is computed with statistics.stdev",
+      abs(agg[("floor", "baseline", "haiku")]["output_tokens_stdev"]
+          - _statistics.stdev([100, 120])) < 1e-9)
+check("output token dispersion: stdev guarded for n<2 (no crash, reads 0.0)",
+      agg[("floor", "laconic", "haiku")]["output_tokens_stdev"] == 0.0)
+check("output token dispersion is published in the rendered markdown",
+      "min:" in md and "max:" in md and "stdev:" in md)
+
+# --- D: never-cut must show checked vs unchecked, not a bare failure count ---
+# floor's never_cut is [] (nothing to check); destructive's is non-empty.
+# "0 failures" must not be readable as "everything was verified".
+never_cut_synthetic = {
+    "metadata": {"reps": 1, "models": ["haiku"], "laconic_level": "full",
+                 "rules_cksum": "1", "generated_at": "x", "git_commit": "y",
+                 "claude_cli_version": "z"},
+    "arms": {"laconic": {"system_prompt": "r"}},
+    "runs": [
+        {"case": "destructive", "arm": "laconic", "model": "haiku", "rep": 0, "ok": True,
+         "text": "Sessions cascade-delete and invoices reference users.",
+         "output_tokens": 10, "total_cost_usd": 0.001, "duration_ms": 500},
+        {"case": "floor", "arm": "laconic", "model": "haiku", "rep": 0, "ok": True,
+         "text": "It removes the file.",
+         "output_tokens": 10, "total_cost_usd": 0.001, "duration_ms": 500},
+    ],
+}
+nc_agg = bench_report.aggregate(never_cut_synthetic)
+check("never_cut_checked is True for a case with keywords to verify",
+      nc_agg[("destructive", "laconic", "haiku")]["never_cut_checked"] is True)
+check("never_cut_checked is False for a case with an empty never_cut list",
+      nc_agg[("floor", "laconic", "haiku")]["never_cut_checked"] is False)
+md_nc = bench_report.render(never_cut_synthetic, {"judgments": []}, 0.70)
+check("never-cut table reports checked and unchecked counts, not just failures",
+      "| laconic | 1 | 1 | 0 |" in md_nc)
+
+# --- F.4: report.py must warn loudly when judgments don't cover all usable runs ---
+# synthetic has 3 usable runs (2 baseline + 1 laconic); give it only 1 judgment.
+partial_judg = {"judgments": [
+    {"case": "floor", "arm": "baseline", "model": "haiku", "rep": 0,
+     "verdict": "pass", "quote": "", "reason": "fine"},
+]}
+md_partial = bench_report.render(synthetic, partial_judg, 0.70)
+check("partial judge coverage is named in the report (1/3, 2 missing)",
+      "judgments cover 1/3 usable runs (2 missing)" in md_partial)
+full_judg = {"judgments": [
+    {"case": "floor", "arm": "baseline", "model": "haiku", "rep": 0,
+     "verdict": "pass", "quote": "", "reason": "fine"},
+    {"case": "floor", "arm": "baseline", "model": "haiku", "rep": 1,
+     "verdict": "pass", "quote": "", "reason": "fine"},
+    {"case": "floor", "arm": "laconic", "model": "haiku", "rep": 0,
+     "verdict": "pass", "quote": "", "reason": "fine"},
+]}
+md_full_cov = bench_report.render(synthetic, full_judg, 0.70)
+check("full judge coverage shows no completeness warning",
+      "judgments cover" not in md_full_cov)
+check("no judgments at all (nobody ran judge.py yet) shows no false-positive warning",
+      "judgments cover" not in md)
+
+# --- F.1: judge.py must retry a failed call once before recording it ---
+# A stub that fails on its first invocation and succeeds on its second proves
+# the retry: without it, judge.py would record "judge call failed" after a
+# single attempt and the counter file would read "1", not "2".
+with tempfile.TemporaryDirectory() as td_retry:
+    counter = Path(td_retry) / "calls"
+    flaky = Path(td_retry) / "flaky-claude.sh"
+    flaky.write_text(
+        "#!/usr/bin/env bash\n"
+        'n=$(cat "%s" 2>/dev/null || echo 0)\n'
+        "n=$((n+1))\n"
+        'printf \'%%s\' "$n" > "%s"\n'
+        '[ "$n" -eq 1 ] && exit 3\n'
+        "cat <<'JSON'\n"
+        '{"is_error":false,"result":"stub answer","num_turns":1,'
+        '"total_cost_usd":0.001,"duration_ms":1,\n'
+        '"usage":{"input_tokens":1,"output_tokens":1,'
+        '"cache_creation_input_tokens":0,"cache_read_input_tokens":0}}\n'
+        "JSON\n" % (counter, counter)
+    )
+    flaky.chmod(0o755)
+
+    snap_path = Path(td_retry) / "results.json"
+    snap_retry = bench_run.new_snapshot(reps=1, models=["haiku"], level="full",
+                                        rules_cksum="1", arms=bench_run.ARMS)
+    snap_retry["runs"].append({"case": "floor", "arm": "baseline", "model": "haiku",
+                               "rep": 0, "ok": True, "text": "some answer"})
+    bench_run.save_snapshot(snap_path, snap_retry)
+    out_path = Path(td_retry) / "judgments.json"
+
+    proc = subprocess.run(
+        [sys.executable, str(ROOT / "evals" / "bench" / "judge.py"),
+         "--claude-bin", str(flaky), "--results", str(snap_path), "--out", str(out_path)],
+        capture_output=True, text=True,
+    )
+    check("judge subprocess ran cleanly against the flaky stub", proc.returncode == 0)
+    check("judge retries once on a failed call (stub invoked exactly twice)",
+          counter.exists() and counter.read_text().strip() == "2")
+    written = json.loads(out_path.read_text())
+    check("judge records a real result after the retry succeeds, not 'judge call failed'",
+          written["judgments"][0]["reason"] != bench_judge.REASON_JUDGE_CALL_FAILED)
+
+# --- F.2: judge.py must hard-exit on a results/judgments checksum mismatch ---
+with tempfile.TemporaryDirectory() as td_cksum:
+    snap_path = Path(td_cksum) / "results.json"
+    snap_new = bench_run.new_snapshot(reps=1, models=["haiku"], level="full",
+                                      rules_cksum="NEWCKSUM", arms=bench_run.ARMS)
+    snap_new["runs"].append({"case": "floor", "arm": "baseline", "model": "haiku",
+                             "rep": 0, "ok": True, "text": "x"})
+    bench_run.save_snapshot(snap_path, snap_new)
+
+    judg_path = Path(td_cksum) / "judgments.json"
+    stale = {"metadata": {"judge_model": "sonnet", "results_cksum": "OLDCKSUM"},
+             "judgments": [{"case": "floor", "arm": "baseline", "model": "haiku",
+                            "rep": 0, "verdict": "pass", "quote": "", "reason": "r"}]}
+    judg_path.write_text(json.dumps(stale))
+
+    proc = subprocess.run(
+        [sys.executable, str(ROOT / "evals" / "bench" / "judge.py"),
+         "--claude-bin", resolved_rel, "--results", str(snap_path), "--out", str(judg_path)],
+        capture_output=True, text=True,
+    )
+    check("judge: results/judgments cksum mismatch exits non-zero", proc.returncode != 0)
+    check("judge: cksum mismatch message names both checksums",
+          "OLDCKSUM" in (proc.stdout + proc.stderr) and "NEWCKSUM" in (proc.stdout + proc.stderr))
+    check("judge: cksum mismatch leaves the existing judgments file untouched",
+          json.loads(judg_path.read_text())["judgments"][0]["reason"] == "r")
+
+# --- F.3: judge.py must call blind, from a fresh temp dir, never the repo root ---
+# evals/snapshots/results.json (arm labels) and rules/laconic.md (the
+# treatment's own system prompt) both live under ROOT; a judge call made
+# with cwd=ROOT could see either. The stub logs $PWD independently of stdout
+# so the check doesn't depend on parsing a verdict out of it.
+with tempfile.TemporaryDirectory() as td_blind:
+    cwd_log = Path(td_blind) / "cwd.log"
+    cwd_stub = Path(td_blind) / "cwd-stub.sh"
+    cwd_stub.write_text(
+        "#!/usr/bin/env bash\n"
+        'printf \'%s\\n\' "$PWD" >> "$JUDGE_CWD_LOG"\n'
+        "cat <<'JSON'\n"
+        '{"is_error":false,"result":"stub answer","num_turns":1,'
+        '"total_cost_usd":0.001,"duration_ms":1,\n'
+        '"usage":{"input_tokens":1,"output_tokens":1,'
+        '"cache_creation_input_tokens":0,"cache_read_input_tokens":0}}\n'
+        "JSON\n"
+    )
+    cwd_stub.chmod(0o755)
+
+    snap_path = Path(td_blind) / "results.json"
+    snap_blind = bench_run.new_snapshot(reps=1, models=["haiku"], level="full",
+                                        rules_cksum="1", arms=bench_run.ARMS)
+    snap_blind["runs"].append({"case": "floor", "arm": "baseline", "model": "haiku",
+                               "rep": 0, "ok": True, "text": "some answer"})
+    bench_run.save_snapshot(snap_path, snap_blind)
+    out_path = Path(td_blind) / "judgments.json"
+
+    env = dict(os.environ, JUDGE_CWD_LOG=str(cwd_log))
+    proc = subprocess.run(
+        [sys.executable, str(ROOT / "evals" / "bench" / "judge.py"),
+         "--claude-bin", str(cwd_stub), "--results", str(snap_path), "--out", str(out_path)],
+        capture_output=True, text=True, env=env,
+    )
+    check("judge subprocess ran cleanly for the blindness test", proc.returncode == 0)
+    logged_cwds = cwd_log.read_text().splitlines() if cwd_log.exists() else []
+    check("judge call's cwd was logged", len(logged_cwds) == 1)
+    check("judge call did not run with cwd at the repo root "
+          "(blind to results.json's arm labels and rules/laconic.md)",
+          logged_cwds and logged_cwds[0] != str(ROOT))
+
+# --- G: run.py._cli_version must use the resolved --claude-bin, with a timeout ---
+with tempfile.TemporaryDirectory() as td_ver:
+    ver_stub = Path(td_ver) / "fake-claude-version.sh"
+    ver_stub.write_text("#!/usr/bin/env bash\nprintf 'FAKE-VERSION-MARKER-42'\n")
+    ver_stub.chmod(0o755)
+    check("_cli_version uses the given claude_bin, not a hardcoded 'claude'",
+          bench_run._cli_version(str(ver_stub)) == "FAKE-VERSION-MARKER-42")
+
+    bad_ver_stub = Path(td_ver) / "bad-version.sh"
+    bad_ver_stub.write_text("#!/usr/bin/env bash\nexit 1\n")
+    bad_ver_stub.chmod(0o755)
+    check("_cli_version reads 'unknown' when the binary's return code is non-zero",
+          bench_run._cli_version(str(bad_ver_stub)) == "unknown")
+
+# --- G: an invalid --arms value must not crash with a bare KeyError ---
+with tempfile.TemporaryDirectory() as td_arms:
+    snap_path = Path(td_arms) / "snap.json"
+    proc = subprocess.run(
+        [sys.executable, str(ROOT / "evals" / "bench" / "run.py"),
+         "--claude-bin", resolved_rel, "--models", "haiku", "--reps", "1",
+         "--cases", "floor", "--arms", "bogus-arm", "--snapshot", str(snap_path)],
+        capture_output=True, text=True,
+    )
+    check("invalid --arms value exits non-zero", proc.returncode != 0)
+    check("invalid --arms value gives a clear message naming it, not a raw KeyError traceback",
+          "Traceback" not in proc.stderr and "bogus-arm" in (proc.stdout + proc.stderr))
+
+# --- G: parse_cli_json must treat a missing/non-string result as ok:false ---
+# is_error:false with a null or absent "result" must not read as a
+# successful empty-string answer - metrics.score(None) crashes downstream.
+check("is_error:false with a null result is not ok",
+      bench_run.parse_cli_json(json.dumps({"is_error": False, "result": None}))["ok"] is False)
+check("is_error:false with a missing result is not ok",
+      bench_run.parse_cli_json(json.dumps({"is_error": False}))["ok"] is False)
+
+# --- G: report.py must exit cleanly (not a raw traceback) on a corrupt judgments file ---
+with tempfile.TemporaryDirectory() as td_corrupt_cli:
+    corrupt_cli = Path(td_corrupt_cli) / "judgments.json"
+    corrupt_cli.write_text("{not valid json")
+    proc = subprocess.run(
+        [sys.executable, str(ROOT / "evals" / "bench" / "report.py"),
+         "--results", str(ROOT / "evals" / "snapshots" / "results.json"),
+         "--judgments", str(corrupt_cli), "--no-gate"],
+        capture_output=True, text=True,
+    )
+    check("corrupt judgments file exits non-zero", proc.returncode != 0)
+    check("corrupt judgments file message names the file, not a raw traceback",
+          "Traceback" not in proc.stderr and str(corrupt_cli) in (proc.stdout + proc.stderr))
+
+# --- G: tests/stubs/claude-stub.sh must escape STUB_TEXT for the JSON it sits in ---
+stub_env = dict(os.environ, STUB_TEXT='He said "stop".')
+stub_out = subprocess.run(["bash", str(ROOT / "tests" / "stubs" / "claude-stub.sh")],
+                          input="prompt", capture_output=True, text=True, env=stub_env)
+try:
+    stub_parsed = json.loads(stub_out.stdout)
+    stub_ok = stub_parsed.get("result") == 'He said "stop".'
+except ValueError:
+    stub_ok = False
+check("claude-stub.sh escapes a quote in STUB_TEXT so its JSON stays valid", stub_ok)
 
 print("\n%d failure(s)" % fails)
 sys.exit(1 if fails else 0)

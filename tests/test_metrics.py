@@ -32,6 +32,7 @@ Check these in order:
 - run `kubectl top pod` for a few minutes
 - compare the peak against the configured limit
 - look at the restart count
+- **401** -> the token is dead.
 """
 
 BAD = """Deploy failed -> worker OOM. Usage steady ceiling -> raise limit.
@@ -78,6 +79,22 @@ check("code blocks do not trip detectors", c["violations"] == 0)
 check("inline code does not trip detectors", c["symbol_connectors"] == 0)
 check("code-block identifiers are not counted as abbreviations",
       c["abbreviated_prose"] == 0)
+
+# The rule forbids arrows "in running prose" specifically - a bullet's arrow
+# is structural markdown, not prose, and a numeric progression's arrow isn't
+# standing in for a conjunction. Neither should count. A genuine running-prose
+# arrow still must.
+check("good prose bullet with an arrow does not trip symbol_connectors",
+      g["symbol_connectors"] == 0)
+bullet_arrow = metrics.score("- **401** -> the token is dead.")
+check("arrow inside a bullet scores 0 symbol connectors",
+      bullet_arrow["symbol_connectors"] == 0)
+numeric_progression = metrics.score("The queue climbed (7 -> 11 -> 14) over the hour.")
+check("numeric progression arrows score 0 symbol connectors",
+      numeric_progression["symbol_connectors"] == 0)
+running_prose_arrow = metrics.score("Deploy failed -> restart.")
+check("genuine running-prose arrow still scores 1",
+      running_prose_arrow["symbol_connectors"] == 1)
 
 check("violations are auditable", len(b["spans"]) == b["violations"])
 

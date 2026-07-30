@@ -78,10 +78,13 @@ def parse_cli_json(raw):
         return blank
     if not isinstance(d, dict) or d.get("is_error"):
         return blank
+    result = d.get("result")
+    if not isinstance(result, str):
+        return blank
     u = d.get("usage") or {}
     return {
         "ok": True,
-        "text": d.get("result", ""),
+        "text": result,
         "output_tokens": u.get("output_tokens", 0),
         "input_tokens": u.get("input_tokens", 0),
         "cache_creation_input_tokens": u.get("cache_creation_input_tokens", 0),
@@ -105,7 +108,7 @@ def usable(runs):
     return [r for r in runs if r.get("ok")]
 
 
-def new_snapshot(reps, models, level, rules_cksum, arms):
+def new_snapshot(reps, models, level, rules_cksum, arms, claude_bin="claude"):
     arms_dict = {}
     for k, v in arms.items():
         entry = {"system_prompt": v}
@@ -115,7 +118,7 @@ def new_snapshot(reps, models, level, rules_cksum, arms):
     return {
         "metadata": {
             "generated_at": datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
-            "claude_cli_version": _cli_version(),
+            "claude_cli_version": _cli_version(claude_bin),
             "git_commit": _git_commit(),
             "laconic_level": level,
             "rules_cksum": rules_cksum,
@@ -127,12 +130,13 @@ def new_snapshot(reps, models, level, rules_cksum, arms):
     }
 
 
-def _cli_version():
+def _cli_version(claude_bin):
     try:
-        return subprocess.run(["claude", "--version"], capture_output=True,
-                              text=True).stdout.strip()
-    except OSError:
+        out = subprocess.run([claude_bin, "--version"], capture_output=True,
+                             text=True, timeout=10)
+    except (OSError, subprocess.TimeoutExpired):
         return "unknown"
+    return out.stdout.strip() if out.returncode == 0 else "unknown"
 
 
 def _git_commit():
@@ -190,6 +194,9 @@ def main():
 
     models = [m.strip() for m in args.models.split(",") if m.strip()]
     arm_names = [a.strip() for a in args.arms.split(",") if a.strip()]
+    bad_arms = [a for a in arm_names if a not in ARMS]
+    if bad_arms:
+        sys.exit("unknown arm(s): %s (valid: %s)" % (", ".join(bad_arms), ", ".join(ARMS)))
     cases = sorted(d for d in CASES.iterdir()
                    if (d / "prompt.md").exists() and fnmatch.fnmatch(d.name, args.cases))
     if not cases:
@@ -203,7 +210,7 @@ def main():
 
     snap = load_snapshot(args.snapshot)
     if snap is None:
-        snap = new_snapshot(args.reps, models, args.level, cksum, arms)
+        snap = new_snapshot(args.reps, models, args.level, cksum, arms, claude_bin)
     elif snap["metadata"].get("rules_cksum") != cksum:
         sys.exit("snapshot was generated from different rules (cksum %s vs %s); "
                  "move it aside before regenerating"

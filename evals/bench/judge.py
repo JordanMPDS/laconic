@@ -11,7 +11,9 @@ import argparse
 import fnmatch
 import json
 import re
+import shutil
 import sys
+import tempfile
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
@@ -23,6 +25,14 @@ RESULTS = ROOT / "evals" / "snapshots" / "results.json"
 JUDGMENTS = ROOT / "evals" / "snapshots" / "judgments.json"
 
 VERDICTS = ("pass", "fail", "not_exercised")
+
+# Infrastructure reasons a judgment can carry: the call itself failed, or it
+# succeeded but the model's reply couldn't be parsed as a verdict. Neither is
+# a real "the trap never fired" result. Defined once here and imported by
+# report.py so the two modules can't drift onto different magic strings.
+REASON_JUDGE_CALL_FAILED = "judge call failed"
+REASON_UNPARSEABLE = "unparseable"
+INFRA_REASONS = (REASON_JUDGE_CALL_FAILED, REASON_UNPARSEABLE)
 
 TEMPLATE = """You are grading one response against one specific criterion.
 
@@ -55,7 +65,7 @@ def build_judge_prompt(case_prompt, trap, response):
 
 
 def parse_verdict(raw):
-    out = {"verdict": "not_exercised", "quote": "", "reason": "unparseable"}
+    out = {"verdict": "not_exercised", "quote": "", "reason": REASON_UNPARSEABLE}
     m = re.search(r"\{.*\}", raw or "", re.S)
     if not m:
         return out
@@ -67,6 +77,29 @@ def parse_verdict(raw):
         return out
     return {"verdict": d["verdict"], "quote": d.get("quote", "") or "",
             "reason": d.get("reason", "") or ""}
+
+
+def _call_blind(claude_bin, model, prompt):
+    """One judge call, retried once on failure - mirrors run.py's retry, so
+    a service blip doesn't get recorded as a permanent judge-call failure and
+    excluded from every future resume.
+
+    Each attempt runs in its own fresh temp dir, never the repo root:
+    evals/snapshots/results.json labels every response by arm, and
+    rules/laconic.md is the treatment's own system prompt. Grading from
+    ROOT would let the judge see both (see evals/run.sh for why that
+    matters), breaking the blindness this module's docstring promises.
+    """
+    res = {"ok": False}
+    for _ in range(2):
+        scratch = tempfile.mkdtemp()
+        try:
+            res = bench_run.call(claude_bin, model, prompt, None, scratch)
+        finally:
+            shutil.rmtree(scratch, ignore_errors=True)
+        if res.get("ok"):
+            return res
+    return res
 
 
 def main():
@@ -88,6 +121,19 @@ def main():
         sys.exit("no snapshot at %s - run run.py first" % args.results)
 
     prior = bench_run.load_snapshot(args.out) or {"metadata": {}, "judgments": []}
+
+    # A results.json regenerated after a rules change (new rules_cksum) must
+    # not be graded against a judgments.json built for the old one - that
+    # would publish stale verdicts under a fresh provenance stamp. Only fires
+    # once prior actually carries a stamp; a fresh/empty judgments file has
+    # nothing to conflict with.
+    results_cksum = snap["metadata"].get("rules_cksum")
+    prior_cksum = prior.get("metadata", {}).get("results_cksum")
+    if prior_cksum and prior_cksum != results_cksum:
+        sys.exit("judgments were generated from different results (cksum %s vs %s); "
+                 "move %s aside before regenerating"
+                 % (prior_cksum, results_cksum, args.out))
+
     done = set((j["case"], j["arm"], j["model"], j["rep"]) for j in prior["judgments"])
 
     # Same glob semantics as run.py --cases, so the two flags select alike.
@@ -101,13 +147,13 @@ def main():
         expect = json.loads((case_dir / "expect.json").read_text())
         prompt = build_judge_prompt((case_dir / "prompt.md").read_text(),
                                     expect["trap"], r["text"])
-        res = bench_run.call(claude_bin, args.model, prompt, None, str(ROOT))
+        res = _call_blind(claude_bin, args.model, prompt)
         v = parse_verdict(res.get("text", "")) if res.get("ok") else \
-            {"verdict": "not_exercised", "quote": "", "reason": "judge call failed"}
+            {"verdict": "not_exercised", "quote": "", "reason": REASON_JUDGE_CALL_FAILED}
         v.update({"case": r["case"], "arm": r["arm"], "model": r["model"], "rep": r["rep"]})
         prior["judgments"].append(v)
         prior["metadata"] = {"judge_model": args.model,
-                             "results_cksum": snap["metadata"].get("rules_cksum")}
+                             "results_cksum": results_cksum}
         bench_run.save_snapshot(args.out, prior)
         print("[%d/%d] %-14s %-16s %-7s rep%d -> %s"
               % (i, len(runs), r["case"], r["arm"], r["model"], r["rep"], v["verdict"]))

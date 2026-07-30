@@ -91,13 +91,41 @@ def _lowercase_starts(sentences_src):
     return hits
 
 
+def _is_numeric_progression(line, start, end):
+    """True when the arrow at line[start:end] has a digit on both sides once
+    surrounding whitespace/punctuation is trimmed, e.g. '7 -> 11'. That is a
+    quoted progression, not a conjunction standing in for a word."""
+    before = line[:start].rstrip()
+    after = line[end:].lstrip()
+    return bool(before) and before[-1].isdigit() and bool(after) and after[0].isdigit()
+
+
+def _symbol_hits(prose):
+    """Arrows counted only in running-prose lines. The rule forbids arrows
+    'in running prose' specifically: a bullet, heading or table row is
+    structural markdown, not prose, and STRUCTURAL already exists for exactly
+    this reason (see _lowercase_starts). A numeric progression like
+    '7 -> 11 -> 14' isn't a conjunction either. Matched per line rather than
+    on the whole text so a removed structural line can never make an
+    unrelated digit and arrow from different lines look adjacent."""
+    hits = []
+    for line in prose.splitlines():
+        if STRUCTURAL.match(line):
+            continue
+        for m in SYMBOLS.finditer(line):
+            if _is_numeric_progression(line, m.start(), m.end()):
+                continue
+            hits.append(m.group(0))
+    return hits
+
+
 def score(text):
     prose, sentences_src = split_text(text)
     words = WORD.findall(prose)
     total = len(words)
     lowered = [w.lower() for w in words]
 
-    symbols = SYMBOLS.findall(prose)
+    symbols = _symbol_hits(prose)
     abbrevs = [m.group(0) for m in ABBREV.finditer(prose)]
     lows = _lowercase_starts(sentences_src)
 

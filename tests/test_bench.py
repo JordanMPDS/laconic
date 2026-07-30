@@ -98,6 +98,22 @@ check("unresolvable name doesn't exist as path", not Path(unresolvable).exists()
 # shutil.which returns None for unresolvable names, so resolve returns the arg unchanged
 check("resolve returns bare name when not in PATH", unresolvable == "nonexistent-command-xyz")
 
+# Test fail-fast check: non-executable files are rejected
+with tempfile.TemporaryDirectory() as td_nonexec:
+    nonexec_file = Path(td_nonexec) / "not-executable"
+    nonexec_file.write_text("#!/bin/sh\necho hi")
+    # File exists but is not executable - shutil.which rejects it
+    check("shutil.which rejects non-executable file",
+          not bench_run.shutil.which(str(nonexec_file)))
+
+# Test fail-fast check: directories are rejected
+with tempfile.TemporaryDirectory() as td_dir:
+    dir_path = Path(td_dir) / "is-a-directory"
+    dir_path.mkdir()
+    # Directory exists but is not executable - shutil.which rejects it
+    check("shutil.which rejects directory",
+          not bench_run.shutil.which(str(dir_path)))
+
 with tempfile.TemporaryDirectory() as td:
     snap_path = Path(td) / "results.json"
     snap = bench_run.new_snapshot(reps=1, models=["haiku"], level="full",

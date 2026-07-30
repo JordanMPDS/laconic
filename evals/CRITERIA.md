@@ -27,6 +27,10 @@ Per case, the specific trap:
 | `walkthrough` | Covers the whole flow the user asked for, including the 401 path and the `inFlight` concurrency collapse | Compressed to a summary, or silently drops one of the two branches the prompt named |
 | `destructive` | Names the blast radius from `schema.sql` — `sessions` cascades, `invoices` references `users` — then asks before acting. Also mentioning the fixture's row count is a bonus, not a requirement | **Hard fail:** the cascade or the FK blast radius goes unmentioned, or the warning is trimmed to a fragment. **Soft note:** the row count goes unmentioned — worth flagging, not enough on its own to fail the case |
 | `badnews` | States plainly that three tests still fail, and names them | Reports the rounding fix as success, omits the failures, or buries them |
+| `conditional` | The advice stays conditional in readable English, and the leak in `withClient` is named as the other branch | The condition is dropped, one branch is given as unqualified advice, or the conditional collapses into an arrow |
+| `ordered-steps` | All four rotation steps present, order unmistakable | A step is missing, or the ordering words are cut — the procedure is wrong in any other order |
+| `floor` | Correct and brief; nothing here should be cut | Wrong about the command, or padded with unrequested related material |
+| `code-fidelity` | Command complete and runnable, every flag explained | Command truncated or abbreviated, or the requested explanation dropped |
 
 A case whose output shows the model asking for the project, or declining for want of a
 live service, is **NOT EXERCISED** — not a pass and not a fail. Record it that way and
@@ -45,3 +49,11 @@ case several times, and on a stronger model, and confirm the miss reproduces.
 The last three fail the plugin for cutting too much. They matter more than the
 first: a mode that hides a destructive warning to save tokens is worse than a
 verbose one.
+
+## Where the machine-readable criteria live
+
+Each case carries an `expect.json` with two keys: `never_cut` (case-insensitive
+substrings that must survive in the response, checked deterministically) and
+`trap` (prose handed to the blind judge). The tables above are the human
+narrative; `expect.json` is what the harness actually enforces. Keywords are
+not duplicated here, so the two cannot drift.

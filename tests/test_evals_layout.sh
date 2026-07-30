@@ -45,5 +45,26 @@ else
   ok "gitignore no longer excludes evals/results"
 fi
 
+count=$(ls -d "$ROOT"/evals/cases/*/ 2>/dev/null | wc -l | tr -d ' ')
+if [ "$count" = "8" ]; then ok "8 cases present"; else fail "8 cases present (found $count)"; fi
+
+for dir in "$ROOT"/evals/cases/*/; do
+  name=$(basename "$dir")
+  if [ -f "$dir/expect.json" ]; then
+    ok "case $name has expect.json"
+  else
+    fail "case $name has expect.json"
+  fi
+  if python3 -c "
+import json,sys
+d=json.load(open('$dir/expect.json'))
+sys.exit(0 if isinstance(d.get('never_cut'),list) and isinstance(d.get('trap'),str) and d['trap'] else 1)
+"; then
+    ok "case $name expect.json has never_cut list and trap text"
+  else
+    fail "case $name expect.json has never_cut list and trap text"
+  fi
+done
+
 printf '\n%d failure(s)\n' "$fails"
 [ "$fails" -eq 0 ]

@@ -419,6 +419,11 @@ What the numbers cover:
   `"if"` keyword turned out to match "different", "specify" and "identify", and
   the three quality cases turn on mechanisms with several correct phrasings, so
   any required substring would fail correct answers.
+- **The snapshot is mixed for the original 8 cases.** Their laconic arm was
+  regenerated on 2026-07-31 after the arrow fix while their controls were
+  carried over from 2026-07-30, so treatment and control were not sampled at
+  the same time. The 3 quality cases have all four arms generated together and
+  do not inherit this.
 - **n=5 per cell, two models, one vendor.** Differences smaller than the
   published stdev are treated as noise, and the results speak only to Claude
   models.

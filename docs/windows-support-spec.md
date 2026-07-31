@@ -204,3 +204,14 @@ The port is done when all of these hold:
   attractive and is not.
 - **Whether the statusline badge is worth porting.** It is opt-in and cosmetic. Shipping it
   with the port is cheap; deferring it is also defensible. Decide when implementing.
+  **Decided: ported.** The badge and the hook resolve the flag by the same rules, and a
+  badge naming a level the session is not running is worse than no badge because nothing
+  else reveals the mismatch. Keeping one platform's badge on a divergent code path is the
+  cheapest way to produce exactly that, so the two move together or not at all.
+
+## Still open after implementation
+
+- **Nobody has installed this from the marketplace on a real Windows host.** Both
+  `claude plugin validate` invocations pass, and the acceptance criteria above are explicit
+  that this is not evidence of loading — v0.1.0 passed both and still failed at runtime.
+  This is the one criterion the CI cannot close.

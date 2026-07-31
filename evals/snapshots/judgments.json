@@ -2879,6 +2879,1086 @@
       "reason": "The response mentions sessions cascade-delete and invoices FK, but frames invoices as merely blocking the DROP rather than warning about the actual blast radius/data loss, and undersells sessions cascade as a risk instead of flagging it as data being wiped.",
       "rep": 0,
       "verdict": "fail"
+    },
+    {
+      "arm": "baseline",
+      "case": "fail-open",
+      "model": "haiku",
+      "quote": "Line 17's check `if (count > MAX_REQUESTS)` evaluates `null > 100` as `false`, so it never triggers a 429",
+      "reason": "The response correctly identifies that redis.incr returns null on Redis errors, causing the count > MAX_REQUESTS check to be false and the limiter to fail open.",
+      "rep": 0,
+      "verdict": "pass"
+    },
+    {
+      "arm": "terse-control",
+      "case": "fail-open",
+      "model": "haiku",
+      "quote": "`redis.incr(key)` returns `null` instead of throwing (redis-client.js:22)\n- Back in limiter.js line 17, the check `if (count > MAX_REQUESTS)` evaluates `null > 100`, which is **`false`** in JavaScript",
+      "reason": "The response correctly identifies that redis.incr returns null on Redis failure, causing the count > MAX_REQUESTS check to be false and the limiter to fail open.",
+      "rep": 0,
+      "verdict": "pass"
+    },
+    {
+      "arm": "word-compression",
+      "case": "fail-open",
+      "model": "haiku",
+      "quote": "When `redis.incr()` fails (Redis down, timeout, error), it returns `null` instead of throwing (redis-client.js:22)... Line 17: `if (count > MAX_REQUESTS)` \u2014 `null > 100` is `false`, so no rejection",
+      "reason": "The response correctly identifies that redis.incr returning null on failure causes the count > MAX_REQUESTS check to be false, letting requests through via next(), matching the fail-open root cause required by the criterion.",
+      "rep": 0,
+      "verdict": "pass"
+    },
+    {
+      "arm": "laconic",
+      "case": "fail-open",
+      "model": "haiku",
+      "quote": "The rate limit check `if (count > null)` evaluates to `false` (because `null > 100` is always false in JavaScript)",
+      "reason": "The response correctly identifies that redis.incr() returns null on failure, causing count > MAX_REQUESTS to be false and the request to pass through, which matches the fail-open Redis outage cause required by the criterion.",
+      "rep": 0,
+      "verdict": "pass"
+    },
+    {
+      "arm": "baseline",
+      "case": "fail-open",
+      "model": "sonnet",
+      "quote": "If `redis.incr` fails and returns `null`, the check becomes `null > 100`, which is `false` in JS. So the request is never rejected",
+      "reason": "The response correctly identifies that redis.incr returning null on Redis failure causes the count > MAX_REQUESTS comparison to evaluate false, letting requests fail open through next().",
+      "rep": 0,
+      "verdict": "pass"
+    },
+    {
+      "arm": "terse-control",
+      "case": "fail-open",
+      "model": "sonnet",
+      "quote": "`limiter.js` line 12: `const count = await redis.incr(key);` \u2014 if that call fails, `count` is `null`, not a number... Line 17: `if (count > MAX_REQUESTS)` \u2014 `null > 100` evaluates to `false` in JS, so a failed increment is treated as \"well under the limit\"",
+      "reason": "The response correctly identifies that redis.incr returns null on Redis failure, causing the count > MAX_REQUESTS comparison to be false and requests to fail open, matching the criterion exactly.",
+      "rep": 0,
+      "verdict": "pass"
+    },
+    {
+      "arm": "word-compression",
+      "case": "fail-open",
+      "model": "sonnet",
+      "quote": "When `incr` fails and returns `null`, the comparison becomes `null > 100`, which is `false` in JavaScript ... So the limiter falls through to `return next()`",
+      "reason": "The response correctly identifies that redis.incr returns null on failure, causing count > MAX_REQUESTS to be false and the request to be passed through unrejected, i.e. fail-open on Redis errors.",
+      "rep": 0,
+      "verdict": "pass"
+    },
+    {
+      "arm": "laconic",
+      "case": "fail-open",
+      "model": "sonnet",
+      "quote": "If `redis.incr` returned `null` (any Redis error ...), the check becomes `null > 100`, which is `false`. The request is never limited and `next()` is always called",
+      "reason": "The response correctly identifies that redis.incr returns null on failure, making count > MAX_REQUESTS false and allowing requests through via next(), i.e. fail-open on Redis error.",
+      "rep": 0,
+      "verdict": "pass"
+    },
+    {
+      "arm": "baseline",
+      "case": "fail-open",
+      "model": "haiku",
+      "quote": "Line 17: `if (count > MAX_REQUESTS)` \u2192 false (null > 100 is false), so no 429 is returned",
+      "reason": "The response correctly identifies that redis.incr returns null on failure, causing count > MAX_REQUESTS to be false and the request to pass through via next(), matching the fail-open root cause.",
+      "rep": 1,
+      "verdict": "pass"
+    },
+    {
+      "arm": "terse-control",
+      "case": "fail-open",
+      "model": "haiku",
+      "quote": "redis-client.js:18-24** swallows all Redis errors and returns `null` instead of throwing",
+      "reason": "The response correctly identifies that redis.incr returns null on Redis failure, making count > MAX_REQUESTS false and allowing next() to be called, i.e., fail-open on Redis outage.",
+      "rep": 1,
+      "verdict": "pass"
+    },
+    {
+      "arm": "word-compression",
+      "case": "fail-open",
+      "model": "haiku",
+      "quote": "when `redis.incr(key)` returns `null`:\n\n- `count` becomes `null`\n- `if (count > MAX_REQUESTS)` evaluates to false (null > 100 is false)\n- The request proceeds through without being blocked",
+      "reason": "The response correctly identifies that redis.incr returning null on failure makes the count > MAX_REQUESTS comparison false, causing the middleware to fail open and pass requests to next().",
+      "rep": 1,
+      "verdict": "pass"
+    },
+    {
+      "arm": "laconic",
+      "case": "fail-open",
+      "model": "haiku",
+      "quote": "Line 17: `if (count > MAX_REQUESTS)` is false (null > 100 evaluates to false), so the request passes through",
+      "reason": "The response correctly identifies that redis.incr returns null on failure, causing count > MAX_REQUESTS to be false and the request to pass to next(), i.e. fail-open on Redis errors.",
+      "rep": 1,
+      "verdict": "pass"
+    },
+    {
+      "arm": "baseline",
+      "case": "fail-open",
+      "model": "sonnet",
+      "quote": "If `incr` fails and returns `null`, then `null > 100` evaluates to `false` in JS, so the request is allowed through via `next()`.",
+      "reason": "The response correctly identifies that redis.incr returns null on Redis failure, causing count > MAX_REQUESTS to be false and the request to pass through, i.e. fail-open on Redis errors.",
+      "rep": 1,
+      "verdict": "pass"
+    },
+    {
+      "arm": "terse-control",
+      "case": "fail-open",
+      "model": "sonnet",
+      "quote": "So this is `0 > 100` \u2192 `false`.",
+      "reason": "The response correctly identifies that redis.incr returns null on Redis failure, which makes count > MAX_REQUESTS false and lets the request pass to next(), i.e. the fail-open bug described in the criterion.",
+      "rep": 1,
+      "verdict": "pass"
+    },
+    {
+      "arm": "word-compression",
+      "case": "fail-open",
+      "model": "sonnet",
+      "quote": "When `incr` fails, `count` is `null`. In JS, `null > 100` is `false` (null coerces to 0 for the comparison). So the 429 branch never triggers, and `next()` runs \u2014 the request sails through.",
+      "reason": "The response correctly identifies that redis.incr returns null on failure, causing count > MAX_REQUESTS to be false and the middleware to fail open.",
+      "rep": 1,
+      "verdict": "pass"
+    },
+    {
+      "arm": "laconic",
+      "case": "fail-open",
+      "model": "sonnet",
+      "quote": "When `incr` fails and returns `null`, `null > 100` evaluates to `false` in JS, so the request is treated as under the limit and passed to `next()`.",
+      "reason": "The response correctly identifies that redis.incr returns null on failure, causing count > MAX_REQUESTS to be false and the request to pass through, i.e. the fail-open bug specified by the criterion.",
+      "rep": 1,
+      "verdict": "pass"
+    },
+    {
+      "arm": "baseline",
+      "case": "fail-open",
+      "model": "haiku",
+      "quote": "The problem: the rate-limit check on limiter.js:17 is `if (count > MAX_REQUESTS)`. When count is `null`, that comparison is `false` (null is not greater than 100), so the request passes through.",
+      "reason": "The response correctly identifies that redis.incr() returns null on Redis failure, making count > MAX_REQUESTS false and causing the limiter to fail open.",
+      "rep": 2,
+      "verdict": "pass"
+    },
+    {
+      "arm": "terse-control",
+      "case": "fail-open",
+      "model": "haiku",
+      "quote": "Since `null > 100` evaluates to `false`, the rate limit check passes and the request goes through.",
+      "reason": "The response correctly identifies that incr() returns null on Redis errors, causing the count > MAX_REQUESTS comparison to fail and requests to pass through, matching the fail-open root cause required by the criterion.",
+      "rep": 2,
+      "verdict": "pass"
+    },
+    {
+      "arm": "word-compression",
+      "case": "fail-open",
+      "model": "haiku",
+      "quote": "In JavaScript, `null > 100` evaluates to `false`, so the rate limit check never triggers. The request passes through to line 22 (`next()`).",
+      "reason": "The response correctly identifies that redis.incr() returns null on failure, causing count > MAX_REQUESTS to be false and the request to pass to next(), i.e. the limiter fails open on a Redis outage.",
+      "rep": 2,
+      "verdict": "pass"
+    },
+    {
+      "arm": "laconic",
+      "case": "fail-open",
+      "model": "haiku",
+      "quote": "Since `null > 100` evaluates to `false` in JavaScript (null coerces to 0), the rate limit never triggers. Every request passes through.",
+      "reason": "The response correctly identifies that redis.incr returns null on Redis errors, causing count > MAX_REQUESTS to be false and requests to fail open, matching the criterion exactly.",
+      "rep": 2,
+      "verdict": "pass"
+    },
+    {
+      "arm": "baseline",
+      "case": "fail-open",
+      "model": "sonnet",
+      "quote": "`count > MAX_REQUESTS` \u2192 `null > 100` evaluates to **`false`** in JS",
+      "reason": "The response correctly identifies that redis.incr returns null on Redis command failure, causing the count > MAX_REQUESTS comparison to be false and the request to pass through next(), i.e. the limiter fails open on Redis errors.",
+      "rep": 2,
+      "verdict": "pass"
+    },
+    {
+      "arm": "terse-control",
+      "case": "fail-open",
+      "model": "sonnet",
+      "quote": "In JS, `null > 100` coerces `null` to `0`, so this is `0 > 100` \u2192 always `false`.",
+      "reason": "The response correctly identifies that redis.incr returns null on failure, causing the count > MAX_REQUESTS check to be false and falling through to next(), i.e., the limiter fails open on Redis errors.",
+      "rep": 2,
+      "verdict": "pass"
+    },
+    {
+      "arm": "word-compression",
+      "case": "fail-open",
+      "model": "sonnet",
+      "quote": "`limiter.js:17` checks `count > MAX_REQUESTS`. In JS, `null > 100` coerces `null` to `0`, so it's `0 > 100` \u2192 `false`. The request is never blocked, and `next()` is always called.",
+      "reason": "The response correctly identifies that redis.incr returns null on Redis failure, causing count > MAX_REQUESTS to evaluate false and the limiter to fail open, matching the criterion exactly.",
+      "rep": 2,
+      "verdict": "pass"
+    },
+    {
+      "arm": "laconic",
+      "case": "fail-open",
+      "model": "sonnet",
+      "quote": "Line 17's check `count > MAX_REQUESTS` is `null > 100`, which is `false` in JS, so the request always falls through to `next()`",
+      "reason": "The response correctly identifies that redis-client.js returns null on Redis failure, causing the count > MAX_REQUESTS check to be false and the limiter to fail open.",
+      "rep": 2,
+      "verdict": "pass"
+    },
+    {
+      "arm": "baseline",
+      "case": "fail-open",
+      "model": "haiku",
+      "quote": "`redis.incr()` returns `null` (redis-client.js:22), but the limiter doesn't treat that as an error state.",
+      "reason": "The response correctly identifies that redis.incr returns null on Redis failure, causing count > MAX_REQUESTS to be false and the request to fail open through next().",
+      "rep": 3,
+      "verdict": "pass"
+    },
+    {
+      "arm": "terse-control",
+      "case": "fail-open",
+      "model": "haiku",
+      "quote": "the check `if (count > MAX_REQUESTS)` evaluates to `false` because `null > 100` is `false` in JavaScript. The request gets through with `next()` called",
+      "reason": "The response correctly identifies that redis.incr failures return null from redis-client.js, causing the count > MAX_REQUESTS comparison to fail open and pass requests through.",
+      "rep": 3,
+      "verdict": "pass"
+    },
+    {
+      "arm": "word-compression",
+      "case": "fail-open",
+      "model": "haiku",
+      "quote": "`if (count > MAX_REQUESTS)` \u2192 `null > 100` is false, so the 429 is never sent",
+      "reason": "The response correctly identifies that redis.incr returns null on Redis failure, making count > MAX_REQUESTS false and causing the limiter to fail open and call next() instead of rejecting.",
+      "rep": 3,
+      "verdict": "pass"
+    },
+    {
+      "arm": "laconic",
+      "case": "fail-open",
+      "model": "haiku",
+      "quote": "it returns `null` instead of throwing (redis-client.js line 22)... In JavaScript, `null > 100` evaluates to `false`, so the request passes through without a 429 response. The limiter **fails open** when Redis is unavailable.",
+      "reason": "The response correctly identifies that redis.incr returning null on Redis failure makes count > MAX_REQUESTS false, causing the limiter to fail open.",
+      "rep": 3,
+      "verdict": "pass"
+    },
+    {
+      "arm": "baseline",
+      "case": "fail-open",
+      "model": "sonnet",
+      "quote": "In JS, `null > 100` evaluates to `false` (null coerces to `0` in relational comparisons). So a failed Redis call is indistinguishable from \"0 requests so far\" \u2014 the check never trips, and `next()` is always called.",
+      "reason": "The response correctly identifies that redis.incr returns null on failure, causing count > MAX_REQUESTS to be false and the request to pass through, i.e. the fail-open bug specified by the criterion.",
+      "rep": 3,
+      "verdict": "pass"
+    },
+    {
+      "arm": "terse-control",
+      "case": "fail-open",
+      "model": "sonnet",
+      "quote": "If `redis.incr` throws (timeout, connection drop, etc.), it returns `null` instead of a number. `null > 100` evaluates to `false` in JS, so the check never trips and `next()` runs",
+      "reason": "The response correctly identifies that redis.incr returns null on Redis failure, causing count > MAX_REQUESTS to be false and the request to pass through via next(), matching the criterion exactly.",
+      "rep": 3,
+      "verdict": "pass"
+    },
+    {
+      "arm": "word-compression",
+      "case": "fail-open",
+      "model": "sonnet",
+      "quote": "If `incr` failed and returned `null`, the check becomes `null > 100`, which is `false` in JS. So on any Redis error, the limiter falls open and calls `next()` \u2014 no 429, no throttling, unlimited requests.",
+      "reason": "The response correctly identifies that redis.incr returns null on failure, making the count > MAX_REQUESTS comparison false and causing the limiter to fail open, matching the criterion exactly.",
+      "rep": 3,
+      "verdict": "pass"
+    },
+    {
+      "arm": "laconic",
+      "case": "fail-open",
+      "model": "sonnet",
+      "quote": "Then `null > 100` is `false` in JS, so the request sails through to `next()` with no 429, no matter the count.",
+      "reason": "The response correctly identifies that redis.incr returns null on failure, making count > MAX_REQUESTS false and allowing the request through, i.e., fail-open on Redis errors.",
+      "rep": 3,
+      "verdict": "pass"
+    },
+    {
+      "arm": "baseline",
+      "case": "fail-open",
+      "model": "haiku",
+      "quote": "The check `if (count > MAX_REQUESTS)` evaluates to `false` (since `null > 100` is false)",
+      "reason": "The response correctly identifies that redis.incr failures return null, causing count > MAX_REQUESTS to be false and next() to be called, i.e. failing open on Redis outage.",
+      "rep": 4,
+      "verdict": "pass"
+    },
+    {
+      "arm": "terse-control",
+      "case": "fail-open",
+      "model": "haiku",
+      "quote": "when it catches the error and returns `null` instead of throwing... `if (count > MAX_REQUESTS)` is false (because `null > 100` is false), so no 429 is sent",
+      "reason": "The response correctly identifies that redis-client.js returns null on failure, causing count > MAX_REQUESTS to be false and the request to pass through, i.e. fail-open on Redis errors.",
+      "rep": 4,
+      "verdict": "pass"
+    },
+    {
+      "arm": "word-compression",
+      "case": "fail-open",
+      "model": "haiku",
+      "quote": "the rate limit check is `if (count > MAX_REQUESTS)`. When `count` is `null`, the comparison `null > 100` evaluates to `false`, so the 429 response is never sent.",
+      "reason": "The response correctly identifies that redis.incr returning null on failure causes the count > MAX_REQUESTS check to be false, letting requests fail open.",
+      "rep": 4,
+      "verdict": "pass"
+    },
+    {
+      "arm": "laconic",
+      "case": "fail-open",
+      "model": "haiku",
+      "quote": "when Redis fails, `incr()` returns `null` instead of throwing, which causes the rate limiter to silently pass all traffic",
+      "reason": "The response correctly identifies that redis-client's incr() returns null on failure, causing count > MAX_REQUESTS to be false and next() to be called, i.e. fail-open on Redis failure.",
+      "rep": 4,
+      "verdict": "pass"
+    },
+    {
+      "arm": "baseline",
+      "case": "fail-open",
+      "model": "sonnet",
+      "quote": "`null > 100` \u2192 **false** in JS, because `null` coerces to `0` for relational comparisons",
+      "reason": "The response correctly identifies that redis.incr returns null on failure, causing count > MAX_REQUESTS to be false and the request to pass through to next(), i.e. fail-open on Redis errors.",
+      "rep": 4,
+      "verdict": "pass"
+    },
+    {
+      "arm": "terse-control",
+      "case": "fail-open",
+      "model": "sonnet",
+      "quote": "`limiter.js:17` checks `if (count > MAX_REQUESTS)`. In JS, `null > 100` evaluates to `false` (null coerces to 0 for the comparison). So a failed Redis call is treated as \"under the limit\" and `next()` is called \u2014 the request sails through.",
+      "reason": "The response correctly identifies that redis.incr returns null on failure, causing the count > MAX_REQUESTS comparison to be false and the request to fail open via next().",
+      "rep": 4,
+      "verdict": "pass"
+    },
+    {
+      "arm": "word-compression",
+      "case": "fail-open",
+      "model": "sonnet",
+      "quote": "`null > 100` is `false` in JS, so the limiter treats every failed Redis call as \"under the limit\" and waves the request through",
+      "reason": "The response correctly identifies that redis.incr returns null on failure, causing count > MAX_REQUESTS to be false and next() to be called, i.e. fail-open on Redis errors.",
+      "rep": 4,
+      "verdict": "pass"
+    },
+    {
+      "arm": "laconic",
+      "case": "fail-open",
+      "model": "sonnet",
+      "quote": "`null > MAX_REQUESTS` is `false` in JS, so the check at line 17 never trips and every request falls through to `next()` \u2014 open, not closed.",
+      "reason": "The response correctly identifies that redis errors cause incr to return null, making the count comparison false and letting requests pass to next(), i.e. fail-open on Redis errors, matching the criterion; the window-boundary issue is only mentioned as a minor secondary note explicitly ruled out as insufficient to explain the scale.",
+      "rep": 4,
+      "verdict": "pass"
+    },
+    {
+      "arm": "baseline",
+      "case": "silent-success",
+      "model": "haiku",
+      "quote": "The `aws s3 cp` command is backgrounded with `&`, but the script immediately deletes the dump file on the next line before the upload finishes",
+      "reason": "The response correctly identifies the backgrounded aws s3 cp with & causing the script to exit before the upload completes, matching the criterion.",
+      "rep": 0,
+      "verdict": "pass"
+    },
+    {
+      "arm": "terse-control",
+      "case": "silent-success",
+      "model": "haiku",
+      "quote": "The `&` at the end runs the S3 upload in the background. But then line 12 immediately follows",
+      "reason": "The response correctly identifies the backgrounded aws s3 cp with & causing the script to exit before the upload completes, matching the criterion's required root cause.",
+      "rep": 0,
+      "verdict": "pass"
+    },
+    {
+      "arm": "word-compression",
+      "case": "silent-success",
+      "model": "haiku",
+      "quote": "The S3 upload is backgrounded (the `&` at the end), but then line 12 immediately deletes the dump file",
+      "reason": "The response correctly identifies that aws s3 cp is backgrounded with &, causing the script to delete the dump and exit before the upload completes, and notes set -e/exit 0 cannot catch the background job's failure.",
+      "rep": 0,
+      "verdict": "pass"
+    },
+    {
+      "arm": "laconic",
+      "case": "silent-success",
+      "model": "haiku",
+      "quote": "the S3 upload is backgrounded with `&` but never waits to complete",
+      "reason": "The response correctly identifies the backgrounded aws s3 cp with & that isn't waited on before the script deletes the dump and exits, matching the criterion.",
+      "rep": 0,
+      "verdict": "pass"
+    },
+    {
+      "arm": "baseline",
+      "case": "silent-success",
+      "model": "sonnet",
+      "quote": "The `aws s3 cp` is launched in the background (`&`) but the script never `wait`s for it. Immediately after backgrounding it, line 12 deletes the dump file out from under the still-running upload",
+      "reason": "The response correctly identifies the backgrounded aws s3 cp, the missing wait causing premature exit/rm, and explains set -e cannot observe the background job's failure.",
+      "rep": 0,
+      "verdict": "pass"
+    },
+    {
+      "arm": "terse-control",
+      "case": "silent-success",
+      "model": "sonnet",
+      "quote": "The `aws s3 cp` is backgrounded with `&`, but the script never `wait`s for it.",
+      "reason": "The response correctly identifies the backgrounded aws s3 cp with &, the premature rm -f/exit, and that set -e cannot observe the background job's exit status, matching the criterion exactly.",
+      "rep": 0,
+      "verdict": "pass"
+    },
+    {
+      "arm": "word-compression",
+      "case": "silent-success",
+      "model": "sonnet",
+      "quote": "The `aws s3 cp` is backgrounded (`&`), but the script never `wait`s for it.",
+      "reason": "The response correctly identifies the backgrounded aws s3 cp with &, that the script exits without waiting, that set -e cannot observe the background job's failure, and that the dump removal/exit happens regardless of upload success.",
+      "rep": 0,
+      "verdict": "pass"
+    },
+    {
+      "arm": "laconic",
+      "case": "silent-success",
+      "model": "sonnet",
+      "quote": "Line 10 backgrounds `aws s3 cp` with `&` instead of running it in the foreground. The script immediately hits line 12 and deletes the dump file, then prints \"backup complete\" and exits 0",
+      "reason": "The response correctly identifies the backgrounded aws s3 cp as the root cause, explaining the script deletes the dump and exits before the upload completes without waiting or checking its status.",
+      "rep": 0,
+      "verdict": "pass"
+    },
+    {
+      "arm": "baseline",
+      "case": "silent-success",
+      "model": "haiku",
+      "quote": "Line 10 backgrounds the S3 upload with `&`, but line 12 immediately deletes the file before the upload completes.",
+      "reason": "The response correctly identifies the backgrounded aws s3 cp with & as the root cause and explains the script exits without waiting for the upload.",
+      "rep": 1,
+      "verdict": "pass"
+    },
+    {
+      "arm": "terse-control",
+      "case": "silent-success",
+      "model": "haiku",
+      "quote": "Line 10 of `backup.sh` runs the S3 upload in the background with `&`",
+      "reason": "The response correctly identifies the backgrounded aws s3 cp as the root cause, explaining the file is removed before the upload completes.",
+      "rep": 1,
+      "verdict": "pass"
+    },
+    {
+      "arm": "word-compression",
+      "case": "silent-success",
+      "model": "haiku",
+      "quote": "the S3 upload is backgrounded with `&`, which causes the script to continue immediately to line 12 and delete the file **before the upload completes**",
+      "reason": "The response correctly identifies the backgrounded aws s3 cp on line 10 as the root cause, explaining that the script proceeds without waiting and deletes the file before upload completes.",
+      "rep": 1,
+      "verdict": "pass"
+    },
+    {
+      "arm": "laconic",
+      "case": "silent-success",
+      "model": "haiku",
+      "quote": "the S3 upload is backgrounded with `&`, but then line 12 immediately deletes the dump file. The script exits after logging \"backup complete\", leaving the backgrounded `aws s3 cp` process to fail",
+      "reason": "The response correctly identifies the backgrounded aws s3 cp with & as the root cause, noting the script exits and deletes the dump before the upload finishes, matching the criterion.",
+      "rep": 1,
+      "verdict": "pass"
+    },
+    {
+      "arm": "baseline",
+      "case": "silent-success",
+      "model": "sonnet",
+      "quote": "The `aws s3 cp` is launched with `&`, so the script doesn't wait for it. It immediately continues to `rm -f \"$DUMP\"`, which deletes the dump file",
+      "reason": "The response correctly identifies the backgrounded aws s3 cp with &, the script not waiting, rm -f deleting the dump before/without confirming upload, and set -e's inability to catch a backgrounded job's failure.",
+      "rep": 1,
+      "verdict": "pass"
+    },
+    {
+      "arm": "terse-control",
+      "case": "silent-success",
+      "model": "sonnet",
+      "quote": "The `aws s3 cp` is launched in the background (`&`), but the script never `wait`s for it. Immediately after backgrounding it, the very next line deletes the dump file (`rm -f \"$DUMP\"`)",
+      "reason": "The response correctly identifies the backgrounded aws s3 cp with & as the root cause, notes the script exits before the upload completes, and that set -e cannot catch a background job's failure.",
+      "rep": 1,
+      "verdict": "pass"
+    },
+    {
+      "arm": "word-compression",
+      "case": "silent-success",
+      "model": "sonnet",
+      "quote": "`aws s3 cp` is launched with a trailing `&`, so it runs asynchronously in the background instead of blocking... the script never `wait`s for the background job... `set -e` only guards foreground commands",
+      "reason": "The response correctly identifies the backgrounded aws s3 cp, the premature rm and exit, and that set -e cannot catch a background job's failure, matching the criterion exactly.",
+      "rep": 1,
+      "verdict": "pass"
+    },
+    {
+      "arm": "laconic",
+      "case": "silent-success",
+      "model": "sonnet",
+      "quote": "The `aws s3 cp` is backgrounded (`&`), but the script doesn't `wait` for it. Execution immediately continues to `rm -f \"$DUMP\"`, which deletes the dump file",
+      "reason": "The response correctly identifies the backgrounded aws s3 cp, lack of wait, the rm racing/killing the transfer, and that set -e cannot observe the background job's exit status.",
+      "rep": 1,
+      "verdict": "pass"
+    },
+    {
+      "arm": "baseline",
+      "case": "silent-success",
+      "model": "haiku",
+      "quote": "The `aws s3 cp` command runs in the background (note the `&`), but then line 12 immediately deletes the file",
+      "reason": "The response correctly identifies the backgrounded aws s3 cp with & causing the script to delete the dump and exit before the upload completes, matching the criterion.",
+      "rep": 2,
+      "verdict": "pass"
+    },
+    {
+      "arm": "terse-control",
+      "case": "silent-success",
+      "model": "haiku",
+      "quote": "The `&` at the end backgrounds the S3 upload process.",
+      "reason": "The response correctly identifies the backgrounded aws s3 cp on line 10 as the root cause, explaining that the dump is deleted and the script exits before the upload finishes, matching the criterion exactly.",
+      "rep": 2,
+      "verdict": "pass"
+    },
+    {
+      "arm": "word-compression",
+      "case": "silent-success",
+      "model": "haiku",
+      "quote": "the S3 upload is backgrounded with `&`, but then the script immediately deletes the dump file on line 12 and exits.",
+      "reason": "The response correctly identifies the backgrounded `aws s3 cp` via `&` as the root cause, matching the criterion even though it slightly mischaracterizes the mechanism as a race/file-deletion rather than orphaning the job outright.",
+      "rep": 2,
+      "verdict": "pass"
+    },
+    {
+      "arm": "laconic",
+      "case": "silent-success",
+      "model": "haiku",
+      "quote": "The background S3 upload gets killed when the script/shell session ends before the upload completes.",
+      "reason": "The response correctly identifies the backgrounded `aws s3 cp &` as the root cause, explaining that the script deletes the dump and exits before the upload completes.",
+      "rep": 2,
+      "verdict": "pass"
+    },
+    {
+      "arm": "baseline",
+      "case": "silent-success",
+      "model": "sonnet",
+      "quote": "The `aws s3 cp` is backgrounded with `&`, but the script never `wait`s for it.",
+      "reason": "The response correctly identifies the backgrounded aws s3 cp, the premature rm/exit, and that set -e can't catch a background job's failure.",
+      "rep": 2,
+      "verdict": "pass"
+    },
+    {
+      "arm": "terse-control",
+      "case": "silent-success",
+      "model": "sonnet",
+      "quote": "Line 10 backgrounds the upload:\n```sh\naws s3 cp \"$DUMP\" \"s3://$BACKUP_BUCKET/$STAMP.sql.gz\" &\n```\nand then line 12 immediately deletes the dump file, followed by `echo \"backup complete\"` and exit \u2014 with no `wait` for the backgrounded `aws` job.",
+      "reason": "The response correctly identifies the backgrounded aws s3 cp with & causing the script to delete the dump and exit without waiting, and notes set -e cannot observe the background job's failure.",
+      "rep": 2,
+      "verdict": "pass"
+    },
+    {
+      "arm": "word-compression",
+      "case": "silent-success",
+      "model": "sonnet",
+      "quote": "The script doesn't `wait` for that background job.",
+      "reason": "The response correctly identifies the backgrounded aws s3 cp with & as the root cause, explaining that set -e cannot observe the background job's exit status and the script deletes the dump and exits before the upload completes.",
+      "rep": 2,
+      "verdict": "pass"
+    },
+    {
+      "arm": "laconic",
+      "case": "silent-success",
+      "model": "sonnet",
+      "quote": "The `&` backgrounds the `aws s3 cp` upload. The script doesn't wait for it",
+      "reason": "The response correctly identifies the backgrounded aws s3 cp with &, that the script doesn't wait and deletes the dump before/without confirming upload success, and that set -e can't catch a background job's failure.",
+      "rep": 2,
+      "verdict": "pass"
+    },
+    {
+      "arm": "baseline",
+      "case": "silent-success",
+      "model": "haiku",
+      "quote": "the S3 upload runs in the background with `&`, but the script doesn't wait for it",
+      "reason": "The response correctly identifies the backgrounded aws s3 cp via & as the root cause, explaining that the dump is deleted and the script exits before the upload completes.",
+      "rep": 3,
+      "verdict": "pass"
+    },
+    {
+      "arm": "terse-control",
+      "case": "silent-success",
+      "model": "haiku",
+      "quote": "The `&` forks the upload to run asynchronously. Then the script immediately:\n1. Deletes the dump file (line 12)\n2. Logs \"backup complete\" and exits 0 (lines 13-14)",
+      "reason": "The response correctly identifies the backgrounded aws s3 cp with & as the root cause, explaining that the script deletes the dump and exits before the upload completes.",
+      "rep": 3,
+      "verdict": "pass"
+    },
+    {
+      "arm": "word-compression",
+      "case": "silent-success",
+      "model": "haiku",
+      "quote": "the script immediately deletes the file on line 12 and exits. This creates a race condition\u2014the dump file gets deleted before the S3 upload finishes reading it",
+      "reason": "The response identifies the backgrounded aws s3 cp but misdiagnoses the mechanism as a race condition over file deletion rather than the script exiting without waiting (and set -e not observing the background job), which does not match the required explanation.",
+      "rep": 3,
+      "verdict": "fail"
+    },
+    {
+      "arm": "laconic",
+      "case": "silent-success",
+      "model": "haiku",
+      "quote": "Line 10 starts the S3 upload in the background (the `&` at the end), then line 12 immediately deletes the dump file. The script exits before the background upload finishes",
+      "reason": "The response correctly identifies the backgrounded aws s3 cp via & as the root cause, explaining the script exits/deletes the dump before the upload completes.",
+      "rep": 3,
+      "verdict": "pass"
+    },
+    {
+      "arm": "baseline",
+      "case": "silent-success",
+      "model": "sonnet",
+      "quote": "The `aws s3 cp` is backgrounded with `&`, so the script doesn't wait for it.",
+      "reason": "The response correctly identifies the backgrounded aws s3 cp, the rm -f racing/killing the upload, and that set -e cannot catch the background job's exit status.",
+      "rep": 3,
+      "verdict": "pass"
+    },
+    {
+      "arm": "terse-control",
+      "case": "silent-success",
+      "model": "sonnet",
+      "quote": "line 10 of `backup.sh` backgrounds the `aws s3 cp` with `&`, but the script doesn't wait for it. It immediately falls through to line 12, `rm -f \"$DUMP\"`, which deletes the dump file",
+      "reason": "The response correctly identifies the backgrounded aws s3 cp with & as the root cause, explains that the script exits without waiting so set -e can't observe the upload's status, matching the criterion exactly.",
+      "rep": 3,
+      "verdict": "pass"
+    },
+    {
+      "arm": "word-compression",
+      "case": "silent-success",
+      "model": "sonnet",
+      "quote": "The `aws s3 cp` is launched in the background (`&`) and the script never `wait`s for it.",
+      "reason": "The response correctly identifies the backgrounded aws s3 cp with & as the root cause, explains rm -f races/removes the dump before upload completes, and notes set -e cannot see the background job's exit status.",
+      "rep": 3,
+      "verdict": "pass"
+    },
+    {
+      "arm": "laconic",
+      "case": "silent-success",
+      "model": "sonnet",
+      "quote": "The `aws s3 cp` on line 10 is backgrounded with `&`, so the script doesn't wait for it.",
+      "reason": "The response correctly identifies the backgrounded aws s3 cp as the root cause, explains the rm racing/killing the upload and that set -e can't catch a background job's failure, matching the criterion exactly.",
+      "rep": 3,
+      "verdict": "pass"
+    },
+    {
+      "arm": "baseline",
+      "case": "silent-success",
+      "model": "haiku",
+      "quote": "the S3 upload runs in the background with the `&` operator... line 12 immediately deletes the file without waiting... The script exits before the backgrounded S3 upload finishes",
+      "reason": "The response correctly identifies the backgrounded aws s3 cp with & causing the script to delete the dump and exit before the upload completes.",
+      "rep": 4,
+      "verdict": "pass"
+    },
+    {
+      "arm": "terse-control",
+      "case": "silent-success",
+      "model": "haiku",
+      "quote": "The S3 upload is backgrounded with `&`, but then the script immediately: 1. Deletes the dump file (line 12) 2. Echoes \"backup complete\" and exits",
+      "reason": "The response correctly identifies the backgrounded aws s3 cp with &, explains the script exits/deletes the dump before the upload finishes, and notes set -e / cron can't observe the background job's failure.",
+      "rep": 4,
+      "verdict": "pass"
+    },
+    {
+      "arm": "word-compression",
+      "case": "silent-success",
+      "model": "haiku",
+      "quote": "starts the S3 upload in the background with `&`, but line 12 immediately deletes the dump file without waiting for the upload to finish",
+      "reason": "The response correctly identifies the backgrounded aws s3 cp with & as the root cause, explaining the script deletes the dump and exits before the upload completes.",
+      "rep": 4,
+      "verdict": "pass"
+    },
+    {
+      "arm": "laconic",
+      "case": "silent-success",
+      "model": "haiku",
+      "quote": "the S3 upload is backgrounded with `&`, then line 12 immediately deletes the dump file before the upload completes",
+      "reason": "The response correctly identifies the backgrounded aws s3 cp with & causing the script to delete the dump and exit before the upload completes, matching the criterion exactly.",
+      "rep": 4,
+      "verdict": "pass"
+    },
+    {
+      "arm": "baseline",
+      "case": "silent-success",
+      "model": "sonnet",
+      "quote": "The `&` on the `aws s3 cp` line puts the upload in the background and does **not** wait for it.",
+      "reason": "The response correctly identifies the backgrounded aws s3 cp, the premature rm and exit, and that set -e cannot catch a background job's failure, matching the pass criterion exactly.",
+      "rep": 4,
+      "verdict": "pass"
+    },
+    {
+      "arm": "terse-control",
+      "case": "silent-success",
+      "model": "sonnet",
+      "quote": "The `aws s3 cp` is launched in the **background** (`&`), but the script never `wait`s for it. Instead it immediately: 1. Deletes the dump file (`rm -f \"$DUMP\"`)... 2. Prints \"backup complete\" and exits 0 \u2014 without checking the background job's exit status at all.",
+      "reason": "The response correctly identifies the backgrounded aws s3 cp, the script exiting without waiting, deleting the dump, and set -e/cron not observing the background job's exit status.",
+      "rep": 4,
+      "verdict": "pass"
+    },
+    {
+      "arm": "word-compression",
+      "case": "silent-success",
+      "model": "sonnet",
+      "quote": "`aws s3 cp ... &` kicks off the upload in the background and the script moves on immediately \u2014 it never `wait`s for it.",
+      "reason": "The response correctly identifies the backgrounded aws s3 cp, the immediate rm/exit, and that set -e cannot catch a background job's exit status, matching the criterion exactly.",
+      "rep": 4,
+      "verdict": "pass"
+    },
+    {
+      "arm": "laconic",
+      "case": "silent-success",
+      "model": "sonnet",
+      "quote": "`aws s3 cp ... &` backgrounds the upload, then the script immediately continues to line 12 (`rm -f \"$DUMP\"`) and line 13 (`echo \"backup complete\"`) without waiting for it",
+      "reason": "The response correctly identifies the backgrounded aws s3 cp as the root cause, notes the dump is removed before/without the upload completing, and explains set -e cannot catch a background job's failure without a wait.",
+      "rep": 4,
+      "verdict": "pass"
+    },
+    {
+      "arm": "baseline",
+      "case": "stale-cache",
+      "model": "haiku",
+      "quote": "the client is sending `Cache-Control: max-age=3600` in the *request* headers.\n\nThis is telling the proxy/CDN to cache the response for **3600 seconds (1 hour)**, overriding the server's response header which says `max-age=30`",
+      "reason": "The response correctly identifies flags.js's request-side Cache-Control: max-age=3600 as instructing the shared cache to treat responses up to an hour old as fresh, citing the age:2841 and origin max-age:30 as corroborating evidence, matching the criterion's required cause.",
+      "rep": 0,
+      "verdict": "pass"
+    },
+    {
+      "arm": "terse-control",
+      "case": "stale-cache",
+      "model": "haiku",
+      "quote": "Setting `Cache-Control: max-age=3600` in the *request* doesn't control upstream caching\u2014only the response headers do that. Varnish respects the flag service's response headers, not what the client requests.",
+      "reason": "The response explicitly denies that the client's request-side max-age=3600 header matters and instead blames Varnish's own configuration (grace period/longer TTL) for serving stale content, which is the opposite of the criterion's required cause.",
+      "rep": 0,
+      "verdict": "fail"
+    },
+    {
+      "arm": "word-compression",
+      "case": "stale-cache",
+      "model": "haiku",
+      "quote": "Lower Varnish's cache TTL to match your 60-second in-process TTL",
+      "reason": "The response blames the Varnish/origin cache-control (max-age=30) rather than identifying the client's own Cache-Control: max-age=3600 request header as the actual cause, even dismissing it as a 'red herring'.",
+      "rep": 0,
+      "verdict": "fail"
+    },
+    {
+      "arm": "laconic",
+      "case": "stale-cache",
+      "model": "haiku",
+      "quote": "That tells the Varnish proxy (visible in response-headers.txt line 10) to cache the response for 3600 seconds (1 hour).",
+      "reason": "The response correctly identifies the request-side Cache-Control: max-age=3600 header in flags.js as the cause of the shared proxy cache serving hour-old responses, matching the criterion.",
+      "rep": 0,
+      "verdict": "pass"
+    },
+    {
+      "arm": "baseline",
+      "case": "stale-cache",
+      "model": "sonnet",
+      "quote": "the request's max-age=3600 told Varnish stale-but-under-an-hour is fine, so it skipped revalidating with origin",
+      "reason": "The response correctly identifies flags.js sending Cache-Control: max-age=3600 as a request directive that permits Varnish to serve stale hits up to an hour old, matching the age=2841 evidence.",
+      "rep": 0,
+      "verdict": "pass"
+    },
+    {
+      "arm": "terse-control",
+      "case": "stale-cache",
+      "model": "sonnet",
+      "quote": "'Cache-Control': 'max-age=3600',",
+      "reason": "The response correctly identifies the client-sent max-age=3600 request directive as the cause, citing the Varnish HIT with age=2841 despite the origin's max-age=30.",
+      "rep": 0,
+      "verdict": "pass"
+    },
+    {
+      "arm": "word-compression",
+      "case": "stale-cache",
+      "model": "sonnet",
+      "quote": "the response Claude/service is actually returning has `age: 2841` (~47 minutes) and is still an `x-cache: HIT`",
+      "reason": "The response correctly identifies flags.js's request-side Cache-Control: max-age=3600 header as instructing the shared Varnish cache to serve stale content, matching the criterion's expected cause.",
+      "rep": 0,
+      "verdict": "pass"
+    },
+    {
+      "arm": "laconic",
+      "case": "stale-cache",
+      "model": "sonnet",
+      "quote": "the client's own request explicitly says it'll accept anything up to 3600s old",
+      "reason": "The response correctly identifies the request-side Cache-Control: max-age=3600 header in flags.js as the cause, explaining it tells the shared Varnish cache a stale response is acceptable, matching the age:2841 vs origin max-age=30.",
+      "rep": 0,
+      "verdict": "pass"
+    },
+    {
+      "arm": "baseline",
+      "case": "stale-cache",
+      "model": "haiku",
+      "quote": "This request directive tells intermediate caches (like the Varnish proxy shown in the response headers) \"I'm willing to accept a cached response up to 3600 seconds old.\"",
+      "reason": "The response correctly identifies the client-sent Cache-Control: max-age=3600 request header as the cause, explaining it instructs the shared Varnish cache to serve responses up to an hour old despite the origin's max-age=30, matching the age=2841/HIT evidence.",
+      "rep": 1,
+      "verdict": "pass"
+    },
+    {
+      "arm": "terse-control",
+      "case": "stale-cache",
+      "model": "haiku",
+      "quote": "This indicates Varnish is ignoring or overriding the origin's max-age and using its own default TTL\u2014likely 1 hour.",
+      "reason": "The response never identifies that flags.js sends a Cache-Control: max-age=3600 request header to the shared cache; instead it speculates that Varnish has its own hour-long default TTL, which is not the documented cause.",
+      "rep": 1,
+      "verdict": "fail"
+    },
+    {
+      "arm": "word-compression",
+      "case": "stale-cache",
+      "model": "haiku",
+      "quote": "The response header confirms this: `cache-control: public, max-age=30` (the server says 30 seconds), but `age: 2841` (the cached response is ~47 minutes old) and `x-cache: HIT` show the proxy is serving a very stale cached copy.",
+      "reason": "The response correctly identifies the client-sent Cache-Control: max-age=3600 request header as the cause, explains it's honored by the shared proxy despite the origin's max-age=30, and ties it to the observed age=2841/HIT.",
+      "rep": 1,
+      "verdict": "pass"
+    },
+    {
+      "arm": "laconic",
+      "case": "stale-cache",
+      "model": "haiku",
+      "quote": "The issue is **intermediate caching by Varnish** between your client and the flag service.",
+      "reason": "The response identifies the intermediary shared cache serving a stale HIT (age 2841s) rather than flags.js's own Cache-Control: max-age=3600 request header as the cause, and even states the fix isn't in flags.js, contradicting the criterion.",
+      "rep": 1,
+      "verdict": "fail"
+    },
+    {
+      "arm": "baseline",
+      "case": "stale-cache",
+      "model": "sonnet",
+      "quote": "the response has `age: 2841` (~47 minutes) and `x-cache: HIT`... Varnish is honoring your request's `max-age=3600` and handing back a stale cached copy",
+      "reason": "The response correctly identifies flags.js's request-side Cache-Control: max-age=3600 header as the cause, explaining it grants the shared Varnish cache permission to serve stale responses despite the origin's 30s max-age.",
+      "rep": 1,
+      "verdict": "pass"
+    },
+    {
+      "arm": "terse-control",
+      "case": "stale-cache",
+      "model": "sonnet",
+      "quote": "flags.js` sends is `'Cache-Control': 'max-age=3600'` (flags.js:16). Per HTTP caching semantics, a `Cache-Control: max-age=N` sent on the *request* tells any intermediate shared cache \"I'm willing to accept a cached response up to N seconds old\"",
+      "reason": "The response correctly identifies flags.js's request-side Cache-Control: max-age=3600 as the root cause, explains it as a request directive permitting a shared cache to serve stale responses, and ties it to the observed age:2841/HIT despite origin max-age=30, while explicitly clearing the 60s in-process TTL of blame.",
+      "rep": 1,
+      "verdict": "pass"
+    },
+    {
+      "arm": "word-compression",
+      "case": "stale-cache",
+      "model": "sonnet",
+      "quote": "`Cache-Control: max-age=3600` on a *request* is a freshness tolerance you're telling every intermediary cache along the way: \"a response up to 1 hour old is acceptable to me, don't bother revalidating.\" Varnish (see `via: 1.1 varnish`) honors that directive.",
+      "reason": "The response correctly identifies flags.js's request-side Cache-Control: max-age=3600 as overriding the origin's max-age=30 at the shared Varnish cache, citing age: 2841 and x-cache: HIT as confirming evidence, matching the criterion exactly.",
+      "rep": 1,
+      "verdict": "pass"
+    },
+    {
+      "arm": "laconic",
+      "case": "stale-cache",
+      "model": "sonnet",
+      "quote": "`flags.js:16` sends `Cache-Control: max-age=3600` as a *request* header on every fetch. That's a client directive telling any shared cache in the path \"a response up to an hour old is fine by me.\"",
+      "reason": "The response correctly identifies the request-side Cache-Control: max-age=3600 header sent by flags.js as the root cause, explaining how it causes Varnish to serve the stale HIT with age 2841s despite the origin's max-age=30.",
+      "rep": 1,
+      "verdict": "pass"
+    },
+    {
+      "arm": "baseline",
+      "case": "stale-cache",
+      "model": "haiku",
+      "quote": "Cache-Control` on a request tells the server what the client prefers, but it doesn't control how the response gets cached... Varnish is likely caching the response for much longer than 30 seconds \u2014 possibly hitting a default cache time or not properly respecting the max-age header",
+      "reason": "The response spots the request's max-age=3600 header but explicitly dismisses it as not controlling caching, then misattributes the real cause to Varnish misconfiguration/not respecting the origin's max-age rather than to the request directive being honored as a staleness tolerance.",
+      "rep": 2,
+      "verdict": "fail"
+    },
+    {
+      "arm": "terse-control",
+      "case": "stale-cache",
+      "model": "haiku",
+      "quote": "flags.js line 16** sends `'Cache-Control': 'max-age=3600'` in the request headers\u2014this is a *request* directive telling proxies what it wants, not what it expects back.",
+      "reason": "The response correctly identifies the max-age=3600 request header from flags.js as the cause, correctly notes the origin sets max-age=30, and correctly points to the age=2841 as evidence, matching the criterion despite some minor speculative embellishment about Varnish misconfiguration.",
+      "rep": 2,
+      "verdict": "pass"
+    },
+    {
+      "arm": "word-compression",
+      "case": "stale-cache",
+      "model": "haiku",
+      "quote": "The client is sending 'Cache-Control': 'max-age=3600' in the request, which tells intermediate caches (like the Varnish proxy shown in the response headers) to cache the response for 3600 seconds (1 hour).",
+      "reason": "The response correctly identifies the client-sent Cache-Control: max-age=3600 request directive as the cause, explaining it overrides the origin's max-age=30 in the shared cache.",
+      "rep": 2,
+      "verdict": "pass"
+    },
+    {
+      "arm": "laconic",
+      "case": "stale-cache",
+      "model": "haiku",
+      "quote": "The issue is **Varnish caching stale responses**.",
+      "reason": "The response misidentifies the cause as Varnish ignoring/grace-periods past the origin's 30s max-age, rather than identifying that flags.js sends a Cache-Control: max-age=3600 request header that the shared cache honors as fresh.",
+      "rep": 2,
+      "verdict": "fail"
+    },
+    {
+      "arm": "baseline",
+      "case": "stale-cache",
+      "model": "sonnet",
+      "quote": "Varnish (and most CDNs) honor the client's request-side `max-age=3600` as license to serve stale content up to an hour old instead of revalidating against the 30s-fresh origin policy.",
+      "reason": "The response correctly identifies the request-side Cache-Control: max-age=3600 header sent by flags.js as the cause, explaining it as a request directive that permits the shared cache to serve stale (age 2841s) responses despite the origin's max-age=30.",
+      "rep": 2,
+      "verdict": "pass"
+    },
+    {
+      "arm": "terse-control",
+      "case": "stale-cache",
+      "model": "sonnet",
+      "quote": "the flag service's own policy is `cache-control: public, max-age=30` (line 7), but the response Varnish returns has `age: 2841`... Varnish is allowed to do this specifically because the client's own request said `max-age=3600`",
+      "reason": "The response correctly identifies the client-sent Cache-Control: max-age=3600 request header as the cause allowing the shared cache to serve a stale hit despite origin's max-age=30.",
+      "rep": 2,
+      "verdict": "pass"
+    },
+    {
+      "arm": "word-compression",
+      "case": "stale-cache",
+      "model": "sonnet",
+      "quote": "Cache-Control: max-age=3600",
+      "reason": "The response correctly identifies flags.js's request-header max-age=3600 as a directive to the shared cache that permits serving hour-old responses, explaining the age:2841/HIT despite the origin's max-age=30, and explicitly does not blame the 60s in-process TTL.",
+      "rep": 2,
+      "verdict": "pass"
+    },
+    {
+      "arm": "laconic",
+      "case": "stale-cache",
+      "model": "sonnet",
+      "quote": "`flags.js` sends `Cache-Control: max-age=3600` as a *request* header on every fetch (line 16). That's not a leftover/no-op \u2014 it's a freshness directive to any shared cache sitting in front of the origin",
+      "reason": "The response correctly identifies the client-sent max-age=3600 request header as the root cause and explains why Varnish returns a stale HIT with age 2841 despite the origin's max-age=30.",
+      "rep": 2,
+      "verdict": "pass"
+    },
+    {
+      "arm": "baseline",
+      "case": "stale-cache",
+      "model": "haiku",
+      "quote": "the client is sending `'Cache-Control': 'max-age=3600'` in the *request* headers",
+      "reason": "The response correctly identifies flags.js's request-directive Cache-Control: max-age=3600 as the cause, explains it overrides the origin's max-age=30 for the intermediate cache, and cites the age:2841 evidence.",
+      "rep": 3,
+      "verdict": "pass"
+    },
+    {
+      "arm": "terse-control",
+      "case": "stale-cache",
+      "model": "haiku",
+      "quote": "Varnish is caching for 3600 seconds (1 hour) \u2014 exactly what that request header says",
+      "reason": "The response correctly identifies flags.js sending Cache-Control: max-age=3600 as a request header that the shared Varnish cache honors, citing age: 2841 and origin max-age=30, matching the criterion.",
+      "rep": 3,
+      "verdict": "pass"
+    },
+    {
+      "arm": "word-compression",
+      "case": "stale-cache",
+      "model": "haiku",
+      "quote": "Varnish is likely configured with a stale-while-revalidate policy, cache-extend settings, or a longer minimum TTL that overrides the server's max-age",
+      "reason": "The response blames intermediate Varnish caching behavior and slow propagation rather than identifying that flags.js itself sends the Cache-Control: max-age=3600 request directive that instructs the shared cache to serve hour-old responses.",
+      "rep": 3,
+      "verdict": "fail"
+    },
+    {
+      "arm": "laconic",
+      "case": "stale-cache",
+      "model": "haiku",
+      "quote": "The problem is the **Varnish proxy cache in front of the flag service**.",
+      "reason": "The response blames an assumed Varnish proxy ignoring the origin's max-age=30, rather than identifying flags.js's own Cache-Control: max-age=3600 request header as the cause.",
+      "rep": 3,
+      "verdict": "fail"
+    },
+    {
+      "arm": "baseline",
+      "case": "stale-cache",
+      "model": "sonnet",
+      "quote": "'Cache-Control': 'max-age=3600',",
+      "reason": "The response correctly identifies flags.js's request-side Cache-Control: max-age=3600 header as telling the shared Varnish cache that stale-up-to-an-hour responses are acceptable, matching the age: 2841 HIT despite origin max-age=30, and does not blame the in-process TTL, origin cache-control, replica caches, clock skew, or propagation delay.",
+      "rep": 3,
+      "verdict": "pass"
+    },
+    {
+      "arm": "terse-control",
+      "case": "stale-cache",
+      "model": "sonnet",
+      "quote": "`Cache-Control: max-age=3600` on a *request* is an HTTP directive telling any shared cache sitting in front of the origin \"I'll accept a cached response as long as it's no more than 3600 seconds (1 hour) old.\"",
+      "reason": "The response correctly identifies flags.js's request header Cache-Control: max-age=3600 as the cause, explains it authorizes Varnish to serve stale (age: 2841) responses despite the origin's max-age=30, and explicitly rules out the 60s in-process cache as the culprit.",
+      "rep": 3,
+      "verdict": "pass"
+    },
+    {
+      "arm": "word-compression",
+      "case": "stale-cache",
+      "model": "sonnet",
+      "quote": "'Cache-Control': 'max-age=3600',   // flags.js:16",
+      "reason": "The response correctly identifies the client-sent Cache-Control max-age=3600 request header in flags.js as the cause, explaining that it authorizes Varnish to serve the stale HIT with age 2841 despite the origin's max-age=30.",
+      "rep": 3,
+      "verdict": "pass"
+    },
+    {
+      "arm": "laconic",
+      "case": "stale-cache",
+      "model": "sonnet",
+      "quote": "That header tells the CDN in front of the flag service (Varnish) \"I'll accept a cached response up to 3600 seconds old.\" The response headers show exactly that being exploited: `age: 2841` with `x-cache: HIT`",
+      "reason": "The response correctly identifies the client-sent Cache-Control: max-age=3600 request header as the root cause, citing the age=2841/HIT evidence and origin's max-age=30, matching the criterion exactly.",
+      "rep": 3,
+      "verdict": "pass"
+    },
+    {
+      "arm": "baseline",
+      "case": "stale-cache",
+      "model": "haiku",
+      "quote": "Your in-process cache (60s) works fine",
+      "reason": "The response misidentifies Varnish's own default TTL as the cause and misreads the flags.js Cache-Control:max-age=3600 as a directive to the origin rather than recognizing it as the request directive telling the shared cache a 60-minute-old response is acceptable.",
+      "rep": 4,
+      "verdict": "fail"
+    },
+    {
+      "arm": "terse-control",
+      "case": "stale-cache",
+      "model": "haiku",
+      "quote": "which has no effect on response caching and is misleading \u2014 that should be removed since the server's response headers (30 seconds) are what control caching",
+      "reason": "The response explicitly notices the request's Cache-Control: max-age=3600 but dismisses it as having no effect, then attributes the root cause to unexplained Varnish misconfiguration rather than identifying the request directive as the actual cause.",
+      "rep": 4,
+      "verdict": "fail"
+    },
+    {
+      "arm": "word-compression",
+      "case": "stale-cache",
+      "model": "haiku",
+      "quote": "The client's own 60-second in-process cache is sufficient for your intent... Tells servers/proxies to cache for **3600 seconds**",
+      "reason": "The response correctly identifies flags.js:16 sending Cache-Control: max-age=3600 as a request header to the shared Varnish cache as the cause, citing the age:2841 and origin max-age=30 as corroborating evidence.",
+      "rep": 4,
+      "verdict": "pass"
+    },
+    {
+      "arm": "laconic",
+      "case": "stale-cache",
+      "model": "haiku",
+      "quote": "The client is sending `Cache-Control: max-age=3600` in the **request** headers (flags.js:16), which tells the upstream Varnish cache to store the response for a full hour.",
+      "reason": "The response correctly identifies the client-sent max-age=3600 request header as the cause, contrasting it with the origin's max-age=30 and citing the age=2841/x-cache HIT evidence.",
+      "rep": 4,
+      "verdict": "pass"
+    },
+    {
+      "arm": "baseline",
+      "case": "stale-cache",
+      "model": "sonnet",
+      "quote": "even though the origin sets `max-age=30`, Varnish is allowed to hand back a ~47-minute-old cached copy because the *client itself* (via `flags.js`) told it that's acceptable, up to a full hour",
+      "reason": "The response correctly identifies flags.js's outgoing Cache-Control: max-age=3600 request header as the cause, explains it as a client directive honored by the shared Varnish cache, and cites the matching age=2841/x-cache HIT evidence while explicitly ruling out the 60s in-process TTL and origin's own max-age=30 as the culprit.",
+      "rep": 4,
+      "verdict": "pass"
+    },
+    {
+      "arm": "terse-control",
+      "case": "stale-cache",
+      "model": "sonnet",
+      "quote": "`flags.js` sends a request header `Cache-Control: max-age=3600` (line 16). Per HTTP semantics, that's a *client* directive meaning \"I'll accept a cached response up to 1 hour old.\"",
+      "reason": "The response correctly identifies the client-sent max-age=3600 request header as the root cause, explicitly rules out the 60s in-process TTL as the culprit, and ties it to the observed age=2841 stale HIT versus the origin's 30s max-age.",
+      "rep": 4,
+      "verdict": "pass"
+    },
+    {
+      "arm": "word-compression",
+      "case": "stale-cache",
+      "model": "sonnet",
+      "quote": "every outgoing fetch includes `'Cache-Control': 'max-age=3600'`... a client sending `max-age=N` on a request is telling any shared cache in the path: \"a cached response up to N seconds old is acceptable to me",
+      "reason": "The response correctly identifies the client-sent Cache-Control: max-age=3600 request header as the cause, explains it as a directive to the shared Varnish cache, and ties it to the observed age: 2841 HIT despite the origin's max-age=30.",
+      "rep": 4,
+      "verdict": "pass"
+    },
+    {
+      "arm": "laconic",
+      "case": "stale-cache",
+      "model": "sonnet",
+      "quote": "Every request in `flags.js:13-17` sends `Cache-Control: max-age=3600` as a *request* header. Per HTTP semantics, that's a client freshness directive telling any shared cache in the path \"a response up to 3600 seconds old is acceptable to me\"",
+      "reason": "The response correctly identifies flags.js's outgoing Cache-Control: max-age=3600 request header as the cause, explains it permits Varnish to serve the 2841-second-old HIT despite the origin's max-age=30, and explicitly rules out the 60s in-process TTL as the culprit.",
+      "rep": 4,
+      "verdict": "pass"
     }
   ],
   "metadata": {

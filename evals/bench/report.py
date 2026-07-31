@@ -34,6 +34,23 @@ ARM_ORDER = ["baseline", "terse-control", "word-compression", "laconic"]
 RATE_FLOOR = 0.02
 ABS_COUNT_FLOOR = 5
 
+# Where a case's trap criteria came from, which decides what its verdicts may
+# be used for. Published as a column so a reader cannot mistake a
+# rule-adherence row for evidence about answer quality - two cases (decision,
+# floor) were read that way once already and the claim had to be retracted.
+GRADINGS = ("quality", "safety", "rule-adherence")
+UNKNOWN_GRADING = "unclassified"
+
+
+def case_grading(case):
+    """A case with no grading field is reported as unclassified, never
+    silently promoted to quality."""
+    p = CASES / case / "expect.json"
+    if not p.exists():
+        return UNKNOWN_GRADING
+    g = json.loads(p.read_text()).get("grading")
+    return g if g in GRADINGS else UNKNOWN_GRADING
+
 
 def _median(xs, default=0):
     return statistics.median(xs) if xs else default
@@ -74,9 +91,9 @@ def aggregate(snap):
             # medianed - what the rate-floor gate actually checks against.
             "article_count": _median([s["words"] * s["article_rate"] for s in scored], 0.0),
             "aux_count": _median([s["words"] * s["aux_verb_rate"] for s in scored], 0.0),
-            # Cases with an empty never_cut list (decision, floor,
-            # ordered-steps) are not verified by this check at all - a "0
-            # failures" reading must not be mistaken for "checked and clean".
+            # Cases with an empty never_cut list are not verified by this
+            # check at all - a "0 failures" reading must not be mistaken for
+            # "checked and clean".
             "never_cut_checked": len(never_cut) > 0,
             "never_cut_failures": sum(
                 1 for r in runs
@@ -110,12 +127,11 @@ def _rate_gate(agg, threshold, rate_key, count_key, label):
 
     Requiring the drop to reproduce on every model tested costs no
     sensitivity: with the articles mechanically stripped out of laconic's own
-    responses, the corroborated gate still fires on 7 of the 8 cases and
-    reports the 8th as ungated rather than passing it. A rules regression is
-    a property of the rules and shows up on both models; noise does not
-    correlate across them. Directly observed defects (an arrow in prose, a
-    dropped never-cut token) are not proxies and are gated on any single
-    occurrence, above.
+    responses, every case is still accounted for - caught by the gate, or
+    reported as ungated rather than passed. A rules regression is a property
+    of the rules and shows up on both models; noise does not correlate across
+    them. Directly observed defects (an arrow in prose, a dropped never-cut
+    token) are not proxies and are gated on any single occurrence, above.
 
     Returns (failures, notes). A note is a case the gate could not evaluate,
     reported rather than silently counted as a pass; it does not fail a run.
@@ -269,10 +285,11 @@ def render(snap, judg, threshold):
     out.append(_by_arm_model(agg, "duration_ms", arms, models, "%.0f") + "\n")
 
     # "0 failures" only means something once you know how many responses were
-    # actually checked. Three cases (decision, floor, ordered-steps) carry an
-    # empty never_cut list, so "checked" must be reported alongside
-    # "unchecked" - a bare failure count reads as "80 responses verified"
-    # even when only 5 of 8 cases have anything to verify.
+    # actually checked. Six cases (decision, floor, ordered-steps, and the
+    # three quality cases) carry an empty never_cut list, so "checked" must be
+    # reported alongside "unchecked" - a bare failure count reads as "every
+    # response verified" even when under half the cases have anything to
+    # verify.
     nc_checked = defaultdict(int)
     nc_unchecked = defaultdict(int)
     nc_fail = defaultdict(int)
@@ -306,13 +323,16 @@ def render(snap, judg, threshold):
     verdict_keys = set(verdicts) | set(judge_failed)
     if verdict_keys:
         out.append("### Trap verdicts by case\n")
-        out.append("| case | arm | pass | fail | not_exercised | judge_failed |\n"
-                   "|---|---|--:|--:|--:|--:|")
+        out.append("`grading` is where the case's criteria came from, and it "
+                   "decides what the row may be used for. Only `quality` rows "
+                   "support a comparison between arms; see evals/CRITERIA.md.\n")
+        out.append("| case | grading | arm | pass | fail | not_exercised | judge_failed |\n"
+                   "|---|---|---|--:|--:|--:|--:|")
         for (case, arm) in sorted(verdict_keys):
             v = verdicts[(case, arm)]
-            out.append("| %s | %s | %d | %d | %d | %d |"
-                       % (case, arm, v["pass"], v["fail"], v["not_exercised"],
-                          judge_failed[(case, arm)]))
+            out.append("| %s | %s | %s | %d | %d | %d | %d |"
+                       % (case, case_grading(case), arm, v["pass"], v["fail"],
+                          v["not_exercised"], judge_failed[(case, arm)]))
         out.append("")
 
     failures = gate_failures(agg, threshold)

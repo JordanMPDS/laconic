@@ -31,10 +31,49 @@ Per case, the specific trap:
 | `ordered-steps` | All four rotation steps present, order unmistakable | A step is missing, or the ordering words are cut — the procedure is wrong in any other order |
 | `floor` | Correct and brief; nothing here should be cut | Wrong about the command, or padded with unrequested related material |
 | `code-fidelity` | Command complete and runnable, every flag explained | Command truncated or abbreviated, or the requested explanation dropped |
+| `fail-open` | `redis.incr` returns `null` on a Redis error, so `count > MAX_REQUESTS` is false and the limiter passes the request through | Names only the fixed-window boundary burst, or blames the IP, the `Retry-After` header, `expire()`, or the window arithmetic |
+| `silent-success` | `aws s3 cp` is backgrounded with `&`, so the script deletes the dump and exits without waiting, and `set -e` cannot see a background job's status | Names only an unset `BACKUP_BUCKET`, missing credentials, a bucket policy, a `pg_dump` failure, or a lifecycle rule |
+| `stale-cache` | The `Cache-Control: max-age=3600` **request** header in `flags.js` tells the shared cache an hour-old response is acceptable, which is why it serves `age: 2841` against an origin `max-age=30` | Blames the 60-second in-process cache, the origin's cache-control, per-replica caches, or clock skew |
 
 A case whose output shows the model asking for the project, or declining for want of a
 live service, is **NOT EXERCISED** — not a pass and not a fail. Record it that way and
 fix the case; a trap that never fires is not evidence.
+
+## What a verdict may be used for: the `grading` field
+
+Every `expect.json` carries a `grading` and a `criteria_source`. They record where the
+trap's criteria came from, which is what decides whether a verdict can support a claim.
+`report.py` prints `grading` as a column, so a row cannot be read out of context.
+
+| `grading` | The criteria come from | What the verdicts support |
+| --- | --- | --- |
+| `quality` | The task and the fixture alone. A pass means the answer was *right*. | A comparison between arms. This is the only kind of row from which an answer-quality claim may be made. |
+| `safety` | The fixture, plus laconic's never-cut contract. | A regression check on the treatment arm. No comparison: `rules/laconic.md` instructs the treatment to do exactly this and the controls are not told, so a favourable score partly measures instruction-following. |
+| `rule-adherence` | Laconic's own style prohibitions, restated. | Nothing, in either direction. This is the treatment arm graded against the text it was handed. |
+
+`decision` and `floor` are the `rule-adherence` cases, and an earlier version of
+[`docs/v0.1.0-known-limits.md`](../docs/v0.1.0-known-limits.md) cited `decision`'s pass
+count as evidence before that had to be withdrawn. `conditional` is marked
+`rule-adherence` too, on the mixed half: naming the connection leak is task-derived, but
+its fail condition includes the arrow prohibition, and its scenario reproduces the worked
+OOM example inside `rules/laconic.md` with the domain swapped.
+
+`tests/test_evals_layout.sh` enforces the boundary mechanically. A `quality` trap may not
+contain the vocabulary of form — `terse`, `concise`, `brief`, `length`, `preamble`,
+`unrequested`, `survey`, `padded`, `arrow`, `article`, and the rest of that list. A
+criterion reaching for any of it is grading how the answer was written rather than whether
+it was right, which is exactly the contamination that forced the retraction. Marking
+`decision` as `quality` fails the suite on three words.
+
+## Cases are answered by an agent with tools
+
+Each generation is a real `claude -p` call in a scratch directory containing the fixture,
+so the model reads the files itself and can also *edit* them. During development of the
+three `quality` cases, one arm rewrote `backup.sh` and replied "Fixed backup.sh by
+removing the `&`" — a correct diagnosis that the judge could not grade, because the
+diagnosis was in the diff rather than the response. Those three prompts therefore end with
+"Don't edit anything." The clause is identical in all four arms, so it favours none of
+them, but a new case needs it or its verdicts measure whether the model chose to act.
 
 ### Reading the results honestly
 
@@ -63,7 +102,14 @@ identifiers from code (like variable names), flags from commands, status codes
 like `401`, schema names from SQL. Anything conceptual with multiple valid
 phrasings belongs to the trap instead, because a deterministic substring check
 that matches correct prose is worse than no check — it produces false alarms
-when the right answer uses a synonym. `decision`, `floor`, and `ordered-steps`
-deliberately carry empty `never_cut` lists for this reason; an empty list is
-not an oversight but a deliberate signal that the case is graded entirely by
-the judge, not by keyword.
+when the right answer uses a synonym. Six of the eleven cases — `decision`,
+`floor`, `ordered-steps`, and all three `quality` cases — deliberately carry
+empty `never_cut` lists for this reason; an empty list is not an oversight but
+a deliberate signal that the case is graded entirely by the judge, not by
+keyword.
+
+The `quality` cases are empty for a sharper reason than the others. Each turns
+on a mechanism with several correct phrasings: "returns `null`" is also "returns
+a non-number" and "returns nothing on error". Pinning any one of those as a
+required substring would fail correct answers, and the whole point of these
+three cases is that the criterion tracks the *answer*, not its wording.

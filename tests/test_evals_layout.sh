@@ -46,7 +46,7 @@ else
 fi
 
 count=$(ls -d "$ROOT"/evals/cases/*/ 2>/dev/null | wc -l | tr -d ' ')
-if [ "$count" = "8" ]; then ok "8 cases present"; else fail "8 cases present (found $count)"; fi
+if [ "$count" = "11" ]; then ok "11 cases present"; else fail "11 cases present (found $count)"; fi
 
 for dir in "$ROOT"/evals/cases/*/; do
   name=$(basename "$dir")
@@ -65,6 +65,60 @@ sys.exit(0 if isinstance(d.get('never_cut'),list) and isinstance(d.get('trap'),s
     fail "case $name expect.json has never_cut list and trap text"
   fi
 done
+
+# --- Grading provenance ---
+# Every case declares where its trap criteria came from, because that decides
+# what its verdicts may be used for. A `quality` case is the only kind that
+# supports a comparison between arms, so its criterion must be answerable from
+# the task and the fixture alone. `decision` and `floor` were read as evidence
+# once, and the claim had to be retracted when it turned out their criteria
+# were laconic's own prohibitions restated - the treatment arm was being scored
+# against the text it had been handed.
+#
+# The forbidden list below is the vocabulary of form: length, ceremony,
+# structure. A criterion that reaches for any of it is grading how the answer
+# was written rather than whether it was right, which is precisely the
+# contamination. It is checked against the trap only, not criteria_source -
+# that field names rules/laconic.md on purpose for the contaminated cases.
+grading_report=$(python3 - "$ROOT" <<'PY'
+import json, sys
+from pathlib import Path
+
+root = Path(sys.argv[1])
+VALID = ("quality", "safety", "rule-adherence")
+FORBIDDEN = ("terse", "concise", "brief", "shorter", "length", "verbose",
+             "preamble", "closing offer", "unrequested", "survey", "padded",
+             "padding", "hedg", "pleasantr", "recap", "arrow", "article",
+             "word count", "one recommendation")
+
+for d in sorted(p for p in (root / "evals" / "cases").iterdir() if p.is_dir()):
+    e = json.loads((d / "expect.json").read_text())
+    g = e.get("grading")
+    print(("ok   " if g in VALID else "FAIL ")
+          + "case %s declares a valid grading (%r)" % (d.name, g))
+    src = e.get("criteria_source")
+    print(("ok   " if isinstance(src, str) and src.strip() else "FAIL ")
+          + "case %s records where its criteria came from" % d.name)
+    if g != "quality":
+        continue
+    hits = [w for w in FORBIDDEN if w in e.get("trap", "").lower()]
+    print(("ok   " if not hits else "FAIL ")
+          + "quality case %s grades the task, not the rule text%s"
+          % (d.name, "" if not hits else " (found: %s)" % ", ".join(hits)))
+PY
+)
+printf '%s\n' "$grading_report"
+fails=$((fails + $(printf '%s\n' "$grading_report" | grep -c '^FAIL ')))
+
+# At least one case must actually be gradeable on answer quality. Without one,
+# the benchmark can say the plugin is shorter and still say nothing about
+# whether it is as useful, which is the gap issue #9 exists to close.
+nq=$(grep -l '"grading": "quality"' "$ROOT"/evals/cases/*/expect.json 2>/dev/null | wc -l | tr -d ' ')
+if [ "$nq" -ge 1 ]; then
+  ok "at least one quality-graded case exists (found $nq)"
+else
+  fail "no quality-graded case exists - no answer-quality claim is possible"
+fi
 
 printf '\n%d failure(s)\n' "$fails"
 [ "$fails" -eq 0 ]

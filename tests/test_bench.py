@@ -438,7 +438,18 @@ check("judge_failed column present in trap-verdicts table",
       "judge_failed" in md_mixed)
 check("judge call failures and unparseable replies both counted separately "
       "from genuine not_exercised",
-      "| floor | laconic | 1 | 0 | 1 | 2 |" in md_mixed)
+      "| floor | rule-adherence | laconic | 1 | 0 | 1 | 2 |" in md_mixed)
+
+# The grading column is what stops a rule-adherence row being read as evidence
+# about answer quality, so it has to carry the case's real classification, not
+# a default. floor is the case whose pass count was read that way once.
+check("the trap-verdicts table labels each case with where its criteria came from",
+      "| case | grading | arm |" in md_mixed and "rule-adherence" in md_mixed)
+check("a case with no expect.json is reported unclassified, never as quality",
+      bench_report.case_grading("no-such-case") == "unclassified")
+check("the quality cases are labelled quality",
+      all(bench_report.case_grading(c) == "quality"
+          for c in ("fail-open", "silent-success", "stale-cache")))
 
 # A total generation outage (every run recorded ok=False) must not be blessed
 # as "gates pass" - aggregate() returns {} and gate_failures() vacuously
@@ -987,17 +998,25 @@ if RESULTS.exists():
     real_agg = bench_report.aggregate(real_snap)
     real_article_fails = [f for f in bench_report.gate_failures(real_agg, 0.70)
                           if "article rate below" in f]
-    # 7 of the 8 cases fire. code-fidelity is the exception and not a silent
-    # one: its haiku baseline writes too few article words to clear
-    # ABS_COUNT_FLOOR, leaving one comparable model, which the gate reports as
-    # not gated rather than passing. Every case is therefore accounted for -
-    # caught, or named as uncheckable.
+    # Most cases fire. The exceptions are not silent ones: a case whose haiku
+    # baseline writes too few article words to clear ABS_COUNT_FLOOR is left
+    # with one comparable model, and the gate reports that as not gated rather
+    # than passing it. The invariant is that every case lands in exactly one of
+    # the two buckets - caught, or named as uncheckable - which is what makes
+    # "no article failure on the real snapshot" mean something. Asserted as a
+    # partition rather than as a count, so adding a case cannot quietly turn a
+    # newly-uncheckable case into a passing one.
     stripped_notes = [n for n in bench_report.gate_notes(stripped_agg, 0.70)
                       if "article rate not gated" in n]
-    check("corroborated gate still catches 7 of 8 cases once articles are stripped",
-          len(stripped_fails) == 7)
-    check("the 8th case is reported as not gated, never silently passed",
-          len(stripped_notes) == 1 and "code-fidelity" in stripped_notes[0])
+    n_cases = len(set(r["case"] for r in bench_run.usable(real_snap["runs"])))
+    check("stripping articles accounts for every case - caught (%d) or "
+          "uncheckable (%d), across %d" % (len(stripped_fails),
+                                           len(stripped_notes), n_cases),
+          len(stripped_fails) + len(stripped_notes) == n_cases)
+    check("the gate catches the clear majority once articles are stripped",
+          len(stripped_fails) >= n_cases - 2)
+    check("code-fidelity is named uncheckable, never silently passed",
+          any("code-fidelity" in n for n in stripped_notes))
     check("corroborated gate reports no article failure on the committed snapshot",
           real_article_fails == [])
 

@@ -1,4 +1,4 @@
-#Requires -Version 5.1
+﻿#Requires -Version 5.1
 # laconic — emit the active rule set for Claude Code hooks (native Windows).
 # Usage: laconic.ps1 start|subagent|remind
 #   start, subagent  print the rule slice for the active level

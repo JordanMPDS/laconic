@@ -1,4 +1,4 @@
-#Requires -Version 5.1
+﻿#Requires -Version 5.1
 # Unit checks for hooks/laconic.ps1. No framework: explicit asserts, the same
 # cases tests/test_laconic.sh runs against the bash hook, in the same order and
 # under the same numbering, so a divergence between the two implementations

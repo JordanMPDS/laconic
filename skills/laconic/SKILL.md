@@ -31,6 +31,11 @@ themselves, so the two cannot drift.
 The level persists in `${CLAUDE_CONFIG_DIR:-$HOME/.claude}/.laconic-level`. Write
 the file directly if the user asks for a level and the command is unavailable.
 
+Add `project` to scope the level to one repository: `/laconic ultra project`
+writes `.claude/.laconic-level` under the project directory instead. The project
+flag wins over the machine flag whenever both exist, `off` included, so a
+repository can opt out of a machine-wide default.
+
 `off` removes the mode entirely: every hook stops emitting, and nothing further
 is injected. Honor it immediately and do not re-adopt the mode afterward.
 

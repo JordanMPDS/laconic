@@ -2,12 +2,19 @@
 # laconic — optional statusline badge. Opt in by adding to settings.json:
 #   "statusLine": { "type": "command",
 #                   "command": "bash \"$HOME/.claude/plugins/.../hooks/laconic-statusline.sh\"" }
-FLAG="${CLAUDE_CONFIG_DIR:-$HOME/.claude}/.laconic-level"
+GLOBAL_FLAG="${CLAUDE_CONFIG_DIR:-$HOME/.claude}/.laconic-level"
+PROJECT_FLAG="${CLAUDE_PROJECT_DIR:-$PWD}/.claude/.laconic-level"
 
-# Same hardening as the hook: never dereference a symlinked flag, never echo
-# bytes that failed the whitelist.
-[ -L "$FLAG" ] && exit 0
-[ -f "$FLAG" ] || exit 0
+# Same resolution and hardening as the hook: project flag first, never
+# dereference a symlinked flag, never echo bytes that failed the whitelist. The
+# order has to match laconic.sh exactly — a badge that names a level the session
+# is not running is worse than no badge, because the error is invisible.
+FLAG=""
+for candidate in "$PROJECT_FLAG" "$GLOBAL_FLAG"; do
+  [ -L "$candidate" ] && exit 0
+  if [ -f "$candidate" ]; then FLAG="$candidate"; break; fi
+done
+[ -n "$FLAG" ] || exit 0
 
 MODE=$(head -c 16 "$FLAG" 2>/dev/null | tr -cd 'a-z')
 case "$MODE" in

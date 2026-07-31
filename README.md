@@ -79,6 +79,46 @@ Every hook — `SessionStart`, `SubagentStart`, and `UserPromptSubmit` — then
 exits without emitting anything, and the `LACONIC MODE ACTIVE` line stops on
 the next turn. No lingering state.
 
+To turn it off in one repository while leaving the rest of the machine alone,
+see [Per-project level](#per-project-level).
+
+## Per-project level
+
+Add `project` to any level to scope it to the current repository:
+
+```
+/laconic ultra project
+```
+
+That writes `.claude/.laconic-level` under the project directory. The machine
+flag at `${CLAUDE_CONFIG_DIR:-$HOME/.claude}/.laconic-level` is left untouched,
+and `/laconic ultra` without the suffix still writes the machine flag as before.
+
+The project flag wins wherever both exist, `off` included, so a repository where
+you want full explanations can opt out of a machine-wide `ultra`:
+
+| Machine flag | Project flag | Active |
+| --- | --- | --- |
+| `full` | none | `full` |
+| `full` | `ultra` | `ultra` |
+| `full` | `off` | off |
+| none | `lite` | `lite` |
+| none | none | inert, unless `LACONIC_DEFAULT` is set |
+
+`/laconic status` reports the active level, which of the two flags it came from,
+and that flag's path.
+
+Two things worth knowing before you use it:
+
+- **The file is a personal preference, not a project setting.** Add
+  `.claude/.laconic-level` to your `.gitignore` unless your team genuinely wants
+  a shared house style.
+- **A repository you open can set your level.** The flag is read from the
+  project directory, so cloning someone else's repo can change your verbosity or
+  switch laconic off. The contents are whitelisted to `lite`, `full`, `ultra`,
+  and `off`, so that is the whole blast radius — but it is the same trust model
+  as any other file under a project's `.claude/`.
+
 ## Default level
 
 Laconic is opt-in per machine. To skip `/laconic full` on a fresh install, set
@@ -94,7 +134,7 @@ a default in the `env` block of `settings.json`:
 
 Valid values are `lite`, `full`, `ultra`, and `off`. An invalid value is
 rejected and no flag file gets created, so a typo cannot silently brick the
-plugin.
+plugin. It seeds the machine flag only — it never writes into a repository.
 
 ## Optional: statusline badge
 
@@ -182,6 +222,17 @@ In a fresh session:
 4. Run `/laconic off`.
 5. `cat ~/.claude/.laconic-level` → prints `off`.
 6. Ask something else — no `LACONIC MODE ACTIVE` line on that turn or after.
+
+For the project flag, in a repository you do not mind writing a file into:
+
+1. Run `/laconic full` first, so the machine flag is set and there is something
+   for the project flag to override.
+2. Run `/laconic ultra project`.
+3. Confirm `cat .claude/.laconic-level` prints `ultra` and
+   `cat ~/.claude/.laconic-level` still prints `full`.
+4. Ask something ordinary and confirm the response is at `ultra`, not `full`.
+5. Delete `.claude/.laconic-level`, start a fresh session, and confirm the level
+   is back to `full`.
 
 ## Benchmark
 

@@ -2,7 +2,7 @@
 # laconic — emit the active rule set for Claude Code hooks.
 # Usage: laconic.sh start|subagent|remind
 #   start, subagent  print the rule slice for the active level
-#   remind           persist any "/laconic <level>" on stdin, print one line
+#   remind           persist any "/laconic <level> [project]" on stdin, print one line
 # Prints nothing at all unless a valid level is active.
 set -uo pipefail
 
@@ -13,7 +13,16 @@ case "$MODE" in
 esac
 
 CONFIG_DIR="${CLAUDE_CONFIG_DIR:-$HOME/.claude}"
-FLAG="$CONFIG_DIR/.laconic-level"
+GLOBAL_FLAG="$CONFIG_DIR/.laconic-level"
+
+# The project flag lets one repository run a different level from the machine
+# default. CLAUDE_PROJECT_DIR is what Claude Code exports to hooks; $PWD is the
+# fallback because Claude Code spawns hooks from the project root anyway, and it
+# is what the test suite and a hand-run invocation both see.
+PROJECT_DIR="${CLAUDE_PROJECT_DIR:-$PWD}"
+PROJECT_CONFIG_DIR="$PROJECT_DIR/.claude"
+PROJECT_FLAG="$PROJECT_CONFIG_DIR/.laconic-level"
+
 RULES="$(cd "$(dirname "$0")/.." && pwd)/rules/laconic.md"
 
 # On UserPromptSubmit the hook payload arrives on stdin as JSON. Grep it rather
@@ -24,25 +33,46 @@ RULES="$(cd "$(dirname "$0")/.." && pwd)/rules/laconic.md"
 # user set off. "status" is absent from the alternation so it cannot be stored.
 if [ "$MODE" = "remind" ]; then
   payload=$(cat)
-  switch=$(printf '%s' "$payload" \
-    | grep -oE '"prompt"[[:space:]]*:[[:space:]]*"[[:space:]]*/laconic +(lite|full|ultra|off)("|[[:space:]])' \
+  # Keep the whole matched span, not just the level: the optional " project"
+  # suffix that selects the scope is only visible here.
+  match=$(printf '%s' "$payload" \
+    | grep -oE '"prompt"[[:space:]]*:[[:space:]]*"[[:space:]]*/laconic +(lite|full|ultra|off)( +project)?("|[[:space:]])' \
+    | tail -1) || match=""
+  switch=$(printf '%s' "$match" \
     | grep -oE '(lite|full|ultra|off)' \
     | tail -1) || switch=""
+  # "project" contains none of the level words, so the extraction above is
+  # unaffected by the suffix and this stays a plain substring test.
+  target="$GLOBAL_FLAG"
+  target_dir="$CONFIG_DIR"
+  case "$match" in
+    *" project"*) target="$PROJECT_FLAG"; target_dir="$PROJECT_CONFIG_DIR" ;;
+  esac
   # This write precedes the read-path symlink check below, so it needs its own
   # guard: without it, /laconic ultra against a symlinked flag would write
   # through the link into an attacker-chosen file.
-  if [ -n "${switch:-}" ] && [ ! -L "$FLAG" ]; then
-    mkdir -p "$CONFIG_DIR" 2>/dev/null || true
-    { printf '%s' "$switch" > "$FLAG"; } 2>/dev/null || true
+  if [ -n "${switch:-}" ] && [ ! -L "$target" ]; then
+    mkdir -p "$target_dir" 2>/dev/null || true
+    { printf '%s' "$switch" > "$target"; } 2>/dev/null || true
   fi
 fi
 
+# Resolve which flag is in force. The project flag wins so a repository can run
+# a different level from the machine default, including "off".
+#
 # Never read through a symlinked flag. The whitelist below already stops foreign
 # bytes from reaching stdout; this check's real job is the write guard above.
-# Do not delete it as redundant.
-[ -L "$FLAG" ] && exit 0
+# Do not delete it as redundant. A symlink at either path fails closed and
+# silences the plugin rather than falling through to the other one — the
+# conservative direction, and the same behavior a symlinked flag had before the
+# project path existed.
+FLAG=""
+for candidate in "$PROJECT_FLAG" "$GLOBAL_FLAG"; do
+  [ -L "$candidate" ] && exit 0
+  if [ -f "$candidate" ]; then FLAG="$candidate"; break; fi
+done
 
-if [ ! -f "$FLAG" ]; then
+if [ -z "$FLAG" ]; then
   # Opt-in only: with no flag and no configured default, do nothing.
   [ -n "${LACONIC_DEFAULT:-}" ] || exit 0
   # Validate before persisting. An unvalidated typo (LACONIC_DEFAULT=fulll)
@@ -52,8 +82,12 @@ if [ ! -f "$FLAG" ]; then
     lite|full|ultra|off) ;;
     *) exit 0 ;;
   esac
+  # Seeds the machine flag only. LACONIC_DEFAULT is a per-machine preference,
+  # and writing it into whichever repository happens to be open would put a file
+  # in the user's working tree that they never asked for.
   mkdir -p "$CONFIG_DIR" 2>/dev/null || true
-  { printf '%s' "$LACONIC_DEFAULT" > "$FLAG"; } 2>/dev/null || exit 0
+  { printf '%s' "$LACONIC_DEFAULT" > "$GLOBAL_FLAG"; } 2>/dev/null || exit 0
+  FLAG="$GLOBAL_FLAG"
 fi
 
 # Cap the read and strip everything outside [a-z] so malformed contents cannot

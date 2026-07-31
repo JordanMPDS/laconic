@@ -7,7 +7,16 @@ SCRIPT="$ROOT/hooks/laconic.sh"
 CLAUDE_CONFIG_DIR="$(mktemp -d)"
 export CLAUDE_CONFIG_DIR
 FLAG="$CLAUDE_CONFIG_DIR/.laconic-level"
-trap 'rm -rf "$CLAUDE_CONFIG_DIR"' EXIT
+
+# Pin the project directory rather than letting it fall back to $PWD. Without
+# this the suite would read whatever .claude/.laconic-level happens to sit in
+# the directory it was invoked from, so a developer with a project flag set
+# would see unrelated failures.
+CLAUDE_PROJECT_DIR="$(mktemp -d)"
+export CLAUDE_PROJECT_DIR
+PROJECT_FLAG="$CLAUDE_PROJECT_DIR/.claude/.laconic-level"
+
+trap 'rm -rf "$CLAUDE_CONFIG_DIR" "$CLAUDE_PROJECT_DIR"' EXIT
 fails=0
 
 fail() { printf 'FAIL %s\n' "$1"; fails=$((fails + 1)); }
@@ -43,6 +52,8 @@ assert_lacks() {
 }
 
 set_level() { printf '%s' "$1" > "$FLAG"; }
+set_project_level() { mkdir -p "$(dirname "$PROJECT_FLAG")"; printf '%s' "$1" > "$PROJECT_FLAG"; }
+clear_project() { rm -rf "$(dirname "$PROJECT_FLAG")"; }
 
 # No case below wants an inherited default; the two that test seeding set it inline.
 unset LACONIC_DEFAULT
@@ -192,6 +203,117 @@ set_level ultra
 run remind '{"prompt":" /laconic full"}'
 assert_has "leading-space command still switches" "full" "$(cat "$FLAG")"
 
+# --- project-level flag ---
+# A repository may run a different level from the machine default. The project
+# flag wins; everything the global flag already promised applies to it too.
+
+# 22. The project flag overrides the global one.
+clear_project
+set_level lite
+set_project_level ultra
+out=$(bash "$SCRIPT" start </dev/null)
+assert_has   "project flag wins over global" "The answer alone" "$out"
+assert_lacks "global level not used when project flag is set" \
+  "Lite is normal professional prose" "$out"
+
+# 23. Project off beats global full. The off-switch regression, per project:
+# a repository where you want full explanations must be able to say so even
+# though the machine default is on.
+set_level full
+set_project_level off
+run start
+assert_silent "project off overrides global full"
+
+# 24. Global still applies when the project has no flag. The existing behavior
+# must survive the new lookup.
+clear_project
+set_level full
+out=$(bash "$SCRIPT" start </dev/null)
+assert_has "global level still applies with no project flag" \
+  "One recommendation, not a survey" "$out"
+
+# 25. "/laconic <level> project" writes the project flag and leaves the machine
+# flag alone.
+clear_project
+set_level full
+run remind '{"prompt":"/laconic ultra project"}'
+assert_has "project scope writes the project flag" "ultra" "$(cat "$PROJECT_FLAG")"
+assert_has "project scope leaves the global flag alone" "full" "$(cat "$FLAG")"
+assert_has "project scope reports the project level" "LACONIC MODE ACTIVE (ultra)" "$out"
+
+# 26. Without the suffix the write still goes to the machine flag, so existing
+# muscle memory keeps working.
+clear_project
+set_level full
+run remind '{"prompt":"/laconic lite"}'
+assert_has "unscoped switch writes the global flag" "lite" "$(cat "$FLAG")"
+if [ -f "$PROJECT_FLAG" ]; then
+  fail "unscoped switch must not create a project flag"
+else
+  ok "unscoped switch creates no project flag"
+fi
+
+# 27. Garbage in the project flag is rejected by the whitelist and never echoed,
+# exactly as it is in the global flag. It also fails closed rather than falling
+# through to a valid global level — a project flag that exists is the answer,
+# even when its contents are junk.
+clear_project
+set_level full
+set_project_level 'ultra; rm -rf /'
+run start
+assert_silent "malformed project level"
+
+# 28. A symlinked project flag is refused, and refusal wins over a valid global
+# flag. Falling through would let a planted symlink downgrade the guarantee to
+# whatever the machine default happens to be.
+clear_project
+set_level full
+mkdir -p "$(dirname "$PROJECT_FLAG")"
+printf 'ultra' > "$CLAUDE_PROJECT_DIR/decoy"
+ln -s "$CLAUDE_PROJECT_DIR/decoy" "$PROJECT_FLAG"
+run start
+assert_silent "symlinked project flag emits nothing"
+
+# 29. The remind-mode write guard applies to the project path too. Without it,
+# "/laconic ultra project" would clobber the link target.
+run remind '{"prompt":"/laconic lite project"}'
+assert_silent "symlinked project flag on remind"
+assert_has "symlinked project flag not written through" \
+  "ultra" "$(cat "$CLAUDE_PROJECT_DIR/decoy")"
+clear_project
+rm -f "$CLAUDE_PROJECT_DIR/decoy"
+
+# 30. LACONIC_DEFAULT seeds the machine flag only. Seeding the project flag
+# would drop a file into the user's working tree that they never asked for.
+clear_project
+rm -f "$FLAG"
+out=$(LACONIC_DEFAULT=full bash "$SCRIPT" start </dev/null)
+assert_has "default still seeds the global flag" "full" "$(cat "$FLAG")"
+if [ -f "$PROJECT_FLAG" ]; then
+  fail "LACONIC_DEFAULT must not create a project flag"
+else
+  ok "LACONIC_DEFAULT creates no project flag"
+fi
+
+# 31. The scope suffix needs the same trailing boundary the level words have.
+# "projectile" must not be read as "project", or an unscoped switch would
+# silently write into the repository instead of the machine flag.
+clear_project
+set_level full
+run remind '{"prompt":"/laconic ultra projectile"}'
+assert_has "projectile switches the global flag" "ultra" "$(cat "$FLAG")"
+if [ -f "$PROJECT_FLAG" ]; then
+  fail "projectile must not be read as project scope"
+else
+  ok "projectile is not project scope"
+fi
+
+# 32. Prose naming the scope must not switch anything either.
+set_level full
+run remind '{"prompt":"can I run /laconic ultra project in one repo only?"}'
+assert_has "prose naming the scope does not switch" "full" "$(cat "$FLAG")"
+clear_project
+
 # --- hooks.json ---
 HOOKS="$ROOT/hooks/hooks.json"
 if [ -f "$HOOKS" ]; then ok "hooks.json exists"; else fail "hooks.json exists"; fi
@@ -258,6 +380,18 @@ assert_has "badge shows plain name at full" "[LACONIC]" "$out"
 set_level ultra
 out=$(bash "$BADGE" 2>/dev/null)
 assert_has "badge shows level when not full" "[LACONIC:ULTRA]" "$out"
+
+# The badge resolves the flag the same way the hook does. A badge that names a
+# level the session is not running is worse than no badge, because nothing else
+# would reveal the mismatch.
+set_level full
+set_project_level ultra
+out=$(bash "$BADGE" 2>/dev/null)
+assert_has "badge follows the project flag, not the global one" "[LACONIC:ULTRA]" "$out"
+set_project_level off
+out=$(bash "$BADGE" 2>/dev/null)
+assert_empty "badge silent when the project flag is off" "$out"
+clear_project
 rm -f "$FLAG"
 
 printf '\n%d failure(s)\n' "$fails"

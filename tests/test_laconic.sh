@@ -314,6 +314,78 @@ run remind '{"prompt":"can I run /laconic ultra project in one repo only?"}'
 assert_has "prose naming the scope does not switch" "full" "$(cat "$FLAG")"
 clear_project
 
+# --- statusline badge install ---
+# Claude Code reads statusLine from settings and rejects the field in a plugin
+# manifest, so the settings.json edit cannot be automated. Owning the script can
+# be, and that is what removes the versioned plugin path from the user's
+# settings. These asserts cover the part the plugin is responsible for.
+BADGE_SRC="$ROOT/hooks/laconic-statusline.sh"
+BADGE_DST="$CLAUDE_CONFIG_DIR/laconic-statusline.sh"
+
+# 33. start installs the badge while a level is active, byte for byte.
+clear_project
+rm -f "$BADGE_DST"
+set_level full
+bash "$SCRIPT" start </dev/null >/dev/null
+if cmp -s "$BADGE_SRC" "$BADGE_DST"; then
+  ok "start installs the badge script"
+else
+  fail "start did not install the badge script"
+fi
+
+# 34. A stale copy is refreshed rather than left alone. This is the whole reason
+# the plugin owns the file: a user who wired up the badge once must not be stuck
+# on the logic that shipped with whichever version they installed first.
+printf 'stale\n' > "$BADGE_DST"
+bash "$SCRIPT" start </dev/null >/dev/null
+if cmp -s "$BADGE_SRC" "$BADGE_DST"; then
+  ok "start refreshes a stale badge script"
+else
+  fail "start left a stale badge script in place"
+fi
+
+# 35. Nothing is installed when the plugin is switched off. Writing files for a
+# user who turned the mode off is exactly the kind of lingering state /laconic
+# off promises not to leave.
+rm -f "$BADGE_DST"
+set_level off
+run start
+assert_silent "off installs nothing (still silent)"
+if [ -f "$BADGE_DST" ]; then fail "off must not install the badge"; else ok "off installs no badge"; fi
+
+# 36. Same with no flag at all: an inert plugin touches nothing.
+rm -f "$FLAG" "$BADGE_DST"
+run start
+assert_silent "no flag installs nothing (still silent)"
+if [ -f "$BADGE_DST" ]; then fail "inert plugin must not install the badge"; else ok "inert plugin installs no badge"; fi
+
+# 37. A symlinked target is refused, not written through — same discipline the
+# flag file gets, and for the same reason.
+rm -f "$BADGE_DST"
+set_level full
+printf 'keep' > "$CLAUDE_CONFIG_DIR/badge-decoy"
+ln -s "$CLAUDE_CONFIG_DIR/badge-decoy" "$BADGE_DST"
+bash "$SCRIPT" start </dev/null >/dev/null
+assert_has "symlinked badge target not written through" "keep" "$(cat "$CLAUDE_CONFIG_DIR/badge-decoy")"
+rm -f "$BADGE_DST" "$CLAUDE_CONFIG_DIR/badge-decoy"
+
+# 38. The install never breaks the rule slice, which is the hook's actual job.
+# An unwritable config directory must not cost the user their rules.
+set_level full
+chmod 500 "$CLAUDE_CONFIG_DIR" 2>/dev/null
+out=$(bash "$SCRIPT" start </dev/null 2>/dev/null || true)
+chmod 700 "$CLAUDE_CONFIG_DIR" 2>/dev/null
+assert_has "rules still emitted when the badge cannot be written" \
+  "One recommendation, not a survey" "$out"
+rm -f "$BADGE_DST"
+
+# 39. subagent mode does not install. Only SessionStart owns the file, so the
+# write happens once per session rather than once per spawned agent.
+rm -f "$BADGE_DST"
+set_level full
+bash "$SCRIPT" subagent </dev/null >/dev/null
+if [ -f "$BADGE_DST" ]; then fail "subagent must not install the badge"; else ok "subagent installs no badge"; fi
+
 # --- hooks.json ---
 HOOKS="$ROOT/hooks/hooks.json"
 if [ -f "$HOOKS" ]; then ok "hooks.json exists"; else fail "hooks.json exists"; fi

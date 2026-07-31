@@ -105,6 +105,27 @@ if [ "$MODE" = "remind" ]; then
   exit 0
 fi
 
+# Keep the statusline badge installed at a stable, version-free path.
+#
+# Claude Code reads "statusLine" from settings only — a plugin cannot register
+# one, and a statusLine command referencing ${CLAUDE_PLUGIN_ROOT} is rejected
+# and swallowed, so the badge would silently render nothing. Wiring it up is
+# therefore always one manual edit to settings.json. What the plugin can do is
+# own the script, so the user's settings point at a path that never carries a
+# version and never goes stale.
+#
+# Only on start, only while a level is active, and never fatal: this exists to
+# save the user a copy-paste, so it must not be able to break the rule slice
+# below. A symlinked target is refused for the same reason the flag file is.
+if [ "$MODE" = "start" ]; then
+  BADGE_SRC="$(dirname "$0")/laconic-statusline.sh"
+  BADGE_DST="$CONFIG_DIR/laconic-statusline.sh"
+  if [ -f "$BADGE_SRC" ] && [ ! -L "$BADGE_DST" ] && ! cmp -s "$BADGE_SRC" "$BADGE_DST"; then
+    mkdir -p "$CONFIG_DIR" 2>/dev/null || true
+    { cp "$BADGE_SRC" "$BADGE_DST"; } >/dev/null 2>&1 || true
+  fi
+fi
+
 [ -f "$RULES" ] || exit 0
 
 # Print the shared block (rank 0) plus every block up to the active level.

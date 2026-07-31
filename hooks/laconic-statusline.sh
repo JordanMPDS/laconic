@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
-# laconic — optional statusline badge. Copy this file to a stable path outside
-# the plugin, then point settings.json at that copy:
-#   cp this file to ~/.claude/laconic-statusline.sh
+# laconic — optional statusline badge. The SessionStart hook installs and
+# refreshes a copy of this file at a stable path, so point settings.json there
+# rather than into the plugin, whose path carries a version:
 #   "statusLine": { "type": "command",
 #                   "command": "bash \"$HOME/.claude/laconic-statusline.sh\"" }
 # Do not reference it through ${CLAUDE_PLUGIN_ROOT}: Claude Code resolves that

@@ -87,12 +87,72 @@ def aggregate(snap):
     return agg
 
 
+def _comparable(base, rate_key, count_key):
+    """Did the baseline write enough article/auxiliary words for a ratio
+    against it to carry information? Below these floors the bucket is
+    evidence of nothing, in either direction - it neither fires the gate nor
+    counts as a model that corroborated a pass."""
+    return base[count_key] >= ABS_COUNT_FLOOR and base[rate_key] >= RATE_FLOOR
+
+
+def _rate_gate(agg, threshold, rate_key, count_key, label):
+    """Article and auxiliary-verb rates are density proxies, not observations.
+    A response can be flawless English and still land under the threshold
+    because its noun phrases take possessives, quantifiers and demonstratives
+    rather than articles ("Any query callback that throws was leaking its
+    client" is 38 words with zero articles and nothing wrong with it).
+
+    Measured on the committed snapshot, one half of baseline's own reps fires
+    this gate against baseline's other half in 11 of 160 splits (~7%), so at
+    n=5 a single bucket dropping is indistinguishable from sampling noise -
+    the gate fired twice on laconic and twice on word-compression, two arms
+    whose responses both keep their articles.
+
+    Requiring the drop to reproduce on every model tested costs no
+    sensitivity: with the articles mechanically stripped out of laconic's own
+    responses, the corroborated gate still fires on 7 of the 8 cases and
+    reports the 8th as ungated rather than passing it. A rules regression is
+    a property of the rules and shows up on both models; noise does not
+    correlate across them. Directly observed defects (an arrow in prose, a
+    dropped never-cut token) are not proxies and are gated on any single
+    occurrence, above.
+
+    Returns (failures, notes). A note is a case the gate could not evaluate,
+    reported rather than silently counted as a pass; it does not fail a run.
+    """
+    failures, notes = [], []
+    by_case = defaultdict(list)
+    for (case, arm, model), v in agg.items():
+        if arm != "laconic":
+            continue
+        base = agg.get((case, "baseline", model))
+        if base and _comparable(base, rate_key, count_key):
+            by_case[case].append((model, v[rate_key], base[rate_key]))
+
+    for case, entries in sorted(by_case.items()):
+        # One model cannot corroborate itself.
+        if len(entries) < 2:
+            notes.append("%s: %s rate not gated - only %s had a comparable "
+                         "baseline, so a drop cannot be corroborated"
+                         % (case, label, entries[0][0]))
+            continue
+        if not all(rate < threshold * brate for _, rate, brate in entries):
+            continue
+        detail = ", ".join("%s %.3f vs %.3f" % e for e in sorted(entries))
+        failures.append("%s: %s rate below %.0f%% of baseline on all %d models (%s)"
+                        % (case, label, threshold * 100, len(entries), detail))
+    return failures, notes
+
+
+RATE_GATES = (("article_rate", "article_count", "article"),
+              ("aux_verb_rate", "aux_count", "aux verb"))
+
+
 def gate_failures(agg, threshold):
     out = []
     for (case, arm, model), v in sorted(agg.items()):
         if arm != "laconic":
             continue
-        base = agg.get((case, "baseline", model))
         if v["violations_total"] > 0:
             # Lead with the number the gate actually used (the total), not
             # the median - "0.0 readability violation(s)" reporting a
@@ -106,21 +166,17 @@ def gate_failures(agg, threshold):
         if v["never_cut_failures"] > 0:
             out.append("%s/%s: %d never-cut failure(s)"
                        % (case, model, v["never_cut_failures"]))
-        if base:
-            if (base["article_count"] >= ABS_COUNT_FLOOR
-                    and base["article_rate"] >= RATE_FLOOR
-                    and v["article_rate"] < threshold * base["article_rate"]):
-                out.append("%s/%s: article rate %.3f below %.0f%% of baseline %.3f "
-                           "(baseline had ~%.1f article words)"
-                           % (case, model, v["article_rate"], threshold * 100,
-                              base["article_rate"], base["article_count"]))
-            if (base["aux_count"] >= ABS_COUNT_FLOOR
-                    and base["aux_verb_rate"] >= RATE_FLOOR
-                    and v["aux_verb_rate"] < threshold * base["aux_verb_rate"]):
-                out.append("%s/%s: aux verb rate %.3f below %.0f%% of baseline %.3f "
-                           "(baseline had ~%.1f auxiliary words)"
-                           % (case, model, v["aux_verb_rate"], threshold * 100,
-                              base["aux_verb_rate"], base["aux_count"]))
+    for args in RATE_GATES:
+        out += _rate_gate(agg, threshold, *args)[0]
+    return out
+
+
+def gate_notes(agg, threshold):
+    """Checks that could not be evaluated. Reported, never counted as passes,
+    never failing the run."""
+    out = []
+    for args in RATE_GATES:
+        out += _rate_gate(agg, threshold, *args)[1]
     return out
 
 
@@ -268,6 +324,11 @@ def render(snap, judg, threshold):
         out.append("All gates pass: 0 readability violations, 0 never-cut failures, "
                    "article and auxiliary rates within %.0f%% of baseline."
                    % (threshold * 100))
+    notes = gate_notes(agg, threshold)
+    if notes:
+        out.append("\n**Not gated (%d)** - reported so an unevaluated check is "
+                   "not read as a passing one:\n" % len(notes))
+        out.extend("- %s" % n for n in notes)
     return "\n".join(out) + "\n"
 
 

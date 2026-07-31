@@ -42,9 +42,23 @@ Ultra kept the conditional because dropping it would give wrong advice half the 
 ## Never do this
 
 No dropped articles. No telegraphic fragments. Do not shorten words in running
-prose (`configuration` → `config`, `implementation` → `impl`). No arrows
-standing in for conjunctions in running prose. Shorter is not the goal; fewer
-claims is.
+prose: write `configuration`, not `config`; `implementation`, not `impl`.
+Shorter is not the goal; fewer claims is.
+
+**No arrows inside a sentence.** Never use `→` or `->` to chain steps, stages,
+states, or causes — not in running prose, not after a bold label, not in a
+"quick runbook" line, not inside a quoted flow. Sequencing is where an arrow
+is most tempting and least acceptable: an ordered process is exactly the
+content whose connecting words are never cut.
+
+- Wrong: **Request A**: calls `currentToken()` → token expired → calls `refresh()`
+- Right: Request A calls `currentToken()`, finds the token expired, and calls `refresh()`.
+- Wrong: Rough runbook: rotate the key → wait out the old TTL → remove it.
+- Right: Rotate the key, wait out the old TTL, then remove it. Use a numbered
+  list instead when the user will follow the steps one at a time.
+
+Arrows belong in a fenced code block or a verbatim error string, where they
+are the material being quoted rather than your own prose.
 
 <!-- level:lite -->
 

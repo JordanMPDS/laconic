@@ -29,6 +29,35 @@ fi
 # The shared block is everything before the first marker. It must carry the
 # thesis and the never-cut list, because those apply at every level.
 shared=$(sed -n "1,$((lite_ln - 1))p" "$RULES")
+
+# The arrow prohibition has to name the constructions the model actually
+# reaches for. "No arrows standing in for conjunctions in running prose" left
+# two openings the benchmark caught it walking through: a sequence arrow is
+# not a conjunction, and a bolded-label line does not read as running prose.
+# Every observed violation landed in one of those two.
+for phrase in "not after a bold label" "runbook" "chain steps"; do
+  case "$shared" in
+    *"$phrase"*) ok "arrow rule closes the hatch: $phrase" ;;
+    *) fail "arrow rule closes the hatch: $phrase" ;;
+  esac
+done
+
+# The rules text is injected verbatim into the prompt, so an arrow used
+# approvingly inside it models the exact habit the rule forbids - the old
+# "(`configuration` -> `config`)" gloss sat in the same sentence as the
+# prohibition. Inline-code spans are stripped first, the same way
+# metrics.py strips them before scoring: the rule has to be able to name the
+# glyphs it bans. Outside code, an arrow may appear only on a Wrong example.
+# HTML comments are stripped too: the level markers "<!-- level:lite -->" end
+# in a literal -> that is structure, not prose.
+bad_arrow_lines=$(sed -e 's/`[^`]*`//g' -e 's/<!--.*-->//g' "$RULES" \
+                  | grep -n -- '->\|→' | grep -v '^[0-9]*:- Wrong:' || true)
+if [ -z "$bad_arrow_lines" ]; then
+  ok "rules/laconic.md uses arrows only in lines marked Wrong"
+else
+  fail "rules/laconic.md uses an arrow outside a Wrong example: $bad_arrow_lines"
+fi
+
 for phrase in "fewer claims" "Never cut" "Security warnings" "Length scales to the request"; do
   case "$shared" in
     *"$phrase"*) ok "shared block contains: $phrase" ;;

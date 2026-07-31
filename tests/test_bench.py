@@ -2,6 +2,7 @@
 """Validates harness logic against stubs - no live model calls."""
 import json
 import os
+import re
 import shutil
 import subprocess
 import sys
@@ -518,27 +519,40 @@ check("gate message still shows the fractional median, not rounded to zero",
 # words, aux_rate 0.021) clears RATE_FLOOR trivially even though there is no
 # meaningful count behind it. The absolute-count floor must suppress this;
 # a baseline with a healthy count must still gate on the same rate drop.
-low_count_agg = {
-    ("lowcount", "baseline", "haiku"): {"article_rate": 0.0, "article_count": 0.0,
-                                        "aux_verb_rate": 0.021, "aux_count": 1.0},
-    ("lowcount", "laconic", "haiku"): {"violations_total": 0, "n": 1, "violations": 0.0,
-                                       "never_cut_failures": 0, "article_rate": 0.0,
-                                       "aux_verb_rate": 0.0, "spans": []},
-}
-low_count_fails = bench_report.gate_failures(low_count_agg, 0.70)
+# Both fixtures carry BOTH models: the rate gates need corroboration, so a
+# single-model fixture can only ever produce a "not gated" note and would
+# prove nothing about whether the gate fires.
+def rate_agg(base_aux_rate, base_aux_count, laconic_aux_rate, models=("haiku", "sonnet")):
+    out = {}
+    for m in models:
+        out[("c", "baseline", m)] = {"article_rate": 0.0, "article_count": 0.0,
+                                     "aux_verb_rate": base_aux_rate,
+                                     "aux_count": base_aux_count}
+        out[("c", "laconic", m)] = {"violations_total": 0, "n": 1, "violations": 0.0,
+                                    "never_cut_failures": 0, "article_rate": 0.0,
+                                    "aux_verb_rate": laconic_aux_rate, "spans": []}
+    return out
+
+
+low_count_fails = bench_report.gate_failures(rate_agg(0.021, 1.0, 0.0), 0.70)
 check("a baseline with ~1 auxiliary word does not trip the aux-rate gate",
       not any("aux verb rate" in f for f in low_count_fails))
 
-healthy_count_agg = {
-    ("healthy", "baseline", "haiku"): {"article_rate": 0.0, "article_count": 0.0,
-                                       "aux_verb_rate": 0.05, "aux_count": 6.0},
-    ("healthy", "laconic", "haiku"): {"violations_total": 0, "n": 1, "violations": 0.0,
-                                      "never_cut_failures": 0, "article_rate": 0.0,
-                                      "aux_verb_rate": 0.01, "spans": []},
-}
+healthy_count_agg = rate_agg(0.05, 6.0, 0.01)
 healthy_count_fails = bench_report.gate_failures(healthy_count_agg, 0.70)
 check("a baseline with a healthy auxiliary-word count still trips the aux-rate gate",
       any("aux verb rate" in f for f in healthy_count_fails))
+
+# One model showing the drop is the documented noise pattern and must not
+# fail the run; it must not vanish silently either.
+half_agg = rate_agg(0.05, 6.0, 0.01)
+half_agg[("c", "laconic", "sonnet")]["aux_verb_rate"] = 0.05
+check("a drop on one model only does not fail the aux-rate gate",
+      not any("aux verb rate" in f
+              for f in bench_report.gate_failures(half_agg, 0.70)))
+check("a single-model case is surfaced as a note rather than dropped",
+      any("not gated" in n
+          for n in bench_report.gate_notes(rate_agg(0.05, 6.0, 0.01, ("haiku",)), 0.70)))
 
 # gate_failures() taking `threshold` as an argument is never actually proven
 # to matter - every call above always used 0.70. If the function ignored the
@@ -891,6 +905,101 @@ try:
 except ValueError:
     stub_ok = False
 check("claude-stub.sh escapes a quote in STUB_TEXT so its JSON stays valid", stub_ok)
+
+RESULTS = ROOT / "evals" / "snapshots" / "results.json"
+
+# --- H: the article/aux rate gates require cross-model corroboration ---
+# These two are density proxies, not observed defects: on the committed
+# snapshot one half of baseline's reps fires the uncorroborated gate against
+# baseline's own other half ~7% of the time, which at 16 buckets means a
+# perfectly clean arm is expected to "fail". Requiring every model tested to
+# show the drop removes that noise. The cost of the change must be zero
+# sensitivity, so the drop-on-both case below has to keep firing.
+ARTICLE_RICH = ("The service reads the file and the parser writes the record "
+                "to the table for the user of the system.")   # 7 articles / 21 words
+ARTICLE_STRIPPED = ("Service reads file and parser writes record to table for "
+                    "user of system.")                        # 0 articles
+
+
+def rate_snapshot(laconic_text_by_model):
+    """One case, two models, baseline vs laconic. No auxiliary verbs in either
+    text, so the aux gate finds no comparable baseline and stays silent."""
+    runs = []
+    for model in ("haiku", "sonnet"):
+        runs.append({"case": "floor", "arm": "baseline", "model": model, "rep": 0,
+                     "ok": True, "text": ARTICLE_RICH, "output_tokens": 10,
+                     "total_cost_usd": 0.001, "duration_ms": 500})
+        if model in laconic_text_by_model:
+            runs.append({"case": "floor", "arm": "laconic", "model": model, "rep": 0,
+                         "ok": True, "text": laconic_text_by_model[model],
+                         "output_tokens": 10, "total_cost_usd": 0.001,
+                         "duration_ms": 500})
+    return {"metadata": {"reps": 1, "models": ["haiku", "sonnet"],
+                         "laconic_level": "full", "rules_cksum": "1",
+                         "generated_at": "x", "git_commit": "y",
+                         "claude_cli_version": "z"},
+            "arms": {"laconic": {"system_prompt": "r"}}, "runs": runs}
+
+
+def article_gate_fails(laconic_text_by_model):
+    agg_r = bench_report.aggregate(rate_snapshot(laconic_text_by_model))
+    return [f for f in bench_report.gate_failures(agg_r, 0.70) if "article" in f]
+
+
+# Sensitivity: the gate must still catch a genuine regression.
+both_dropped = article_gate_fails({"haiku": ARTICLE_STRIPPED,
+                                   "sonnet": ARTICLE_STRIPPED})
+check("article gate fires when every model shows the drop",
+      len(both_dropped) == 1)
+check("the corroborated failure names the case and how many models agreed",
+      both_dropped and "floor" in both_dropped[0] and "all 2 models" in both_dropped[0])
+
+# Specificity: one model dropping is the noise pattern, not a regression.
+check("article gate stays silent when only one model shows the drop",
+      article_gate_fails({"haiku": ARTICLE_STRIPPED, "sonnet": ARTICLE_RICH}) == [])
+check("article gate stays silent when no model shows the drop",
+      article_gate_fails({"haiku": ARTICLE_RICH, "sonnet": ARTICLE_RICH}) == [])
+
+# A single comparable model cannot corroborate itself. It must not fail the
+# run, and it must not disappear either - reporting nothing would be a gate
+# that silently checked nothing.
+single_agg = bench_report.aggregate(rate_snapshot({"haiku": ARTICLE_STRIPPED}))
+check("a case with only one comparable model does not fail the run",
+      article_gate_fails({"haiku": ARTICLE_STRIPPED}) == [])
+single_notes = [n for n in bench_report.gate_notes(single_agg, 0.70) if "article" in n]
+check("a case with only one comparable model is reported as a note",
+      len(single_notes) == 1 and "not gated" in single_notes[0])
+
+# The whole point of the corroboration rule is that it costs no sensitivity
+# on the real corpus: strip the articles out of every committed laconic
+# response and the gate must still fire.
+if RESULTS.exists():
+    real_snap = json.loads(RESULTS.read_text())
+    stripped_runs = []
+    for r in real_snap["runs"]:
+        r = dict(r)
+        if r.get("arm") == "laconic" and r.get("ok"):
+            r["text"] = re.sub(r"\b(the|a|an)\s+", "", r.get("text", ""), flags=re.I)
+        stripped_runs.append(r)
+    stripped_agg = bench_report.aggregate(dict(real_snap, runs=stripped_runs))
+    stripped_fails = [f for f in bench_report.gate_failures(stripped_agg, 0.70)
+                      if "article rate below" in f]
+    real_agg = bench_report.aggregate(real_snap)
+    real_article_fails = [f for f in bench_report.gate_failures(real_agg, 0.70)
+                          if "article rate below" in f]
+    # 7 of the 8 cases fire. code-fidelity is the exception and not a silent
+    # one: its haiku baseline writes too few article words to clear
+    # ABS_COUNT_FLOOR, leaving one comparable model, which the gate reports as
+    # not gated rather than passing. Every case is therefore accounted for -
+    # caught, or named as uncheckable.
+    stripped_notes = [n for n in bench_report.gate_notes(stripped_agg, 0.70)
+                      if "article rate not gated" in n]
+    check("corroborated gate still catches 7 of 8 cases once articles are stripped",
+          len(stripped_fails) == 7)
+    check("the 8th case is reported as not gated, never silently passed",
+          len(stripped_notes) == 1 and "code-fidelity" in stripped_notes[0])
+    check("corroborated gate reports no article failure on the committed snapshot",
+          real_article_fails == [])
 
 print("\n%d failure(s)" % fails)
 sys.exit(1 if fails else 0)

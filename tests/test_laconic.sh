@@ -386,6 +386,24 @@ set_level full
 bash "$SCRIPT" subagent </dev/null >/dev/null
 if [ -f "$BADGE_DST" ]; then fail "subagent must not install the badge"; else ok "subagent installs no badge"; fi
 
+# --- PowerShell source encoding ---
+# Every .ps1 in this repo must start with a UTF-8 BOM. Windows PowerShell 5.1
+# decodes a BOM-less script with the ANSI code page, so an em dash becomes the
+# three cp1252 characters â, €, and ” — and PowerShell's tokenizer accepts ” as a
+# string delimiter, which terminates the enclosing string early and cascades into
+# a parser error several functions later. Checked from the Linux job because it
+# is a property of the committed bytes, and because a Windows-only check would
+# not run on the commit that strips the BOM.
+for ps1 in "$ROOT"/hooks/*.ps1 "$ROOT"/tests/*.ps1; do
+  [ -f "$ps1" ] || continue
+  name=$(basename "$ps1")
+  if [ "$(head -c 3 "$ps1" | od -An -tx1 | tr -d ' \n')" = "efbbbf" ]; then
+    ok "$name starts with a UTF-8 BOM"
+  else
+    fail "$name has no UTF-8 BOM (PowerShell 5.1 would mis-decode its non-ASCII characters)"
+  fi
+done
+
 # --- hooks.json ---
 HOOKS="$ROOT/hooks/hooks.json"
 if [ -f "$HOOKS" ]; then ok "hooks.json exists"; else fail "hooks.json exists"; fi

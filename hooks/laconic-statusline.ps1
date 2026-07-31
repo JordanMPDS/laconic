@@ -1,4 +1,4 @@
-#Requires -Version 5.1
+﻿#Requires -Version 5.1
 # laconic — optional statusline badge (native Windows). The SessionStart hook
 # installs and refreshes a copy of this file at a stable path, so point
 # settings.json there rather than into the plugin, whose path carries a version:

@@ -534,9 +534,20 @@ Remove-Item -LiteralPath $Flag -Force -ErrorAction SilentlyContinue
 # written by one must be accepted by the other, in both directions. Skipping
 # this when bash is missing would hide exactly the failure it exists to catch,
 # so it is a hard failure on any host that has bash.
+#
+# Windows itself ships no bash — that absence is the reason this port exists.
+# What supplies it here is the GitHub Actions windows-latest image, which
+# installs Git for Windows. That is an image detail, not a platform guarantee,
+# so it is required rather than assumed: skipping is allowed on a developer's
+# Windows box, and is a hard failure under CI. A green run that quietly stopped
+# checking the state-sharing case would be worse than a red one.
 $bash = Get-Command bash -ErrorAction SilentlyContinue
 if ($null -eq $bash) {
-  Write-Host 'skip cross-platform state sharing — no bash on this host'
+  if ([string]::IsNullOrEmpty($env:CI)) {
+    Write-Host 'skip cross-platform state sharing — no bash on this host'
+  } else {
+    Fail 'cross-platform state sharing — no bash on the CI runner, so the case went unchecked'
+  }
 } else {
   # MSYS bash reads C:/path but not C:\path.
   $shScript  = (Join-Path $Root 'hooks\laconic.sh') -replace '\\', '/'

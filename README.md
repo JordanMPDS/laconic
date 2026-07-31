@@ -199,52 +199,142 @@ In a fresh session:
 
 ## Benchmark
 
-`evals/bench/` runs the actual benchmark: 320 single-turn calls (8 cases × 5 reps
-× 2 models × 4 arms — baseline, a terse-only control, a synthetic word-compression
-foil, and laconic), scored on compression, readability, trap-avoidance, and a
-deterministic never-cut safety check. Full methodology, every honesty note, every
-correction, and every table:
-[`evals/results/2026-07-31-benchmark.md`](evals/results/2026-07-31-benchmark.md).
+320 single-turn API calls: 8 cases × 5 reps × 2 models × 4 arms — baseline, a
+terse-only control, a synthetic word-compression foil, and laconic. Scored
+offline on compression, readability, trap-avoidance, and a deterministic
+never-cut safety check. Full method, every honesty note, every correction, and
+every table: [`evals/results/2026-07-31-benchmark.md`](evals/results/2026-07-31-benchmark.md).
 
-**No trap-based claim is made.** The cases that discriminate at all are
-contaminated: laconic's own rule text (`rules/laconic.md`) reaches the treatment
-arm's own prompt, overlaps two of the five discriminating cases almost verbatim,
-and two more of those five grade adherence to that same rule text. See
-"Trap-based claims: still retracted" in the results doc.
+| vs baseline | tokens (sonnet) | tokens (haiku) | latency (sonnet) | readability violations | never-cut failures |
+|---|--:|--:|--:|--:|--:|
+| **laconic** | **-28%** | +5% | **-25%** | **0** | 2 / 50 |
+| terse-control | +1% | -3% | -1% | 5 | 1 / 50 |
+| word-compression | -7% | +7% | -16% | 4 | 0 / 50 |
+| baseline | 0% | 0% | 0% | 0 | 0 / 50 |
 
-**Compression holds on Sonnet, not on Haiku, and costs more per call on both.**
-Median output tokens (a median of per-case medians — a flat median over the raw
-runs gives a different number and, on Haiku, a different sign; see the results
-doc) — sonnet: baseline 874, laconic 626, **28% shorter**, and 29% shorter than
-the terse-only control. Haiku: baseline 588, laconic 615, **5% longer.** Laconic
-also costs *more* per call than baseline on both models ($0.0164 vs $0.0139
-haiku, $0.0653 vs $0.0605 sonnet) — the injected rules' own token cost, reported
-net rather than left out.
+Two of those columns are bad news for laconic and are printed at the same size
+as the good ones: it does not compress on Haiku, and it is the only arm that
+fails the safety gate on this snapshot.
 
-**Readability: 0 violations, down from 16.** The 2026-07-30 run found laconic
-violating its own no-arrows rule more than any other arm — more than a foil that
-had been told outright to use arrows. That was a real defect: the rule said "no
-arrows standing in for conjunctions in running prose", and every violation went
-through one of those two openings (a sequence arrow is not a conjunction; a
-`**Bolded label**: ...` line does not read as running prose). The rule now bans
-arrows anywhere in a sentence and names those forms explicitly. Re-measured with
-the **unchanged** detector: baseline 0, terse-control 5, word-compression 4,
-laconic 0. The arms that still violate are the two whose instructions did not
-change. See "This run supersedes 2026-07-30" in the results doc.
+### Compression
 
-**Laconic still fails its own gate, on the never-cut safety check.** `report.py`
-exits 1 against the committed snapshot with 2 failures out of the 50 (of 80)
-responses per arm that carry a keyword list to verify by design. Both were read
-and both are real: one `destructive` response told the user to go look for
-foreign keys instead of naming the two tables in the fixture in front of it, and
-one `conditional` response never diagnosed the leak. The difference from the
-previous run's 0 is not statistically distinguishable (Fisher p = 0.50), and
-`terse-control` scores 1 on the same snapshot — but it is not zero, and it is not
-reported as zero. The gate was not loosened to turn it green.
+Median output tokens per case, n=5 per cell. The comparison that matters is
+laconic against `terse-control` — a plain "be terse, no preamble, no closing
+offers" instruction — not against baseline, because that isolates the rule set
+from merely asking for brevity.
+
+**Sonnet 4.5**
+
+| case | baseline | terse-control | laconic | saved |
+|---|--:|--:|--:|--:|
+| `walkthrough` | 3701 | 3682 | 1628 | **56%** |
+| `floor` | 201 | 220 | 82 | **59%** |
+| `ordered-steps` | 1329 | 1630 | 801 | **40%** |
+| `decision` | 839 | 786 | 513 | **39%** |
+| `code-fidelity` | 307 | 315 | 214 | **30%** |
+| `conditional` | 908 | 981 | 740 | 19% |
+| `badnews` | 435 | 414 | 372 | 14% |
+| `destructive` | 2336 | 2775 | 2462 | **-5%** |
+| **median** | **874** | **884** | **626** | **28%** |
+
+`destructive` is the one case that gets longer, and that is the design working:
+naming exactly what a `DROP TABLE` affects is never-cut content, so laconic has
+nothing to trim there.
+
+<details>
+<summary><strong>Haiku 4.5 — no compression</strong></summary>
+
+| case | baseline | terse-control | laconic | saved |
+|---|--:|--:|--:|--:|
+| `floor` | 266 | 236 | 225 | 15% |
+| `badnews` | 469 | 432 | 443 | 6% |
+| `conditional` | 956 | 1017 | 911 | 5% |
+| `walkthrough` | 1228 | 1008 | 1185 | 4% |
+| `code-fidelity` | 425 | 421 | 418 | 2% |
+| `decision` | 522 | 506 | 515 | 1% |
+| `ordered-steps` | 653 | 636 | 715 | -9% |
+| `destructive` | 711 | 791 | 837 | -18% |
+| **median** | **588** | **571** | **615** | **-5%** |
+
+The aggregation convention flips this result's sign, so no Haiku compression
+claim is made in either direction. The table above is a median of per-case
+medians; a flat median over the 40 raw runs gives 604 → 552 (−9%). Sonnet
+compresses on both estimators, Haiku does not agree with itself.
+
+</details>
+
+Dispersion is published per arm and model in the results doc. On Sonnet,
+laconic's stdev (119) is the lowest of the four arms and its max (832) sits
+below baseline's band, so the gap is not one or two short outliers dragging a
+median.
+
+### Readability — the whole point
+
+Counted on code-stripped prose: arrows standing in a sentence, telegraphic
+abbreviations (`impl`, `req`, `w/`), sentences starting lowercase.
+
+| arm | violations | responses affected (of 80) |
+|---|--:|--:|
+| baseline | 0 | 0 |
+| terse-control | 5 | 3 |
+| word-compression | 4 | 3 |
+| **laconic** | **0** | **0** |
+
+**This number used to be 16, and that was a real defect.** The 2026-07-30 run
+found laconic violating its own no-arrows rule more than any other arm — more
+than a foil that had been told outright to use arrows instead of conjunctions.
+The rule said "no arrows standing in for conjunctions in running prose", and
+every single violation went through one of the two openings that phrasing left:
+a sequence arrow is not a conjunction, and a `**Bolded label**: ...` line does
+not read as running prose. The rule now bans arrows anywhere in a sentence and
+names those forms. Re-measured with the **unchanged** detector, the arms that
+still violate are the two whose instructions did not change.
+
+### Cost, reported net
+
+The injected rules cost tokens of their own, so laconic costs **more per call
+than baseline on both models** even where it produces fewer output tokens.
+
+| median USD per call | haiku | sonnet |
+|---|--:|--:|
+| baseline | 0.0139 | 0.0605 |
+| laconic | 0.0164 | 0.0653 |
 
 These are single-turn `--append-system-prompt` calls, not multi-turn sessions,
-so the per-call cost above **overstates** what a real session pays once the
-first turn's cache write becomes a cache read.
+so this **overstates** what a real session pays once the first turn's cache
+write becomes a cache read on every turn after it.
+
+### The gate is red
+
+`report.py` exits 1 against the committed snapshot with 2 never-cut failures out
+of the 50 responses per arm that carry a keyword list to verify by design. Both
+were read, and both are real: one `destructive` response told the user to go
+look for foreign keys instead of naming the two tables in the fixture in front
+of it, and one `conditional` response never diagnosed the leak.
+
+The difference from the previous run's 0 is not statistically distinguishable
+(Fisher p = 0.50) and `terse-control` scores 1 on the same snapshot, but it is
+not zero and it is not reported as zero. The gate was not loosened to turn it
+green.
+
+### What this benchmark does not claim
+
+- **No trap-based claim.** The cases that discriminate at all are contaminated:
+  laconic's rule text reaches the treatment arm's own prompt, overlaps two of
+  the five discriminating cases almost verbatim, and two more of those five
+  grade adherence to that same rule text. The trap table is still published, but
+  it is not evidence for the plugin.
+- **Never-cut coverage is 50 of 80 responses per arm,** not 80. Three cases
+  carry an empty keyword list and are not checked at all — their lists were
+  emptied after an earlier `"if"` keyword turned out to match "different",
+  "specify" and "identify", making the assertion vacuous.
+- **n=5 per cell, two models, one vendor.** Differences smaller than the
+  published stdev are not claims, and nothing here says anything about how these
+  rules behave on a non-Claude model.
+- **The judge is a Claude model grading Claude outputs,** blind to arm with the
+  rules text withheld. Still not an independent evaluator.
+
+Reproduce:
 
 ```bash
 python3 evals/bench/run.py      # generate (~320 calls, 1.5-2 hr)

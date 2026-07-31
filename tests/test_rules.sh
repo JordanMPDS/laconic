@@ -91,8 +91,17 @@ case "$ultra_block" in
 esac
 
 
-# The four never-cut summaries must not drift. A summary that drops an item is the
-# difference between a terse answer and one that omits a security warning.
+# The never-cut summaries that remain must not drift. A summary that drops an
+# item is the difference between a terse answer and one that omits a security
+# warning.
+#
+# commands/laconic.toml is deliberately absent from the list below. It used to
+# carry an inline copy of the rule set, and this loop enforced it — the file is
+# checked further down for the opposite property, that it restates nothing and
+# points at rules/laconic.md instead. skills/laconic-help/SKILL.md keeps its
+# condensed list because it declares that file authoritative on any
+# disagreement; README.md keeps one because it is documentation rather than an
+# instruction the model follows.
 #
 # rules/laconic.md is checked against its "## Never cut" section only, not the
 # whole file — scoped the same way the level blocks above are (lite_block,
@@ -100,7 +109,7 @@ esac
 # survives elsewhere: the word "destructive" also appears in the closing-offer
 # carve-out under "Level: lite" ("Asking permission before a destructive action
 # is not a closing offer..."), so an unscoped check would not notice the actual
-# never-cut bullet being deleted. The other three files carry no such
+# never-cut bullet being deleted. The other two files carry no such
 # collision, so they keep the simpler whole-file check.
 never_cut_ln=$(grep -n "^## Never cut" "$RULES" | head -1 | cut -d: -f1)
 next_heading_ln=$(sed -n "$((never_cut_ln + 1)),\$p" "$RULES" | grep -n "^## " | head -1 | cut -d: -f1)
@@ -118,10 +127,41 @@ for kw in "code" "config" "command" "error string" "ecurity warning" "estructive
   else
     fail "rules/laconic.md dropped never-cut item: $kw"
   fi
-  for f in commands/laconic.toml skills/laconic-help/SKILL.md README.md; do
+  for f in skills/laconic-help/SKILL.md README.md; do
     if grep -qi -- "$kw" "$ROOT/$f"; then ok "$f keeps never-cut: $kw"
     else fail "$f dropped never-cut item: $kw"; fi
   done
+done
+
+# --- commands/laconic.toml must point at the rules, not repeat them ---
+# It is the instruction the model follows on /laconic, so a stale copy here is
+# the highest-consequence copy in the repo: it would be followed in preference
+# to the file it contradicts. Both skills refuse to restate the rule set for
+# exactly this reason, and the command now refuses too.
+CMD="$ROOT/commands/laconic.toml"
+if grep -q 'rules/laconic\.md' "$CMD"; then
+  ok "commands/laconic.toml points at rules/laconic.md"
+else
+  fail "commands/laconic.toml no longer points at rules/laconic.md"
+fi
+
+# The read has to be imperative, not a trailing suggestion. On the turn that
+# switches the level the hook has emitted only its one-line reminder, so the
+# rule set is not in context and an unread pointer leaves that turn ungoverned.
+if grep -q 'Read rules/laconic\.md in this plugin directory now' "$CMD"; then
+  ok "commands/laconic.toml demands the read rather than suggesting it"
+else
+  fail "commands/laconic.toml lost the imperative read instruction"
+fi
+
+# Phrases that only appear in an actual restatement of the rule set. Naming the
+# never-cut list is fine; listing its members is the drift risk.
+for phrase in "error string" "security warning" "performative agreement"; do
+  if grep -qi -- "$phrase" "$CMD"; then
+    fail "commands/laconic.toml restates the rule set again: $phrase"
+  else
+    ok "commands/laconic.toml does not restate: $phrase"
+  fi
 done
 
 # --- statusline badge: the documented path must be the one the hook installs ---

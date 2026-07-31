@@ -1,7 +1,9 @@
 # Spec: native-Windows support and the hook language decision
 
 **Date:** 2026-07-30
-**Status:** Accepted, not implemented. Waiting on a trigger (see [Trigger](#trigger)).
+**Status:** Implemented (issue #2), on trigger 2 — the repo gained CI. The one deviation
+from the table below: the port also carries the project-level flag from issue #5, which
+landed after this spec was written.
 **Applies to:** `laconic` v0.1.1 and later
 **Supersedes:** the "no PowerShell port" entry in [`v0.1.0-known-limits.md`](v0.1.0-known-limits.md)
 

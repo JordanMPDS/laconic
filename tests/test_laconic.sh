@@ -424,6 +424,21 @@ print(' '.join(h['command'].split()[-1].strip('\"')
   else
     fail "hooks.json wires $ev -> $mode (got: ${found:-nothing})"
   fi
+  # Same pairing on the native-Windows command. A missing commandWindows makes
+  # the plugin a total no-op on Windows, and the bash command sitting next to it
+  # would still look correct, so this is checked from the Linux job too — the
+  # PowerShell suite alone would never run on the commit that dropped the key.
+  found_win=$(python3 -c "
+import json
+d = json.load(open('$HOOKS'))['hooks']
+print(' '.join(h.get('commandWindows', '<missing>').split()[-1].strip('\"')
+               for g in d.get('$ev', []) for h in g['hooks']))
+" 2>/dev/null)
+  if [ "$found_win" = "$mode" ]; then
+    ok "hooks.json wires $ev -> $mode on Windows"
+  else
+    fail "hooks.json wires $ev -> $mode on Windows (got: ${found_win:-nothing})"
+  fi
 done
 
 # The SessionStart matcher is load-bearing: without it the rules would not reload

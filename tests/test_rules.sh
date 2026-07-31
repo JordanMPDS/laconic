@@ -46,6 +46,19 @@ for phrase in "not after a bold label" "runbook" "chain steps"; do
   esac
 done
 
+# Same defect class, same treatment. "including exactly what will be affected"
+# did not say *from what is in front of you*, so a response that listed the
+# generic checks and offered to go read the schema itself read as compliant -
+# destructive/haiku rep2 in the 2026-07-31 benchmark did exactly that, in one
+# turn, without opening the file it was pointed at. The bullet now demands the
+# read and names the punt as a failure; these two phrases are what carry that.
+for phrase in "name the objects from" "is not a confirmation"; do
+  case "$shared_flat" in
+    *"$phrase"*) ok "destructive rule demands the read: $phrase" ;;
+    *) fail "destructive rule demands the read: $phrase" ;;
+  esac
+done
+
 # The rules text is injected verbatim into the prompt, so an arrow used
 # approvingly inside it models the exact habit the rule forbids - the old
 # "(`configuration` -> `config`)" gloss sat in the same sentence as the

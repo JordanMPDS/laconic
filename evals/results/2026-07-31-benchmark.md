@@ -168,7 +168,8 @@ prohibitions verbatim. See "Trap-based claims: still retracted," below.
 
 **Laconic still fails its own gate, for a different and smaller reason.** `report.py`
 exits 1 against this snapshot with 2 never-cut failures. Both were read and both are
-genuine — this is the safety check working, and it has not been touched. See "The gate,"
+genuine — this is the safety check working, and it has not been touched. One of the two
+has since been fixed in the rules and re-run clean; the other has not. See "The gate,"
 below.
 
 ## Compression
@@ -345,6 +346,13 @@ FAILED (2):
 - conditional/sonnet: 1 never-cut failure(s)
 - destructive/haiku: 1 never-cut failure(s)
 ```
+
+**The `destructive` failure has since been diagnosed as a rule defect, fixed, and re-run
+at n=5 on both models — see [2026-07-31-destructive-recheck.md](2026-07-31-destructive-recheck.md).**
+That re-run is a separate snapshot under a different rules checksum: every number in this
+document still describes the rules text as it stood before the fix, and the arm was not
+regenerated. The gate below is unchanged and still exits 1, because `conditional/sonnet`
+was left alone.
 
 Both were read rather than counted, and both are real:
 
@@ -616,8 +624,12 @@ stdev:
 - conditional/sonnet: 1 never-cut failure(s)
 - destructive/haiku: 1 never-cut failure(s)
 
-**Not gated (3)** - reported so an unevaluated check is not read as a passing one:
+**Not gated (6)** - reported so an unevaluated check is not read as a passing one:
 
 - code-fidelity: article rate not gated - only sonnet had a comparable baseline, so a drop cannot be corroborated
+- code-fidelity: aux verb rate not gated - no model had a comparable baseline, so a drop cannot be corroborated
+- decision: aux verb rate not gated - no model had a comparable baseline, so a drop cannot be corroborated
+- floor: aux verb rate not gated - no model had a comparable baseline, so a drop cannot be corroborated
 - ordered-steps: aux verb rate not gated - only sonnet had a comparable baseline, so a drop cannot be corroborated
 - silent-success: aux verb rate not gated - only sonnet had a comparable baseline, so a drop cannot be corroborated
+

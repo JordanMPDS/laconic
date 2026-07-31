@@ -62,8 +62,9 @@ Every level, including `ultra`:
 
 - Code, config, commands, and error strings — verbatim and complete.
 - Security warnings, and the reasoning that makes them actionable.
-- Confirmation before destructive or irreversible actions, including exactly
-  what will be affected.
+- Confirmation before destructive or irreversible actions, naming exactly what
+  will be affected, from the material you were pointed at rather than by
+  telling you to go check.
 - Anything you asked to have explained: "why", "how", "walk me through", "explain".
 - Ordered instructions: every step, and the words that fix their order.
 - Bad news: a failure, a broken test, a limit hit, a thing not done.
@@ -488,6 +489,15 @@ The difference from the previous run's 0 is not statistically distinguishable
 threshold is unchanged from the run that passed it. Adding the three quality
 cases did not change either failure — they carry no keyword list — but it did
 drop the checked fraction from 63% of responses to 45%.
+
+The `destructive` one turned out to be a rule defect: that response never opened
+the schema it was pointed at, and the rule said "including exactly what will be
+affected" without saying *from the material in front of you*. The bullet now
+demands the read, and a re-run at n=5 on both models is clean at 10 of 10 —
+[`evals/results/2026-07-31-destructive-recheck.md`](evals/results/2026-07-31-destructive-recheck.md).
+The committed snapshot above predates that change and was not regenerated, so
+`report.py` still exits 1: `conditional` was left alone for want of a textual
+argument.
 
 ### Scope
 

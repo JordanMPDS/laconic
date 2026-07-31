@@ -138,19 +138,29 @@ def _rate_gate(agg, threshold, rate_key, count_key, label):
     """
     failures, notes = [], []
     by_case = defaultdict(list)
+    cases = set()
     for (case, arm, model), v in agg.items():
         if arm != "laconic":
             continue
+        # Tracked separately from by_case: a snapshot with no baseline arm at
+        # all (a targeted re-run of one case, say) puts nothing in by_case, so
+        # iterating by_case alone would report neither a failure nor a note and
+        # leave "All gates pass" claiming rates within 70% of a baseline that
+        # was never sampled - the exact "unevaluated check read as a passing
+        # one" this notes list exists to prevent.
+        cases.add(case)
         base = agg.get((case, "baseline", model))
         if base and _comparable(base, rate_key, count_key):
             by_case[case].append((model, v[rate_key], base[rate_key]))
 
-    for case, entries in sorted(by_case.items()):
-        # One model cannot corroborate itself.
+    for case in sorted(cases):
+        entries = by_case[case]
+        # One model cannot corroborate itself, and no model cannot either.
         if len(entries) < 2:
-            notes.append("%s: %s rate not gated - only %s had a comparable "
+            who = ("only %s" % entries[0][0]) if entries else "no model"
+            notes.append("%s: %s rate not gated - %s had a comparable "
                          "baseline, so a drop cannot be corroborated"
-                         % (case, label, entries[0][0]))
+                         % (case, label, who))
             continue
         if not all(rate < threshold * brate for _, rate, brate in entries):
             continue

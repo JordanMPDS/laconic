@@ -1020,5 +1020,26 @@ if RESULTS.exists():
     check("corroborated gate reports no article failure on the committed snapshot",
           real_article_fails == [])
 
+import levels as bench_levels  # noqa: E402
+
+# The ladder verdict is the whole point of the cross-level run, so a tie must
+# not read as a pass: two levels producing the same length is the "cumulative
+# and distinct" claim failing quietly, which is a different finding from a
+# reversal and must not be reported as one.
+check("ladder: falling lengths are monotonic",
+      bench_levels.ladder([900, 700, 400]) == "monotonic")
+check("ladder: a reversal is broken",
+      bench_levels.ladder([900, 400, 700]) == "broken")
+check("ladder: a tie is called flat, never monotonic",
+      bench_levels.ladder([900, 900, 400]) == "flat")
+check("ladder: a missing level is incomplete, not a pass",
+      bench_levels.ladder([900, None, 400]) == "incomplete")
+
+# 11 of 22 is the actual result at the lite/full boundary, and it has to come
+# back as a coin flip rather than as a direction.
+check("sign test: an even split is p = 1", bench_levels.sign_test(11, 22) == 1.0)
+check("sign test: a clean sweep is significant", bench_levels.sign_test(22, 22) < 0.001)
+check("sign test: symmetric in k", bench_levels.sign_test(4, 22) == bench_levels.sign_test(18, 22))
+
 print("\n%d failure(s)" % fails)
 sys.exit(1 if fails else 0)

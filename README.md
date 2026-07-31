@@ -353,6 +353,14 @@ check. Full method, every honesty note, and every table:
 Every column is reported as measured, on both models and all four arms. The
 per-case tables and the method notes behind each number follow.
 
+**The three levels were then measured against each other**, 330 more calls at
+`lite`, `full` and `ultra`. The ladder the rule text implies is not there: `full`
+is not shorter than `lite` (11 of 22 case/model cells shorter, sign test
+p = 1.00) and `ultra` shortens the model's tool turns more than its answer. The
+never-cut contract holds at every level. Published in full, including what it
+costs this table's readability claim:
+[`evals/results/2026-07-31-levels.md`](evals/results/2026-07-31-levels.md).
+
 ### Compression
 
 Median output tokens per case, n=5 per cell. The comparison that matters is
@@ -435,6 +443,15 @@ arrows anywhere in a sentence and names both forms. Re-measured with the
 The three cases added in the last revision replicate this on prompts the
 detector had never scored: over those 30 responses per arm, baseline 1,
 terse-control 4, word-compression 7, laconic 0.
+
+**This is a `full`-level result and it does not hold at `lite`.** The
+three-level run found 12 arrow violations in laconic's `lite` responses on
+Sonnet, in the runbook and mapping forms the rule names as wrong, against 0 at
+`full` and 0 at `ultra`. They sit in 3 responses of 55, so the difference
+between levels is not itself demonstrated (Fisher p = 0.24) — but the "0
+violations" row above describes the level this table was measured at, not the
+plugin at every level. See
+[`evals/results/2026-07-31-levels.md`](evals/results/2026-07-31-levels.md).
 
 ### Answer quality
 

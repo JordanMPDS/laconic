@@ -258,7 +258,7 @@ nothing to trim there.
 
 The aggregation convention flips this result's sign, so no Haiku compression
 claim is made in either direction. The table above is a median of per-case
-medians; a flat median over the 40 raw runs gives 604 → 552 (−9%). Sonnet
+medians; a flat median over the 40 raw runs gives 604 against 552, a 9% cut. Sonnet
 compresses on both estimators, Haiku does not agree with itself.
 
 </details>

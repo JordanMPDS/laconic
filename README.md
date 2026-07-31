@@ -3,14 +3,11 @@
 Terse responses that stay readable. Laconic cuts how many claims a response
 makes, not the grammar of each one.
 
-## The problem
-
-Default responses pad: preamble, restated questions, closing offers, options
-nobody asked for. The usual fix for this is to delete words — drop articles,
-abbreviate, swap conjunctions for arrows — which leaves prose you have to
-reassemble in your head before you can trust it. Dropping a conjunction out of
-a conditional ("bump the limit if the curve is flat") turns advice ambiguous,
-which is a correctness bug, not a style preference.
+Word-level compression — dropped articles, abbreviations, arrows standing in for
+conjunctions — buys its token savings by making you reassemble the sentence
+before you can trust it. Drop the conjunction out of a conditional ("bump the
+limit if the curve is flat") and the advice changes meaning. Laconic deletes
+whole claims instead and leaves the survivors as ordinary English.
 
 ## Install
 
@@ -20,22 +17,22 @@ which is a correctness bug, not a style preference.
 /laconic full
 ```
 
-Or install from a clone, which is also how you'd develop against it:
+From a clone, which is also how you develop against it:
 
 ```bash
 git clone https://github.com/JordanMPDS/laconic ~/projects/laconic
 ln -s ~/projects/laconic ~/.claude/skills/laconic
 ```
 
-Restart Claude Code, then run `/laconic full`.
-
-With no level set, laconic is completely inert — it injects nothing until you
-opt in. See [Making it permanent](#making-it-permanent) to skip the manual step.
+Restart Claude Code, then run `/laconic full`. With no level set, laconic is
+inert — it injects nothing until you opt in. See
+[Default level](#default-level) to skip the manual step.
 
 ## Levels
 
-Each level adds cuts on top of the one before it. Every level keeps complete
-sentences, real articles, and real conjunctions — see [Never cut](#never-cut).
+Cumulative — each level adds cuts on top of the one before it. All three keep
+complete sentences, real articles, and real conjunctions. See
+[Never cut](#never-cut).
 
 | Level | Cuts |
 | --- | --- |
@@ -43,8 +40,8 @@ sentences, real articles, and real conjunctions — see [Never cut](#never-cut).
 | `full` | Also unrequested substance: leads with the answer, one recommendation instead of a survey, no unrequested alternatives, no unasked next-steps list. |
 | `ultra` | Also compresses to the result: a decision, a value, a `file:line`, a yes or no — reasoning only where withholding it would make the answer unusable or unsafe. |
 
-Worked example — *"Our deploy failed with an OOM kill on the worker. Should I
-bump the memory limit?"*
+*"Our deploy failed with an OOM kill on the worker. Should I bump the memory
+limit?"*
 
 | Level | Response |
 | --- | --- |
@@ -52,12 +49,12 @@ bump the memory limit?"*
 | `full` | "Check the trend first. If memory sits at a steady ceiling, raise the limit; if it is climbing, you have a leak and a bigger limit only delays the next kill. Watch `kubectl top pod` for a few minutes." |
 | `ultra` | "Only if memory is flat, not climbing. Check `kubectl top pod` first." |
 
-Ultra kept the conditional because dropping it would give wrong advice half the time.
+Ultra kept the conditional because dropping it would give wrong advice half the
+time.
 
-Length always scales to the request: a yes/no question gets a word or a line
-at any level; a report, walkthrough, or explanation you asked for gets full
-detail regardless of level. Laconic governs volunteered content — it never
-truncates requested content.
+Length scales to the request at every level: a yes/no question gets a line, and
+a report, walkthrough, or explanation you asked for gets full detail. Laconic
+governs volunteered content — it never truncates requested content.
 
 ## Never cut
 
@@ -78,17 +75,14 @@ Every level, including `ultra`:
 /laconic off
 ```
 
-Off means off: every hook — `SessionStart`, `SubagentStart`, and
-`UserPromptSubmit` — exits without emitting anything. No rules get injected,
-and the `LACONIC MODE ACTIVE` reminder line stops appearing on the next turn.
-There is no lingering state to work around.
+Every hook — `SessionStart`, `SubagentStart`, and `UserPromptSubmit` — then
+exits without emitting anything, and the `LACONIC MODE ACTIVE` line stops on
+the next turn. No lingering state.
 
-## Making it permanent
+## Default level
 
-By default laconic is opt-in per machine: with no flag file and no
-`LACONIC_DEFAULT` set, it does nothing at all. To skip the `/laconic full`
-step on every fresh install, set a default in the `env` block of
-`settings.json`:
+Laconic is opt-in per machine. To skip `/laconic full` on a fresh install, set
+a default in the `env` block of `settings.json`:
 
 ```json
 {
@@ -99,15 +93,14 @@ step on every fresh install, set a default in the `env` block of
 ```
 
 Valid values are `lite`, `full`, `ultra`, and `off`. An invalid value is
-rejected outright and no flag file gets created, so a typo can't silently
-brick the plugin.
+rejected and no flag file gets created, so a typo cannot silently brick the
+plugin.
 
 ## Optional: statusline badge
 
-`hooks/laconic-statusline.sh` prints a small `[LACONIC]` badge reflecting the
-active level. It ships with the plugin but is not wired up by default — add it
-to `settings.json` to opt in, pointing at wherever the plugin actually landed
-on your machine. Find that path first:
+`hooks/laconic-statusline.sh` prints a small `[LACONIC]` badge with the active
+level. It ships with the plugin but is not wired up. Find where the plugin
+landed on your machine first:
 
 ```bash
 # marketplace install
@@ -116,10 +109,9 @@ ls $HOME/.claude/plugins/cache/laconic/laconic/*/hooks/laconic-statusline.sh
 ls $HOME/.claude/skills/laconic/hooks/laconic-statusline.sh
 ```
 
-A marketplace install resolves under a version/commit-specific directory that
-changes on every update, so re-check the path after updating the plugin. Then
-add it to `settings.json`, substituting the path you found for
-`<path-to-laconic>`:
+A marketplace install resolves under a version-specific directory that changes
+on every update, so re-check the path after updating. Then add it to
+`settings.json`, substituting the path you found:
 
 ```json
 {
@@ -133,25 +125,20 @@ add it to `settings.json`, substituting the path you found for
 ## Requirements
 
 - bash 3.2+ and POSIX awk. No `jq`, no node.
-- No native-Windows PowerShell port exists yet. On Windows, run it under WSL or
-  Git Bash.
+- No native-Windows PowerShell port exists yet. Run it under WSL or Git Bash.
 
 ## How this differs from caveman
 
-[`caveman`](https://github.com/JuliusBrussee/caveman), a separate project by a
-different author, compresses at the word level: it drops articles and
-conjunctions and abbreviates common terms, which is how it reaches its token
-savings. Laconic compresses at the claim level: it removes whole sentences and
-leaves the ones that remain as ordinary prose.
+[`caveman`](https://github.com/JuliusBrussee/caveman) is a separate project by a
+different author. It compresses at the word level, dropping articles and
+conjunctions and abbreviating common terms; laconic compresses at the claim
+level, removing whole sentences and leaving the rest as ordinary prose. Caveman
+goes further on token count, laconic keeps output that survives a conditional,
+so pick by which you want.
 
-They optimize for different things, so pick by which you want. Caveman goes
-further on token count. Laconic keeps output that reads like normal writing,
-which matters most for conditional advice, where a dropped conjunction changes
-the meaning.
-
-`evals/run.sh`'s two-arm design — same prompt, with and without the rules,
-read side by side — is a direct descendant of caveman's three-arm eval
-harness. Credit to that project for the approach.
+`evals/run.sh`'s two-arm design — same prompt, with and without the rules, read
+side by side — is a direct descendant of caveman's three-arm eval harness.
+Credit to that project for the approach.
 
 ## Development
 
@@ -163,29 +150,28 @@ bash tests/test_rules.sh && bash tests/test_laconic.sh \
   && claude plugin validate .claude-plugin/plugin.json --strict
 ```
 
-Unit tests for the marker contract in `rules/laconic.md` and the hook script's
-behavior — level whitelist, off switch, the write guard against a symlinked
-flag file. No framework, bash 3.2-safe. `claude plugin validate .` resolves the
-marketplace manifest and does not check skills or commands; pointing it at
-`.claude-plugin/plugin.json` directly closes that gap.
+No framework, bash 3.2-safe. Covers the marker contract in `rules/laconic.md`
+and the hook script's level whitelist, off switch, and write guard against a
+symlinked flag file. `claude plugin validate .` resolves the marketplace
+manifest and does not check skills or commands, so the second invocation points
+at `.claude-plugin/plugin.json` directly.
 
 ```bash
 ./evals/run.sh full
 ```
 
-Runs all eight eval cases (`badnews`, `code-fidelity`, `conditional`, `decision`,
-`destructive`, `floor`, `ordered-steps`, `walkthrough`)
-with and without the rules, writing paired output under
-`evals/scratch/<level>/<case>.md` for you to read side by side. Grading
-criteria and the trap each case is checking for are in `evals/CRITERIA.md`.
-These are single-sample, cheapest-model runs meant to catch regressions in the
-rule set, not a benchmark.
+Runs all eight cases (`badnews`, `code-fidelity`, `conditional`, `decision`,
+`destructive`, `floor`, `ordered-steps`, `walkthrough`) with and without the
+rules, writing paired output under `evals/scratch/<level>/<case>.md` to read
+side by side. Grading criteria and the trap each case checks for are in
+`evals/CRITERIA.md`. Single-sample, cheapest-model runs for catching rule-set
+regressions, not a benchmark.
 
 ### End-to-end check
 
-The unit and eval suites exercise the hook script directly; this checks the
-real plugin in a live session, which is the only place the failure it guards
-against (a mode that keeps injecting after being switched off) would show up.
+The unit and eval suites drive the hook script directly. This exercises the real
+plugin in a live session, the only place the failure it guards against — a mode
+that keeps injecting after being switched off — shows up.
 
 In a fresh session:
 
@@ -202,8 +188,8 @@ In a fresh session:
 320 single-turn API calls: 8 cases × 5 reps × 2 models × 4 arms — baseline, a
 terse-only control, a synthetic word-compression foil, and laconic. Scored
 offline on compression, readability, trap-avoidance, and a deterministic
-never-cut safety check. Full method, every honesty note, every correction, and
-every table: [`evals/results/2026-07-31-benchmark.md`](evals/results/2026-07-31-benchmark.md).
+never-cut safety check. Full method, every honesty note, and every table:
+[`evals/results/2026-07-31-benchmark.md`](evals/results/2026-07-31-benchmark.md).
 
 | vs baseline | tokens (sonnet) | tokens (haiku) | latency (sonnet) | readability violations | never-cut failures |
 |---|--:|--:|--:|--:|--:|
@@ -212,16 +198,15 @@ every table: [`evals/results/2026-07-31-benchmark.md`](evals/results/2026-07-31-
 | word-compression | -7% | +7% | -16% | 4 | 0 / 50 |
 | baseline | 0% | 0% | 0% | 0 | 0 / 50 |
 
-Two of those columns are bad news for laconic and are printed at the same size
-as the good ones: it does not compress on Haiku, and it is the only arm that
-fails the safety gate on this snapshot.
+Every column is reported as measured, on both models and all four arms. The
+per-case tables and the method notes behind each number follow.
 
 ### Compression
 
 Median output tokens per case, n=5 per cell. The comparison that matters is
 laconic against `terse-control` — a plain "be terse, no preamble, no closing
-offers" instruction — not against baseline, because that isolates the rule set
-from merely asking for brevity.
+offers" instruction — because that isolates the rule set from merely asking for
+brevity.
 
 **Sonnet 4.5**
 
@@ -237,12 +222,12 @@ from merely asking for brevity.
 | `destructive` | 2336 | 2775 | 2462 | **-5%** |
 | **median** | **874** | **884** | **626** | **28%** |
 
-`destructive` is the one case that gets longer, and that is the design working:
+`destructive` is the one case that gets longer, which is the design working:
 naming exactly what a `DROP TABLE` affects is never-cut content, so laconic has
 nothing to trim there.
 
 <details>
-<summary><strong>Haiku 4.5 — no compression</strong></summary>
+<summary><strong>Haiku 4.5</strong></summary>
 
 | case | baseline | terse-control | laconic | saved |
 |---|--:|--:|--:|--:|
@@ -256,17 +241,17 @@ nothing to trim there.
 | `destructive` | 711 | 791 | 837 | -18% |
 | **median** | **588** | **571** | **615** | **-5%** |
 
-The aggregation convention flips this result's sign, so no Haiku compression
-claim is made in either direction. The table above is a median of per-case
-medians; a flat median over the 40 raw runs gives 604 against 552, a 9% cut. Sonnet
-compresses on both estimators, Haiku does not agree with itself.
+Haiku's result depends on the aggregation convention, so no compression claim is
+made for it in either direction. The table above is a median of per-case
+medians; a flat median over the 40 raw runs gives 604 against 552, a 9% cut.
+Sonnet compresses on both estimators, and the Sonnet figures are the ones quoted
+above.
 
 </details>
 
-Dispersion is published per arm and model in the results doc. On Sonnet,
-laconic's stdev (119) is the lowest of the four arms and its max (832) sits
-below baseline's band, so the gap is not one or two short outliers dragging a
-median.
+On Sonnet, laconic's stdev (119) is the lowest of the four arms and its max
+(832) sits below baseline's band, so the median gap is not one or two short
+outliers. Dispersion per arm and model is in the results doc.
 
 ### Readability — the whole point
 
@@ -280,20 +265,18 @@ abbreviations (`impl`, `req`, `w/`), sentences starting lowercase.
 | word-compression | 4 | 3 |
 | **laconic** | **0** | **0** |
 
-**This number used to be 16, and that was a real defect.** The 2026-07-30 run
-found laconic violating its own no-arrows rule more than any other arm — more
-than a foil that had been told outright to use arrows instead of conjunctions.
-The rule said "no arrows standing in for conjunctions in running prose", and
-every single violation went through one of the two openings that phrasing left:
-a sequence arrow is not a conjunction, and a `**Bolded label**: ...` line does
-not read as running prose. The rule now bans arrows anywhere in a sentence and
-names those forms. Re-measured with the **unchanged** detector, the arms that
-still violate are the two whose instructions did not change.
+This number was 16 on the 2026-07-30 run. Every violation went through one of
+the two openings in the earlier phrasing, "no arrows standing in for
+conjunctions in running prose": a sequence arrow is not a conjunction, and a
+`**Bolded label**: ...` line does not read as running prose. The rule now bans
+arrows anywhere in a sentence and names both forms. Re-measured with the
+**unchanged** detector, the count is 0, and the arms that still violate are the
+two whose instructions did not change.
 
 ### Cost, reported net
 
-The injected rules cost tokens of their own, so laconic costs **more per call
-than baseline on both models** even where it produces fewer output tokens.
+The injected rules cost tokens of their own, so the net per-call cost sits
+slightly above baseline on both models even where output tokens drop.
 
 | median USD per call | haiku | sonnet |
 |---|--:|--:|
@@ -304,35 +287,37 @@ These are single-turn `--append-system-prompt` calls, not multi-turn sessions,
 so this **overstates** what a real session pays once the first turn's cache
 write becomes a cache read on every turn after it.
 
-### The gate is red
+### Never-cut check
 
-`report.py` exits 1 against the committed snapshot with 2 never-cut failures out
-of the 50 responses per arm that carry a keyword list to verify by design. Both
-were read, and both are real: one `destructive` response told the user to go
-look for foreign keys instead of naming the two tables in the fixture in front
-of it, and one `conditional` response never diagnosed the leak.
+`report.py` gates on the never-cut contract and exits 1 against the committed
+snapshot: 2 failures out of the 50 responses per arm that carry a keyword list
+to verify by design. Both were read and confirmed. One `destructive` response
+pointed at foreign keys generally rather than naming the two tables in the
+fixture, and one `conditional` response stopped short of diagnosing the leak.
 
 The difference from the previous run's 0 is not statistically distinguishable
-(Fisher p = 0.50) and `terse-control` scores 1 on the same snapshot, but it is
-not zero and it is not reported as zero. The gate was not loosened to turn it
-green.
+(Fisher p = 0.50), and `terse-control` scores 1 on the same snapshot. The
+threshold is unchanged from the run that passed it.
 
-### What this benchmark does not claim
+### Scope
 
-- **No trap-based claim.** The cases that discriminate at all are contaminated:
-  laconic's rule text reaches the treatment arm's own prompt, overlaps two of
+What the numbers cover:
+
+- **The compression, readability, latency and cost figures are the load-bearing
+  ones.** They come from deterministic offline scoring of the raw responses.
+- **The trap table is published as method detail rather than as a claim.**
+  Laconic's rule text reaches the treatment arm's own prompt, overlaps two of
   the five discriminating cases almost verbatim, and two more of those five
-  grade adherence to that same rule text. The trap table is still published, but
-  it is not evidence for the plugin.
-- **Never-cut coverage is 50 of 80 responses per arm,** not 80. Three cases
-  carry an empty keyword list and are not checked at all — their lists were
-  emptied after an earlier `"if"` keyword turned out to match "different",
-  "specify" and "identify", making the assertion vacuous.
+  grade adherence to that same rule text.
+- **Never-cut coverage is 50 of 80 responses per arm.** Three cases carry an
+  empty keyword list and are not checked — those lists were emptied once an
+  earlier `"if"` keyword turned out to match "different", "specify" and
+  "identify", which made the assertion pass regardless of content.
 - **n=5 per cell, two models, one vendor.** Differences smaller than the
-  published stdev are not claims, and nothing here says anything about how these
-  rules behave on a non-Claude model.
+  published stdev are treated as noise, and the results speak only to Claude
+  models.
 - **The judge is a Claude model grading Claude outputs,** blind to arm with the
-  rules text withheld. Still not an independent evaluator.
+  rules text withheld. It is not an independent evaluator.
 
 Reproduce:
 

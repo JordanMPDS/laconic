@@ -210,5 +210,25 @@ else
   esac
 fi
 
+# --- pre-sliced rule files: the committed copies must match what the hook emits ---
+# rules/dist/*.md exist for agents that take a static instructions file instead of
+# running a hook. Nothing regenerates them automatically, so an edit to
+# rules/laconic.md would otherwise leave them stale — and a stale copy is the worst
+# kind here, because a user who pasted one into .cursor/rules/ has no way to tell
+# it drifted from the rules the plugin actually delivers.
+DIST_TMP=$(mktemp -d)
+if bash "$ROOT/tools/build-rules.sh" "$DIST_TMP" >/dev/null 2>&1; then
+  for level in lite full ultra; do
+    if cmp -s "$DIST_TMP/laconic-$level.md" "$ROOT/rules/dist/laconic-$level.md"; then
+      ok "rules/dist/laconic-$level.md is current"
+    else
+      fail "rules/dist/laconic-$level.md is stale — run tools/build-rules.sh"
+    fi
+  done
+else
+  fail "tools/build-rules.sh did not run"
+fi
+rm -rf "$DIST_TMP"
+
 printf '\n%d failure(s)\n' "$fails"
 [ "$fails" = "0" ]

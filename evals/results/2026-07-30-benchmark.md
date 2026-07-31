@@ -1,5 +1,26 @@
 # Benchmark results — 2026-07-30
 
+> **Superseded by [2026-07-31](2026-07-31-benchmark.md).** This document's central
+> readability finding — that laconic violated its own no-arrows rule more than any other
+> arm, 16 of the run's 25 violations — was correct, and it was a real defect in the
+> shipped rules. That defect is fixed; the re-measured count is 0. This document is kept
+> as the record of finding it.
+>
+> **Its numbers no longer regenerate from `evals/snapshots/results.json` at HEAD.** The
+> `laconic` arm in that snapshot was regenerated under the corrected rules. To reproduce
+> the tables below, check out the snapshot as of commit `ee36d2c~1`:
+>
+> ```bash
+> git show ee36d2c~1:evals/snapshots/results.json > /tmp/old-results.json
+> git show ee36d2c~1:evals/snapshots/judgments.json > /tmp/old-judgments.json
+> python3 evals/bench/report.py --no-gate \
+>   --results /tmp/old-results.json --judgments /tmp/old-judgments.json
+> ```
+>
+> The gate section below also reflects the pre-correction rate gates, which fired on two
+> article-rate cells that were later shown to be false positives. See "What changed in the
+> harness" in the 2026-07-31 document.
+
 ## Run configuration
 
 | | |

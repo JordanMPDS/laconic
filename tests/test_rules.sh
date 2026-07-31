@@ -35,8 +35,12 @@ shared=$(sed -n "1,$((lite_ln - 1))p" "$RULES")
 # two openings the benchmark caught it walking through: a sequence arrow is
 # not a conjunction, and a bolded-label line does not read as running prose.
 # Every observed violation landed in one of those two.
+# Matched against a whitespace-flattened copy: a phrase that happens to
+# straddle a line break is still present in the rule the model reads, so a
+# test that fails on a re-wrap is testing the line width, not the rule.
+shared_flat=$(printf '%s' "$shared" | tr '\n' ' ' | tr -s ' ')
 for phrase in "not after a bold label" "runbook" "chain steps"; do
-  case "$shared" in
+  case "$shared_flat" in
     *"$phrase"*) ok "arrow rule closes the hatch: $phrase" ;;
     *) fail "arrow rule closes the hatch: $phrase" ;;
   esac

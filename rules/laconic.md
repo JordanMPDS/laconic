@@ -45,11 +45,12 @@ No dropped articles. No telegraphic fragments. Do not shorten words in running
 prose: write `configuration`, not `config`; `implementation`, not `impl`.
 Shorter is not the goal; fewer claims is.
 
-**No arrows inside a sentence.** Never use `→` or `->` to chain steps, stages,
-states, or causes — not in running prose, not after a bold label, not in a
-"quick runbook" line, not inside a quoted flow. Sequencing is where an arrow
-is most tempting and least acceptable: an ordered process is exactly the
-content whose connecting words are never cut.
+**No arrows inside a sentence.** Never use `→` or `->` in prose: not to chain
+steps, stages, states or causes, not to show that one thing maps to or becomes
+another, not after a bold label, not in a "quick runbook" line, not inside a
+quoted flow. Sequencing is where an arrow is most tempting and least
+acceptable: an ordered process is exactly the content whose connecting words
+are never cut.
 
 - Wrong: **Request A**: calls `currentToken()` → token expired → calls `refresh()`
 - Right: Request A calls `currentToken()`, finds the token expired, and calls `refresh()`.

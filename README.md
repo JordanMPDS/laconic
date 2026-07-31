@@ -204,45 +204,43 @@ In a fresh session:
 foil, and laconic), scored on compression, readability, trap-avoidance, and a
 deterministic never-cut safety check. Full methodology, every honesty note, every
 correction, and every table:
-[`evals/results/2026-07-30-benchmark.md`](evals/results/2026-07-30-benchmark.md).
+[`evals/results/2026-07-31-benchmark.md`](evals/results/2026-07-31-benchmark.md).
 
 **No trap-based claim is made.** The cases that discriminate at all are
 contaminated: laconic's own rule text (`rules/laconic.md`) reaches the treatment
 arm's own prompt, overlaps two of the five discriminating cases almost verbatim,
 and two more of those five grade adherence to that same rule text. See
-"Trap-based claims: retracted" in the results doc.
+"Trap-based claims: still retracted" in the results doc.
 
 **Compression holds on Sonnet, not on Haiku, and costs more per call on both.**
 Median output tokens (a median of per-case medians — a flat median over the raw
 runs gives a different number and, on Haiku, a different sign; see the results
-doc) — sonnet: baseline 874, laconic 740, **15% shorter**. Haiku: baseline 588,
-laconic 618, **5% longer.** Laconic also costs *more* per call than baseline on
-both models ($0.0159 vs $0.0139 haiku, $0.0674 vs $0.0605 sonnet) — the injected
-rules' own token cost, reported net rather than left out.
+doc) — sonnet: baseline 874, laconic 626, **28% shorter**, and 29% shorter than
+the terse-only control. Haiku: baseline 588, laconic 615, **5% longer.** Laconic
+also costs *more* per call than baseline on both models ($0.0164 vs $0.0139
+haiku, $0.0653 vs $0.0605 sonnet) — the injected rules' own token cost, reported
+net rather than left out.
 
-**Laconic has the most readability violations of any arm.** The arrow detector
-has been corrected twice: first for counting markdown bullets and quoted numeric
-progressions as violations (96% false positives), then for a second bug that
-matched a bolded prose paragraph (`**Request A**: ...`) as a bullet and skipped
-its arrows entirely — hiding violations specifically in laconic's own
-`**Bolded label**: step → step → step` writing habit, more than in any other
-arm's output. With both fixes, 25 violations total across all 320 responses:
-baseline 0, terse-control 5, word-compression 4, laconic 16 — 64% of the total
-on a quarter of the runs. The word-compression foil, told outright to use
-arrows instead of conjunctions, produced fewer violations than laconic did
-unprompted. See "Readability" in the results doc.
+**Readability: 0 violations, down from 16.** The 2026-07-30 run found laconic
+violating its own no-arrows rule more than any other arm — more than a foil that
+had been told outright to use arrows. That was a real defect: the rule said "no
+arrows standing in for conjunctions in running prose", and every violation went
+through one of those two openings (a sequence arrow is not a conjunction; a
+`**Bolded label**: ...` line does not read as running prose). The rule now bans
+arrows anywhere in a sentence and names those forms explicitly. Re-measured with
+the **unchanged** detector: baseline 0, terse-control 5, word-compression 4,
+laconic 0. The arms that still violate are the two whose instructions did not
+change. See "This run supersedes 2026-07-30" in the results doc.
 
-**Laconic fails its own gate.** With the corrected detector, `report.py` exits 1
-against the committed snapshot with 5 failures, including two confirmed real
-defects: one Sonnet `ordered-steps` response wrote a five-arrow runbook in
-running prose ("generate new key pair → add to JWKS/key store as non-primary →
-..."), and one Haiku `walkthrough` response chained four arrows apiece in two
-back-to-back bolded-label paragraphs — exactly what `rules/laconic.md` forbids,
-and exactly the construction the earlier detector bug was blind to.
-
-The deterministic never-cut safety check holds on every response it checks: 0
-failures for laconic, out of the 50 (of 80) responses per arm that carry a
-keyword list to verify by design (`terse-control` has 1 failure).
+**Laconic still fails its own gate, on the never-cut safety check.** `report.py`
+exits 1 against the committed snapshot with 2 failures out of the 50 (of 80)
+responses per arm that carry a keyword list to verify by design. Both were read
+and both are real: one `destructive` response told the user to go look for
+foreign keys instead of naming the two tables in the fixture in front of it, and
+one `conditional` response never diagnosed the leak. The difference from the
+previous run's 0 is not statistically distinguishable (Fisher p = 0.50), and
+`terse-control` scores 1 on the same snapshot — but it is not zero, and it is not
+reported as zero. The gate was not loosened to turn it green.
 
 These are single-turn `--append-system-prompt` calls, not multi-turn sessions,
 so the per-call cost above **overstates** what a real session pays once the

@@ -191,5 +191,24 @@ else
   done
 fi
 
+# The Windows badge gets the same treatment, and for a sharper reason: a native
+# Windows user has no bash to fall back on, so a wrong path there leaves them
+# with no badge and no error.
+statusline_win=$(grep '"command": "powershell' "$ROOT/README.md")
+if [ -z "$statusline_win" ]; then
+  fail "README has no PowerShell statusline command line to check"
+else
+  case "$statusline_win" in
+    *'.claude\\laconic-statusline.ps1'*)
+      ok "README points at the path the PowerShell hook installs to" ;;
+    *)
+      fail "README PowerShell statusline path does not match the hook's install target: $statusline_win" ;;
+  esac
+  case "$statusline_win" in
+    *CLAUDE_PLUGIN_ROOT*) fail "PowerShell statusline command still routes through: CLAUDE_PLUGIN_ROOT" ;;
+    *)                    ok "PowerShell statusline command avoids: CLAUDE_PLUGIN_ROOT" ;;
+  esac
+fi
+
 printf '\n%d failure(s)\n' "$fails"
 [ "$fails" = "0" ]

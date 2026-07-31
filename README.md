@@ -150,10 +150,23 @@ the same project-flag precedence the hook uses. One edit, one time:
 }
 ```
 
-The plugin installs `laconic-statusline.sh` at that path itself and refreshes it
-on every session start, so there is no script to copy and no path to re-check
-after an update. It writes only while a level is active — with laconic `off`, or
-with no level ever set, the hook does nothing at all, including this.
+On native Windows, point at the PowerShell copy instead:
+
+```json
+{
+  "statusLine": {
+    "type": "command",
+    "command": "powershell -NoProfile -ExecutionPolicy Bypass -File \"%USERPROFILE%\\.claude\\laconic-statusline.ps1\""
+  }
+}
+```
+
+The plugin installs the badge script at that path itself and refreshes it on
+every session start, so there is no script to copy and no path to re-check after
+an update. Each platform's hook installs its own copy, so a machine used from
+both WSL and native Windows ends up with both and neither goes stale. It writes
+only while a level is active — with laconic `off`, or with no level ever set, the
+hook does nothing at all, including this.
 
 Wiring it into `settings.json` is the one step that cannot be automated, because
 Claude Code reads `statusLine` from your settings and a plugin cannot register
@@ -171,8 +184,16 @@ no message at all.
 
 ## Requirements
 
-- bash 3.2+ and POSIX awk. No `jq`, no node.
-- No native-Windows PowerShell port exists yet. Run it under WSL or Git Bash.
+- macOS, Linux, WSL, Git Bash: bash 3.2+ and POSIX awk.
+- Native Windows: Windows PowerShell 5.1+, which ships with Windows 10 (1607+),
+  Windows 11, and Server 2016+.
+- No `jq`, no node, no `pwsh` install. Both hooks use only what the OS already
+  provides, and `hooks.json` picks the right one per platform.
+
+The two implementations share one flag file, so a machine used from both WSL and
+native Windows keeps a single level. CI runs the bash suites on `ubuntu-latest`
+and the PowerShell suite on `windows-latest` for every push, including an
+explicit check that each implementation reads a flag the other wrote.
 
 ## How this differs from caveman
 
@@ -202,6 +223,14 @@ and the hook script's level whitelist, off switch, and write guard against a
 symlinked flag file. `claude plugin validate .` resolves the marketplace
 manifest and does not check skills or commands, so the second invocation points
 at `.claude-plugin/plugin.json` directly.
+
+The PowerShell hook has its own suite, running the same numbered cases against
+`hooks/laconic.ps1`. It needs a Windows host, so CI is the normal place to see
+it; on Windows you can run it directly:
+
+```powershell
+powershell -NoProfile -ExecutionPolicy Bypass -File tests\test_laconic.ps1
+```
 
 ```bash
 ./evals/run.sh full

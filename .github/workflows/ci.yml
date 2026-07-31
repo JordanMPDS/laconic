@@ -1,0 +1,44 @@
+name: CI
+
+on:
+  push:
+    branches: ['**']
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  unix:
+    name: bash suites (ubuntu)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      # The suites import nothing outside the standard library, so there is
+      # nothing to install.
+      - run: bash tests/test_rules.sh
+      - run: bash tests/test_laconic.sh
+      - run: bash tests/test_evals_layout.sh
+      - run: python3 tests/test_metrics.py
+      - run: python3 tests/test_bench.py
+
+  windows:
+    name: PowerShell suite (windows)
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      # Windows PowerShell 5.1, not pwsh: 5.1 is what ships with the OS and is
+      # therefore what a user without a Unix environment actually runs. Testing
+      # only under pwsh would leave the shipped path unverified.
+      - name: Report the interpreter under test
+        shell: powershell
+        run: $PSVersionTable | Format-List
+      - name: Unit checks for hooks/laconic.ps1
+        shell: powershell
+        run: |
+          powershell -NoProfile -ExecutionPolicy Bypass -File tests\test_laconic.ps1
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }

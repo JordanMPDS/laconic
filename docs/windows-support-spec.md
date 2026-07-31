@@ -209,9 +209,9 @@ The port is done when all of these hold:
   else reveals the mismatch. Keeping one platform's badge on a divergent code path is the
   cheapest way to produce exactly that, so the two move together or not at all.
 
-## Still open after implementation
+## Closed after implementation
 
-- **Nobody has installed this from the marketplace on a real Windows host.** Both
-  `claude plugin validate` invocations pass, and the acceptance criteria above are explicit
-  that this is not evidence of loading — v0.1.0 passed both and still failed at runtime.
-  This is the one criterion the CI cannot close.
+- **Marketplace install on a real Windows host** — confirmed working on 2026-07-31. This was
+  the one criterion CI could not close: both `claude plugin validate` invocations pass, and
+  the acceptance criteria above are explicit that this is not evidence of loading, because
+  v0.1.0 passed both and still failed at runtime. All criteria now hold.

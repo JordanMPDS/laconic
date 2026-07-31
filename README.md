@@ -138,29 +138,76 @@ plugin. It seeds the machine flag only — it never writes into a repository.
 
 ## Optional: statusline badge
 
-`hooks/laconic-statusline.sh` prints a small `[LACONIC]` badge with the active
-level. It ships with the plugin but is not wired up. Find where the plugin
-landed on your machine first:
+A small `[LACONIC]` badge under the input box, colored by level and following
+the same project-flag precedence the hook uses. Two steps, both one-time.
+
+Write the script to your own configuration directory:
 
 ```bash
-# marketplace install
-ls $HOME/.claude/plugins/cache/laconic/laconic/*/hooks/laconic-statusline.sh
-# local skills-dir install
-ls $HOME/.claude/skills/laconic/hooks/laconic-statusline.sh
+cat > ~/.claude/laconic-statusline.sh <<'LACONIC_BADGE'
+#!/usr/bin/env bash
+# laconic — optional statusline badge. Copy this file to a stable path outside
+# the plugin, then point settings.json at that copy:
+#   cp this file to ~/.claude/laconic-statusline.sh
+#   "statusLine": { "type": "command",
+#                   "command": "bash \"$HOME/.claude/laconic-statusline.sh\"" }
+# Do not reference it through ${CLAUDE_PLUGIN_ROOT}: Claude Code resolves that
+# variable for plugin hooks only, and a statusLine command containing it raises
+# an error that is logged and swallowed, so the badge silently renders nothing.
+GLOBAL_FLAG="${CLAUDE_CONFIG_DIR:-$HOME/.claude}/.laconic-level"
+PROJECT_FLAG="${CLAUDE_PROJECT_DIR:-$PWD}/.claude/.laconic-level"
+
+# Same resolution and hardening as the hook: project flag first, never
+# dereference a symlinked flag, never echo bytes that failed the whitelist. The
+# order has to match laconic.sh exactly — a badge that names a level the session
+# is not running is worse than no badge, because the error is invisible.
+FLAG=""
+for candidate in "$PROJECT_FLAG" "$GLOBAL_FLAG"; do
+  [ -L "$candidate" ] && exit 0
+  if [ -f "$candidate" ]; then FLAG="$candidate"; break; fi
+done
+[ -n "$FLAG" ] || exit 0
+
+MODE=$(head -c 16 "$FLAG" 2>/dev/null | tr -cd 'a-z')
+case "$MODE" in
+  lite|full|ultra) ;;
+  *) exit 0 ;;
+esac
+
+COLOR=108
+[ "$MODE" = "ultra" ] && COLOR=173
+
+if [ "$MODE" = "full" ]; then
+  printf '\033[38;5;%sm[LACONIC]\033[0m' "$COLOR"
+else
+  printf '\033[38;5;%sm[LACONIC:%s]\033[0m' "$COLOR" "$(printf '%s' "$MODE" | tr '[:lower:]' '[:upper:]')"
+fi
+LACONIC_BADGE
 ```
 
-A marketplace install resolves under a version-specific directory that changes
-on every update, so re-check the path after updating. Then add it to
-`settings.json`, substituting the path you found:
+Then point `settings.json` at it:
 
 ```json
 {
   "statusLine": {
     "type": "command",
-    "command": "bash \"<path-to-laconic>/hooks/laconic-statusline.sh\""
+    "command": "bash \"$HOME/.claude/laconic-statusline.sh\""
   }
 }
 ```
+
+That path carries no version, so updating the plugin cannot break the badge.
+The block above is the same file the test suite exercises as
+`hooks/laconic-statusline.sh`, kept identical by `tests/test_rules.sh` — re-run
+the first step after an update if you want a later revision of it, though the
+copy you already have keeps working.
+
+`${CLAUDE_PLUGIN_ROOT}` does not work here, which is why the script is copied
+rather than referenced. Claude Code substitutes that variable only when it has a
+plugin context to resolve it against, and a `statusLine` command is read from
+your settings, not from a plugin. Using it raises an error that is written to
+the debug log and swallowed, so the badge renders nothing and the terminal shows
+no message at all.
 
 ## Requirements
 

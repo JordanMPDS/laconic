@@ -1,7 +1,12 @@
 #!/usr/bin/env bash
-# laconic — optional statusline badge. Opt in by adding to settings.json:
+# laconic — optional statusline badge. Copy this file to a stable path outside
+# the plugin, then point settings.json at that copy:
+#   cp this file to ~/.claude/laconic-statusline.sh
 #   "statusLine": { "type": "command",
-#                   "command": "bash \"$HOME/.claude/plugins/.../hooks/laconic-statusline.sh\"" }
+#                   "command": "bash \"$HOME/.claude/laconic-statusline.sh\"" }
+# Do not reference it through ${CLAUDE_PLUGIN_ROOT}: Claude Code resolves that
+# variable for plugin hooks only, and a statusLine command containing it raises
+# an error that is logged and swallowed, so the badge silently renders nothing.
 GLOBAL_FLAG="${CLAUDE_CONFIG_DIR:-$HOME/.claude}/.laconic-level"
 PROJECT_FLAG="${CLAUDE_PROJECT_DIR:-$PWD}/.claude/.laconic-level"
 

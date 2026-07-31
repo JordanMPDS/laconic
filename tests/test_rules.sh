@@ -124,5 +124,45 @@ for kw in "code" "config" "command" "error string" "ecurity warning" "estructive
   done
 done
 
+# --- statusline badge: the README copy is a second copy of a real script ---
+# The README tells the user to write the badge into their own configuration
+# directory rather than reference it inside the plugin, because a plugin install
+# path carries a version that changes on every update and ${CLAUDE_PLUGIN_ROOT}
+# is not substituted for statusLine commands. That makes the README block a
+# second copy of hooks/laconic-statusline.sh — the only copy a user ever runs,
+# and the one no other test touches. Assert the two are byte-identical, so a fix
+# to the script cannot silently leave every installed badge on the old logic.
+BADGE="$ROOT/hooks/laconic-statusline.sh"
+readme_badge=$(awk '
+  index($0, "cat > ~/.claude/laconic-statusline.sh <<") == 1 { f = 1; next }
+  f && $0 == "LACONIC_BADGE" { f = 0; next }
+  f
+' "$ROOT/README.md")
+if [ -z "$readme_badge" ]; then
+  fail "README has no statusline badge block to compare"
+elif [ "$readme_badge" = "$(cat "$BADGE")" ]; then
+  ok "README badge block matches hooks/laconic-statusline.sh"
+else
+  fail "README badge block has drifted from hooks/laconic-statusline.sh"
+fi
+
+# The whole point of the section is a path that survives a plugin update, so the
+# command the user actually pastes must not route through one that does not. A
+# versioned install path breaks on the next update; ${CLAUDE_PLUGIN_ROOT} is
+# rejected outright for statusLine commands. Both fail silently, which is why
+# they are asserted rather than left to review. Scoped to the "command" line so
+# the script's own comment warning against the variable does not trip it.
+statusline_cmd=$(grep '"command": "bash' "$ROOT/README.md")
+if [ -z "$statusline_cmd" ]; then
+  fail "README has no statusline command line to check"
+else
+  for bad in 'plugins/cache' 'CLAUDE_PLUGIN_ROOT'; do
+    case "$statusline_cmd" in
+      *"$bad"*) fail "statusline command still routes through: $bad" ;;
+      *)        ok "statusline command avoids: $bad" ;;
+    esac
+  done
+fi
+
 printf '\n%d failure(s)\n' "$fails"
 [ "$fails" = "0" ]

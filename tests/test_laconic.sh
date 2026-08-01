@@ -95,9 +95,14 @@ assert_has "ultra has lite block"  "No preamble" "$out"
 assert_has "ultra has full block"  "One recommendation, not a survey" "$out"
 assert_has "ultra has ultra block" "The answer alone" "$out"
 
-# 7. subagent mode behaves like start.
+# 7. subagent is not a mode. It was one until issue #6 measured the path and
+# found the injected slice bought nothing a parent model could use, so the
+# script must now treat it exactly like any other unknown argument: silence.
+# Asserted rather than assumed, because the mode gate fails open by design and
+# a reinstated mode would otherwise show no symptom.
 out=$(bash "$SCRIPT" subagent </dev/null)
-assert_has "subagent emits rules" "The answer alone" "$out"
+assert_lacks "subagent emits no rules" "The answer alone" "$out"
+[ -z "$out" ] && ok "subagent emits nothing at all" || fail "subagent emits nothing at all"
 
 # 8. remind is one line, not the whole rule set.
 set_level full
@@ -379,12 +384,13 @@ assert_has "rules still emitted when the badge cannot be written" \
   "One recommendation, not a survey" "$out"
 rm -f "$BADGE_DST"
 
-# 39. subagent mode does not install. Only SessionStart owns the file, so the
-# write happens once per session rather than once per spawned agent.
+# 39. remind does not install. Only SessionStart owns the file, so the write
+# happens once per session rather than once per prompt — remind runs on every
+# turn, and installing there would mean a file comparison per keystroke-batch.
 rm -f "$BADGE_DST"
 set_level full
-bash "$SCRIPT" subagent </dev/null >/dev/null
-if [ -f "$BADGE_DST" ]; then fail "subagent must not install the badge"; else ok "subagent installs no badge"; fi
+printf '{"prompt":"hello"}' | bash "$SCRIPT" remind >/dev/null
+if [ -f "$BADGE_DST" ]; then fail "remind must not install the badge"; else ok "remind installs no badge"; fi
 
 # --- PowerShell source encoding ---
 # Every .ps1 in this repo must start with a UTF-8 BOM. Windows PowerShell 5.1
@@ -426,10 +432,10 @@ for toml in "$ROOT"/commands/*.toml; do
   fi
 done
 # Assert the event-to-mode pairing, not just that the event name appears somewhere.
-# laconic.sh's mode gate exits 0 silently on any argument other than start/subagent/
-# remind, so a typo like "subagnet" would disable that hook with no other symptom,
-# and a substring check for the event name alone would still pass.
-for pair in "SessionStart:start" "SubagentStart:subagent" "UserPromptSubmit:remind"; do
+# laconic.sh's mode gate exits 0 silently on any argument other than start/remind,
+# so a typo like "starrt" would disable that hook with no other symptom, and a
+# substring check for the event name alone would still pass.
+for pair in "SessionStart:start" "UserPromptSubmit:remind"; do
   ev=${pair%:*}; mode=${pair#*:}
   found=$(python3 -c "
 import json
@@ -458,6 +464,19 @@ print(' '.join(h.get('commandWindows', '<missing>').split()[-1].strip('\"')
     fail "hooks.json wires $ev -> $mode on Windows (got: ${found_win:-nothing})"
   fi
 done
+
+# SubagentStart must stay absent. The loop above only checks the events that are
+# wired, so a reinstated subagent hook would pass every assertion in this file
+# without this one. Issue #6 measured that path: no accuracy change in any arm
+# and a 6-16% cost increase per subagent call, which is why it was removed.
+if python3 -c "
+import json, sys
+sys.exit(0 if 'SubagentStart' in json.load(open('$HOOKS'))['hooks'] else 1)
+" 2>/dev/null; then
+  fail "hooks.json must not wire SubagentStart (see issue #6)"
+else
+  ok "hooks.json does not wire SubagentStart"
+fi
 
 # The SessionStart matcher is load-bearing: without it the rules would not reload
 # after /clear or a compaction, and the mode would appear to silently lapse.

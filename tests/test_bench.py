@@ -1041,5 +1041,47 @@ check("sign test: an even split is p = 1", bench_levels.sign_test(11, 22) == 1.0
 check("sign test: a clean sweep is significant", bench_levels.sign_test(22, 22) < 0.001)
 check("sign test: symmetric in k", bench_levels.sign_test(4, 22) == bench_levels.sign_test(18, 22))
 
+import subagent as bench_subagent  # noqa: E402
+
+# Fisher is what decides whether an arm difference in the relay run is real,
+# so it is checked against tables enumerated by hand rather than assumed.
+# [[1,9],[11,3]]: n=24, C(24,12)=2704156, and the tables at least as extreme
+# as the observed one are x in {0,1,9,10}, summing to 7462.
+check("fisher: symmetric 3/1 table", round(bench_subagent.fisher_exact(3, 1, 1, 3), 4) == 0.4857)
+check("fisher: 1,9,11,3 matches the hand enumeration",
+      round(bench_subagent.fisher_exact(1, 9, 11, 3), 6) == round(7462 / 2704156, 6))
+check("fisher: no difference is p = 1", bench_subagent.fisher_exact(5, 5, 5, 5) == 1.0)
+check("fisher: a clean separation is significant",
+      bench_subagent.fisher_exact(10, 0, 0, 10) < 0.001)
+# An empty margin has no alternative table to compare against. Returning
+# something below 1 there would manufacture significance out of a missing arm.
+check("fisher: an empty margin is p = 1, never significant",
+      bench_subagent.fisher_exact(0, 0, 3, 3) == 1.0)
+
+# The relay prompt must not name the arm, the level, or the plugin: the whole
+# comparison rests on the parent being unable to tell which arm wrote the
+# report it was handed.
+low = bench_subagent.RELAY.lower()
+check("relay prompt is blind to the arm",
+      not any(w in low for w in ("laconic", "lite", "ultra", "baseline", "terse", "concise")))
+check("relay prompt has exactly two substitution slots",
+      bench_subagent.RELAY.count("%s") == 2)
+# Without this the parent hunts for files in an empty scratch dir and answers
+# "I need the repository" in every arm alike, measuring the harness instead of
+# the handoff.
+check("relay prompt tells the parent it cannot see the files",
+      "cannot see the codebase" in low)
+
+# never_cut accounting must exclude cases carrying no tokens from both the
+# numerator and the denominator, or "0 failures" reads as "every response
+# verified" when most cases verify nothing.
+nc_runs = [{"case": "destructive", "text": "the cascade reaches invoices"},
+           {"case": "destructive", "text": "it deletes some rows"},
+           {"case": "fail-open", "text": "anything at all"}]
+check("never-cut counts only cases with tokens",
+      bench_subagent._never_cut(nc_runs) == (2, 1))
+check("never-cut on no eligible case reports nothing checked",
+      bench_subagent._never_cut([{"case": "fail-open", "text": "x"}]) == (0, 0))
+
 print("\n%d failure(s)" % fails)
 sys.exit(1 if fails else 0)

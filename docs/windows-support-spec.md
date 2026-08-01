@@ -147,8 +147,8 @@ Byte-identical behavior to `laconic.sh`, because both implementations read and w
 state and a user may switch between WSL and native Windows against the same `~/.claude`:
 
 1. **Flag path.** `$env:CLAUDE_CONFIG_DIR` if set, else `$HOME/.claude`, file `.laconic-level`.
-2. **Modes.** Exactly `start`, `subagent`, `remind`. Anything else, including a missing
-   argument, exits 0 emitting nothing.
+2. **Modes.** Exactly `start` and `remind`. Anything else, including `subagent` (a mode
+   until issue #6) and a missing argument, exits 0 emitting nothing.
 3. **Whitelist.** Exactly `lite`, `full`, `ultra`, `off`. Read at most 16 characters, strip to
    `[a-z]`, and emit nothing for any value outside the list — including `off`.
 4. **Never emit when off or unset.** No flag file and no `LACONIC_DEFAULT` means no output.

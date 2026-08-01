@@ -1,14 +1,21 @@
 #!/usr/bin/env bash
 # laconic — emit the active rule set for Claude Code hooks.
-# Usage: laconic.sh start|subagent|remind
-#   start, subagent  print the rule slice for the active level
-#   remind           persist any "/laconic <level> [project]" on stdin, print one line
+# Usage: laconic.sh start|remind
+#   start   print the rule slice for the active level
+#   remind  persist any "/laconic <level> [project]" on stdin, print one line
 # Prints nothing at all unless a valid level is active.
+#
+# There is deliberately no subagent mode. laconic exists to make a response
+# pleasant and cheap for a person to read, and nobody reads a subagent's report
+# — it goes to the parent model. evals/results/2026-07-31-subagent.md measured
+# the path before it was cut: accuracy was unchanged in every arm (p = 1.000)
+# while the injected slice raised the cost of a subagent call by 6-16%, so the
+# hook was paying for a benefit with no consumer. See issue #6.
 set -uo pipefail
 
 MODE="${1:-}"
 case "$MODE" in
-  start|subagent|remind) ;;
+  start|remind) ;;
   *) exit 0 ;;   # unknown or missing mode: do nothing rather than guess
 esac
 

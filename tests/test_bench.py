@@ -1267,5 +1267,63 @@ check("a readability failure with no matching rule is unruled",
           [], [], "## Never cut\n\n- Nothing about symbols here.\n")[0]["class"]
       == "unruled")
 
+# --- report.py --against: the accept rule ---
+import report as bench_report  # noqa: E402
+
+TEN_CELLS = lambda v: {(c, "sonnet"): v for c in "abcdefghij"}  # noqa: E731
+
+
+def _summary(nc=0, qf=0, viol=0, tokens=None, flip=0.2):
+    return {"never_cut_failures": nc, "quality_fails": qf, "violations_total": viol,
+            "tokens": TEN_CELLS(100) if tokens is None else tokens, "flip_rate": flip}
+
+
+worse = _summary(tokens=TEN_CELLS(500))
+v, why = bench_report.accept_verdict(worse, _summary(tokens=TEN_CELLS(100)), "output_tokens")
+check("a clean improvement past the noise floor is accepted", v == "accept")
+
+for kw, label in (("nc", "never-cut"), ("qf", "quality"), ("viol", "readability")):
+    v, why = bench_report.accept_verdict(
+        worse, _summary(tokens=TEN_CELLS(100), **{kw: 1}), "output_tokens")
+    check("a lost %s verdict rejects on its own" % label, v == "reject")
+    check("the rejection names the %s failure" % label,
+          any(label in r for r in why))
+
+# 10 tokens off a 100-token median is well inside the published 175-token
+# stdev. A loop that accepts a move this size churns forever on noise.
+v, why = bench_report.accept_verdict(_summary(tokens=TEN_CELLS(100)),
+                                     _summary(tokens=TEN_CELLS(90)), "output_tokens")
+check("a move inside the noise floor is rejected", v == "reject")
+check("the rejection names the noise floor", any("noise floor" in r for r in why))
+
+# Every cell moving the wrong way must reject even when the median improves,
+# which cannot happen here - but a split decision can.
+split = dict(TEN_CELLS(100))
+for c in "abcde":
+    split[(c, "sonnet")] = 900
+v, why = bench_report.accept_verdict(_summary(tokens=TEN_CELLS(500)),
+                                     _summary(tokens=split), "output_tokens")
+check("a split result fails the sign test", v == "reject")
+
+# Preference is admissible but never decisive: it cannot reject an edit that
+# passed every deterministic gate, and a noisy round cannot cite it either way.
+v, why = bench_report.accept_verdict(worse, _summary(tokens=TEN_CELLS(100), flip=0.6),
+                                     "output_tokens")
+check("a high flip rate does not reject an otherwise-passing edit", v == "accept")
+check("a high flip rate is disclosed in the reasons", any("flip rate" in r for r in why))
+
+# round_summary reads one round's artefacts into the four numbers the decision
+# needs. The flip rate counts only comparisons present in both orders.
+rs = bench_report.round_summary(
+    {"runs": [{"case": "floor", "arm": "laconic", "model": "sonnet", "rep": 0,
+               "ok": True, "text": "Fine.", "output_tokens": 10}]},
+    [{"case": "floor", "arm": "laconic", "model": "sonnet", "rep": 0, "verdict": "fail"}],
+    [{"case": "floor", "model": "sonnet", "rep": 0, "order": 0, "winner_arm": "laconic"},
+     {"case": "floor", "model": "sonnet", "rep": 0, "order": 1, "winner_arm": "baseline"}])
+check("round_summary reads the treatment tokens", rs["tokens"] == {("floor", "sonnet"): 10})
+check("round_summary computes the flip rate", rs["flip_rate"] == 1.0)
+# floor is graded rule-adherence, so its judge failure is not a quality loss.
+check("round_summary counts only quality-graded judge failures", rs["quality_fails"] == 0)
+
 print("\n%d failure(s)" % fails)
 sys.exit(1 if fails else 0)

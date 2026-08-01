@@ -1205,5 +1205,67 @@ src_bad = {"metadata": {"rules_cksum": "111"},
 check("carrying skips failed runs",
       bench_run.carry_arms({"metadata": {}, "runs": []}, src_bad, ["laconic"])["runs"] == [])
 
+# --- review.py: the failure inventory ---
+import review as bench_review  # noqa: E402
+
+RULES_STUB = """## Never cut
+
+- Code, config, commands, and error strings - verbatim and complete.
+
+## Never do this
+
+No dropped articles. No arrows standing in for conjunctions in running prose.
+"""
+check("a readability failure resolves to the rule that bans it",
+      "arrows" in bench_review.governing_rule(RULES_STUB, "symbol_connectors")[1])
+check("a never-cut failure resolves to the never-cut bullet",
+      "verbatim" in bench_review.governing_rule(RULES_STUB, "never_cut")[1])
+# A benchmark expecting behaviour the rule set never mentions is a more useful
+# finding than another instance of a rule being disobeyed, so it does not just
+# get reported - it ranks first.
+check("a failure the rules never mention has no governing rule",
+      bench_review.governing_rule(RULES_STUB, "quality") is None)
+check("unruled outranks every other class", bench_review.CLASS_ORDER[0] == "unruled")
+check("never-cut outranks quality, readability and preference",
+      bench_review.CLASS_ORDER.index("never-cut")
+      < min(bench_review.CLASS_ORDER.index(c)
+            for c in ("quality", "readability", "preference")))
+
+snap_stub = {"runs": [
+    {"case": "badnews", "arm": "laconic", "model": "sonnet", "rep": 0, "ok": True,
+     "text": "Three tests fail -> see the log."},
+    {"case": "badnews", "arm": "baseline", "model": "sonnet", "rep": 0, "ok": True,
+     "text": "Control arms carry no rules, so a control failure is not actionable -> never reviewed."}]}
+rev = bench_review.findings(snap_stub, [], [], RULES_STUB)
+check("only the treatment arm is reviewed", rev and all(x["case"] == "badnews" for x in rev))
+check("the finding quotes the offending span", any("->" in x["excerpt"] for x in rev))
+check("a never-cut miss is found and ranked above readability",
+      [x["class"] for x in rev][0] == "never-cut")
+# decision is graded rule-adherence: optimizing rules against a case that
+# grades adherence to those rules is circular, so it is flagged, not ranked.
+check("a rule-adherence case is marked unoptimizable",
+      bench_review.findings(
+          {"runs": [{"case": "decision", "arm": "laconic", "model": "sonnet", "rep": 0,
+                     "ok": True, "text": "Do X -> then Y."}]}, [], [], RULES_STUB
+      )[0]["optimizable"] is False)
+check("an empty round renders as nothing to propose from",
+      "Nothing to propose" in bench_review.render([]))
+# unruled means the rule set is silent where the benchmark checks. A wrong
+# answer is not that, and classing every quality failure as unruled would bury
+# the signal under the largest category in the run.
+judg_stub = [{"case": "fail-open", "arm": "laconic", "model": "sonnet", "rep": 0,
+              "verdict": "fail", "quote": "blamed the window arithmetic", "reason": ""}]
+qf = bench_review.findings({"runs": []}, judg_stub, [], RULES_STUB)
+check("a quality failure is classed quality, not unruled",
+      [f["class"] for f in qf] == ["quality"])
+check("a quality failure carries no governing rule", qf[0]["rule"] is None)
+# Only a rule-class failure can be unruled, and only when its rule is absent.
+check("a readability failure with no matching rule is unruled",
+      bench_review.findings(
+          {"runs": [{"case": "floor", "arm": "laconic", "model": "sonnet", "rep": 0,
+                     "ok": True, "text": "Do X -> then Y."}]},
+          [], [], "## Never cut\n\n- Nothing about symbols here.\n")[0]["class"]
+      == "unruled")
+
 print("\n%d failure(s)" % fails)
 sys.exit(1 if fails else 0)

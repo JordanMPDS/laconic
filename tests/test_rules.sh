@@ -180,18 +180,19 @@ done
 # --- statusline badge: the documented path must be the one the hook installs ---
 # The user's settings.json is the one part of the badge nobody can automate,
 # since Claude Code reads statusLine from settings and rejects the field in a
-# plugin manifest. So the path the README tells them to paste has to be exactly
-# the path hooks/laconic.sh writes to, or the badge points at nothing and says
-# nothing about it.
-statusline_cmd=$(grep '"command": "bash' "$ROOT/README.md")
+# plugin manifest. So the path docs/configuration.md tells them to paste has to
+# be exactly the path hooks/laconic.sh writes to, or the badge points at nothing
+# and says nothing about it.
+STATUSLINE_DOC="$ROOT/docs/configuration.md"
+statusline_cmd=$(grep '"command": "bash' "$STATUSLINE_DOC")
 if [ -z "$statusline_cmd" ]; then
-  fail "README has no statusline command line to check"
+  fail "docs/configuration.md has no statusline command line to check"
 else
   case "$statusline_cmd" in
     *'$HOME/.claude/laconic-statusline.sh'*)
-      ok "README points at the path the hook installs to" ;;
+      ok "docs/configuration.md points at the path the hook installs to" ;;
     *)
-      fail "README statusline path does not match the hook's install target: $statusline_cmd" ;;
+      fail "docs/configuration.md statusline path does not match the hook's install target: $statusline_cmd" ;;
   esac
   # A versioned install path breaks on the next plugin update, and
   # ${CLAUDE_PLUGIN_ROOT} is rejected outright for statusLine commands. Both
@@ -207,15 +208,15 @@ fi
 # The Windows badge gets the same treatment, and for a sharper reason: a native
 # Windows user has no bash to fall back on, so a wrong path there leaves them
 # with no badge and no error.
-statusline_win=$(grep '"command": "powershell' "$ROOT/README.md")
+statusline_win=$(grep '"command": "powershell' "$STATUSLINE_DOC")
 if [ -z "$statusline_win" ]; then
-  fail "README has no PowerShell statusline command line to check"
+  fail "docs/configuration.md has no PowerShell statusline command line to check"
 else
   case "$statusline_win" in
     *'.claude\\laconic-statusline.ps1'*)
-      ok "README points at the path the PowerShell hook installs to" ;;
+      ok "docs/configuration.md points at the path the PowerShell hook installs to" ;;
     *)
-      fail "README PowerShell statusline path does not match the hook's install target: $statusline_win" ;;
+      fail "docs/configuration.md PowerShell statusline path does not match the hook's install target: $statusline_win" ;;
   esac
   case "$statusline_win" in
     *CLAUDE_PLUGIN_ROOT*) fail "PowerShell statusline command still routes through: CLAUDE_PLUGIN_ROOT" ;;

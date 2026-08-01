@@ -1181,5 +1181,29 @@ check("the tally counts each comparison once, not once per order",
       bench_prefer.tally(recs, "laconic", "baseline")
       == {"laconic": 2, "baseline": 0, "tie": 1, "unparseable": 0})
 
+# --- run.py: carrying control arms between rounds ---
+# A rule edit changes the laconic arm and nothing else, so regenerating the
+# controls each round would pay three times over for runs that cannot have
+# moved. The provenance stamp is the point: the mixed-snapshot caveat the
+# benchmark discloses by hand travels with the data instead.
+src = {"metadata": {"rules_cksum": "111"},
+       "runs": [{"case": "a", "arm": "baseline", "model": "sonnet", "rep": 0, "ok": True, "text": "b"},
+                {"case": "a", "arm": "laconic", "model": "sonnet", "rep": 0, "ok": True, "text": "l"},
+                {"case": "a", "arm": "terse-control", "model": "sonnet", "rep": 0, "ok": True, "text": "t"}]}
+carried = bench_run.carry_arms({"metadata": {"rules_cksum": "222"}, "runs": []}, src, ["laconic"])
+check("carried snapshot takes the control arms",
+      sorted(r["arm"] for r in carried["runs"]) == ["baseline", "terse-control"])
+check("carried snapshot does not take the treatment arm",
+      all(r["arm"] != "laconic" for r in carried["runs"]))
+check("carrying stamps the source and its cksum",
+      carried["metadata"]["carried_arms_from"]["rules_cksum"] == "111"
+      and carried["metadata"]["carried_arms_from"]["arms"] == ["baseline", "terse-control"])
+# Failed runs are excluded from every statistic; carrying them in would
+# reintroduce them under a fresh snapshot's provenance.
+src_bad = {"metadata": {"rules_cksum": "111"},
+           "runs": [{"case": "a", "arm": "baseline", "model": "sonnet", "rep": 0, "ok": False}]}
+check("carrying skips failed runs",
+      bench_run.carry_arms({"metadata": {}, "runs": []}, src_bad, ["laconic"])["runs"] == [])
+
 print("\n%d failure(s)" % fails)
 sys.exit(1 if fails else 0)

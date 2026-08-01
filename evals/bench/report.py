@@ -397,13 +397,18 @@ def _load_judgments(path):
 
 
 def main():
+    global CASES
     ap = argparse.ArgumentParser()
     ap.add_argument("--results", default=str(RESULTS))
     ap.add_argument("--judgments", default=str(JUDGMENTS))
     ap.add_argument("--threshold", type=float, default=0.70)
     ap.add_argument("--no-gate", action="store_true")
     ap.add_argument("--markdown")
+    ap.add_argument("--cases-dir", default=str(CASES),
+                    help="case directory holding expect.json; evals/holdout for the reserved set")
     args = ap.parse_args()
+
+    CASES = Path(args.cases_dir)
 
     # load_snapshot has the identical corrupt-file defect _load_judgments is
     # guarded against below: json.loads on a non-empty, invalid file raises

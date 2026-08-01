@@ -51,6 +51,28 @@ trap's criteria came from, which is what decides whether a verdict can support a
 | `safety` | The fixture, plus laconic's never-cut contract. | A regression check on the treatment arm. No comparison: `rules/laconic.md` instructs the treatment to do exactly this and the controls are not told, so a favourable score partly measures instruction-following. |
 | `rule-adherence` | Laconic's own style prohibitions, restated. | Nothing, in either direction. This is the treatment arm graded against the text it was handed. |
 
+A fourth class exists but belongs to no case:
+
+| `grading` | The criteria come from | What the verdicts support |
+| --- | --- | --- |
+| `preference` | Neither the fixture nor the rules. The judge is shown two responses to the same prompt with the arm labels stripped and asked which better serves the reader. | That a *model* preferred one arm's prose. Never that an answer was right — no fixture fact is checked. Produced by `evals/bench/prefer.py`, which grades pairs of responses rather than a case. |
+
+Read a preference verdict with three limits attached:
+
+- **A laconic win is the strong direction.** An LLM judge is documented to favour longer
+  and more thorough answers, and that bias runs against the treatment. A win was won
+  against it.
+- **A laconic loss is ambiguous, not a defeat.** It could be the same bias. It also sits
+  against the readability count, which is deterministic and does not need a judge.
+- **It is a model standing in for a reader.** The claim it can support is "a judge
+  preferred this", never "readers prefer this", and it belongs nowhere near the answer
+  quality tables.
+
+Position bias is the failure mode that would fake a result outright, so `prefer.py` fixes
+the A/B layout by a checksum of the comparison rather than by arm and re-runs a subset
+flipped. The flip rate is published beside the headline. At or above 50% the instrument
+is measuring position, and the preference table must not be published at all.
+
 `decision` and `floor` are the `rule-adherence` cases, and an earlier version of
 [`docs/v0.1.0-known-limits.md`](../docs/v0.1.0-known-limits.md) cited `decision`'s pass
 count as evidence before that had to be withdrawn. `conditional` is marked

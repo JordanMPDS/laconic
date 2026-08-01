@@ -1144,6 +1144,37 @@ recs = [{"case": "a", "model": "sonnet", "rep": 0, "order": 0, "winner_arm": "la
         {"case": "c", "model": "sonnet", "rep": 0, "order": 0, "winner_arm": "laconic"}]
 check("the flip rate counts only comparisons run in both orders",
       bench_prefer.flip_rate(recs) == (1, 2))
+
+# The headline tally is only readable if the treatment won at similar rates from
+# both sides, so the split has to be reported, not inferred.
+pos_recs = [{"order": 0, "treatment_position": "A", "winner_arm": "laconic"},
+            {"order": 0, "treatment_position": "A", "winner_arm": "baseline"},
+            {"order": 0, "treatment_position": "B", "winner_arm": "laconic"},
+            {"order": 0, "treatment_position": "B", "winner_arm": "tie"},
+            {"order": 1, "treatment_position": "A", "winner_arm": "laconic"}]
+check("wins split by position, flipped pass excluded",
+      bench_prefer.by_position(pos_recs, "laconic", "baseline")
+      == {"A": (1, 1, 0), "B": (1, 0, 1)})
+
+# The length bias is what decides whether a treatment loss may be read as a
+# preference at all, so it is measured per run. A tie has no winner to compare
+# and an equal-length pair has no longer answer: counting either would move the
+# rate toward 50% and hide the bias it exists to expose.
+len_recs = [{"case": "a", "model": "sonnet", "rep": 0, "order": 0, "winner_arm": "baseline"},
+            {"case": "b", "model": "sonnet", "rep": 0, "order": 0, "winner_arm": "laconic"},
+            {"case": "c", "model": "sonnet", "rep": 0, "order": 0, "winner_arm": "tie"},
+            {"case": "d", "model": "sonnet", "rep": 0, "order": 0, "winner_arm": "laconic"},
+            {"case": "a", "model": "sonnet", "rep": 0, "order": 1, "winner_arm": "laconic"}]
+lengths = {(("a", "sonnet", 0), "laconic"): 10, (("a", "sonnet", 0), "baseline"): 99,
+           (("b", "sonnet", 0), "laconic"): 99, (("b", "sonnet", 0), "baseline"): 10,
+           (("c", "sonnet", 0), "laconic"): 10, (("c", "sonnet", 0), "baseline"): 99,
+           (("d", "sonnet", 0), "laconic"): 42, (("d", "sonnet", 0), "baseline"): 42}
+check("the length bias counts decided, unequal-length comparisons only",
+      bench_prefer.longer_won(len_recs, lengths, "laconic", "baseline") == (2, 2))
+check("response lengths key on (case, model, rep) and arm",
+      bench_prefer.response_lengths(
+          {"runs": [{"case": "a", "model": "sonnet", "rep": 0, "arm": "laconic",
+                     "text": "abc", "ok": True}]}) == {(("a", "sonnet", 0), "laconic"): 3})
 # Counting the flipped pass again would double-count the same pair of responses
 # and inflate whichever side the judge favours in position A.
 check("the tally counts each comparison once, not once per order",

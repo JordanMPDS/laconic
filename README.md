@@ -147,6 +147,13 @@ are in
 [`evals/results/2026-07-31-benchmark.md`](evals/results/2026-07-31-benchmark.md).
 Every figure here is a `full`-level figure.
 
+These are length, readability, latency and cost figures. **They do not say a
+reader prefers the result.** A blind judge asked exactly that, over 130
+comparisons, did not prefer laconic to baseline — and its own length and
+position biases came out larger than the gap between the arms, so that run
+supports no conclusion either way:
+[`evals/results/2026-08-01-preference.md`](evals/results/2026-08-01-preference.md).
+
 ## How this differs from caveman
 
 [`caveman`](https://github.com/JuliusBrussee/caveman) is a separate project by a

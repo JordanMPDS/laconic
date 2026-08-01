@@ -14,9 +14,9 @@ Three things this shares with judge.py, for the same reasons:
   exists to prevent in judge.py.
 
 Position bias in an LLM judge is large enough to produce a result on its own,
-so A/B order is decided by a checksum of (case, model, rep, order) rather than
-by arm, and --both-orders re-runs a subset flipped to measure the flip rate.
-Below the judge's own noise the headline is not publishable.
+so A/B order is decided by a checksum of (case, model, rep) rather than by arm,
+and --both-orders re-runs a subset with the sides swapped to measure the flip
+rate. Below the judge's own noise the headline is not publishable.
 """
 import argparse
 import collections
@@ -24,6 +24,7 @@ import json
 import re
 import sys
 import zlib
+from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
@@ -142,6 +143,53 @@ def tally(records, treatment, control):
             "unparseable": c[None]}
 
 
+def by_position(records, treatment, control):
+    """Treatment win/loss split by the position it was shown in.
+
+    The flip rate says the verdicts move; this says which way. If the treatment
+    wins far more often from one side than the other, the headline tally is
+    reporting where the answers sat, and the gap between these two rates is the
+    number to read instead of it.
+    """
+    out = {}
+    for pos in ("A", "B"):
+        c = collections.Counter(r["winner_arm"] for r in records
+                                if r["order"] == 0 and r["treatment_position"] == pos)
+        out[pos] = (c[treatment], c[control], c["tie"])
+    return out
+
+
+def longer_won(records, lengths, treatment, control):
+    """How often the judge picked the longer of the two answers.
+
+    An LLM judge is documented to favour length, and the treatment is the short
+    arm by construction, so this bias runs against it. Measured per run rather
+    than cited, because it is the number that decides how a loss may be read:
+    a treatment loss no larger than the length effect is not a preference
+    result. Ties and unparseable verdicts have no winner to compare, and equal
+    lengths have no longer answer, so both are excluded from the denominator.
+    """
+    won = total = 0
+    for r in records:
+        if r["order"] != 0 or r["winner_arm"] in (None, "tie"):
+            continue
+        key = (r["case"], r["model"], r["rep"])
+        t_len, c_len = lengths.get((key, treatment)), lengths.get((key, control))
+        if t_len is None or c_len is None or t_len == c_len:
+            continue
+        total += 1
+        win_len, lose_len = (t_len, c_len) if r["winner_arm"] == treatment else (c_len, t_len)
+        if win_len > lose_len:
+            won += 1
+    return won, total
+
+
+def response_lengths(snap):
+    """{((case, model, rep), arm): length} from a results.json snapshot."""
+    return {((r["case"], r["model"], r["rep"]), r["arm"]): len(r["text"])
+            for r in bench_run.usable(snap["runs"])}
+
+
 def flip_rate(records):
     """Comparisons run in both orders whose verdict did not survive the flip."""
     by = collections.defaultdict(dict)
@@ -152,7 +200,7 @@ def flip_rate(records):
     return len(flipped), len(both)
 
 
-def report(records, treatment, control):
+def report(records, treatment, control, lengths=None):
     t = tally(records, treatment, control)
     n = sum(t.values()) - t["unparseable"]
     print("\n| arm | wins |\n|---|--:|")
@@ -171,12 +219,28 @@ def report(records, treatment, control):
         c = per[model]
         print("| %s | %d | %d | %d |" % (model, c[treatment], c[control], c["tie"]))
 
+    pos = by_position(records, treatment, control)
+    print("\n| %s shown as | wins | losses | ties | win rate |\n|---|--:|--:|--:|--:|"
+          % treatment)
+    for side in ("A", "B"):
+        w, l, t_ = pos[side]
+        rate = (100.0 * w / (w + l)) if (w + l) else 0.0
+        print("| %s | %d | %d | %d | %.0f%% |" % (side, w, l, t_, rate))
+
+    if lengths:
+        won, total = longer_won(records, lengths, treatment, control)
+        if total:
+            print("\nThe longer answer won %d of %d decided comparisons (%.0f%%). "
+                  "The judge's length bias runs against the short arm, so a %s loss "
+                  "no larger than this is not a preference result."
+                  % (won, total, 100.0 * won / total, treatment))
+
     flipped, both = flip_rate(records)
     if both:
         print("\nOrder flip rate: %d of %d comparisons run in both orders "
               "changed verdict (%.0f%%)." % (flipped, both, 100.0 * flipped / both))
         if flipped * 2 >= both:
-            print("At or above 50%% the judge is measuring position, not quality - "
+            print("At or above 50% the judge is measuring position, not quality - "
                   "do not publish the table above as a preference result.")
     else:
         print("\nNo comparisons were run in both orders, so the flip rate is "
@@ -193,6 +257,8 @@ def main():
     ap.add_argument("--results", default=str(RESULTS))
     ap.add_argument("--out", default=str(PREFERENCES))
     ap.add_argument("--claude-bin", default="claude")
+    ap.add_argument("--jobs", type=int, default=6,
+                    help="comparisons in flight at once; each is its own subprocess")
     ap.add_argument("--dry-run", action="store_true",
                     help="print what would be called and spend nothing")
     ap.add_argument("--report-only", action="store_true",
@@ -209,7 +275,7 @@ def main():
             sys.exit("no comparisons in %s" % args.out)
         m = prior["metadata"]
         report(prior["comparisons"], m.get("treatment", args.treatment),
-               m.get("control", args.control))
+               m.get("control", args.control), response_lengths(snap))
         return
 
     pairs = pairs_from(snap, args.treatment, args.control)
@@ -245,30 +311,39 @@ def main():
 
     done = set((c["case"], c["model"], c["rep"], c["order"])
                for c in prior["comparisons"] if c["winner_arm"] is not None)
+    todo = [w for w in work if (w[0][0], w[0][1], w[0][2], w[3]) not in done]
 
-    for i, ((case, model, rep), t_text, c_text, order) in enumerate(work, 1):
-        if (case, model, rep, order) in done:
-            continue
+    def judge_one(item):
+        """One comparison. Every call is an independent subprocess against an
+        independent temp dir, so this runs in a worker thread and touches no
+        shared state - the snapshot is written by the main thread only."""
+        (case, model, rep), t_text, c_text, order = item
         t_is_a = treatment_is_a(case, model, rep, order)
         a, b = (t_text, c_text) if t_is_a else (c_text, t_text)
         prompt = build_prompt((CASES / case / "prompt.md").read_text(), a, b)
         res = bench_judge._call_blind(claude_bin, args.model, prompt)
         v = parse_winner(res.get("text", "")) if res.get("ok") else \
             {"winner": None, "reason": bench_judge.REASON_JUDGE_CALL_FAILED}
-        arm = winning_arm(v["winner"], args.treatment, args.control, t_is_a)
-        prior["comparisons"].append({
+        return {
             "case": case, "model": model, "rep": rep, "order": order,
             "treatment_position": "A" if t_is_a else "B",
-            "winner": v["winner"], "winner_arm": arm, "reason": v["reason"],
-        })
-        prior["metadata"] = {"judge_model": args.model, "rules_cksum": rules_cksum,
-                             "treatment": args.treatment, "control": args.control}
-        bench_run.save_snapshot(args.out, prior)
-        print("[%d/%d] %-14s %-7s rep%d order%d -> %s"
-              % (i, len(work), case, model, rep, order, arm))
+            "winner": v["winner"],
+            "winner_arm": winning_arm(v["winner"], args.treatment, args.control, t_is_a),
+            "reason": v["reason"],
+        }
+
+    with ThreadPoolExecutor(max_workers=args.jobs) as pool:
+        for i, rec in enumerate(pool.map(judge_one, todo), 1):
+            prior["comparisons"].append(rec)
+            prior["metadata"] = {"judge_model": args.model, "rules_cksum": rules_cksum,
+                                 "treatment": args.treatment, "control": args.control}
+            bench_run.save_snapshot(args.out, prior)  # after each: resumable if killed
+            print("[%d/%d] %-14s %-7s rep%d order%d -> %s"
+                  % (i, len(todo), rec["case"], rec["model"], rec["rep"],
+                     rec["order"], rec["winner_arm"]), flush=True)
 
     print("\nwrote %s (%d comparisons)" % (args.out, len(prior["comparisons"])))
-    report(prior["comparisons"], args.treatment, args.control)
+    report(prior["comparisons"], args.treatment, args.control, response_lengths(snap))
 
 
 if __name__ == "__main__":

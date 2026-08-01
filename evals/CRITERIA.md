@@ -73,6 +73,13 @@ the A/B layout by a checksum of the comparison rather than by arm and re-runs a 
 flipped. The flip rate is published beside the headline. At or above 50% the instrument
 is measuring position, and the preference table must not be published at all.
 
+The first run of this class measured what that noise actually is:
+[`results/2026-08-01-preference.md`](results/2026-08-01-preference.md) found the judge
+picking the longer answer in 63% of decided comparisons (p = 0.019) and reversing itself
+on 35% of comparisons it was shown twice — both larger than the difference between arms,
+which is why that run publishes a tally and no claim. Against `terse-control` the flip
+rate hit 50% exactly and the comparison is withheld under the rule above.
+
 `decision` and `floor` are the `rule-adherence` cases, and an earlier version of
 [`docs/v0.1.0-known-limits.md`](../docs/v0.1.0-known-limits.md) cited `decision`'s pass
 count as evidence before that had to be withdrawn. `conditional` is marked

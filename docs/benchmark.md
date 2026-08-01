@@ -116,6 +116,22 @@ violations" row above describes the level this table was measured at, not the
 plugin at every level. See
 [`evals/results/2026-07-31-levels.md`](../evals/results/2026-07-31-levels.md).
 
+### What readability does not say
+
+The row above counts degraded grammar. It can show laconic making prose worse
+and can never show it making prose better, so "shorter with grammar intact" is
+where the deterministic evidence stops.
+
+A blind judge was then asked the other question — which of two answers better
+serves the reader — over 130 comparisons of responses this snapshot already
+held. **It did not prefer laconic.** Against baseline: laconic 37, baseline 52,
+21 ties, p = 0.137. The same judge picked the longer answer 63% of the time
+(p = 0.019) and reversed its verdict on 35% of comparisons it saw twice, both
+effects larger than the gap between arms, so the run supports no preference
+claim in either direction. Reported in full, including the comparison withheld
+for a 50% flip rate:
+[`evals/results/2026-08-01-preference.md`](../evals/results/2026-08-01-preference.md).
+
 ## Answer quality
 
 The three `quality` cases each present a fixture with a buried mechanism and a
@@ -218,6 +234,11 @@ What the numbers cover:
   ladder the level text implies is not there. That run also found arrows at
   `lite` on Sonnet, which is why the readability row above carries a level
   qualifier.
+- **No reader-preference claim is made anywhere.** The one run that asked a
+  judge which answer served the reader better did not favour laconic and was
+  not interpretable in either direction, because the judge's length bias and
+  position bias both exceeded the difference between arms. Every claim above is
+  a length, readability, latency or cost claim.
 - **Compression is counted in output tokens, which include the model's tool
   turns.** Recomputing the same committed snapshot in words of the answer gives
   45% on Sonnet rather than 33%, and leaves the Haiku non-result's sign

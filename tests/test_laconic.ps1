@@ -141,9 +141,14 @@ Assert-Has 'ultra has lite block'  'No preamble' $out
 Assert-Has 'ultra has full block'  'One recommendation, not a survey' $out
 Assert-Has 'ultra has ultra block' 'The answer alone' $out
 
-# 7. subagent mode behaves like start.
+# 7. subagent is not a mode. It was one until issue #6 measured the path and
+# found the injected slice bought nothing a parent model could use, so the
+# script must now treat it exactly like any other unknown argument: silence.
+# Asserted rather than assumed, because the mode gate fails open by design and
+# a reinstated mode would otherwise show no symptom.
 Invoke-Hook 'subagent'
-Assert-Has 'subagent emits rules' 'The answer alone' $out
+Assert-Lacks 'subagent emits no rules' 'The answer alone' $out
+if ([string]::IsNullOrEmpty($out)) { Ok 'subagent emits nothing at all' } else { Fail 'subagent emits nothing at all' }
 
 # 8. remind is one line, not the whole rule set.
 Set-Level 'full'
@@ -458,12 +463,13 @@ Assert-Has 'rules still emitted when the badge cannot be written' `
   'One recommendation, not a survey' $out
 Remove-Item -LiteralPath $BadgeDst -Force -ErrorAction SilentlyContinue
 
-# 39. subagent mode does not install. Only SessionStart owns the file, so the
-# write happens once per session rather than once per spawned agent.
+# 39. remind does not install. Only SessionStart owns the file, so the write
+# happens once per session rather than once per prompt — remind runs on every
+# turn, and installing there would mean a file comparison per keystroke-batch.
 Remove-Item -LiteralPath $BadgeDst -Force -ErrorAction SilentlyContinue
 Set-Level 'full'
-Invoke-Hook 'subagent'
-if (Test-Path -LiteralPath $BadgeDst) { Fail 'subagent must not install the badge' } else { Ok 'subagent installs no badge' }
+Invoke-Hook 'remind' '{"prompt":"hello"}'
+if (Test-Path -LiteralPath $BadgeDst) { Fail 'remind must not install the badge' } else { Ok 'remind installs no badge' }
 
 # --- hooks.json ---
 # The TOML asserts the bash suite runs stay there: PowerShell 5.1 has no TOML
@@ -476,10 +482,10 @@ if ($null -ne $manifest) { Ok 'hooks.json is valid JSON' } else { Fail 'hooks.js
 
 # Assert the event-to-mode pairing on the Windows command, not just that the key
 # is present. laconic.ps1's mode gate exits 0 silently on any argument other than
-# start/subagent/remind, so a typo like "subagnet" would disable that hook on
-# Windows with no other symptom, and the bash command would still look correct.
+# start/remind, so a typo like "starrt" would disable that hook on Windows with
+# no other symptom, and the bash command would still look correct.
 if ($null -ne $manifest) {
-  foreach ($pair in @(@('SessionStart', 'start'), @('SubagentStart', 'subagent'), @('UserPromptSubmit', 'remind'))) {
+  foreach ($pair in @(@('SessionStart', 'start'), @('UserPromptSubmit', 'remind'))) {
     $ev = $pair[0]; $mode = $pair[1]
     $found = @()
     foreach ($group in $manifest.hooks.$ev) {
@@ -491,6 +497,15 @@ if ($null -ne $manifest) {
     }
     $got = ($found -join ' ')
     if ($got -ceq $mode) { Ok "hooks.json wires $ev -> $mode on Windows" } else { Fail "hooks.json wires $ev -> $mode on Windows (got: $got)" }
+  }
+  # SubagentStart must stay absent. The loop above only checks the events that
+  # are wired, so a reinstated subagent hook would pass every assertion in this
+  # file without this one. Issue #6 measured that path: no accuracy change in
+  # any arm and a 6-16% cost increase per subagent call.
+  if ($null -ne $manifest.hooks.PSObject.Properties['SubagentStart']) {
+    Fail 'hooks.json must not wire SubagentStart (see issue #6)'
+  } else {
+    Ok 'hooks.json does not wire SubagentStart'
   }
 }
 

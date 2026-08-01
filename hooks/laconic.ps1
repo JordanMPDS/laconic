@@ -1,9 +1,11 @@
 ﻿#Requires -Version 5.1
 # laconic — emit the active rule set for Claude Code hooks (native Windows).
-# Usage: laconic.ps1 start|subagent|remind
-#   start, subagent  print the rule slice for the active level
-#   remind           persist any "/laconic <level> [project]" on stdin, print one line
+# Usage: laconic.ps1 start|remind
+#   start   print the rule slice for the active level
+#   remind  persist any "/laconic <level> [project]" on stdin, print one line
 # Prints nothing at all unless a valid level is active.
+#
+# There is deliberately no subagent mode; see hooks/laconic.sh and issue #6.
 #
 # This is a port of hooks/laconic.sh and has to stay byte-identical to it in
 # behavior: both implementations read and write the same ~/.claude/.laconic-level,
@@ -25,7 +27,7 @@ try { [Console]::OutputEncoding = $Utf8NoBom } catch {}
 function Emit([string]$Text) { [Console]::Out.Write($Text) }
 
 # Case-sensitive, like the bash case statement: "Start" is not a mode.
-if (@('start', 'subagent', 'remind') -cnotcontains $Mode) { exit 0 }
+if (@('start', 'remind') -cnotcontains $Mode) { exit 0 }
 
 $configDir = if ([string]::IsNullOrEmpty($env:CLAUDE_CONFIG_DIR)) {
   Join-Path $HOME '.claude'

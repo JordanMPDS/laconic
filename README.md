@@ -83,9 +83,9 @@ Every level, including `ultra`:
 /laconic off
 ```
 
-Every hook — `SessionStart`, `SubagentStart`, and `UserPromptSubmit` — then
-exits without emitting anything, and the `LACONIC MODE ACTIVE` line stops on
-the next turn. No lingering state.
+Both hooks — `SessionStart` and `UserPromptSubmit` — then exit without emitting
+anything, and the `LACONIC MODE ACTIVE` line stops on the next turn. No
+lingering state.
 
 To turn it off in one repository while leaving the rest of the machine alone,
 see [Per-project level](#per-project-level).

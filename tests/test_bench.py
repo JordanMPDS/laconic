@@ -1083,5 +1083,72 @@ check("never-cut counts only cases with tokens",
 check("never-cut on no eligible case reports nothing checked",
       bench_subagent._never_cut([{"case": "fail-open", "text": "x"}]) == (0, 0))
 
+# --- prefer.py: blind pairwise preference ---
+# The comparison rests on the judge being unable to tell which side is the
+# plugin, and on the A/B layout being decided by the comparison rather than by
+# the arm. Both are checked here rather than in review, because either failure
+# still produces a full snapshot of plausible-looking verdicts.
+import prefer as bench_prefer  # noqa: E402
+
+check("preference prompt is blind to the arm",
+      not any(w in bench_prefer.TEMPLATE.lower()
+              for w in ("laconic", "baseline", "terse", "concise", "plugin")))
+check("preference prompt has exactly three substitution slots",
+      bench_prefer.TEMPLATE.count("%s") == 3)
+# Length is the thing under test. A judge told that shorter is better would
+# return laconic's own thesis rather than a reader's preference.
+check("preference prompt does not tell the judge which length to prefer",
+      "virtue or a fault" in bench_prefer.TEMPLATE)
+
+keys = [("case%d" % i, "sonnet", i % 5) for i in range(110)]
+a_side = [bench_prefer.treatment_is_a(c, m, r, 0) for c, m, r in keys]
+check("A/B assignment is deterministic",
+      a_side == [bench_prefer.treatment_is_a(c, m, r, 0) for c, m, r in keys])
+check("A/B assignment is not one-sided", 20 < sum(a_side) < 90)
+# order=1 has to be the exact inverse, not a second hash: a flipped pass that
+# repeats the original position for half the subset dilutes the flip rate with
+# comparisons that never flipped.
+check("the flipped order inverts every comparison",
+      all(bench_prefer.treatment_is_a(c, m, r, 1) is not
+          bench_prefer.treatment_is_a(c, m, r, 0) for c, m, r in keys))
+
+check("parses a winner", bench_prefer.parse_winner('{"winner":"A","reason":"x"}')["winner"] == "A")
+check("tie is a first-class verdict",
+      bench_prefer.parse_winner('{"winner":"tie","reason":"x"}')["winner"] == "tie")
+check("garbage has no winner", bench_prefer.parse_winner("not json")["winner"] is None)
+check("an unknown verdict has no winner",
+      bench_prefer.parse_winner('{"winner":"C"}')["winner"] is None)
+
+check("position A maps to the treatment when the treatment is A",
+      bench_prefer.winning_arm("A", "laconic", "baseline", True) == "laconic")
+check("position A maps to the control when the treatment is B",
+      bench_prefer.winning_arm("A", "laconic", "baseline", False) == "baseline")
+check("position B maps to the treatment when the treatment is B",
+      bench_prefer.winning_arm("B", "laconic", "baseline", False) == "laconic")
+check("a tie stays a tie in either layout",
+      bench_prefer.winning_arm("tie", "laconic", "baseline", True) == "tie")
+check("an unparseable verdict names no winner",
+      bench_prefer.winning_arm(None, "laconic", "baseline", True) is None)
+
+sub = bench_prefer.both_orders_subset(list(range(100)), 10)
+check("both-orders subset is the size asked for", len(sub) == 10)
+check("both-orders subset spans the range, not a prefix", max(sub) > 50)
+check("both-orders subset caps at what exists",
+      bench_prefer.both_orders_subset([1, 2], 10) == [1, 2])
+check("both-orders 0 asks for nothing", bench_prefer.both_orders_subset([1, 2], 0) == [])
+
+recs = [{"case": "a", "model": "sonnet", "rep": 0, "order": 0, "winner_arm": "laconic"},
+        {"case": "a", "model": "sonnet", "rep": 0, "order": 1, "winner_arm": "baseline"},
+        {"case": "b", "model": "sonnet", "rep": 0, "order": 0, "winner_arm": "tie"},
+        {"case": "b", "model": "sonnet", "rep": 0, "order": 1, "winner_arm": "tie"},
+        {"case": "c", "model": "sonnet", "rep": 0, "order": 0, "winner_arm": "laconic"}]
+check("the flip rate counts only comparisons run in both orders",
+      bench_prefer.flip_rate(recs) == (1, 2))
+# Counting the flipped pass again would double-count the same pair of responses
+# and inflate whichever side the judge favours in position A.
+check("the tally counts each comparison once, not once per order",
+      bench_prefer.tally(recs, "laconic", "baseline")
+      == {"laconic": 2, "baseline": 0, "tie": 1, "unparseable": 0})
+
 print("\n%d failure(s)" % fails)
 sys.exit(1 if fails else 0)

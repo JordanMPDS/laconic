@@ -69,6 +69,30 @@ python3 evals/bench/judge.py    # blind trap grading
 python3 evals/bench/report.py   # offline tables; exits 1 if a gate fails
 ```
 
+## Blind pairwise preference
+
+`evals/bench/prefer.py` grades responses the snapshot already holds — it calls no
+generation and regenerates nothing. Count the calls before spending anything:
+
+```bash
+python3 evals/bench/prefer.py --dry-run
+# 130 comparisons (110 forward, 20 flipped) over 220 responses
+```
+
+Then run it, and tally an existing run without calling at all:
+
+```bash
+python3 evals/bench/prefer.py --control baseline   # or --control terse-control
+python3 evals/bench/prefer.py --report-only
+```
+
+Resumable on the same snapshot semantics as `judge.py`, and refuses to top up
+verdicts built against a different `rules_cksum`. `--both-orders N` re-runs N
+comparisons with A and B swapped; the flip rate prints beside the headline, and
+at or above 50% the result is position bias rather than preference. What a
+preference verdict may and may not support is in
+[`evals/CRITERIA.md`](../evals/CRITERIA.md).
+
 The three-level run, and its offline report:
 
 ```bash

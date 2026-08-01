@@ -69,6 +69,44 @@ python3 evals/bench/judge.py    # blind trap grading
 python3 evals/bench/report.py   # offline tables; exits 1 if a gate fails
 ```
 
+## Improving the rules
+
+`.claude/skills/laconic-loop/SKILL.md` holds the procedure: benchmark, review
+the failures, propose one rule edit, confirm it, and open a PR or throw it
+away. It proposes; a human merges. The design and the reasoning behind every
+threshold are in
+[`docs/superpowers/specs/2026-08-01-rules-loop-design.md`](superpowers/specs/2026-08-01-rules-loop-design.md).
+
+The read step runs offline over snapshots you already have:
+
+```bash
+python3 evals/bench/review.py evals/snapshots/results.json \
+  --judgments evals/snapshots/judgments.json \
+  --preferences evals/snapshots/preferences.json
+```
+
+Every failure comes back with its excerpt verbatim and the line of
+`rules/laconic.md` that governs it. A failure with **no** governing rule ranks
+first — the rule set is silent where the benchmark checks, which points at
+writing a rule rather than editing one.
+
+The compare step turns two rounds into a verdict and exits 1 on reject:
+
+```bash
+python3 evals/bench/report.py --results <round-N+1> --judgments <round-N+1-judgments> \
+  --against <round-N> --against-judgments <round-N-judgments> \
+  --preferences <round-N+1-preferences>
+```
+
+`evals/holdout/` holds four cases the loop never sees, scored once before a
+rule change ships. Reach them with `--cases-dir evals/holdout`, which `run.py`,
+`judge.py`, `report.py` and `review.py` all accept. Their numbers never enter a
+published table.
+
+Every attempt goes in [`evals/results/loop/LEDGER.md`](../evals/results/loop/LEDGER.md),
+**including rejected ones** — an accept rate is what lets a reader discount a
+claim the loop produces.
+
 ## Blind pairwise preference
 
 `evals/bench/prefer.py` grades responses the snapshot already holds — it calls no

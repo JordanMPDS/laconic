@@ -244,5 +244,46 @@ else
 fi
 rm -rf "$DIST_TMP"
 
+# --- the loop skill and its ledger ---
+# The loop's whole defence against manufacturing a winner is that rejected
+# attempts get recorded too. A skill documenting only the accept path would
+# leave the ledger looking like an unbroken run of successes, which is the one
+# failure mode nobody reviewing a PR can see.
+#
+# Project-local under .claude/skills, not shipped in skills/: this is a
+# maintainer procedure for editing rules/laconic.md, and a plugin user has
+# no use for a skill that spends 700 API calls on the benchmark.
+LOOP="$ROOT/.claude/skills/laconic-loop/SKILL.md"
+if [ -f "$LOOP" ]; then
+  ok "laconic-loop skill exists"
+  for phrase in "rejected" "holdout" "hypothesis" "flip rate" "rule-adherence"; do
+    if grep -qi -- "$phrase" "$LOOP"; then
+      ok "loop skill covers: $phrase"
+    else
+      fail "loop skill covers: $phrase"
+    fi
+  done
+  # The loop proposes and a human merges. A skill that lost this line would
+  # read as authorisation to push rule changes straight to master.
+  if grep -qi 'human merges' "$LOOP"; then
+    ok "loop skill keeps the merge with a human"
+  else
+    fail "loop skill no longer says a human merges"
+  fi
+else
+  fail "laconic-loop skill exists"
+fi
+
+if grep -q "rules_cksum" "$ROOT/evals/results/loop/LEDGER.md"; then
+  ok "ledger records the rules revision each attempt was tested against"
+else
+  fail "ledger records the rules revision each attempt was tested against"
+fi
+if grep -qi "including rejected" "$ROOT/evals/results/loop/LEDGER.md"; then
+  ok "ledger says rejected attempts belong in it"
+else
+  fail "ledger no longer says rejected attempts belong in it"
+fi
+
 printf '\n%d failure(s)\n' "$fails"
 [ "$fails" = "0" ]

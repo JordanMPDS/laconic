@@ -120,5 +120,40 @@ else
   fail "no quality-graded case exists - no answer-quality claim is possible"
 fi
 
+# The holdout exists to be scored once, at ship time. A holdout case the
+# default glob reaches is a dev case, and it stops being a holdout the moment
+# somebody optimizes against it.
+hcount=$(ls -d "$ROOT"/evals/holdout/*/ 2>/dev/null | wc -l | tr -d ' ')
+if [ "$hcount" -ge 4 ]; then
+  ok "at least 4 holdout cases present (found $hcount)"
+else
+  fail "at least 4 holdout cases present (found $hcount)"
+fi
+
+for d in "$ROOT"/evals/holdout/*/; do
+  c=$(basename "$d")
+  if [ -f "$d/prompt.md" ] && [ -f "$d/expect.json" ]; then
+    ok "holdout case $c has prompt.md and expect.json"
+  else
+    fail "holdout case $c has prompt.md and expect.json"
+  fi
+done
+
+if ls -d "$ROOT"/evals/cases/holdout-*/ >/dev/null 2>&1; then
+  fail "a holdout case has leaked into evals/cases, where the default glob reaches it"
+else
+  ok "holdout cases stay outside the default case glob"
+fi
+
+# Two never-cut items and a requested explanation is the coverage the holdout
+# is for. A holdout of four short questions would pass every rule edit that
+# compresses by cutting a warning.
+hsafety=$(grep -l '"grading": "safety"' "$ROOT"/evals/holdout/*/expect.json 2>/dev/null | wc -l | tr -d ' ')
+if [ "$hsafety" -ge 2 ]; then
+  ok "holdout covers at least 2 never-cut cases (found $hsafety)"
+else
+  fail "holdout covers at least 2 never-cut cases (found $hsafety)"
+fi
+
 printf '\n%d failure(s)\n' "$fails"
 [ "$fails" -eq 0 ]

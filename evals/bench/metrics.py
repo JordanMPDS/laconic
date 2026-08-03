@@ -120,17 +120,27 @@ def _is_numeric_progression(line, start, end):
 
 
 def _symbol_hits(prose):
-    """Arrows counted only in running-prose lines. The rule forbids arrows
-    'in running prose' specifically: a bullet, heading or table row is
-    structural markdown, not prose, and STRUCTURAL already exists for exactly
-    this reason (see _lowercase_starts). A numeric progression like
-    '7 -> 11 -> 14' isn't a conjunction either. Matched per line rather than
-    on the whole text so a removed structural line can never make an
-    unrelated digit and arrow from different lines look adjacent."""
+    """Arrows counted wherever they stand in for a word, structure included.
+
+    This deliberately does *not* skip STRUCTURAL lines, though _lowercase_starts
+    does. The two detectors need opposite things from a bullet: a bullet may
+    legitimately start lowercase, so checking its capitalization would fire on
+    correct writing, but rules/laconic.md forbids arrows "after a bold label",
+    "in a 'quick runbook' line" and "inside a quoted flow" - a bulleted or
+    numbered runbook is the single most common place the forbidden arrow
+    appears, not an exemption from the rule.
+
+    Skipping them cost the loop a round. Round 01's edit scored 7 -> 0 on this
+    metric while the model went on writing the same chains one list marker to
+    the left, where the old detector could not see them; counted honestly the
+    same two rounds read 26 -> 9 (evals/results/loop/round-01.md).
+
+    A numeric progression like '7 -> 11 -> 14' is still exempt: that is a quoted
+    progression, not a conjunction. Matched per line rather than on the whole
+    text so an unrelated digit and arrow on different lines never look adjacent.
+    """
     hits = []
     for line in prose.splitlines():
-        if STRUCTURAL.match(line):
-            continue
         for m in SYMBOLS.finditer(line):
             if _is_numeric_progression(line, m.start(), m.end()):
                 continue

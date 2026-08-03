@@ -108,6 +108,26 @@ def usable(runs):
     return [r for r in runs if r.get("ok")]
 
 
+def carry_arms(snap, source, keep_arms):
+    """Copy every usable run whose arm is not being regenerated.
+
+    A rule edit changes only the treatment arm - no control carries rules in
+    its system prompt - so regenerating the controls each round pays three
+    times over for runs that cannot have moved. The provenance stamp names the
+    source and its rules_cksum, so a snapshot built this way carries its own
+    mixed-snapshot disclosure instead of relying on someone remembering it.
+    """
+    carried = [dict(r) for r in usable(source.get("runs", []))
+               if r["arm"] not in keep_arms]
+    snap["runs"].extend(carried)
+    snap["metadata"]["carried_arms_from"] = {
+        "path": source.get("__path", ""),
+        "rules_cksum": source.get("metadata", {}).get("rules_cksum"),
+        "arms": sorted(set(r["arm"] for r in carried)),
+    }
+    return snap
+
+
 def new_snapshot(reps, models, level, rules_cksum, arms, claude_bin="claude"):
     arms_dict = {}
     for k, v in arms.items():
@@ -185,6 +205,10 @@ def main():
     ap.add_argument("--arms", default=",".join(ARMS))
     ap.add_argument("--snapshot", default=str(SNAPSHOT))
     ap.add_argument("--claude-bin", default="claude")
+    ap.add_argument("--cases-dir", default=str(CASES),
+                    help="case directory to glob; evals/holdout for the reserved set")
+    ap.add_argument("--carry-arms-from",
+                    help="snapshot to copy the arms this run is not regenerating from")
     args = ap.parse_args()
 
     claude_bin = resolve_claude_bin(args.claude_bin)
@@ -197,7 +221,10 @@ def main():
     bad_arms = [a for a in arm_names if a not in ARMS]
     if bad_arms:
         sys.exit("unknown arm(s): %s (valid: %s)" % (", ".join(bad_arms), ", ".join(ARMS)))
-    cases = sorted(d for d in CASES.iterdir()
+    cases_dir = Path(args.cases_dir)
+    if not cases_dir.is_dir():
+        sys.exit("no such case directory: %s" % args.cases_dir)
+    cases = sorted(d for d in cases_dir.iterdir()
                    if (d / "prompt.md").exists() and fnmatch.fnmatch(d.name, args.cases))
     if not cases:
         sys.exit("no cases matched: %s" % args.cases)
@@ -211,6 +238,12 @@ def main():
     snap = load_snapshot(args.snapshot)
     if snap is None:
         snap = new_snapshot(args.reps, models, args.level, cksum, arms, claude_bin)
+        if args.carry_arms_from:
+            source = load_snapshot(args.carry_arms_from)
+            if source is None:
+                sys.exit("no snapshot to carry arms from: %s" % args.carry_arms_from)
+            source["__path"] = args.carry_arms_from
+            carry_arms(snap, source, arm_names)
     elif snap["metadata"].get("rules_cksum") != cksum:
         sys.exit("snapshot was generated from different rules (cksum %s vs %s); "
                  "move it aside before regenerating"

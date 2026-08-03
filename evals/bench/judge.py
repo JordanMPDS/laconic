@@ -103,13 +103,18 @@ def _call_blind(claude_bin, model, prompt):
 
 
 def main():
+    global CASES
     ap = argparse.ArgumentParser()
     ap.add_argument("--model", default="sonnet")
     ap.add_argument("--cases", default="*")
     ap.add_argument("--results", default=str(RESULTS))
     ap.add_argument("--out", default=str(JUDGMENTS))
     ap.add_argument("--claude-bin", default="claude")
+    ap.add_argument("--cases-dir", default=str(CASES),
+                    help="case directory holding expect.json; evals/holdout for the reserved set")
     args = ap.parse_args()
+
+    CASES = Path(args.cases_dir)
 
     claude_bin = bench_run.resolve_claude_bin(args.claude_bin)
     if not bench_run.claude_bin_usable(claude_bin):

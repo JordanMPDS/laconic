@@ -16,6 +16,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 import metrics  # noqa: E402
 import run as bench_run  # noqa: E402
 import judge as bench_judge  # noqa: E402
+import levels as bench_levels  # noqa: E402
 
 ROOT = Path(__file__).resolve().parents[2]
 CASES = ROOT / "evals" / "cases"
@@ -54,6 +55,92 @@ def case_grading(case):
 
 def _median(xs, default=0):
     return statistics.median(xs) if xs else default
+
+
+# The noise floor is the published dispersion, not a fresh invention: 175 is
+# laconic's output-token stdev on sonnet in the 2026-07-31 benchmark, and 0.35
+# is the preference judge's measured flip rate on 2026-08-01. A move smaller
+# than the instrument's own noise is not an improvement, and a loop that treats
+# it as one churns forever.
+NOISE = {"stdev": 175, "flip_rate_max": 0.35, "alpha": 0.05}
+
+# Each rejects on its own, whatever the target metric did. Compression bought
+# by dropping a never-cut item is not a cheaper answer, it is a different and
+# worse one.
+FATAL = (("never_cut_failures", "never-cut"),
+         ("quality_fails", "quality"),
+         ("violations_total", "readability"))
+
+
+def round_summary(snap, judg=None, prefs=None):
+    """The four numbers an accept decision needs, from one round's artefacts."""
+    lac = {k: v for k, v in aggregate(snap).items() if k[1] == "laconic"}
+    seen = defaultdict(dict)
+    for p in prefs or []:
+        seen[(p["case"], p["model"], p["rep"])][p["order"]] = p["winner_arm"]
+    both = [v for v in seen.values() if 0 in v and 1 in v]
+    flipped = [v for v in both if v[0] != v[1]]
+    return {
+        "never_cut_failures": sum(v["never_cut_failures"] for v in lac.values()),
+        # Only a quality-graded case can lose a quality verdict. A
+        # rule-adherence case grades the treatment against the text it was
+        # handed, so counting its verdicts here would let the loop chase its
+        # own tail.
+        "quality_fails": sum(1 for j in (judg or [])
+                             if j.get("arm") == "laconic" and j.get("verdict") == "fail"
+                             and case_grading(j["case"]) == "quality"),
+        "violations_total": sum(v["violations_total"] for v in lac.values()),
+        "tokens": {(k[0], k[2]): v["output_tokens"] for k, v in lac.items()},
+        "flip_rate": (len(flipped) / len(both)) if both else 0.0,
+    }
+
+
+def accept_verdict(prev, cur, target, noise=None):
+    """(verdict, reasons) for one round against the round before it.
+
+    Fatal conditions reject alone. The target has to beat the noise floor on
+    both estimators - a sign test across the case/model cells and a median
+    shift larger than the published stdev - because either one alone accepts
+    moves the benchmark cannot distinguish from sampling.
+
+    Preference is disclosed and never decisive: the judge that produces it
+    favours the longer answer 63% of the time and laconic is the short arm, so
+    it may not reject an edit that passed every deterministic gate.
+    """
+    noise = noise or NOISE
+    reasons = []
+    fatal = False
+    for key, label in FATAL:
+        if cur[key] > prev[key]:
+            reasons.append("REJECT: %s lost (%d -> %d)" % (label, prev[key], cur[key]))
+            fatal = True
+
+    if target == "output_tokens":
+        cells = sorted(set(prev["tokens"]) & set(cur["tokens"]))
+        improved = sum(1 for c in cells if cur["tokens"][c] < prev["tokens"][c])
+        p = bench_levels.sign_test(improved, len(cells)) if cells else 1.0
+        shift = (_median([prev["tokens"][c] for c in cells])
+                 - _median([cur["tokens"][c] for c in cells])) if cells else 0
+        if not cells:
+            reasons.append("REJECT: no case/model cell is present in both rounds")
+            fatal = True
+        elif improved * 2 <= len(cells) or p >= noise["alpha"]:
+            reasons.append("REJECT: %d of %d cells improved, sign test p = %.3f"
+                           % (improved, len(cells), p))
+            fatal = True
+        elif shift <= noise["stdev"]:
+            reasons.append("REJECT: median shift %.0f is inside the %d-token noise floor"
+                           % (shift, noise["stdev"]))
+            fatal = True
+        else:
+            reasons.append("median shift %.0f tokens, %d of %d cells improved, p = %.3f"
+                           % (shift, improved, len(cells), p))
+
+    if cur["flip_rate"] >= noise["flip_rate_max"]:
+        reasons.append("preference not citable: flip rate %.0f%% is at or above the "
+                       "%.0f%% ceiling"
+                       % (100 * cur["flip_rate"], 100 * noise["flip_rate_max"]))
+    return ("reject" if fatal else "accept"), reasons
 
 
 def aggregate(snap):
@@ -397,13 +484,26 @@ def _load_judgments(path):
 
 
 def main():
+    global CASES
     ap = argparse.ArgumentParser()
     ap.add_argument("--results", default=str(RESULTS))
     ap.add_argument("--judgments", default=str(JUDGMENTS))
     ap.add_argument("--threshold", type=float, default=0.70)
     ap.add_argument("--no-gate", action="store_true")
     ap.add_argument("--markdown")
+    ap.add_argument("--cases-dir", default=str(CASES),
+                    help="case directory holding expect.json; evals/holdout for the reserved set")
+    ap.add_argument("--against",
+                    help="previous round's snapshot: print deltas and an accept verdict")
+    ap.add_argument("--target", default="output_tokens",
+                    help="the metric the proposal's hypothesis named")
+    ap.add_argument("--against-judgments",
+                    help="the previous round's judgments; required with --against")
+    ap.add_argument("--preferences",
+                    help="preference snapshot, for the flip-rate disclosure")
     args = ap.parse_args()
+
+    CASES = Path(args.cases_dir)
 
     # load_snapshot has the identical corrupt-file defect _load_judgments is
     # guarded against below: json.loads on a non-empty, invalid file raises
@@ -438,6 +538,36 @@ def main():
              "judge.py has not finished" % (total_usable - missing_judgments,
                                             total_usable, missing_judgments),
              file=sys.stderr)
+
+    # The loop's compare step. Exits 1 on reject so a round that fails its own
+    # accept rule fails a command, the same contract the gates already keep.
+    if args.against:
+        try:
+            prev_snap = bench_run.load_snapshot(args.against)
+        except ValueError as e:
+            sys.exit("corrupt results file %s: %s" % (args.against, e))
+        if prev_snap is None:
+            sys.exit("no snapshot at %s" % args.against)
+        # Without the previous round's verdicts its quality count is 0, and
+        # every comparison reads as a regression from zero - a rejection that
+        # says nothing about the edit. Required rather than defaulted: silently
+        # dropping a fatal check is worse than refusing to run.
+        if not args.against_judgments:
+            sys.exit("--against needs --against-judgments; without the previous "
+                     "round's verdicts every comparison reads as a quality "
+                     "regression from 0")
+        prev_judg = _load_judgments(args.against_judgments)["judgments"]
+        prefs = (bench_run.load_snapshot(args.preferences) or {}).get("comparisons", []) \
+            if args.preferences else []
+        verdict, reasons = accept_verdict(
+            round_summary(prev_snap, prev_judg),
+            round_summary(snap, judg["judgments"], prefs),
+            args.target)
+        print("verdict: %s (target %s, against %s)"
+              % (verdict, args.target, args.against))
+        for r in reasons:
+            print("  %s" % r)
+        sys.exit(0 if verdict == "accept" else 1)
 
     md = render(snap, judg, args.threshold)
     if args.markdown:

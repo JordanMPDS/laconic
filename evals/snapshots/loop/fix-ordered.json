@@ -1,0 +1,181 @@
+{
+  "arms": {
+    "baseline": {
+      "system_prompt": null
+    },
+    "laconic": {
+      "source": "hooks/laconic.sh start @ full",
+      "system_prompt": "# Laconic mode\n\nTerse means fewer claims, not fewer words per claim. Write ordinary English \u2014\ncomplete sentences, real articles, real conjunctions. Delete content, never\ngrammar.\n\nTwo checks before sending:\n\n1. What is the smallest set of claims that fully answers this?\n2. Is anything here something the user did not ask for?\n\n**Length scales to the request, at every level.** A yes/no question gets a word\nor a line. A report, walkthrough, comparison, or explanation the user asked for\ngets full detail. Laconic governs volunteered content; it never truncates\nrequested content.\n\n## Never cut (every level, including ultra)\n\n- Code, config, commands, and error strings \u2014 verbatim and complete. Never\n  abbreviate an identifier, never elide lines with `...`.\n- Security warnings, and the reasoning that makes them actionable.\n- Confirmation before destructive or irreversible actions, naming exactly what\n  will be affected \u2014 read what you were pointed at and name the objects from\n  it. Telling the user to go check for themselves is not a confirmation.\n- Anything the user asked to have explained: \"why\", \"how\", \"walk me through\",\n  \"explain\".\n- Ordered instructions: every step, and the words that fix their order\n  (\"before\", \"after\", \"first\").\n- Bad news: a failure, a broken test, a limit hit, a thing not done. Omitting\n  it is not terseness.\n- Uncertainty that changes what the user should do.\n\nQuestion: *\"Our deploy failed with an OOM kill on the worker. Should I bump the memory limit?\"*\n\n| Level | Response |\n| --- | --- |\n| `lite` | \"Bump it, but check the trend first. An OOM kill at a steady memory ceiling means the limit is too low; a climbing curve means a leak, and a bigger limit only delays the next kill. `kubectl top pod` over a few minutes tells you which one you have.\" |\n| `full` | \"Check the trend first. If memory sits at a steady ceiling, raise the limit; if it is climbing, you have a leak and a bigger limit only delays the next kill. Watch `kubectl top pod` for a few minutes.\" |\n| `ultra` | \"Only if memory is flat, not climbing. Check `kubectl top pod` first.\" |\n\nUltra kept the conditional because dropping it would give wrong advice half the time.\n\n## Never do this\n\nNo dropped articles. No telegraphic fragments. Do not shorten words in running\nprose: write `configuration`, not `config`; `implementation`, not `impl`.\nShorter is not the goal; fewer claims is.\n\n**No arrows in prose, anywhere. A bullet and a numbered step are prose too.**\nNever use `\u2192` or `->`: not to chain steps, stages, states or causes, not to show\nthat one thing maps to or becomes another, not after a bold label, not after a\ncolon, not in a \"quick runbook\" line, not inside a quoted flow. Sequencing is\nwhere an arrow is most tempting and least acceptable: an ordered process is\nexactly the content whose connecting words are never cut.\n\n- Wrong: **Request A**: calls `currentToken()` \u2192 token expired \u2192 calls `refresh()`\n- Right: Request A calls `currentToken()`, finds the token expired, and calls `refresh()`.\n- Wrong: Rough runbook: rotate the key \u2192 wait out the old TTL \u2192 remove it.\n- Right: Rotate the key, wait out the old TTL, then remove it. Use a numbered\n  list instead when the user will follow the steps one at a time.\n- Wrong: a branch list, one bullet each: `401` \u2192 clear both tokens and throw.\n- Right: a branch list, one bullet each: a `401` clears both tokens and throws.\n  Give every branch a verb; a list of conditions is still a list of sentences.\n\nArrows belong in a fenced code block or a verbatim error string, where they\nare the material being quoted rather than your own prose.\n\n\n## Level: lite \u2014 cut ceremony\n\nNo preamble. Do not restate the question, announce what is about to happen, or\nnarrate tool calls the user can already see.\n\n- No pleasantries or performative agreement: no \"Great question\", \"Sure!\",\n  \"You're absolutely right\".\n- No closing offers and no offers to do more work: no \"Let me know if...\",\n  \"Hope this helps\", \"Want me to...?\". Asking the user to confirm a destructive\n  action is never a closing offer; offering to go read something for them is.\n- No stacked hedging. One qualifier or none: \"Probably X\", not \"It might\n  possibly be that X\".\n- No recap of work visible in the diff. Name the file and what changed.\n  Reporting a failure, a skipped step, or a surprise is not a recap \u2014 that is\n  never-cut content and stays.\n\nKeeps full reasoning, context, and trade-offs. Lite is normal professional\nprose with the ceremony stripped.\n\n\n## Level: full \u2014 also cut unrequested substance\n\n- Lead with the answer or the action taken. Reasoning only if the user needs it\n  to act on the answer.\n- One recommendation, not a survey. A real trade-off gets one line per side,\n  then a pick.\n- No unrequested alternatives, no \"you could also\".\n- No teaching a concept the question already shows the user knows.\n- No next-steps list unless they asked what is next.\n\nTypical shape: one to three sentences, or a short list. One sentence is a\ncomplete answer.\n\n"
+    },
+    "terse-control": {
+      "system_prompt": "Answer concisely."
+    },
+    "word-compression": {
+      "system_prompt": "Answer concisely. Drop articles and filler words, abbreviate common terms, and use arrows instead of conjunctions."
+    }
+  },
+  "metadata": {
+    "claude_cli_version": "2.1.220 (Claude Code)",
+    "generated_at": "2026-08-03T18:58:24Z",
+    "git_commit": "f84ab13",
+    "laconic_level": "full",
+    "models": [
+      "haiku",
+      "sonnet"
+    ],
+    "reps": 5,
+    "rules_cksum": "2868055581"
+  },
+  "runs": [
+    {
+      "arm": "laconic",
+      "cache_creation_input_tokens": 5066,
+      "cache_read_input_tokens": 17620,
+      "case": "ordered-steps",
+      "duration_ms": 10524,
+      "input_tokens": 9,
+      "model": "haiku",
+      "num_turns": 1,
+      "ok": true,
+      "output_tokens": 772,
+      "rep": 0,
+      "text": "The standard approach is **gradual key rotation with a dual-key acceptance window**. You keep accepting both the old and new keys for verification while signing all *new* tokens with the new key. Once all tokens signed with the old key have naturally expired, you retire it.\n\nHere's the pattern:\n\n1. **Add the new key** to your trusted keys for verification (but don't sign with it yet)\n2. **Transition to signing with the new key** for all newly issued tokens (including refreshes)\n3. **Keep verifying both keys** for a period longer than your longest token lifetime (e.g., if access tokens live 1 hour and refresh tokens live 30 days, wait 30+ days)\n4. **Remove the old key** once enough time has passed that no valid tokens use it\n\nThe math: if your longest-lived token is `N` days, you need to support both keys for at least `N` days. Refresh token rotation helps here\u2014shorter-lived refresh tokens mean users get new tokens signed with the new key faster.\n\n**Common refinement: include key ID in tokens**\n\nSign tokens with a `kid` (key ID) in the JWT header so you explicitly know which key signed each one. This makes it easier to track which old tokens still exist and when you can safely retire the old key.\n\n**If you use refresh tokens** (recommended for this reason), the transition is faster:\n- Rotate keys\n- Accept both old and new keys for verification\n- When a user refreshes their token, they get a new one signed with the new key\n- After one refresh cycle (hours to days), most users have new tokens and you can retire the old key sooner\n\nIs this for a specific framework or setup? If you're building it, I can help with implementation details.",
+      "total_cost_usd": 0.016368
+    },
+    {
+      "arm": "laconic",
+      "cache_creation_input_tokens": 6411,
+      "cache_read_input_tokens": 23812,
+      "case": "ordered-steps",
+      "duration_ms": 12914,
+      "input_tokens": 2,
+      "model": "sonnet",
+      "num_turns": 1,
+      "ok": true,
+      "output_tokens": 872,
+      "rep": 0,
+      "text": "The standard approach is key rotation with overlap, so old tokens stay valid until they naturally expire while new tokens get signed with the new key.\n\n**1. Support multiple valid signing keys at once**\nMaintain a small keyring instead of a single secret: each key has an ID (`kid`) and a status (`current`, `retiring`, `retired`). Verification checks the token's `kid` header against the keyring and validates against whichever key matches \u2014 not just \"the\" key.\n\n**2. Add a `kid` to the JWT header**\nWhen signing, include `kid` in the header pointing at the key that created it:\n```json\n{\"alg\": \"RS256\", \"kid\": \"2026-08-03-a\", \"typ\": \"JWT\"}\n```\nOn verify, look up the key by `kid` rather than assuming one global key.\n\n**3. Rotate in phases, not a swap**\n- Generate a new key, add it to the keyring as `current` for *new* signing, but keep the old key active for *verification only*.\n- Keep the old key valid for at least your max token TTL (plus some buffer) so tokens issued before rotation still verify until they expire naturally.\n- After that window passes, mark the old key `retired` and stop accepting it.\n\n**4. Use asymmetric keys (RS256/ES256) if you aren't already**\nThis lets you publish public keys via a JWKS endpoint (`/.well-known/jwks.json`) with multiple entries, so any verifying service just needs the `kid` to pick the right public key \u2014 no coordinated secret redistribution needed. With HS256 a single shared secret is harder to rotate safely across all verifiers simultaneously.\n\n**5. Keep the grace period \u2265 your token lifetime**\nIf access tokens live 15 minutes, a rotation window of an hour is plenty. If you use long-lived tokens (days), either shorten the TTL first or keep both keys valid for the full old TTL.\n\n**Refresh tokens are the actual risk.** If refresh tokens are also JWTs signed by the same key, they typically live much longer \u2014 make sure the grace period covers those too, or force re-authentication only for holders of very old refresh tokens once the old key is retired (not everyone).\n\nWant me to sketch this out in your actual auth code? I don't see a project loaded in this session yet.",
+      "total_cost_usd": 0.0593006
+    },
+    {
+      "arm": "laconic",
+      "cache_creation_input_tokens": 5065,
+      "cache_read_input_tokens": 17620,
+      "case": "ordered-steps",
+      "duration_ms": 7419,
+      "input_tokens": 9,
+      "model": "haiku",
+      "num_turns": 1,
+      "ok": true,
+      "output_tokens": 547,
+      "rep": 1,
+      "text": "The standard approach is **dual-key validation during the rotation window**:\n\n1. **Generate a new key** and add it to your configuration alongside the old key.\n\n2. **Update your token validation logic** to accept tokens signed with either the old or new key. Most JWT libraries let you provide multiple keys for verification.\n\n3. **Sign new tokens with the new key**. Refresh tokens and newly-issued tokens now use the new key.\n\n4. **Keep both keys active** until all old tokens expire naturally (based on your token TTL). If your tokens live 1 hour, keep both keys for at least 1 hour after rotation.\n\n5. **Remove the old key** once you're confident no valid old tokens remain.\n\n**Why this works**: JWTs are stateless\u2014the server doesn't track which key signed a token, just that the signature is valid. By accepting both keys during transition, existing sessions continue working while new sessions use the new key.\n\n**Timeline example** (1-hour token TTL):\n- Time 0: Deploy rotation. Old key signs existing tokens. New key is available for validation.\n- Time 0\u20131h: New tokens signed with new key. Old tokens still valid. Server accepts both.\n- Time 1h: Remove old key. All original tokens have expired naturally.\n\n**Refresh token consideration**: If you have refresh tokens with longer lifetimes, extend the dual-key window to cover their TTL instead.\n\nAre you implementing this, or looking for specifics on how to configure it in your particular JWT library/framework?",
+      "total_cost_usd": 0.015250999999999999
+    },
+    {
+      "arm": "laconic",
+      "cache_creation_input_tokens": 6411,
+      "cache_read_input_tokens": 23812,
+      "case": "ordered-steps",
+      "duration_ms": 12518,
+      "input_tokens": 2,
+      "model": "sonnet",
+      "num_turns": 1,
+      "ok": true,
+      "output_tokens": 825,
+      "rep": 1,
+      "text": "The standard approach is to support multiple valid verification keys simultaneously during a transition window, so old tokens keep validating while new tokens use the new key.\n\n**1. Key ID (`kid`) in the JWT header**\nEvery signing key gets a unique `kid`. Tokens carry `kid` in their header so verifiers know which key to check against, without guessing.\n\n**2. Maintain a key set, not a single key**\nInstead of one secret/public key, keep a small registry (e.g. a JWKS if using RS256/ES256, or a map of `kid -> secret` if HMAC): current signing key plus one or more still-valid-for-verification old keys.\n\n**3. Rotation sequence**\n- Add the new key to the verification set (but don't sign with it yet).\n- Deploy that everywhere tokens get verified.\n- Switch signing to the new key (new `kid`).\n- Keep the old key in the verification set until every token signed with it has expired (i.e., at least your max token TTL, e.g. old key stays valid for verification for 24h if access tokens live that long).\n- Remove the old key once its grace period passes.\n\n**4. Practical notes**\n- Prefer asymmetric keys (RS256/ES256) with a JWKS endpoint (`/.well-known/jwks.json`) so verifiers pull public keys dynamically instead of needing a redeploy per rotation.\n- Short-lived access tokens (minutes) + refresh tokens make rotation painless \u2014 old access tokens just expire naturally within the grace window, no revocation needed.\n- If tokens are long-lived, you need the multi-key grace period above, or a revocation list, or force silent re-issuance on next request.\n- Automate this (e.g. cron/scheduled job) so keys rotate on a fixed cadence rather than manually.\n\nNet effect: nobody gets logged out because both old and new signatures verify successfully during the overlap window; only after the old key is fully retired would an unexpired-but-old-signed token fail \u2014 which shouldn't happen if the grace period \u2265 max token lifetime.\n\nIf you tell me your stack (symmetric HMAC vs RSA/EC, library, token lifetime), I can give exact code for the rotation logic.",
+      "total_cost_usd": 0.058595600000000005
+    },
+    {
+      "arm": "laconic",
+      "cache_creation_input_tokens": 5065,
+      "cache_read_input_tokens": 17620,
+      "case": "ordered-steps",
+      "duration_ms": 12157,
+      "input_tokens": 9,
+      "model": "haiku",
+      "num_turns": 1,
+      "ok": true,
+      "output_tokens": 767,
+      "rep": 2,
+      "text": "Maintain multiple valid signing keys simultaneously during a grace period:\n\n1. **Add the new key** to your list of valid keys for verification (keep the old key too)\n2. **Sign all new JWTs** with the new key going forward\n3. **Accept verification** using either the old or new key for a grace period (typically equal to your longest JWT lifetime\u2014e.g., if tokens last 1 hour, wait 1 hour)\n4. **Remove the old key** after the grace period ends\n\nThis works because JWT verification only checks the signature; tokens don't need a database lookup. Users' old tokens signed with the old key will verify successfully during the grace period, then expire naturally.\n\n**Implementation sketch:**\n\n```javascript\n// Store multiple valid keys\nconst validKeys = [\n  { id: 'old-key-id', key: oldKeyMaterial, active: false },\n  { id: 'new-key-id', key: newKeyMaterial, active: true }\n];\n\n// Sign new tokens with the active key\nconst token = jwt.sign(payload, validKeys.find(k => k.active).key);\n\n// Verify against any valid key\nfunction verifyJWT(token) {\n  for (const keyObj of validKeys) {\n    try {\n      return jwt.verify(token, keyObj.key);\n    } catch (e) {\n      continue;\n    }\n  }\n  throw new Error('Invalid token');\n}\n\n// After grace period, remove old key\nvalidKeys.splice(validKeys.indexOf(oldKeyObj), 1);\n```\n\n**Grace period sizing:** Use at least the maximum lifetime of any JWT you issue. If you have long-lived refresh tokens (days/weeks), account for that\u2014users with old tokens should be able to refresh before the old key is removed.\n\nThis gives you a zero-downtime rotation where active users stay logged in.",
+      "total_cost_usd": 0.016341
+    },
+    {
+      "arm": "laconic",
+      "cache_creation_input_tokens": 6410,
+      "cache_read_input_tokens": 23812,
+      "case": "ordered-steps",
+      "duration_ms": 17251,
+      "input_tokens": 2,
+      "model": "sonnet",
+      "num_turns": 1,
+      "ok": true,
+      "output_tokens": 1297,
+      "rep": 2,
+      "text": "The trick is to support **multiple valid keys at once** during a transition window, rather than swapping the key atomically.\n\n**Approach:**\n\n1. **Tag tokens with a key ID.** Add a `kid` claim to the JWT header identifying which key signed it. Maintain a small keystore (or JWKS if using asymmetric keys) mapping `kid` \u2192 public/verification key.\n\n2. **Roll out verification support first.** Add the new key to the verification set (old key still valid, still signing) and deploy that everywhere tokens get verified. Now anything can verify tokens signed by either key.\n\n3. **Switch signing to the new key.** Once verification is confirmed live everywhere, start issuing new tokens signed with the new key. Existing tokens signed with the old key keep validating fine because the old key is still in the verification set.\n\n4. **Retire the old key after the grace period.** Keep the old key in the verification set for at least as long as your longest-lived token TTL (e.g., if access tokens last 15 min and refresh tokens last 30 days, wait out the refresh token's max lifetime, or force a refresh-token re-issue). Once nothing outstanding could still be signed with it, drop it.\n\n**Practical notes:**\n- If you use asymmetric signing (RS256/ES256), this is exactly what a JWKS endpoint with multiple keys is for \u2014 clients/services just look up `kid` and cache the JWKS.\n- If you use HMAC (HS256), there's no public/private split, so all verifiers need the new shared secret distributed before you cut over signing \u2014 same three-phase order still applies (distribute new secret \u2192 verify with both \u2192 sign with new \u2192 drop old after TTL).\n- If refresh tokens are long-lived, consider re-signing them with the new key the next time they're used (silent rotation) instead of waiting out the full old TTL, so you can retire the old key sooner.\n- Log/metric which `kid` is hitting verification so you know when the old key's traffic has actually dropped to zero before deleting it.",
+      "total_cost_usd": 0.0656796
+    },
+    {
+      "arm": "laconic",
+      "cache_creation_input_tokens": 5067,
+      "cache_read_input_tokens": 17620,
+      "case": "ordered-steps",
+      "duration_ms": 10655,
+      "input_tokens": 9,
+      "model": "haiku",
+      "num_turns": 1,
+      "ok": true,
+      "output_tokens": 897,
+      "rep": 3,
+      "text": "You can rotate JWT signing keys without logging out users by using a **key versioning** strategy with a transition period. Here are the main approaches:\n\n## 1. **Key ID (kid) in JWT Header** (Recommended)\nInclude a key ID in the JWT header so the server knows which key was used to sign it.\n\n```javascript\n// When signing new tokens\nconst token = jwt.sign(payload, newPrivateKey, {\n  keyid: 'key-v2',\n  algorithm: 'RS256',\n});\n\n// When verifying, try both keys\nfunction verifyToken(token) {\n  const decoded = jwt.decode(token, { complete: true });\n  const kid = decoded.header.kid;\n  \n  const key = kid === 'key-v2' ? newPublicKey : oldPublicKey;\n  return jwt.verify(token, key);\n}\n```\n\n**Process:**\n- Deploy code that can verify tokens with both old and new keys\n- Start signing new tokens with the new key (new logins, token refreshes)\n- Keep the old key in your verification logic for 24-48 hours (or your token TTL)\n- Remove the old key once you're confident all old tokens have expired/refreshed\n\n## 2. **Asymmetric Keys (RS256/ES256)**\nIf you're using asymmetric algorithms, you only need to rotate the **private key**. The public key stays the same, so clients don't need changes:\n\n- Generate a new private key\n- Deploy code that signs with the new key but verifies with the corresponding public key\n- Since the public key is stable, any client holding the old public key can still verify tokens\n\n## 3. **Dual-Key Period**\nSign all new tokens with the new key, but keep the old key available for verification:\n\n```javascript\nconst KEYS = {\n  current: newPrivateKey,\n  previous: oldPrivateKey, // kept for 48 hours\n};\n\n// Verify against both\nfunction verify(token) {\n  try {\n    return jwt.verify(token, KEYS.current);\n  } catch (e) {\n    return jwt.verify(token, KEYS.previous); // fallback\n  }\n}\n```\n\n## Best Practices\n- **Refresh tokens first**: If you have refresh tokens, use those to issue new JWTs. Users refresh automatically before token expiry.\n- **Gradual transition**: Use a 24-48 hour window where both keys are accepted\n- **Monitor failures**: Log verification failures to catch issues during the transition\n- **Plan for expiration**: Let existing tokens expire naturally rather than invalidating them\n- **Document the rotation**: Keep track of when each key was active for debugging\n\n**Which should you use?** If you're already using asymmetric keys (RS256/ES256), just rotate the private key\u2014it's simplest. Otherwise, use key versioning with a transition period.",
+      "total_cost_usd": 0.016995000000000003
+    },
+    {
+      "arm": "laconic",
+      "cache_creation_input_tokens": 6411,
+      "cache_read_input_tokens": 23812,
+      "case": "ordered-steps",
+      "duration_ms": 16224,
+      "input_tokens": 2,
+      "model": "sonnet",
+      "num_turns": 1,
+      "ok": true,
+      "output_tokens": 1214,
+      "rep": 3,
+      "text": "Rotate keys using a key ID (`kid`) and a grace-period overlap, not a hard cutover.\n\n**Core mechanism**\n1. Generate a new signing keypair (use asymmetric, RS256/ES256/EdDSA \u2014 not HMAC, since HMAC's single shared secret makes overlap awkward).\n2. Publish both old and new public keys in your JWKS endpoint, each tagged with a distinct `kid`.\n3. Start signing new tokens with the new key, embedding its `kid` in the JWT header.\n4. Your verifier looks up the key by the token's `kid` and checks against whichever key matches \u2014 so old tokens (signed with the old `kid`) keep verifying fine.\n5. Keep the old public key in the JWKS until every token signed with it has expired (i.e., wait out your access token's max TTL \u2014 if tokens live 15 minutes, wait 15+ minutes past cutover).\n6. Remove the old key from the JWKS once that window passes.\n\n**Why this avoids logging anyone out**\nExisting sessions hold tokens signed with the old key. As long as the old public key is still published and your verifier accepts it, those tokens keep validating normally until they naturally expire \u2014 no forced re-auth.\n\n**Practical notes**\n- Short-lived access tokens (5\u201315 min) make this painless since the overlap window is small. If you're using long-lived JWTs as session tokens, rotation either takes a long time or you accept some users needing to refresh sooner \u2014 this is a good reason to move to short access tokens + refresh tokens if you haven't.\n- If refresh tokens are also JWTs, they need the same overlap treatment, sized to the refresh token's TTL, not the access token's.\n- Automate this as a \"rotate \u2192 wait TTL \u2192 retire\" pipeline (many JWKS libraries/cloud KMS's support scheduled rotation with configurable overlap) rather than doing it by hand each time.\n- If you're stuck on HMAC (shared secret) and can't move to asymmetric, you can still overlap by having the verifier try a list of `{kid: secret}` pairs \u2014 same idea, just riskier to distribute the secret to every verifying service.",
+      "total_cost_usd": 0.06443059999999999
+    },
+    {
+      "arm": "laconic",
+      "cache_creation_input_tokens": 5066,
+      "cache_read_input_tokens": 17620,
+      "case": "ordered-steps",
+      "duration_ms": 15060,
+      "input_tokens": 9,
+      "model": "haiku",
+      "num_turns": 1,
+      "ok": true,
+      "output_tokens": 794,
+      "rep": 4,
+      "text": "Rotate keys with a **grace period** where both the old and new keys are valid for verification. Here's the pattern:\n\n**The core idea:** JWTs signed with the old key stay valid if you keep that public key around. New tokens get the new key, old tokens continue working until they naturally expire.\n\n**Implementation:**\n\n1. **Generate your new key** and mark it as current for signing going forward\n2. **Keep the old key(s) valid for verification** for a grace period (at least as long as your longest token lifetime\u2014usually 24+ hours)\n3. **When validating**, try to verify the JWT with any active key (current + grace-period keys)\n4. **Retire old keys** after the grace period ends\n\n**To identify which key signed a token**, add a `kid` (key ID) header to each JWT:\n```\n{\n  \"alg\": \"RS256\",\n  \"kid\": \"key-20260803\",\n  ...\n}\n```\n\nThen on validation, use the `kid` to look up the right key instead of trying all of them.\n\n**Timeline example** (24-hour token lifetime):\n- Day 1, 3pm: Generate new key, start signing with it. Keep old key valid.\n- Day 2, 3pm: New key is now 24h old; old tokens from 24h ago are expiring. Stop signing with old key.\n- Day 3, 3pm: Safely retire old key (all tokens signed with it have expired).\n\n**What clients see:** Nothing. Their existing tokens work fine until expiration. When they refresh, they get new tokens signed with the new key.\n\nStore your key metadata (version, rotation timestamp, expiration) in your key store so you know which keys to trust and when to retire them. Most JWT libraries support the `kid` header out of the box.",
+      "total_cost_usd": 0.016488
+    },
+    {
+      "arm": "laconic",
+      "cache_creation_input_tokens": 6412,
+      "cache_read_input_tokens": 23812,
+      "case": "ordered-steps",
+      "duration_ms": 13335,
+      "input_tokens": 2,
+      "model": "sonnet",
+      "num_turns": 1,
+      "ok": true,
+      "output_tokens": 1030,
+      "rep": 4,
+      "text": "The key is to support multiple valid verification keys simultaneously during a transition window, rather than swapping to a single new key atomically.\n\n**Core mechanism: key ID (`kid`) + a key set**\n\n1. Give every signing key a unique `kid`. Sign new tokens with the new key, and set the `kid` in the JWT header so verifiers know which key to check against.\n2. Verifiers hold a set of currently-trusted keys (old + new), keyed by `kid`, not just one. On each verification, look up the key by `kid` and validate against that one.\n3. Keep the old key in the trusted set until every token signed with it has expired (i.e., at least as long as your token's max TTL, e.g., 15 minutes for short-lived access tokens, or your session-token lifetime if longer). Tokens issued before the rotation keep validating; nobody with a still-valid session gets logged out.\n4. After that window passes, drop the old key from the trusted set. Any lingering old-signed token now fails verification, but by then it would have expired anyway.\n\n**Practically:**\n\n- If you use asymmetric signing (RS256/ES256, recommended over HS256 for this), publish a JWKS endpoint (`/.well-known/jwks.json`) listing all currently-valid public keys by `kid`. Verifiers fetch/cache this set instead of hardcoding one key. Rotation becomes: add new key to JWKS \u2192 start signing with it \u2192 wait out the TTL \u2192 remove old key from JWKS.\n- If you use symmetric signing (HS256), you don't have a public JWKS, so you distribute the set of valid secrets (keyed by `kid`) directly to each verifying service via your secrets manager/config, same rotation sequence.\n- If your access tokens are short-lived and backed by refresh tokens, you often don't even need overlap for access tokens \u2014 just start signing new access tokens with the new key; the next refresh naturally re-issues with the new key. Overlap mainly matters for the refresh token or any long-lived JWT.\n\n**Gotchas:**\n- Don't reuse `kid` values across rotations \u2014 makes the overlap window unambiguous.\n- Cache JWKS on verifiers with a reasonable TTL (a few minutes), not \"forever,\" so new keys propagate promptly and you're not stuck honoring an old key indefinitely.\n- Log/monitor verification failures by `kid` during rotation so you can catch a verifier that didn't pick up the new key before you retire the old one.",
+      "total_cost_usd": 0.061676600000000005
+    }
+  ]
+}

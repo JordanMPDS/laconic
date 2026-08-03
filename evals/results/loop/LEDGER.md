@@ -13,3 +13,4 @@ row can be traced back to the exact rule text that produced it.
 
 | round | hypothesis | target | verdict | rules_cksum |
 |---|---|---|---|---|
+| [01](round-01.md) | Naming the colon-introduced chain in the arrow prohibition (`rules/laconic.md:49`) lowers `violations_total` | `violations_total` | **reject** — never-cut lost 0 → 1, edit reverted | 1790259539 |

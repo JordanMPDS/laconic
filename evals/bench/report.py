@@ -7,6 +7,7 @@ for somebody to notice a number moved.
 """
 import argparse
 import json
+import math
 import statistics
 import sys
 from collections import defaultdict
@@ -71,6 +72,35 @@ FATAL = (("never_cut_failures", "never-cut"),
          ("quality_fails", "quality"),
          ("violations_total", "readability"))
 
+# The three fatal counters are also the only non-token metrics a hypothesis may
+# name. They are counts of rare events, not distributions, so the token gate's
+# sign-test-plus-median-shift does not transfer: with 7 violations spread over
+# three case/model cells, a sign test across cells cannot reach alpha however
+# large the improvement is, and a 175-token floor is meaningless for a count.
+COUNT_TARGETS = ("never_cut_failures", "quality_fails", "violations_total")
+
+
+def _binom_cdf(k, n, p):
+    """P(X <= k) for X ~ Binomial(n, p). Exact; n here is a handful of events."""
+    return sum(math.comb(n, i) * p ** i * (1 - p) ** (n - i) for i in range(k + 1))
+
+
+def _count_p(prev_count, cur_count, prev_runs, cur_runs):
+    """One-sided p for "the rate fell", comparing two counts of rare events.
+
+    Conditional on the total number of events, the split between the rounds is
+    binomial, so this is exact rather than a normal approximation over counts
+    too small to justify one. Exposure is read from each round's own usable-run
+    count instead of assumed equal, so a round that generated fewer responses
+    cannot look clean merely by having had fewer chances to fail.
+    """
+    total = prev_count + cur_count
+    if total == 0:
+        return None
+    denom = prev_runs + cur_runs
+    q = (cur_runs / denom) if denom else 0.5
+    return _binom_cdf(cur_count, total, q)
+
 
 def round_summary(snap, judg=None, prefs=None):
     """The four numbers an accept decision needs, from one round's artefacts."""
@@ -92,16 +122,25 @@ def round_summary(snap, judg=None, prefs=None):
         "violations_total": sum(v["violations_total"] for v in lac.values()),
         "tokens": {(k[0], k[2]): v["output_tokens"] for k, v in lac.items()},
         "flip_rate": (len(flipped) / len(both)) if both else 0.0,
+        # The count gate's exposure: how many treatment responses this round
+        # gave the metric a chance to fail in.
+        "n_runs": sum(1 for r in bench_run.usable(snap["runs"])
+                      if r["arm"] == "laconic"),
     }
 
 
 def accept_verdict(prev, cur, target, noise=None):
     """(verdict, reasons) for one round against the round before it.
 
-    Fatal conditions reject alone. The target has to beat the noise floor on
-    both estimators - a sign test across the case/model cells and a median
-    shift larger than the published stdev - because either one alone accepts
-    moves the benchmark cannot distinguish from sampling.
+    Fatal conditions reject alone. For output_tokens the target has to beat the
+    noise floor on both estimators - a sign test across the case/model cells and
+    a median shift larger than the published stdev - because either one alone
+    accepts moves the benchmark cannot distinguish from sampling. For a count
+    target it has to clear an exact conditional binomial test at the same alpha.
+
+    An unrecognized target rejects. Falling through to the fatal conditions
+    alone would return "accept" for any round that merely failed to regress,
+    which reads as a confirmed hypothesis and is not one.
 
     Preference is disclosed and never decisive: the judge that produces it
     favours the longer answer 63% of the time and laconic is the short arm, so
@@ -135,6 +174,22 @@ def accept_verdict(prev, cur, target, noise=None):
         else:
             reasons.append("median shift %.0f tokens, %d of %d cells improved, p = %.3f"
                            % (shift, improved, len(cells), p))
+    elif target in COUNT_TARGETS:
+        a, b = prev[target], cur[target]
+        p = _count_p(a, b, prev.get("n_runs", 0), cur.get("n_runs", 0))
+        if p is None:
+            reasons.append("REJECT: %s was already 0 before the edit, so this "
+                           "round cannot show it falling" % target)
+            fatal = True
+        elif p >= noise["alpha"]:
+            reasons.append("REJECT: %s %d -> %d, p = %.3f" % (target, a, b, p))
+            fatal = True
+        else:
+            reasons.append("%s %d -> %d, p = %.3f" % (target, a, b, p))
+    else:
+        reasons.append("REJECT: unknown target %r (expected output_tokens or one "
+                       "of %s)" % (target, ", ".join(COUNT_TARGETS)))
+        fatal = True
 
     if cur["flip_rate"] >= noise["flip_rate_max"]:
         reasons.append("preference not citable: flip rate %.0f%% is at or above the "
@@ -496,7 +551,8 @@ def main():
     ap.add_argument("--against",
                     help="previous round's snapshot: print deltas and an accept verdict")
     ap.add_argument("--target", default="output_tokens",
-                    help="the metric the proposal's hypothesis named")
+                    help="the metric the proposal's hypothesis named: "
+                         "output_tokens, or one of " + ", ".join(COUNT_TARGETS))
     ap.add_argument("--against-judgments",
                     help="the previous round's judgments; required with --against")
     ap.add_argument("--preferences",

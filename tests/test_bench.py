@@ -1273,9 +1273,10 @@ import report as bench_report  # noqa: E402
 TEN_CELLS = lambda v: {(c, "sonnet"): v for c in "abcdefghij"}  # noqa: E731
 
 
-def _summary(nc=0, qf=0, viol=0, tokens=None, flip=0.2):
+def _summary(nc=0, qf=0, viol=0, tokens=None, flip=0.2, n_runs=110):
     return {"never_cut_failures": nc, "quality_fails": qf, "violations_total": viol,
-            "tokens": TEN_CELLS(100) if tokens is None else tokens, "flip_rate": flip}
+            "tokens": TEN_CELLS(100) if tokens is None else tokens, "flip_rate": flip,
+            "n_runs": n_runs}
 
 
 worse = _summary(tokens=TEN_CELLS(500))
@@ -1320,6 +1321,37 @@ rs = bench_report.round_summary(
     [{"case": "floor", "arm": "laconic", "model": "sonnet", "rep": 0, "verdict": "fail"}],
     [{"case": "floor", "model": "sonnet", "rep": 0, "order": 0, "winner_arm": "laconic"},
      {"case": "floor", "model": "sonnet", "rep": 0, "order": 1, "winner_arm": "baseline"}])
+# --- a count target gets a real test, not a silent pass ---
+# 7 -> 0 over equal exposure is p = 0.5^7; 7 -> 3 is p = 0.17 and must reject,
+# or the loop banks a move it cannot distinguish from where the arrows landed.
+v, why = bench_report.accept_verdict(_summary(viol=7), _summary(viol=0), "violations_total")
+check("a count target clearing the binomial test is accepted", v == "accept")
+check("the acceptance reports the count and its p", any("7 -> 0" in r for r in why))
+
+v, why = bench_report.accept_verdict(_summary(viol=7), _summary(viol=3), "violations_total")
+check("a count move inside sampling noise is rejected", v == "reject")
+
+# Exposure is not assumed equal: the same 7 -> 1 is only evidence if the second
+# round actually ran comparable numbers of responses.
+v, _ = bench_report.accept_verdict(_summary(viol=7), _summary(viol=1, n_runs=110),
+                                   "violations_total")
+check("7 -> 1 at equal exposure is accepted", v == "accept")
+v, why = bench_report.accept_verdict(_summary(viol=7), _summary(viol=1, n_runs=12),
+                                     "violations_total")
+check("the same drop on a tenth of the runs is rejected", v == "reject")
+
+# A metric already at 0 cannot be shown to fall, and must not read as confirmed.
+v, why = bench_report.accept_verdict(_summary(nc=0), _summary(nc=0), "never_cut_failures")
+check("a target already at 0 is rejected", v == "reject")
+check("the rejection says there was nothing to improve",
+      any("already 0" in r for r in why))
+
+# The bug this replaced: an unrecognized target skipped every statistical gate
+# and returned accept for any round that merely failed to regress.
+v, why = bench_report.accept_verdict(_summary(viol=7), _summary(viol=7), "readability")
+check("an unknown target rejects instead of silently passing", v == "reject")
+check("the rejection names the unknown target", any("unknown target" in r for r in why))
+
 check("round_summary reads the treatment tokens", rs["tokens"] == {("floor", "sonnet"): 10})
 check("round_summary computes the flip rate", rs["flip_rate"] == 1.0)
 # floor is graded rule-adherence, so its judge failure is not a quality loss.

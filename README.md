@@ -127,10 +127,17 @@ check.
 
 | vs baseline | tokens (sonnet) | tokens (haiku) | latency (sonnet) | readability violations | answers correct | never-cut failures |
 |---|--:|--:|--:|--:|--:|--:|
-| **laconic** | **-33%** | +1% | **-29%** | **0** | 27 / 30 | 2 / 50 |
-| terse-control | -11% | +3% | -13% | 9 | 27 / 30 | 1 / 50 |
-| word-compression | +3% | +4% | -13% | 11 | 27 / 30 | 0 / 50 |
-| baseline | 0% | 0% | 0% | 1 | 28 / 30 | 0 / 50 |
+| **laconic** | **-33%** | +1% | **-29%** | **35** | 27 / 30 | 2 / 50 |
+| terse-control | -11% | +3% | -13% | 50 | 27 / 30 | 1 / 50 |
+| word-compression | +3% | +4% | -13% | 60 | 27 / 30 | 0 / 50 |
+| baseline | 0% | 0% | 0% | 60 | 28 / 30 | 0 / 50 |
+
+The readability column was published as 0 / 9 / 11 / 1 until 2026-08-03, when
+the detector was corrected. It had been skipping bullets, numbered steps and
+blockquotes — the positions where the forbidden arrow most often appears, and
+three of the ones `rules/laconic.md` names. Laconic is still the cleanest arm,
+on 7 affected responses of 110 against baseline's 16, but it does not score 0.
+See [`docs/benchmark.md`](docs/benchmark.md#readability--the-whole-point).
 
 Every figure here is a `full`-level figure. Per-case tables, cost, and what each
 number does and does not support are in

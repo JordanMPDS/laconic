@@ -1,5 +1,19 @@
 # Benchmark results — 2026-07-31
 
+> **Correction, 2026-08-03. Every readability figure below is superseded.**
+> The arrow detector skipped `STRUCTURAL` lines — bullets, numbered steps,
+> headings, blockquotes, table rows — so it could not see arrows in three of
+> the positions `rules/laconic.md` explicitly forbids, including this
+> document's own worked example when it arrived as a list item. Recounted from
+> the same committed snapshot: baseline 60, terse-control 50,
+> word-compression 60, laconic 35, with laconic affected in 7 responses of 110
+> against baseline's 16. **In particular, "16 violations → 0" and "0
+> violations across 110 responses" below are artifacts of where the detector
+> was looking, not results.** Laconic remains the cleanest arm; it is not
+> clean. The generation data is untouched and every other figure here still
+> stands. See [`docs/benchmark.md`](../../docs/benchmark.md#the-2026-08-03-correction)
+> and [`loop/round-01.md`](loop/round-01.md).
+
 ## Run configuration
 
 | | |

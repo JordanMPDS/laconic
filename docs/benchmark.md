@@ -8,13 +8,18 @@ check. Full method, every honesty note, and every table:
 
 | vs baseline | tokens (sonnet) | tokens (haiku) | latency (sonnet) | readability violations | answers correct | never-cut failures |
 |---|--:|--:|--:|--:|--:|--:|
-| **laconic** | **-33%** | +1% | **-29%** | **0** | 27 / 30 | 2 / 50 |
-| terse-control | -11% | +3% | -13% | 9 | 27 / 30 | 1 / 50 |
-| word-compression | +3% | +4% | -13% | 11 | 27 / 30 | 0 / 50 |
-| baseline | 0% | 0% | 0% | 1 | 28 / 30 | 0 / 50 |
+| **laconic** | **-33%** | +1% | **-29%** | **35** | 27 / 30 | 2 / 50 |
+| terse-control | -11% | +3% | -13% | 50 | 27 / 30 | 1 / 50 |
+| word-compression | +3% | +4% | -13% | 60 | 27 / 30 | 0 / 50 |
+| baseline | 0% | 0% | 0% | 60 | 28 / 30 | 0 / 50 |
 
 Every column is reported as measured, on both models and all four arms. The
 per-case tables and the method notes behind each number follow.
+
+**The readability column was corrected on 2026-08-03** and reads 0 / 9 / 11 / 1
+in anything published before that date. See
+[Readability](#readability--the-whole-point) for what the detector was missing
+and why the correction went the way it did.
 
 **The three levels were then measured against each other**, 330 more calls at
 `lite`, `full` and `ultra`. The ladder the rule text implies is not there: `full`
@@ -91,29 +96,46 @@ abbreviations (`impl`, `req`, `w/`), sentences starting lowercase.
 
 | arm | violations | responses affected (of 110) |
 |---|--:|--:|
-| baseline | 1 | 1 |
-| terse-control | 9 | 4 |
-| word-compression | 11 | 6 |
-| **laconic** | **0** | **0** |
+| baseline | 60 | 16 |
+| terse-control | 50 | 12 |
+| word-compression | 60 | 22 |
+| **laconic** | **35** | **7** |
 
-This number was 16 for laconic on the 2026-07-30 run. Every violation went
-through one of the two openings in the earlier phrasing, "no arrows standing in
-for conjunctions in running prose": a sequence arrow is not a conjunction, and a
-`**Bolded label**: ...` line does not read as running prose. The rule now bans
-arrows anywhere in a sentence and names both forms. Re-measured with the
-**unchanged** detector, the count is 0.
+### The 2026-08-03 correction
 
-The three cases added in the last revision replicate this on prompts the
-detector had never scored: over those 30 responses per arm, baseline 1,
-terse-control 4, word-compression 7, laconic 0.
+This table read baseline 1, terse-control 9, word-compression 11 and laconic
+**0** until the detector was corrected. `_symbol_hits` skipped every
+`STRUCTURAL` line — bullets, numbered steps, headings, blockquotes and table
+rows — on the reasoning that the rule forbids arrows "in running prose" and a
+bullet is markdown structure rather than prose.
 
-**This is a `full`-level result and it does not hold at `lite`.** The
-three-level run found 12 arrow violations in laconic's `lite` responses on
-Sonnet, in the runbook and mapping forms the rule names as wrong, against 0 at
-`full` and 0 at `ultra`. They sit in 3 responses of 55, so the difference
-between levels is not itself demonstrated (Fisher p = 0.24) — but the "0
-violations" row above describes the level this table was measured at, not the
-plugin at every level. See
+That reasoning was wrong, and wrong in the direction that flattered the result.
+`rules/laconic.md` bans arrows "after a bold label", "in a 'quick runbook'
+line" and "inside a quoted flow": three structural positions, and between them
+the most common places the forbidden arrow actually appears. The detector was
+blind to the rule's own worked example, `**Request A**: calls
+`currentToken()` → token expired → calls `refresh()``, whenever it arrived as a
+list item. Across every committed snapshot, 510 arrows sat in structural lines
+and went uncounted.
+
+What survives the correction: laconic is still the cleanest arm, on both total
+violations and the share of responses carrying one (7 of 110, against
+baseline's 16). What does not: the headline **0**. Laconic breaks its own
+no-arrows rule in 7 responses of 110, and the earlier claim that a rule
+revision had driven arrow violations to zero was an artifact of where the
+detector was looking.
+
+The correction was found by the rules loop, which scored an edit at 7 → 0 on
+this metric while the model went on writing the same chains one list marker to
+the left: [`evals/results/loop/round-01.md`](../evals/results/loop/round-01.md).
+
+A numeric progression like `7 -> 11 -> 14` is still exempt. It quotes a series
+rather than standing in for a conjunction.
+
+**This is a `full`-level result.** Re-measured across the three-level run,
+laconic's arrow violations are 25 at `lite`, 23 at `full` and 16 at `ultra` —
+no level is clean, and the gap between levels is smaller than the earlier
+"12 at `lite` against 0 at `full`" suggested. See
 [`evals/results/2026-07-31-levels.md`](../evals/results/2026-07-31-levels.md).
 
 ### What readability does not say

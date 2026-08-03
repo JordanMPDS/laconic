@@ -32,7 +32,7 @@ Check these in order:
 - run `kubectl top pod` for a few minutes
 - compare the peak against the configured limit
 - look at the restart count
-- **401** -> the token is dead.
+- **401** means the token is dead.
 """
 
 BAD = """Deploy failed -> worker OOM. Usage steady ceiling -> raise limit.
@@ -114,15 +114,24 @@ check("a fenced block with an odd internal backtick count (INLINE alone "
       "cannot consume it) still has its arrow stripped by FENCE",
       fence_only["symbol_connectors"] == 0)
 
-# The rule forbids arrows "in running prose" specifically - a bullet's arrow
-# is structural markdown, not prose, and a numeric progression's arrow isn't
-# standing in for a conjunction. Neither should count. A genuine running-prose
-# arrow still must.
-check("good prose bullet with an arrow does not trip symbol_connectors",
+# A bullet is where the forbidden arrow actually lives. rules/laconic.md bans
+# arrows "after a bold label", "in a 'quick runbook' line" and "inside a quoted
+# flow" - all structural positions - so exempting structural lines exempted the
+# rule's own worked examples. It cost loop round 01 a false 7 -> 0 while the
+# model kept writing the same chains one list marker to the left; counted
+# honestly that round read 26 -> 9. Only a numeric progression stays exempt: it
+# quotes a series rather than standing in for a conjunction.
+check("prose with no arrow anywhere scores 0 symbol connectors",
       g["symbol_connectors"] == 0)
 bullet_arrow = metrics.score("- **401** -> the token is dead.")
-check("arrow inside a bullet scores 0 symbol connectors",
-      bullet_arrow["symbol_connectors"] == 0)
+check("an arrow after a bold label in a bullet counts",
+      bullet_arrow["symbol_connectors"] == 1)
+numbered_step_arrow = metrics.score("2. If valid -> return it immediately")
+check("an arrow inside a numbered step counts",
+      numbered_step_arrow["symbol_connectors"] == 1)
+quoted_flow_arrow = metrics.score("> mint the key -> publish it -> retire the old")
+check("an arrow inside a quoted flow counts",
+      quoted_flow_arrow["symbol_connectors"] == 2)
 numeric_progression = metrics.score("The queue climbed (7 -> 11 -> 14) over the hour.")
 check("numeric progression arrows score 0 symbol connectors",
       numeric_progression["symbol_connectors"] == 0)

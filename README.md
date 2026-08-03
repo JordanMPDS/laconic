@@ -4,10 +4,9 @@ Terse responses that stay readable. Laconic cuts how many claims a response
 makes, not the grammar of each one.
 
 Word-level compression — dropped articles, abbreviations, arrows standing in for
-conjunctions — buys its token savings by making you reassemble the sentence
-before you can trust it. Drop the conjunction out of a conditional ("bump the
-limit if the curve is flat") and the advice changes meaning. Laconic deletes
-whole claims instead and leaves the survivors as ordinary English.
+conjunctions — buys its tokens by making you reassemble the sentence before you
+can trust it. Drop the conjunction out of a conditional ("bump the limit if the
+curve is flat") and the advice changes meaning.
 
 ## Install
 
@@ -24,16 +23,14 @@ git clone https://github.com/JordanMPDS/laconic ~/projects/laconic
 ln -s ~/projects/laconic ~/.claude/skills/laconic
 ```
 
-Restart Claude Code, then run `/laconic full`. With no level set, laconic is
-inert — it injects nothing until you opt in. To skip that step on a fresh
-install, set `LACONIC_DEFAULT` — see
+Restart Claude Code, then run `/laconic full`. With no level set, laconic
+injects nothing. To skip that step, set `LACONIC_DEFAULT` — see
 [Configuration](docs/configuration.md#default-level).
 
 ## Levels
 
-Cumulative — each level adds cuts on top of the one before it. All three keep
-complete sentences, real articles, and real conjunctions. See
-[Never cut](#never-cut).
+Cumulative. All three keep complete sentences, real articles, and real
+conjunctions — see [Never cut](#never-cut).
 
 | Level | Cuts |
 | --- | --- |
@@ -54,15 +51,12 @@ Ultra kept the conditional because dropping it would give wrong advice half the
 time.
 
 Length scales to the request at every level: a yes/no question gets a line, and
-a report, walkthrough, or explanation you asked for gets full detail. Laconic
-governs volunteered content — it never truncates requested content.
+a report, walkthrough, or explanation you asked for gets full detail.
 
-The levels are cumulative in what they instruct. **They do not produce three
-measurably different lengths**: across 330 generations, `full` was not shorter
-than `lite` on either model, and `ultra` shortened the model's tool turns more
-than its answer. Pick the level by which cuts you want, not by expecting a
-step down in length at each one —
-[`evals/results/2026-07-31-levels.md`](evals/results/2026-07-31-levels.md).
+**The levels do not produce three measurably different lengths.** Across 330
+generations, `full` was not shorter than `lite` on either model, and `ultra`
+shortened the model's tool turns more than its answer. Pick by which cuts you
+want — [`evals/results/2026-07-31-levels.md`](evals/results/2026-07-31-levels.md).
 
 ## Never cut
 
@@ -85,11 +79,10 @@ Every level, including `ultra`:
 ```
 
 Both hooks — `SessionStart` and `UserPromptSubmit` — then exit without emitting
-anything, and the `LACONIC MODE ACTIVE` line stops on the next turn. No
-lingering state.
+anything. No lingering state.
 
-To turn it off in one repository while leaving the rest of the machine alone,
-see [Per-project level](docs/configuration.md#per-project-level).
+To turn it off in one repository only, see
+[Per-project level](docs/configuration.md#per-project-level).
 
 ## Configuration
 
@@ -101,29 +94,29 @@ see [Per-project level](docs/configuration.md#per-project-level).
 
 ## Other agents
 
-Agents without a hook system take a static instructions file instead. `rules/dist/`
-holds one pre-sliced file per level — copy
+Agents without a hook system take a static instructions file. `rules/dist/` holds
+one pre-sliced file per level — copy
 [`laconic-lite.md`](rules/dist/laconic-lite.md),
 [`laconic-full.md`](rules/dist/laconic-full.md), or
 [`laconic-ultra.md`](rules/dist/laconic-ultra.md) into your agent's rules path.
-Do not copy `rules/laconic.md` itself; it carries level markers the hook slices
-at load time, and copied whole it delivers all three levels at once.
 
-Conventional destinations per agent, and what a static file gives up against the
-hook, are in [`docs/other-agents.md`](docs/other-agents.md).
+Do not copy `rules/laconic.md` itself. It carries level markers the hook slices
+at load time, so copied whole it delivers all three levels at once.
+
+Destinations per agent, and what a static file gives up against the hook, are in
+[`docs/other-agents.md`](docs/other-agents.md).
 
 ## Requirements
 
 - macOS, Linux, WSL, Git Bash: bash 3.2+ and POSIX awk.
 - Native Windows: Windows PowerShell 5.1+, which ships with Windows 10 (1607+),
   Windows 11, and Server 2016+.
-- No `jq`, no node, no `pwsh` install. Both hooks use only what the OS already
-  provides, and `hooks.json` picks the right one per platform.
+- No `jq`, no node, no `pwsh` install.
 
-The two implementations share one flag file, so a machine used from both WSL and
+Both implementations share one flag file, so a machine used from both WSL and
 native Windows keeps a single level. CI runs the bash suites on `ubuntu-latest`
-and the PowerShell suite on `windows-latest` for every push, including an
-explicit check that each implementation reads a flag the other wrote.
+and the PowerShell suite on `windows-latest`, including a check that each
+implementation reads a flag the other wrote.
 
 ## Benchmark
 
@@ -139,19 +132,16 @@ check.
 | word-compression | +3% | +4% | -13% | 11 | 27 / 30 | 0 / 50 |
 | baseline | 0% | 0% | 0% | 1 | 28 / 30 | 0 / 50 |
 
-Every column is reported as measured, on both models and all four arms. The
-per-case tables, the readability and quality analysis, the net cost, and what
-each number does and does not support are in
-[`docs/benchmark.md`](docs/benchmark.md); the full method and every honesty note
-are in
+Every figure here is a `full`-level figure. Per-case tables, cost, and what each
+number does and does not support are in
+[`docs/benchmark.md`](docs/benchmark.md); the method and every honesty note are
+in
 [`evals/results/2026-07-31-benchmark.md`](evals/results/2026-07-31-benchmark.md).
-Every figure here is a `full`-level figure.
 
-These are length, readability, latency and cost figures. **They do not say a
-reader prefers the result.** A blind judge asked exactly that, over 130
-comparisons, did not prefer laconic to baseline — and its own length and
-position biases came out larger than the gap between the arms, so that run
-supports no conclusion either way:
+**These numbers do not say a reader prefers the result.** A blind judge asked
+exactly that, over 130 comparisons, did not prefer laconic to baseline — and its
+own length and position biases came out larger than the gap between the arms, so
+that run supports no conclusion either way:
 [`evals/results/2026-08-01-preference.md`](evals/results/2026-08-01-preference.md).
 
 ## How this differs from caveman
@@ -159,9 +149,8 @@ supports no conclusion either way:
 [`caveman`](https://github.com/JuliusBrussee/caveman) is a separate project by a
 different author. It compresses at the word level, dropping articles and
 conjunctions and abbreviating common terms; laconic compresses at the claim
-level, removing whole sentences and leaving the rest as ordinary prose. Caveman
-goes further on token count, laconic keeps output that survives a conditional,
-so pick by which you want.
+level. Caveman goes further on token count, laconic keeps output that survives a
+conditional, so pick by which you want.
 
 `evals/run.sh`'s two-arm design — same prompt, with and without the rules, read
 side by side — is a direct descendant of caveman's three-arm eval harness.
@@ -169,5 +158,5 @@ Credit to that project for the approach.
 
 ## Development
 
-Test commands, the eval harness, the end-to-end session check, and how to
-reproduce the benchmark: [`docs/development.md`](docs/development.md).
+Test commands, the eval harness, and how to reproduce the benchmark:
+[`docs/development.md`](docs/development.md).

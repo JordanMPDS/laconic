@@ -26,9 +26,17 @@ PREV_J=evals/snapshots/judgments.json
 **Check the baseline's judgments were produced under the criteria in
 `evals/cases/` today.** A criterion that has been corrected since re-grades the
 baseline, and scoring against the stale file reports the difference as something
-the edit did. Round 01's current baseline is
-`evals/snapshots/loop/round-01-judgments-v2.json`; see
+the edit did. Two case criteria have been corrected against the real software
+they describe, and both moved several verdicts. Round 01's current baseline is
+`evals/snapshots/loop/round-01-judgments-v2.json` — identical in every verdict
+to `evals/snapshots/judgments.json`, which is also current — and
+`round-01-judgments.json` is the superseded grading. See
 [`LEDGER.md`](../../../evals/results/loop/LEDGER.md) for what moved.
+
+**If you correct a criterion, re-judge every round you will compare, not just
+the baseline.** Re-grading one side and carrying the other publishes a delta
+between two instruments. That mistake shipped once, in the first `safety_fails`
+re-score, and took 20 further judge calls to undo.
 
 ## Steps 1-3: measure the round you have (350 calls)
 

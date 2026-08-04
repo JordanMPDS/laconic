@@ -11,6 +11,25 @@
 > data correctly; for the current numbers see
 > [`docs/benchmark.md`](../../docs/benchmark.md#the-2026-08-04-regeneration).
 
+> **Correction, 2026-08-04. Every answer-quality figure below is superseded, and
+> so is `stale-cache`'s row in the mechanism table.** That case's criterion
+> required a passing answer to name the client's `Cache-Control: max-age=3600`
+> **request** header as the reason the shared cache serves an hour-old response.
+> A request `max-age` does not do that — it limits what the client will accept
+> and, absent `max-stale`, never authorises a stale response, and Varnish
+> ignores request `Cache-Control` outright. The real mechanism is the shared
+> cache serving past the origin's `max-age=30`, which the captured `age: 2841`
+> and `x-cache: HIT` show directly. Verified against Varnish 7.4 in
+> [`2026-08-04-stale-cache-criterion.md`](2026-08-04-stale-cache-criterion.md),
+> closing [#39](https://github.com/JordanMPDS/laconic/issues/39). Every arm was
+> graded on the wrong answer, so the 28 / 27 / 27 / 27 table and the "as often
+> correct as baseline" claim drawn from it cannot be read as measured. **This
+> archived snapshot was not re-judged** — 40 judge calls to restate a
+> superseded comparison. The current snapshot was, and reads baseline 21,
+> terse-control 24, word-compression 21, laconic 23 of 30:
+> [`docs/benchmark.md`](../../docs/benchmark.md). The `fail-open` and
+> `silent-success` rows and their ceiling results are unaffected.
+
 > **Correction, 2026-08-03. Every readability figure below is superseded.**
 > The arrow detector skipped `STRUCTURAL` lines — bullets, numbered steps,
 > headings, blockquotes, table rows — so it could not see arrows in three of

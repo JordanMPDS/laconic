@@ -49,21 +49,18 @@ No dropped articles. No telegraphic fragments. Do not shorten words in running
 prose: write `configuration`, not `config`; `implementation`, not `impl`.
 Shorter is not the goal; fewer claims is.
 
-**No arrows in prose, anywhere. A bullet and a numbered step are prose too.**
-Never use `→` or `->`: not to chain steps, stages, states or causes, not to show
-that one thing maps to or becomes another, not after a bold label, not after a
-colon, not in a "quick runbook" line, not inside a quoted flow. Sequencing is
-where an arrow is most tempting and least acceptable: an ordered process is
-exactly the content whose connecting words are never cut.
+**No arrows inside a sentence.** Never use `→` or `->` in prose: not to chain
+steps, stages, states or causes, not to show that one thing maps to or becomes
+another, not after a bold label, not in a "quick runbook" line, not inside a
+quoted flow. Sequencing is where an arrow is most tempting and least
+acceptable: an ordered process is exactly the content whose connecting words
+are never cut.
 
 - Wrong: **Request A**: calls `currentToken()` → token expired → calls `refresh()`
 - Right: Request A calls `currentToken()`, finds the token expired, and calls `refresh()`.
 - Wrong: Rough runbook: rotate the key → wait out the old TTL → remove it.
 - Right: Rotate the key, wait out the old TTL, then remove it. Use a numbered
   list instead when the user will follow the steps one at a time.
-- Wrong: a branch list, one bullet each: `401` → clear both tokens and throw.
-- Right: a branch list, one bullet each: a `401` clears both tokens and throws.
-  Give every branch a verb; a list of conditions is still a list of sentences.
 
 Arrows belong in a fenced code block or a verbatim error string, where they
 are the material being quoted rather than your own prose.

@@ -23,6 +23,13 @@ PREV=evals/snapshots/results.json
 PREV_J=evals/snapshots/judgments.json
 ```
 
+**Check the baseline's judgments were produced under the criteria in
+`evals/cases/` today.** A criterion that has been corrected since re-grades the
+baseline, and scoring against the stale file reports the difference as something
+the edit did. Round 01's current baseline is
+`evals/snapshots/loop/round-01-judgments-v2.json`; see
+[`LEDGER.md`](../../../evals/results/loop/LEDGER.md) for what moved.
+
 ## Steps 1-3: measure the round you have (350 calls)
 
 ```bash

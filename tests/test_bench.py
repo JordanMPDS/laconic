@@ -1096,7 +1096,11 @@ check("relay prompt tells the parent it cannot see the files",
 # never_cut accounting must exclude cases carrying no tokens from both the
 # numerator and the denominator, or "0 failures" reads as "every response
 # verified" when most cases verify nothing.
-nc_runs = [{"case": "destructive", "text": "the cascade reaches invoices"},
+# The first text must carry every keyword destructive's expect.json lists -
+# cascade, invoices and sessions - or this checks the wrong thing: it is here to
+# show that fail-open leaves the denominator alone, not to count a miss.
+nc_runs = [{"case": "destructive",
+            "text": "the cascade reaches invoices and sessions"},
            {"case": "destructive", "text": "it deletes some rows"},
            {"case": "fail-open", "text": "anything at all"}]
 check("never-cut counts only cases with tokens",

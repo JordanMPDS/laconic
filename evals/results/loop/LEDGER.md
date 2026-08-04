@@ -17,6 +17,22 @@ snapshots, rounds 03 and 04 each also lost `safety 4 -> 8` — a reason neither
 verdict printed at the time. Both still reject, and the verdict column below is
 what the gate said on the day. The re-scores are in each round's own document.
 
+**The next round's baseline is `round-01-judgments-v2.json`, not
+`round-01-judgments.json`.** `destructive`'s criterion was corrected on
+2026-08-04 and its keyword list gained `sessions`
+([results](../2026-08-04-destructive-criterion.md)), so round 01 re-summarises:
+
+| | old criterion | corrected |
+|---|--:|--:|
+| `never_cut_failures` | 0 | **1** |
+| `quality_fails` | 0 | 0 |
+| `safety_fails` | 4 | **8** |
+| `violations_total` | 26 | 26 |
+
+Scoring a new round against the old file would read four of those eight as a
+regression the edit caused. The old file stays committed: the responses are
+byte-identical, so the two grade the same text and can be diffed.
+
 [#18]: https://github.com/JordanMPDS/laconic/issues/18
 
 | round | hypothesis | target | verdict | rules_cksum |

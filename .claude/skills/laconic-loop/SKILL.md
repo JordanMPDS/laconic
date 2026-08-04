@@ -68,6 +68,10 @@ Write the hypothesis **before** running the confirming round, in this form:
 
 > Editing `<rule line>` should move `<metric>` on `<cases>` in `<direction>`.
 
+The `<cases>` in that sentence are what you pass to `--target-cases` in step 7.
+Name them here, before the round runs, or the scope is chosen after the numbers
+are in and scores whatever moved.
+
 Then edit `rules/laconic.md`. One edit per round. A hypothesis written
 afterwards is indistinguishable from a story about whatever happened to move,
 and the ledger timestamps it against the round it predicted.
@@ -94,8 +98,21 @@ python3 evals/bench/report.py \
 
 Exit 0 accepts, exit 1 rejects, and every reason prints.
 
+**A hypothesis that named cases is scored on those cases.** Add
+`--target-cases walkthrough,ordered-steps` to a count target, and the target is
+computed over those cells while everything else stays round-wide. Without it a
+count target is the whole-round sum, which is what round 03 was scored by: it
+moved its two named cases 21 arrows to 5 and reached the gate as 26 to 20,
+p = 0.231. The scoped line prints the round-wide number beside the scoped one,
+and the cases must be named in step 5, not picked once the round is in.
+
+`--target-cases` scopes a count target only. `output_tokens` is judged by a sign
+test across cells, and four cells cannot reach alpha whatever the move is, so a
+scoped token target is refused rather than left silently unreachable.
+
 **Rejects on its own:** a never-cut verdict lost, a quality verdict lost,
-readability violations up.
+readability violations up — all three round-wide, whatever the scoped target
+did. An edit that fixes two cases and breaks a third still rejects.
 
 **Required to accept:** the metric your hypothesis named beats the noise floor
 — a sign test across the case/model cells *and* a median shift larger than the

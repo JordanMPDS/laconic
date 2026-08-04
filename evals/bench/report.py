@@ -106,34 +106,60 @@ def _count_p(prev_count, cur_count, prev_runs, cur_runs):
     return _binom_cdf(cur_count, total, q)
 
 
-def round_summary(snap, judg=None, prefs=None):
-    """The four numbers an accept decision needs, from one round's artefacts."""
-    lac = {k: v for k, v in aggregate(snap).items() if k[1] == "laconic"}
-    seen = defaultdict(dict)
-    for p in prefs or []:
-        seen[(p["case"], p["model"], p["rep"])][p["order"]] = p["winner_arm"]
-    both = [v for v in seen.values() if 0 in v and 1 in v]
-    flipped = [v for v in both if v[0] != v[1]]
+def _counts(lac, judg, runs, cases=None):
+    """The three count metrics and their exposure, over every case or a subset.
+
+    cases=None is the whole round. A subset is what --target-cases scores a
+    hypothesis on; the same function computes both so a scoped count can never
+    be defined differently from the round-wide one it is disclosed beside.
+    """
+    keep = (lambda c: True) if cases is None else (lambda c: c in cases)
     return {
-        "never_cut_failures": sum(v["never_cut_failures"] for v in lac.values()),
+        "never_cut_failures": sum(v["never_cut_failures"]
+                                  for k, v in lac.items() if keep(k[0])),
         # Only a quality-graded case can lose a quality verdict. A
         # rule-adherence case grades the treatment against the text it was
         # handed, so counting its verdicts here would let the loop chase its
         # own tail.
         "quality_fails": sum(1 for j in (judg or [])
                              if j.get("arm") == "laconic" and j.get("verdict") == "fail"
-                             and case_grading(j["case"]) == "quality"),
-        "violations_total": sum(v["violations_total"] for v in lac.values()),
-        "tokens": {(k[0], k[2]): v["output_tokens"] for k, v in lac.items()},
-        "flip_rate": (len(flipped) / len(both)) if both else 0.0,
+                             and case_grading(j["case"]) == "quality"
+                             and keep(j["case"])),
+        "violations_total": sum(v["violations_total"]
+                                for k, v in lac.items() if keep(k[0])),
         # The count gate's exposure: how many treatment responses this round
         # gave the metric a chance to fail in.
-        "n_runs": sum(1 for r in bench_run.usable(snap["runs"])
-                      if r["arm"] == "laconic"),
+        "n_runs": sum(1 for r in runs if r["arm"] == "laconic" and keep(r["case"])),
     }
 
 
-def accept_verdict(prev, cur, target, noise=None):
+def round_summary(snap, judg=None, prefs=None, target_cases=None):
+    """The numbers an accept decision needs, from one round's artefacts.
+
+    target_cases adds a "scoped" block holding the same counts over those cases
+    alone. It is an addition, never a replacement: the round-wide counts stay
+    exactly as they were, because they are what the fatal conditions read and
+    what the verdict discloses beside a scoped target.
+    """
+    lac = {k: v for k, v in aggregate(snap).items() if k[1] == "laconic"}
+    runs = bench_run.usable(snap["runs"])
+    seen = defaultdict(dict)
+    for p in prefs or []:
+        seen[(p["case"], p["model"], p["rep"])][p["order"]] = p["winner_arm"]
+    both = [v for v in seen.values() if 0 in v and 1 in v]
+    flipped = [v for v in both if v[0] != v[1]]
+    summary = dict(
+        _counts(lac, judg, runs),
+        tokens={(k[0], k[2]): v["output_tokens"] for k, v in lac.items()},
+        flip_rate=(len(flipped) / len(both)) if both else 0.0,
+    )
+    if target_cases:
+        summary["scoped"] = dict(_counts(lac, judg, runs, set(target_cases)),
+                                 cases=sorted(set(target_cases)))
+    return summary
+
+
+def accept_verdict(prev, cur, target, noise=None, target_cases=None):
     """(verdict, reasons) for one round against the round before it.
 
     Fatal conditions reject alone. For output_tokens the target has to beat the
@@ -145,6 +171,13 @@ def accept_verdict(prev, cur, target, noise=None):
     An unrecognized target rejects. Falling through to the fatal conditions
     alone would return "accept" for any round that merely failed to regress,
     which reads as a confirmed hypothesis and is not one.
+
+    target_cases narrows the *target* to the cases a hypothesis named, and
+    nothing else. The fatal conditions stay round-wide, so an edit that fixes
+    the two cases it aimed at while breaking a third still rejects, and the
+    round-wide value of the target is printed beside the scoped one. Round 03 is
+    why this exists: it moved walkthrough and ordered-steps 21 arrows to 5 and
+    the whole-round sum could only report 26 to 20 at p = 0.231.
 
     Preference is disclosed and never decisive: the judge that produces it
     favours the longer answer 63% of the time and laconic is the short arm, so
@@ -158,7 +191,22 @@ def accept_verdict(prev, cur, target, noise=None):
             reasons.append("REJECT: %s lost (%d -> %d)" % (label, prev[key], cur[key]))
             fatal = True
 
-    if target == "output_tokens":
+    if target_cases and not (prev.get("scoped") and cur.get("scoped")):
+        # Scoring a scoped hypothesis against round-wide counts would silently
+        # answer a different question than the one the hypothesis asked.
+        reasons.append("REJECT: --target-cases needs both rounds summarized with "
+                       "the same scope")
+        return "reject", reasons
+
+    if target_cases and target == "output_tokens":
+        # Two cases and two models is four cells, and sign_test(4, 4) = 0.125.
+        # A scoped token target could not clear alpha however large the move
+        # was, so offering it would be offering a gate that always rejects.
+        reasons.append("REJECT: --target-cases scopes a count target; "
+                       "output_tokens is judged by a sign test across cells and "
+                       "cannot reach alpha on a handful of them")
+        fatal = True
+    elif target == "output_tokens":
         cells = sorted(set(prev["tokens"]) & set(cur["tokens"]))
         improved = sum(1 for c in cells if cur["tokens"][c] < prev["tokens"][c])
         p = bench_levels.sign_test(improved, len(cells)) if cells else 1.0
@@ -179,17 +227,26 @@ def accept_verdict(prev, cur, target, noise=None):
             reasons.append("median shift %.0f tokens, %d of %d cells improved, p = %.3f"
                            % (shift, improved, len(cells), p))
     elif target in COUNT_TARGETS:
-        a, b = prev[target], cur[target]
-        p = _count_p(a, b, prev.get("n_runs", 0), cur.get("n_runs", 0))
+        src_prev = prev["scoped"] if target_cases else prev
+        src_cur = cur["scoped"] if target_cases else cur
+        a, b = src_prev[target], src_cur[target]
+        # The round-wide numbers ride along on every scoped line. A scoped
+        # target that fell while the round rose is a real thing to know, and a
+        # verdict that printed only the scope would hide it.
+        where = (" on %s" % ", ".join(src_cur["cases"])) if target_cases else ""
+        wide = ((" (round-wide %d -> %d)" % (prev[target], cur[target]))
+                if target_cases else "")
+        p = _count_p(a, b, src_prev.get("n_runs", 0), src_cur.get("n_runs", 0))
         if p is None:
-            reasons.append("REJECT: %s was already 0 before the edit, so this "
-                           "round cannot show it falling" % target)
+            reasons.append("REJECT: %s was already 0%s before the edit, so this "
+                           "round cannot show it falling%s" % (target, where, wide))
             fatal = True
         elif p >= noise["alpha"]:
-            reasons.append("REJECT: %s %d -> %d, p = %.3f" % (target, a, b, p))
+            reasons.append("REJECT: %s %d -> %d%s, p = %.3f%s"
+                           % (target, a, b, where, p, wide))
             fatal = True
         else:
-            reasons.append("%s %d -> %d, p = %.3f" % (target, a, b, p))
+            reasons.append("%s %d -> %d%s, p = %.3f%s" % (target, a, b, where, p, wide))
     else:
         reasons.append("REJECT: unknown target %r (expected output_tokens or one "
                        "of %s)" % (target, ", ".join(COUNT_TARGETS)))
@@ -557,6 +614,10 @@ def main():
     ap.add_argument("--target", default="output_tokens",
                     help="the metric the proposal's hypothesis named: "
                          "output_tokens, or one of " + ", ".join(COUNT_TARGETS))
+    ap.add_argument("--target-cases",
+                    help="comma-separated cases the hypothesis named; scores the "
+                         "count target on those cases alone. The fatal conditions "
+                         "stay round-wide and the round-wide target is printed too")
     ap.add_argument("--against-judgments",
                     help="the previous round's judgments; required with --against")
     ap.add_argument("--preferences",
@@ -564,6 +625,17 @@ def main():
     args = ap.parse_args()
 
     CASES = Path(args.cases_dir)
+
+    # A misspelled case would score an empty set, which reads as "already 0
+    # before the edit" - a rejection that blames the edit for a typo. Checked
+    # against the case directory before anything is loaded.
+    target_cases = sorted({c.strip() for c in (args.target_cases or "").split(",") if c.strip()})
+    unknown = [c for c in target_cases if not (CASES / c).is_dir()]
+    if unknown:
+        sys.exit("--target-cases names no case under %s: %s"
+                 % (CASES, ", ".join(unknown)))
+    if target_cases and not args.against:
+        sys.exit("--target-cases only scopes the accept verdict; it needs --against")
 
     # load_snapshot has the identical corrupt-file defect _load_judgments is
     # guarded against below: json.loads on a non-empty, invalid file raises
@@ -620,11 +692,13 @@ def main():
         prefs = (bench_run.load_snapshot(args.preferences) or {}).get("comparisons", []) \
             if args.preferences else []
         verdict, reasons = accept_verdict(
-            round_summary(prev_snap, prev_judg),
-            round_summary(snap, judg["judgments"], prefs),
-            args.target)
-        print("verdict: %s (target %s, against %s)"
-              % (verdict, args.target, args.against))
+            round_summary(prev_snap, prev_judg, target_cases=target_cases),
+            round_summary(snap, judg["judgments"], prefs, target_cases=target_cases),
+            args.target, target_cases=target_cases)
+        print("verdict: %s (target %s%s, against %s)"
+              % (verdict, args.target,
+                 (" on %s" % ", ".join(target_cases)) if target_cases else "",
+                 args.against))
         for r in reasons:
             print("  %s" % r)
         sys.exit(0 if verdict == "accept" else 1)

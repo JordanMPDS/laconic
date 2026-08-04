@@ -98,6 +98,12 @@ python3 evals/bench/report.py --results <round-N+1> --judgments <round-N+1-judgm
   --preferences <round-N+1-preferences>
 ```
 
+A hypothesis that named cases is scored on them: add
+`--target-cases walkthrough,ordered-steps` to a count target and it is computed
+over those cells alone, with the round-wide number printed beside it. The fatal
+conditions stay round-wide, so an edit that fixes the cases it aimed at while
+breaking another still rejects.
+
 `evals/holdout/` holds four cases the loop never sees, scored once before a
 rule change ships. Reach them with `--cases-dir evals/holdout`, which `run.py`,
 `judge.py`, `report.py` and `review.py` all accept. Their numbers never enter a

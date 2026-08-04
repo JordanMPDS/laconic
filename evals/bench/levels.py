@@ -201,7 +201,89 @@ def render(views, levels):
                           if v["violations_total"]) or "-"
         out.append("| %s | %s | %s |" % (lv, " | ".join(cells_), where))
     out.append("")
+
+    out.append(arrows_by_structure(views, levels))
     return "\n".join(out) + "\n"
+
+
+# Response buckets by how much scaffolding the answer carries. The boundaries
+# are the shape of the corpus, not a fitted threshold: 0 is unstructured prose,
+# 1-9 is an answer with a short list in it, and 10+ is a runbook or a phase
+# walkthrough. A finer grid at n=330 would be reading noise.
+STRUCTURE_BUCKETS = ((0, 0), (1, 4), (5, 9), (10, 19), (20, 10 ** 6))
+
+
+def arrow_rows(views, levels):
+    """One row per usable laconic response: level, case, model, arrows, structure."""
+    rows = []
+    for lv in levels:
+        for r in views[lv][1]:
+            if r.get("arm") != "laconic":
+                continue
+            prose, _ = metrics.split_text(r.get("text", ""))
+            rows.append({
+                "level": lv, "case": r["case"], "model": r["model"],
+                "arrows": metrics.score(r.get("text", ""))["symbol_connectors"],
+                "structure": metrics.structure_markers(prose)["total"],
+            })
+    return rows
+
+
+def pearson(xs, ys):
+    """Plain Pearson r, no third-party packages. 0.0 for a degenerate input."""
+    n = len(xs)
+    if n < 2:
+        return 0.0
+    mx, my = sum(xs) / n, sum(ys) / n
+    cov = sum((x - mx) * (y - my) for x, y in zip(xs, ys))
+    sx = math.sqrt(sum((x - mx) ** 2 for x in xs))
+    sy = math.sqrt(sum((y - my) ** 2 for y in ys))
+    return cov / (sx * sy) if sx and sy else 0.0
+
+
+def arrows_by_structure(views, levels):
+    """Issue #20: is the arrow rate a property of the level or of the answer?
+
+    The level totals above answer "how many"; they cannot answer "why there".
+    Bucketing the same responses by their own scaffolding count separates the
+    two explanations, because a level effect would spread arrows across cases
+    while a structure effect would concentrate them in the cases that carry
+    runbooks and phase lists.
+    """
+    rows = arrow_rows(views, levels)
+    out = ["### Arrows against structure, not level\n"]
+    if not rows:
+        return out[0] + "\nNo usable laconic responses.\n"
+
+    out.append("Per response, laconic arm only, %d responses.\n" % len(rows))
+    out.append("| structure markers | responses | with an arrow | arrows |")
+    out.append("|---|--:|--:|--:|")
+    for lo, hi in STRUCTURE_BUCKETS:
+        g = [r for r in rows if lo <= r["structure"] <= hi]
+        if not g:
+            continue
+        label = "%d+" % lo if hi >= 10 ** 6 else ("%d" % lo if lo == hi else "%d-%d" % (lo, hi))
+        out.append("| %s | %d | %d | %d |"
+                   % (label, len(g), sum(1 for r in g if r["arrows"]),
+                      sum(r["arrows"] for r in g)))
+    out.append("")
+
+    out.append("| case | responses | with an arrow | arrows | mean structure |")
+    out.append("|---|--:|--:|--:|--:|")
+    by_case = defaultdict(list)
+    for r in rows:
+        by_case[r["case"]].append(r)
+    for case, g in sorted(by_case.items(), key=lambda kv: -sum(r["arrows"] for r in kv[1])):
+        out.append("| %s | %d | %d | %d | %.1f |"
+                   % (case, len(g), sum(1 for r in g if r["arrows"]),
+                      sum(r["arrows"] for r in g),
+                      sum(r["structure"] for r in g) / len(g)))
+    out.append("")
+    out.append("Pearson r between a response's structure count and its arrow "
+               "count: **%.2f** over %d responses.\n"
+               % (pearson([r["structure"] for r in rows], [r["arrows"] for r in rows]),
+                  len(rows)))
+    return "\n".join(out)
 
 
 def main():

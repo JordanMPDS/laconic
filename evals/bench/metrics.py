@@ -148,6 +148,31 @@ def _symbol_hits(prose):
     return hits
 
 
+BOLD_LABEL = re.compile(r"\*\*[^*\n]+\*\*")
+
+
+def structure_markers(prose):
+    """How much scaffolding one response carries: bullets, numbered steps and
+    bold labels.
+
+    Issue #20 asked whether arrows track the level or the shape of the answer.
+    These three are the positions rules/laconic.md names when it forbids an
+    arrow "after a bold label", in a "quick runbook" line, or "inside a quoted
+    flow", so counting them gives the denominator that question needs. Counted
+    on code-stripped prose like every other detector, so a bold label inside a
+    fenced block is not scaffolding.
+    """
+    bullets = numbered = labels = 0
+    for line in prose.splitlines():
+        if re.match(r"^\s*[-*+]\s", line):
+            bullets += 1
+        if re.match(r"^\s*\d+[.)]\s", line):
+            numbered += 1
+        labels += len(BOLD_LABEL.findall(line))
+    return {"bullets": bullets, "numbered": numbered, "bold_labels": labels,
+            "total": bullets + numbered + labels}
+
+
 def score(text):
     prose, sentences_src = split_text(text)
     words = WORD.findall(prose)

@@ -56,6 +56,10 @@ quoted flow. Sequencing is where an arrow is most tempting and least
 acceptable: an ordered process is exactly the content whose connecting words
 are never cut.
 
+Before you keep an arrow, read it aloud. It always says a word — "then",
+"becomes", "means", "maps to", "so" — and that word is the one to write. If it
+says anything at all, it is standing in for prose, whatever it is sitting in.
+
 - Wrong: **Request A**: calls `currentToken()` → token expired → calls `refresh()`
 - Right: Request A calls `currentToken()`, finds the token expired, and calls `refresh()`.
 - Wrong: Rough runbook: rotate the key → wait out the old TTL → remove it.

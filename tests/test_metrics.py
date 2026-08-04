@@ -240,6 +240,26 @@ check("sentence-ending abbrevs catch real violations (etc)", etc_test["sentence_
 st_test = metrics.score("We turned onto Main St. it was getting dark.")
 check("sentence-ending abbrevs catch real violations (St)", st_test["sentence_initial_lowercase"] >= 1)
 
+# structure_markers is the denominator issue #20 needed: it has to see the
+# three positions the arrow rule names, and it has to ignore a fenced block,
+# or a response quoting a bulleted config file would read as a runbook.
+struct = metrics.structure_markers(
+    "**Recommended order:**\n\n"
+    "1. Dump the table.\n"
+    "2. Drop it.\n"
+    "- then reseed\n"
+)
+check("structure_markers counts numbered steps", struct["numbered"] == 2)
+check("structure_markers counts bullets", struct["bullets"] == 1)
+check("structure_markers counts bold labels", struct["bold_labels"] == 1)
+check("structure_markers totals the three", struct["total"] == 4)
+
+fenced_struct = metrics.structure_markers(
+    metrics.split_text("Plain prose.\n\n```yaml\n- one\n- two\n```\n\nMore prose.")[0]
+)
+check("structure_markers ignores a bulleted fenced block",
+      fenced_struct["total"] == 0)
+
 check("never_cut_missing finds absent keywords",
       metrics.never_cut_missing("the sessions cascade", ["cascade", "invoices"])
       == ["invoices"])

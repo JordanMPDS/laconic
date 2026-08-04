@@ -1041,6 +1041,27 @@ check("sign test: an even split is p = 1", bench_levels.sign_test(11, 22) == 1.0
 check("sign test: a clean sweep is significant", bench_levels.sign_test(22, 22) < 0.001)
 check("sign test: symmetric in k", bench_levels.sign_test(4, 22) == bench_levels.sign_test(18, 22))
 
+# The structure/arrow correlation is a published figure, so the estimator
+# behind it gets checked rather than trusted.
+check("pearson: a perfect line is 1", abs(bench_levels.pearson([1, 2, 3], [2, 4, 6]) - 1.0) < 1e-9)
+check("pearson: a perfect inverse is -1",
+      abs(bench_levels.pearson([1, 2, 3], [6, 4, 2]) + 1.0) < 1e-9)
+check("pearson: a constant series is 0, not a division error",
+      bench_levels.pearson([1, 1, 1], [3, 5, 9]) == 0.0)
+
+# arrow_rows is per response and laconic-only: pooling the control arms into it
+# would report the foil's arrows as laconic's.
+_arrow_views = {"lite": (None, [
+    {"arm": "laconic", "case": "walkthrough", "model": "haiku",
+     "text": "1. **A** calls x -> needs y\n2. then z\n"},
+    {"arm": "word-compression", "case": "walkthrough", "model": "haiku",
+     "text": "req -> resp -> done\n"},
+], None)}
+_rows = bench_levels.arrow_rows(_arrow_views, ["lite"])
+check("arrow_rows keeps the laconic arm only", len(_rows) == 1)
+check("arrow_rows counts the arrow in a numbered step", _rows[0]["arrows"] == 1)
+check("arrow_rows counts that response's structure", _rows[0]["structure"] == 3)
+
 import subagent as bench_subagent  # noqa: E402
 
 # Fisher is what decides whether an arm difference in the relay run is real,

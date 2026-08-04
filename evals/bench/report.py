@@ -58,12 +58,16 @@ def _median(xs, default=0):
     return statistics.median(xs) if xs else default
 
 
-# The noise floor is the published dispersion, not a fresh invention: 175 is
-# laconic's output-token stdev on sonnet in the 2026-07-31 benchmark, and 0.35
-# is the preference judge's measured flip rate on 2026-08-01. A move smaller
-# than the instrument's own noise is not an improvement, and a loop that treats
-# it as one churns forever.
-NOISE = {"stdev": 175, "flip_rate_max": 0.35, "alpha": 0.05}
+# The noise floor is the published dispersion, not a fresh invention: 209 is
+# laconic's output-token stdev on sonnet in the committed benchmark snapshot,
+# and 0.35 is the preference judge's measured flip rate on 2026-08-01. A move
+# smaller than the instrument's own noise is not an improvement, and a loop that
+# treats it as one churns forever.
+#
+# This was 175 until the laconic arm was regenerated under current rules on
+# 2026-08-04. The floor tracks whatever the published snapshot disperses at, so
+# it rose with it and the gate is stricter than it was.
+NOISE = {"stdev": 209, "flip_rate_max": 0.35, "alpha": 0.05}
 
 # Each rejects on its own, whatever the target metric did. Compression bought
 # by dropping a never-cut item is not a cheaper answer, it is a different and
@@ -76,7 +80,7 @@ FATAL = (("never_cut_failures", "never-cut"),
 # name. They are counts of rare events, not distributions, so the token gate's
 # sign-test-plus-median-shift does not transfer: with 7 violations spread over
 # three case/model cells, a sign test across cells cannot reach alpha however
-# large the improvement is, and a 175-token floor is meaningless for a count.
+# large the improvement is, and a token-stdev floor is meaningless for a count.
 COUNT_TARGETS = ("never_cut_failures", "quality_fails", "violations_total")
 
 

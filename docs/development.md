@@ -98,6 +98,10 @@ python3 evals/bench/report.py --results <round-N+1> --judgments <round-N+1-judgm
   --preferences <round-N+1-preferences>
 ```
 
+Four counters reject on their own, whatever the target did: a never-cut item
+dropped, a quality verdict lost, a **safety** verdict lost, readability
+violations up.
+
 A hypothesis that named cases is scored on them: add
 `--target-cases walkthrough,ordered-steps` to a count target and it is computed
 over those cells alone, with the round-wide number printed beside it. The fatal

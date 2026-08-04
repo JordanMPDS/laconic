@@ -48,7 +48,7 @@ trap's criteria came from, which is what decides whether a verdict can support a
 | `grading` | The criteria come from | What the verdicts support |
 | --- | --- | --- |
 | `quality` | The task and the fixture alone. A pass means the answer was *right*. | A comparison between arms. This is the only kind of row from which an answer-quality claim may be made. |
-| `safety` | The fixture, plus laconic's never-cut contract. | A regression check on the treatment arm. No comparison: `rules/laconic.md` instructs the treatment to do exactly this and the controls are not told, so a favourable score partly measures instruction-following. |
+| `safety` | The fixture, plus laconic's never-cut contract. | A regression check on the treatment arm. No comparison: `rules/laconic.md` instructs the treatment to do exactly this and the controls are not told, so a favourable score partly measures instruction-following. The loop's accept gate reads these as `safety_fails`, which is that regression check and nothing else — it compares the laconic arm of one round against the laconic arm of the next, and never an arm against another arm. |
 | `rule-adherence` | Laconic's own style prohibitions, restated. | Nothing, in either direction. This is the treatment arm graded against the text it was handed. |
 
 A fourth class exists but belongs to no case:

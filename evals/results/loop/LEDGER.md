@@ -11,6 +11,14 @@ ledger showing only accepted edits lies by omission.
 against — the same value `run.py` stamps into every snapshot's metadata, so a
 row can be traced back to the exact rule text that produced it.
 
+**Rounds 01, 03 and 04 were scored before the gate counted safety verdicts.**
+`safety_fails` was added on 2026-08-04 ([#18]). Re-scoring the committed
+snapshots, rounds 03 and 04 each also lost `safety 4 -> 8` — a reason neither
+verdict printed at the time. Both still reject, and the verdict column below is
+what the gate said on the day. The re-scores are in each round's own document.
+
+[#18]: https://github.com/JordanMPDS/laconic/issues/18
+
 | round | hypothesis | target | verdict | rules_cksum |
 |---|---|---|---|---|
 | [01](round-01.md) | Naming the colon-introduced chain in the arrow prohibition (`rules/laconic.md:49`) lowers `violations_total` | `violations_total` | **reject** — never-cut lost 0 → 1, edit reverted | 1790259539 |

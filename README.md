@@ -127,16 +127,23 @@ check.
 
 | vs baseline | tokens (sonnet) | tokens (haiku) | latency (sonnet) | readability violations | answers correct | never-cut failures |
 |---|--:|--:|--:|--:|--:|--:|
-| **laconic** | **-33%** | +1% | **-29%** | **35** | 27 / 30 | 2 / 50 |
+| **laconic** | **-38%** | -1% | **-28%** | **26** | 30 / 30 | 0 / 50 |
 | terse-control | -11% | +3% | -13% | 50 | 27 / 30 | 1 / 50 |
-| word-compression | +3% | +4% | -13% | 60 | 27 / 30 | 0 / 50 |
+| word-compression | +3% | +4% | -13% | 60 | 28 / 30 | 0 / 50 |
 | baseline | 0% | 0% | 0% | 60 | 28 / 30 | 0 / 50 |
 
-The readability column was published as 0 / 9 / 11 / 1 until 2026-08-03, when
-the detector was corrected. It had been skipping bullets, numbered steps and
-blockquotes — the positions where the forbidden arrow most often appears, and
-three of the ones `rules/laconic.md` names. Laconic is still the cleanest arm,
-on 7 affected responses of 110 against baseline's 16, but it does not score 0.
+The laconic arm was regenerated on 2026-08-03 under the rules this repository
+ships today; the controls are carried unchanged, because none of them takes
+rules in its system prompt. Every laconic column moved and every one moved in
+laconic's favour, so read
+[the regeneration note](docs/benchmark.md#the-2026-08-04-regeneration) before
+quoting them: only the readability column is attributable to a rule change, the
+answer-quality column drifted on the controls' own unchanged text, and the same
+regeneration cost `walkthrough` its 56% compression result, which is now 1%.
+
+Laconic is still the cleanest arm on readability and it does not score 0. Nine
+responses of 110 break its own no-arrows rule, and `report.py` exits 1 on the
+committed snapshot for exactly that reason.
 See [`docs/benchmark.md`](docs/benchmark.md#readability--the-whole-point).
 
 Every figure here is a `full`-level figure. Per-case tables, cost, and what each
@@ -146,7 +153,8 @@ in
 [`evals/results/2026-07-31-benchmark.md`](evals/results/2026-07-31-benchmark.md).
 
 **These numbers do not say a reader prefers the result.** A blind judge asked
-exactly that, over 130 comparisons, did not prefer laconic to baseline — and its
+exactly that, over 130 comparisons of the archived arm, did not prefer laconic
+to baseline — and its
 own length and position biases came out larger than the gap between the arms, so
 that run supports no conclusion either way:
 [`evals/results/2026-08-01-preference.md`](evals/results/2026-08-01-preference.md).

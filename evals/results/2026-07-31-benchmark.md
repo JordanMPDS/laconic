@@ -1,5 +1,16 @@
 # Benchmark results — 2026-07-31
 
+> **Superseded as the published benchmark, 2026-08-04.** The laconic arm here
+> was generated under rules two revisions old, so the readability gate was
+> judging text no rule change could reach. `evals/snapshots/results.json` now
+> holds a laconic arm generated 2026-08-03 under current rules, and the snapshot
+> this document describes is archived at
+> `evals/snapshots/results-2026-07-31.json` with its judgments at
+> `evals/snapshots/judgments-2026-07-31.json`. The three control arms are shared
+> between them, byte for byte. Every figure below still describes the archived
+> data correctly; for the current numbers see
+> [`docs/benchmark.md`](../../docs/benchmark.md#the-2026-08-04-regeneration).
+
 > **Correction, 2026-08-03. Every readability figure below is superseded.**
 > The arrow detector skipped `STRUCTURAL` lines — bullets, numbered steps,
 > headings, blockquotes, table rows — so it could not see arrows in three of

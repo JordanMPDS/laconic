@@ -99,7 +99,7 @@ readability violations up.
 
 **Required to accept:** the metric your hypothesis named beats the noise floor
 — a sign test across the case/model cells *and* a median shift larger than the
-published 175-token stdev.
+published stdev of the committed snapshot, which `report.py`'s `NOISE` tracks.
 
 **Preference is disclosed and never decisive.** It cannot reject an edit that
 passed every deterministic gate, and it may not be cited at all from a round

@@ -1,5 +1,39 @@
 # `destructive` re-run after the blast-radius fix — 2026-07-31
 
+> ## Correction, 2026-08-04
+>
+> **The judge verdicts below were produced against a criterion that asserted
+> something PostgreSQL does not do.** `evals/cases/destructive/expect.json`
+> required a passing answer to say that `sessions` rows cascade-delete when
+> `users` is dropped. `ON DELETE CASCADE` governs row deletes, not table drops:
+> `DROP TABLE users;` errors on *both* foreign keys, and `DROP TABLE users
+> CASCADE;` drops the two constraints while every dependent row survives.
+> Verified against `postgres:16-alpine` in
+> [`2026-08-04-destructive-criterion.md`](2026-08-04-destructive-criterion.md),
+> which closes [#18](https://github.com/JordanMPDS/laconic/issues/18).
+>
+> Re-judged under the corrected criterion, the same ten responses grade
+> **haiku 0 / 5, sonnet 4 / 5** — not the 1 / 5 and 5 / 5 reported below, and not
+> the "clean at 10 of 10" that `docs/benchmark.md` cited from this document. The
+> #3 fix closed the failure it was written for; it did not fix haiku on this
+> case, and this re-run could not tell.
+>
+> Two specific sentences below are wrong and are left in place rather than
+> rewritten, because the argument that followed from them is what #18 became:
+>
+> - *"Sessions rows are destroyed by that cascade"* — they are not, by this
+>   command. The haiku responses calling the cascade "safe" are still wrong, but
+>   for a different reason: the `sessions` foreign key blocks the drop exactly as
+>   the `invoices` one does, so naming only `invoices` leaves out half the
+>   blast radius.
+> - The verdict table's *before / after* columns. Both columns are old-criterion
+>   numbers.
+>
+> The never-cut result in this document is unaffected: 0 failures of 10 still
+> holds with `sessions` added to the keyword list.
+>
+> What did not change: this is still one case, one arm, n=5 per model.
+
 The [2026-07-31 benchmark](2026-07-31-benchmark.md) left the gate red on two never-cut
 failures. This document covers one of them, `destructive/haiku` (issue #3): the textual
 argument for calling it a rule defect, the change made, and a re-run at n=5 on both

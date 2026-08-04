@@ -263,8 +263,16 @@ first turn's cache write becomes a cache read on every turn after it.
 ## Never-cut check
 
 The never-cut contract is checked on the 50 responses per arm that carry a
-keyword list by design. Laconic fails 0 of them on the current snapshot;
-`terse-control` fails 1.
+keyword list by design. Laconic fails **1** of them on the current snapshot, as
+do `terse-control` and `word-compression`. `baseline` fails 0.
+
+> **Corrected 2026-08-04.** This section read "laconic fails 0" until
+> `destructive`'s keyword list gained `sessions`. Dropping `users` is blocked by
+> the `sessions` foreign key exactly as it is by the `invoices` one, so a
+> response naming only `invoices` has left out half the blast radius, and the
+> old two-keyword list could not see that. The new miss is
+> `destructive`/haiku rep 3. Full account:
+> [`evals/results/2026-08-04-destructive-criterion.md`](../evals/results/2026-08-04-destructive-criterion.md).
 
 The archived snapshot had 2 laconic failures, and both were read and confirmed at
 the time: one `destructive` response pointed at foreign keys generally rather
@@ -272,16 +280,22 @@ than naming the two tables in the fixture, and one `conditional` response stoppe
 short of diagnosing the leak. The `destructive` one was a rule defect — that
 response never opened the schema it was pointed at, and the rule said "including
 exactly what will be affected" without saying *from the material in front of
-you*. The bullet was changed to demand the read, and a re-run at n=5 on both
-models came back clean at 10 of 10:
-[`evals/results/2026-07-31-destructive-recheck.md`](../evals/results/2026-07-31-destructive-recheck.md).
-The `conditional` one was left alone for want of a textual argument.
+you*. The bullet was changed to demand the read.
 
-So one of the two failures had a fix landed against it and the other did not, and
-the regenerated arm shows 0. That is consistent with the fix working and equally
-consistent with 2-in-50 being rare enough to miss twice: 2/50 against 0/50 is
-Fisher p = 0.49. The rules loop has since failed `conditional`/sonnet on
-never-cut in two separate rounds
+That fix was reported as confirmed by a re-run coming back "clean at 10 of 10"
+([`evals/results/2026-07-31-destructive-recheck.md`](../evals/results/2026-07-31-destructive-recheck.md)).
+**That number does not survive the corrected criterion: the same ten responses
+grade 4 of 10, with all five haiku responses failing.** The #3 edit fixed the
+response that never opened the schema. It did not fix haiku on this case, and
+the recheck could not tell, because the criterion it used asserted a cascade
+`DROP TABLE` does not perform. The `conditional` failure was left alone for want
+of a textual argument.
+
+So one of the two failures had a fix landed against it and the other did not,
+and the regenerated arm shows 1 rather than 2. That is consistent with the fix
+working and equally consistent with 2-in-50 being rare enough to miss: 2/50
+against 1/50 is Fisher p = 1.0. The rules loop has since failed
+`conditional`/sonnet on never-cut in two separate rounds
 ([`round-03.md`](../evals/results/loop/round-03.md)), which is the better
 evidence that the case remains close to the line.
 

@@ -11,6 +11,30 @@ ledger showing only accepted edits lies by omission.
 against — the same value `run.py` stamps into every snapshot's metadata, so a
 row can be traced back to the exact rule text that produced it.
 
+**Rounds 01, 03 and 04 were scored before the gate counted safety verdicts.**
+`safety_fails` was added on 2026-08-04 ([#18]). Re-scoring the committed
+snapshots, rounds 03 and 04 each also lost `safety 4 -> 8` — a reason neither
+verdict printed at the time. Both still reject, and the verdict column below is
+what the gate said on the day. The re-scores are in each round's own document.
+
+**The next round's baseline is `round-01-judgments-v2.json`, not
+`round-01-judgments.json`.** `destructive`'s criterion was corrected on
+2026-08-04 and its keyword list gained `sessions`
+([results](../2026-08-04-destructive-criterion.md)), so round 01 re-summarises:
+
+| | old criterion | corrected |
+|---|--:|--:|
+| `never_cut_failures` | 0 | **1** |
+| `quality_fails` | 0 | 0 |
+| `safety_fails` | 4 | **8** |
+| `violations_total` | 26 | 26 |
+
+Scoring a new round against the old file would read four of those eight as a
+regression the edit caused. The old file stays committed: the responses are
+byte-identical, so the two grade the same text and can be diffed.
+
+[#18]: https://github.com/JordanMPDS/laconic/issues/18
+
 | round | hypothesis | target | verdict | rules_cksum |
 |---|---|---|---|---|
 | [01](round-01.md) | Naming the colon-introduced chain in the arrow prohibition (`rules/laconic.md:49`) lowers `violations_total` | `violations_total` | **reject** — never-cut lost 0 → 1, edit reverted | 1790259539 |

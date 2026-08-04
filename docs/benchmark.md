@@ -13,13 +13,26 @@ control carries rules in its system prompt and none of them can have moved.
 
 | vs baseline | tokens (sonnet) | tokens (haiku) | latency (sonnet) | readability violations | answers correct | never-cut failures |
 |---|--:|--:|--:|--:|--:|--:|
-| **laconic** | **-38%** | -1% | **-28%** | **26** | 30 / 30 | 0 / 50 |
-| terse-control | -11% | +3% | -13% | 50 | 27 / 30 | 1 / 50 |
-| word-compression | +3% | +4% | -13% | 60 | 28 / 30 | 0 / 50 |
-| baseline | 0% | 0% | 0% | 60 | 28 / 30 | 0 / 50 |
+| **laconic** | **-38%** | -1% | **-28%** | **26** | 23 / 30 | 1 / 50 |
+| terse-control | -11% | +3% | -13% | 50 | 24 / 30 | 1 / 50 |
+| word-compression | +3% | +4% | -13% | 60 | 21 / 30 | 1 / 50 |
+| baseline | 0% | 0% | 0% | 60 | 21 / 30 | 0 / 50 |
 
 Every column is reported as measured, on both models and all four arms. The
 per-case tables and the method notes behind each number follow.
+
+> **Two columns were corrected on 2026-08-04, both against the plugin.** The
+> answer-quality column read 28 / 27 / 28 / **30** and the never-cut column read
+> 0 / 1 / 0 / 0, because two case criteria asserted things their technologies do
+> not do. `destructive` said `ON DELETE CASCADE` governs table drops
+> ([#18](https://github.com/JordanMPDS/laconic/issues/18)) and `stale-cache`
+> said a request `Cache-Control: max-age=3600` tells a shared cache to serve
+> hour-old responses ([#39](https://github.com/JordanMPDS/laconic/issues/39)).
+> Both were verified against the real software — PostgreSQL 16 and Varnish 7.4 —
+> and rewritten. Laconic no longer leads the quality column and no longer holds
+> a clean never-cut sheet. Full accounts:
+> [`destructive`](../evals/results/2026-08-04-destructive-criterion.md),
+> [`stale-cache`](../evals/results/2026-08-04-stale-cache-criterion.md).
 
 **The laconic arm was regenerated on 2026-08-03** under the current rules. Every
 laconic figure on this page moved, and each one moved in laconic's favour. Read
@@ -140,14 +153,29 @@ stating plainly which movements mean anything:
 |---|--:|--:|---|
 | readability violations | 35 | 26 | partly — the arrow revisions target exactly this |
 | tokens (sonnet) | -33% | -38% | no — one sample against another, n=5 per cell |
-| answers correct | 27 / 30 | 30 / 30 | no — see below |
-| never-cut failures | 2 / 50 | 0 / 50 | no — 2 in 50 against 0 in 50, Fisher p = 0.49 |
+| answers correct | 27 / 30 | *not comparable* | the criteria changed between them — see below |
+| never-cut failures | 4 / 50 | 1 / 50 | no — 4 in 50 against 1 in 50, Fisher p = 0.36 |
 
-The answer-quality column is the clearest case for reading none of this as an
-improvement. The controls' responses are byte-identical between the two
-snapshots — they were carried, not regenerated — yet re-judging moved
-word-compression from 27 to 28 on that same unchanged text. A column where the
-control drifts on identical input cannot support a one-arm claim of three.
+The answer-quality row can no longer be compared at all, and that is a stronger
+statement than the hedge it replaces. The archived arm was graded under
+`stale-cache`'s old criterion; the current arm is graded under the corrected
+one. Putting 27 next to 23 would be two different instruments in one row. The
+archived snapshot was not re-judged — 40 judge calls to restate a comparison
+whose conclusion ("read none of this as an improvement") the correction only
+strengthens.
+
+The never-cut row **was** recounted on both snapshots, because that check is a
+deterministic substring test rather than a judge call, so applying
+`destructive`'s corrected keyword list to the archive costs nothing. It read
+2 / 50 against 0 / 50 before; with `sessions` in the list it reads 4 / 50
+against 1 / 50. The gap widens in laconic's favour and stays inside sampling at
+p = 0.36, which is the same conclusion the smaller numbers supported.
+
+That conclusion held on its own evidence before the correction, and still does.
+The controls' responses are byte-identical between the two snapshots — they were
+carried, not regenerated — yet re-judging moved word-compression by a response
+on that same unchanged text. A column where the control drifts on identical
+input cannot support a one-arm claim.
 
 What the regeneration does establish is narrower and worth more than the table:
 the gate now measures the rules in the repository. It failed before and it fails
@@ -224,27 +252,37 @@ suite from which a comparison between arms is legitimate.
 
 | arm | answers correct (of 30) |
 |---|--:|
-| baseline | 28 |
-| terse-control | 27 |
-| word-compression | 28 |
-| **laconic** | **30** |
+| baseline | 21 |
+| terse-control | 24 |
+| word-compression | 21 |
+| **laconic** | **23** |
 
-**Laconic's answers were as often correct as baseline's** while being 15%
-shorter on Sonnet across those same three cases. A two-response difference in
-laconic's favour, Fisher's exact two-sided p = 0.49 against baseline.
+> **Corrected 2026-08-04.** This table read 28 / 27 / 28 / **30** until
+> `stale-cache`'s criterion was rewritten. The old trap required a passing
+> answer to name the client's `Cache-Control: max-age=3600` **request** header
+> as the reason the shared cache serves an hour-old response, which is not what
+> a request `max-age` does — verified against Varnish 7.4 in
+> [`evals/results/2026-08-04-stale-cache-criterion.md`](../evals/results/2026-08-04-stale-cache-criterion.md),
+> closing [#39](https://github.com/JordanMPDS/laconic/issues/39). Every arm was
+> being graded on the wrong answer, so every arm's figure falls, and laconic no
+> longer leads the column.
 
-Do not read the 30 as a gain. The same re-judging moved `word-compression` from
-27 to 28 on responses that are byte-identical between the two snapshots, so at
-least one point of movement in this column is the judge rather than the text.
-Against the archived laconic arm's 27 the difference is p = 0.24, and the
-instrument's power at n=30 is described below.
+**Laconic's answers were as often correct as baseline's**, 23 against 21, while
+being 15% shorter on Sonnet across those same three cases. Fisher's exact
+two-sided p = 0.77 — read it as no detectable difference, not as a win. The arm
+that scores highest is `terse-control` at 24, by one response over laconic, and
+that gap is noise by the same test.
 
-This is a coarse instrument and the results doc publishes its power curve: at
-n=30 per arm it would have caught a drop to about 64% and would have missed
-anything smaller. Two of the three cases are at ceiling — every arm passes — so
-the only separation comes from `stale-cache` on Haiku, where all four arms sit
-within one response of each other. Read it as ruling out a large regression, not
-as a fine-grained quality measurement.
+This is a coarse instrument. Two of the three cases are at ceiling — every arm
+passes `fail-open` and `silent-success` 10 of 10 — so the entire column is
+`stale-cache`, where every arm is near the floor: 1, 4, 1 and 3 of 10. A single
+hard case carrying a whole quality column is a limit of the case set, not a
+result. Read the column as ruling out a large regression and nothing finer.
+
+That `stale-cache` is hard for every arm is itself measured rather than
+inferred: the same cell regenerated 20 times under unchanged rules passes 7
+times, and four separate draws of it — at three different rule revisions — do
+not differ from one another at any conventional level.
 
 ## Cost, reported net
 

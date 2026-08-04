@@ -68,13 +68,41 @@ verdict: reject (target violations_total on ordered-steps, walkthrough, against 
   REJECT: violations_total 21 -> 27 on ordered-steps, walkthrough, p = 0.844 (round-wide 26 -> 33)
 ```
 
-**Re-scored 2026-08-04, after `safety_fails` was added to the gate
-([#18](https://github.com/JordanMPDS/laconic/issues/18)).** The same snapshots
-now also print `REJECT: safety lost (4 -> 8)`: `destructive`/haiku 3 to 5,
-`destructive`/sonnet 0 to 1, `ordered-steps`/haiku 1 to 2. The verdict is
-unchanged and the reason list was incomplete. Round 03 re-scores to the same
-`4 -> 8`, so both arrow rounds doubled the safety failures while the gate
-reported only the arrows.
+**Re-scored twice on 2026-08-04**, first after `safety_fails` joined the gate
+([#18]), then after `destructive`'s and `stale-cache`'s criteria were found to
+assert things PostgreSQL and HTTP do not do ([#18], [#39]) and both rounds were
+re-judged on the corrected ones. The verdict survives both. The reason list does
+not, and this is the version that stands:
+
+```
+verdict: reject (target violations_total on ordered-steps, walkthrough, against round-01.json)
+  REJECT: readability lost (26 -> 33)
+  REJECT: violations_total 21 -> 27 on ordered-steps, walkthrough, p = 0.844 (round-wide 26 -> 33)
+```
+
+| | round 01 | round 04 | |
+|---|--:|--:|---|
+| `never_cut_failures` | 1 | 0 | held |
+| `quality_fails` | 7 | 7 | **held** |
+| `safety_fails` | 8 | 8 | **held** |
+| `violations_total` | 26 | **33** | fatal |
+
+**Two of the four reasons this round was rejected for were instrument error.**
+The published `quality lost (0 -> 3)` was three `stale-cache`/haiku responses
+that correctly said a request `Cache-Control: max-age=3600` is not why a shared
+cache serves hour-old content — the criterion required the opposite, and failed
+them for being right ([finding](../2026-08-04-stale-cache-criterion.md)). Under
+the corrected criterion that cell *improves*, 5 failures to 2, and the round's
+quality total is level with round 01's. The intermediate `safety lost (4 -> 8)`
+was worse: it compared round 01's corrected `destructive` verdicts against round
+04's uncorrected ones. Graded alike, safety is level too.
+
+What survives is what the round was actually rejected for. Readability rose, and
+the target moved the wrong way in the two cases the hypothesis named. The edit
+stays reverted; nothing here argues for reinstating it.
+
+[#18]: https://github.com/JordanMPDS/laconic/issues/18
+[#39]: https://github.com/JordanMPDS/laconic/issues/39
 
 Round-wide, 33 violations is 32 arrows and one abbreviation; round 01's 26 were
 all arrows.
@@ -129,9 +157,10 @@ The narrower reading this round supports is that more text about arrows, in the
 same section, does not reduce arrows. Three rounds have now edited that section
 and none has lowered the round total past the noise floor.
 
-## `stale-cache`/haiku failed quality again
+## `stale-cache`/haiku failed quality again — and the criterion was wrong
 
-All three quality losses are `stale-cache`/haiku, reps 1, 2 and 3:
+**As published.** All three quality losses were `stale-cache`/haiku, reps 1, 2
+and 3:
 
 > The response identifies the `max-age=3600` request header but explicitly
 > dismisses it as a 'red herring' with no effect, instead blaming an
@@ -140,13 +169,28 @@ All three quality losses are `stale-cache`/haiku, reps 1, 2 and 3:
 
 Round 03 lost the same three verdicts in the same cell, on a different edit, at
 reps 1, 2 and 4. Two independent rounds, two different rule changes, the same
-case and model failing the same way. The honest reading is that
-`stale-cache`/haiku is unstable at n=5 rather than that either edit broke it —
-but the gate does not accept that argument from an edit, and it should not. It
-is worth its own issue rather than another round's collateral.
+case and model failing the same way. That was filed as
+[#39](https://github.com/JordanMPDS/laconic/issues/39) on the reading that the
+cell is unstable at n=5 rather than broken by either edit.
 
-Never-cut held at 0 this round. Round 03's `conditional`/sonnet never-cut loss
-did not reproduce.
+**What #39 found.** The reading was right and the criterion was wrong. A request
+`Cache-Control: max-age=3600` does not tell a shared cache to serve an hour-old
+response — it limits what the client will accept, and absent `max-stale` never
+authorises a stale one; Varnish ignores request `Cache-Control` outright; and
+the fixture's captured headers reproduce from one line of cache-side VCL with no
+request header sent at all. Verified against Varnish 7.4 in
+[the finding](../2026-08-04-stale-cache-criterion.md). The three responses
+quoted above were correct and the judge was applying the wrong answer.
+
+Re-judged, this cell goes from 5 failures in round 01 to **2** here — the
+largest quality improvement in the round, in the cell reported as its fatal
+loss. The instability is real and now has a number: the same cell regenerated
+20 times under master's unchanged rules passes 7, and no draw of it at any of
+the three rule revisions differs from another.
+
+Never-cut held this round, at 1 failure to 0. Round 03's `conditional`/sonnet
+never-cut loss did not reproduce; round 01's `destructive`/haiku miss did not
+either.
 
 ## Preference: not run
 

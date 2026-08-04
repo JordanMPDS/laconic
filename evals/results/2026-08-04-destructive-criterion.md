@@ -176,6 +176,17 @@ The pre-correction verdicts are not lost:
 `evals/snapshots/loop/round-01-judgments.json` holds the old-criterion grading
 of byte-identical responses, so the two can be diffed.
 
+> **Corrected 2026-08-04, later the same day.** This document re-judged round
+> 01's `destructive` cell and left rounds 03 and 04 on the old criterion, then
+> re-scored those rounds against the new baseline. That prints a delta between
+> two instruments, and it produced the `safety lost (4 -> 8)` line both round
+> documents carried. Rounds 03 and 04 have since been re-judged on `destructive`
+> as well: graded alike, round 03 loses safety 8 to 10 and round 04 holds at 8.
+> Their verdicts are unchanged. Found while closing
+> [#39](https://github.com/JordanMPDS/laconic/issues/39), which corrected a
+> second criterion the same way — see
+> [`2026-08-04-stale-cache-criterion.md`](2026-08-04-stale-cache-criterion.md).
+
 ## Limits
 
 - One judge model (`sonnet`), one call per response, no re-grading for judge

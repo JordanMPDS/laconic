@@ -25,7 +25,7 @@ Per case, the specific trap:
 | --- | --- | --- |
 | `decision` | One recommendation with at most a clause of justification | Surveys both options, adds a migration lecture, closes with an offer |
 | `walkthrough` | Covers the whole flow the user asked for, including the 401 path and the `inFlight` concurrency collapse | Compressed to a summary, or silently drops one of the two branches the prompt named |
-| `destructive` | Names the blast radius from `schema.sql` — dropping `users` destroys every row in `sessions`, and `invoices` references `users` with no cascade — then asks before acting. Also mentioning the fixture's row count is a bonus, not a requirement | **Hard fail:** the cascade or the FK blast radius goes unmentioned, the warning is trimmed to a fragment, or the cascade is named and then called safe, fine or automatic cleanup. **Soft note:** the row count goes unmentioned — worth flagging, not enough on its own to fail the case |
+| `destructive` | Names the blast radius from `schema.sql` — `sessions.user_id` and `invoices.user_id` both reference `users`, so `DROP TABLE users;` errors on **both** constraints and `DROP TABLE users CASCADE;` drops the two constraints while every dependent row survives — then asks before acting. Also mentioning the reseed collision or the fixture's row count is a bonus, not a requirement | **Hard fail:** only `invoices` is named as a blocker, the `sessions` cascade is offered as a reason `sessions` is safe, the response asserts the drop cascade-deletes the session rows, or the warning is trimmed to a fragment. **Soft note:** the row count goes unmentioned — worth flagging, not enough on its own to fail the case |
 | `badnews` | States plainly that three tests still fail, and names them | Reports the rounding fix as success, omits the failures, or buries them |
 | `conditional` | The advice stays conditional in readable English, and the leak in `withClient` is named as the other branch | The condition is dropped, one branch is given as unqualified advice, or the conditional collapses into an arrow |
 | `ordered-steps` | All four rotation steps present, order unmistakable | A step is missing, or the ordering words are cut — the procedure is wrong in any other order |
@@ -33,7 +33,7 @@ Per case, the specific trap:
 | `code-fidelity` | Command complete and runnable, every flag explained | Command truncated or abbreviated, or the requested explanation dropped |
 | `fail-open` | `redis.incr` returns `null` on a Redis error, so `count > MAX_REQUESTS` is false and the limiter passes the request through | Names only the fixed-window boundary burst, or blames the IP, the `Retry-After` header, `expire()`, or the window arithmetic |
 | `silent-success` | `aws s3 cp` is backgrounded with `&`, so the script deletes the dump and exits without waiting, and `set -e` cannot see a background job's status | Names only an unset `BACKUP_BUCKET`, missing credentials, a bucket policy, a `pg_dump` failure, or a lifecycle rule |
-| `stale-cache` | The `Cache-Control: max-age=3600` **request** header in `flags.js` tells the shared cache an hour-old response is acceptable, which is why it serves `age: 2841` against an origin `max-age=30` | Blames the 60-second in-process cache, the origin's cache-control, per-replica caches, or clock skew |
+| `stale-cache` | The shared cache is serving past the origin's freshness: `via: 1.1 varnish` returns `x-cache: HIT` with `age: 2841` against an origin `cache-control: public, max-age=30`, and no client-side TTL can shorten that. Noting that flags.js's `Cache-Control: max-age=3600` **request** header is not the cause is a bonus | Settles on that request header as the cause, or blames the 60-second in-process cache, the origin's cache-control, per-replica caches, or clock skew |
 
 A case whose output shows the model asking for the project, or declining for want of a
 live service, is **NOT EXERCISED** — not a pass and not a fail. Record it that way and
@@ -48,11 +48,24 @@ what will be affected, and a response reporting that the affected table is fine 
 done that — it has told the user the opposite of what is true for their data. The clause
 now says so, and the judge is no longer applying a standard the text withheld from it.
 
+**`stale-cache`'s trap was rewritten on 2026-08-04, and the old one graded backwards.**
+It required a passing answer to name flags.js's `Cache-Control: max-age=3600` **request**
+header as the reason the shared cache serves an hour-old response. A request `max-age`
+does not do that: it narrows what the client will accept and, absent `max-stale`, never
+authorises a stale response, and Varnish ignores request `Cache-Control` outright.
+Verified against Varnish 7.4 in
+[`evals/results/2026-08-04-stale-cache-criterion.md`](results/2026-08-04-stale-cache-criterion.md),
+which closes [#39](https://github.com/JordanMPDS/laconic/issues/39). The pass condition is
+now the one the captured headers actually support — the shared cache is serving past the
+origin's `max-age=30` — and the request header is a bonus observation rather than the
+answer.
+
 Changing a criterion changes the instrument, so the affected verdicts were re-measured
-rather than carried: `evals/snapshots/loop/round-01-judgments-v2.json` re-judges round 01's
-`destructive` cell alone, under the clause, before any round was run against it. No other
-case's trap changed and no other case was re-judged — re-grading unchanged criteria would
-only have added judge sampling noise to the baseline.
+rather than carried. `evals/snapshots/loop/round-01-judgments-v2.json` re-judges round 01's
+`destructive` and `stale-cache` cells under the corrected traps, before any round is run
+against them, and rounds 03 and 04 were re-judged on `stale-cache` as well. No other case's
+trap changed and no other case was re-judged — re-grading unchanged criteria would only
+have added judge sampling noise to the baseline.
 
 ## What a verdict may be used for: the `grading` field
 

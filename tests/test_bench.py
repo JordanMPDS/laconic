@@ -1357,5 +1357,72 @@ check("round_summary computes the flip rate", rs["flip_rate"] == 1.0)
 # floor is graded rule-adherence, so its judge failure is not a quality loss.
 check("round_summary counts only quality-graded judge failures", rs["quality_fails"] == 0)
 
+# --- --target-cases: scoring the target on the cases a hypothesis named ---
+# Round 03 is the reason this exists. It moved walkthrough and ordered-steps 21
+# arrows to 5 and the whole-round sum could only report 26 to 20 at p = 0.231,
+# so the loop had no way to score the hypothesis it actually wrote.
+
+
+def _scoped(nc=0, qf=0, viol=0, cases=("walkthrough", "ordered-steps"),
+            s_nc=0, s_qf=0, s_viol=0, n_runs=110, s_runs=20, flip=0.2):
+    s = _summary(nc=nc, qf=qf, viol=viol, n_runs=n_runs, flip=flip)
+    s["scoped"] = {"never_cut_failures": s_nc, "quality_fails": s_qf,
+                   "violations_total": s_viol, "n_runs": s_runs,
+                   "cases": sorted(cases)}
+    return s
+
+
+CASES2 = ["ordered-steps", "walkthrough"]
+v, why = bench_report.accept_verdict(
+    _scoped(viol=26, s_viol=21), _scoped(viol=20, s_viol=5),
+    "violations_total", target_cases=CASES2)
+check("a scoped count target scores the named cases, not the round", v == "accept")
+check("the scoped line names the cases", any("on ordered-steps, walkthrough" in r for r in why))
+check("the scoped line still discloses the round-wide count",
+      any("round-wide 26 -> 20" in r for r in why))
+
+# The fatal conditions stay round-wide: fixing two cases while breaking a third
+# is still a rejection, and the scoped target must not rescue it.
+v, why = bench_report.accept_verdict(
+    _scoped(viol=26, s_viol=21), _scoped(viol=30, s_viol=5, nc=1),
+    "violations_total", target_cases=CASES2)
+check("a round-wide never-cut loss rejects a passing scoped target", v == "reject")
+check("a round-wide readability rise rejects a passing scoped target",
+      any("readability lost" in r for r in why))
+
+# Scoped exposure is the scoped exposure. Reading n_runs from the whole round
+# would treat 20 responses as 110 chances to fail and inflate every p.
+v, why = bench_report.accept_verdict(
+    _scoped(viol=26, s_viol=6, s_runs=20), _scoped(viol=20, s_viol=1, s_runs=4),
+    "violations_total", target_cases=CASES2)
+check("a scoped drop on a fifth of the scoped runs is rejected", v == "reject")
+
+# A summary built without the scope cannot be scored against one that has it.
+v, why = bench_report.accept_verdict(
+    _summary(viol=26), _scoped(viol=20, s_viol=5), "violations_total",
+    target_cases=CASES2)
+check("an unscoped summary rejects rather than falling back to the round",
+      v == "reject" and any("same scope" in r for r in why))
+
+# Two cases and two models is four cells, and sign_test(4, 4) = 0.125: a scoped
+# token target could never clear alpha, so it is refused rather than offered.
+v, why = bench_report.accept_verdict(
+    _scoped(), _scoped(), "output_tokens", target_cases=CASES2)
+check("a scoped output_tokens target is refused, not silently unreachable",
+      v == "reject" and any("scopes a count target" in r for r in why))
+
+# round_summary's scope is an addition, never a replacement.
+rs_scoped = bench_report.round_summary(
+    {"runs": [{"case": "floor", "arm": "laconic", "model": "sonnet", "rep": 0,
+               "ok": True, "text": "Do X -> then Y.", "output_tokens": 10},
+              {"case": "walkthrough", "arm": "laconic", "model": "sonnet", "rep": 0,
+               "ok": True, "text": "First A -> then B -> then C.", "output_tokens": 10}]},
+    [], None, target_cases=["walkthrough"])
+check("round_summary keeps the round-wide count beside the scoped one",
+      rs_scoped["violations_total"] == 3)
+check("round_summary scopes the count to the named case",
+      rs_scoped["scoped"]["violations_total"] == 2)
+check("round_summary scopes the exposure too", rs_scoped["scoped"]["n_runs"] == 1)
+
 print("\n%d failure(s)" % fails)
 sys.exit(1 if fails else 0)

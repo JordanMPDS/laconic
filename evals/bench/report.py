@@ -73,16 +73,19 @@ def _median(xs, default=0):
     return statistics.median(xs) if xs else default
 
 
-# The noise floor is the published dispersion, not a fresh invention: 209 is
-# laconic's output-token stdev on sonnet in the committed benchmark snapshot,
-# and 0.35 is the preference judge's measured flip rate on 2026-08-01. A move
-# smaller than the instrument's own noise is not an improvement, and a loop that
-# treats it as one churns forever.
+# The noise floor is the published dispersion, not a fresh invention: 260 is
+# the median per-cell output-token stdev over the laconic arm's sonnet cells
+# in the committed baseline snapshot (evals/snapshots/loop/round-01-n10.json,
+# 14 cells at n=10 reps), and 0.35 is the preference judge's measured flip
+# rate on 2026-08-01. A move smaller than the instrument's own noise is not an
+# improvement, and a loop that treats it as one churns forever.
 #
 # This was 175 until the laconic arm was regenerated under current rules on
-# 2026-08-04. The floor tracks whatever the published snapshot disperses at, so
-# it rose with it and the gate is stricter than it was.
-NOISE = {"stdev": 209, "flip_rate_max": 0.35, "alpha": 0.05}
+# 2026-08-04, and 209 until the #45 n=10 regeneration added the three
+# high-dispersion design-question cases on 2026-08-06. The floor tracks
+# whatever the published snapshot disperses at, so it rose both times and the
+# gate is stricter than it was.
+NOISE = {"stdev": 260, "flip_rate_max": 0.35, "alpha": 0.05}
 
 # Each rejects on its own, whatever the target metric did. Compression bought
 # by dropping a never-cut item is not a cheaper answer, it is a different and
@@ -254,8 +257,8 @@ def accept_verdict(prev, cur, target, noise=None, target_cases=None):
         # sign_test is two-sided exact, so a sweep of n cells is p = 2 * 0.5**n:
         # four cells is 0.125, five is 0.0625, and no scope under six cells can
         # reach alpha = 0.05 however large the move is. Six is the boundary the
-        # old blanket refusal was standing in for. The round-wide 209 cannot be
-        # the floor either - it is the median per-cell stdev of the baseline's
+        # old blanket refusal was standing in for. The round-wide NOISE stdev
+        # cannot be the floor either - it is the median per-cell stdev of the baseline's
         # sonnet cells, so the scoped floor is the same estimator over the
         # scoped sonnet cells, read from the baseline summary. A scope with no
         # sonnet cell has no floor built the way NOISE builds one and is

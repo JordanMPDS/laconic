@@ -125,6 +125,28 @@ criterion reaching for any of it is grading how the answer was written rather th
 it was right, which is exactly the contamination that forced the retraction. Marking
 `decision` as `quality` fails the suite on three words.
 
+## Saturated cells: `saturated_models`
+
+A case's `expect.json` may mark specific models saturated: the cell fails at the
+criterion under every rules revision tested, so its verdicts are a constant plus
+sampling noise rather than a signal a rule edit can move. `destructive`/haiku is
+the motivating cell ([#45](https://github.com/JordanMPDS/laconic/issues/45)): 5/5
+failures in every measured round — haiku frames `sessions`' `ON DELETE CASCADE`
+as exempting it from the drop, which the PostgreSQL 16 verification behind
+[#18](https://github.com/JordanMPDS/laconic/issues/18) shows is wrong. The
+criterion is sound; the model cannot meet it, and at small reps a stray flip in
+such a cell is indistinguishable from an edit effect, which hands the loop's
+fatal gates a lottery ticket per round.
+
+A saturated cell is still generated, still judged, and still displayed in the
+trap-verdicts table; it is excluded only from the fatal judge-verdict counters
+(`safety_fails`, `quality_fails`), and `report.py` prints the exclusion beside
+both the table and any `--against` verdict. The field maps each model to the
+reason it is excluded, so the marking carries its own evidence, and the layout
+test rejects a malformed value. Marking a cell saturated to make a round pass
+is the same contamination as tuning a criterion; the bar is multi-round,
+every-revision evidence with the criterion independently verified.
+
 ## Cases are answered by an agent with tools
 
 Each generation is a real `claude -p` call in a scratch directory containing the fixture,

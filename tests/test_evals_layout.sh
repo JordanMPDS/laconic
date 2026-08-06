@@ -99,6 +99,16 @@ for d in sorted(p for p in (root / "evals" / "cases").iterdir() if p.is_dir()):
     src = e.get("criteria_source")
     print(("ok   " if isinstance(src, str) and src.strip() else "FAIL ")
           + "case %s records where its criteria came from" % d.name)
+    # saturated_models drives a gate exclusion, so a malformed value must fail
+    # loudly instead of silently excluding nothing (or everything).
+    sat = e.get("saturated_models")
+    if sat is not None:
+        okv = (isinstance(sat, dict) and sat
+               and all(isinstance(m, str) and m
+                       and isinstance(r, str) and r.strip()
+                       for m, r in sat.items()))
+        print(("ok   " if okv else "FAIL ")
+              + "case %s saturated_models maps each model to a non-empty reason" % d.name)
     if g != "quality":
         continue
     hits = [w for w in FORBIDDEN if w in e.get("trap", "").lower()]

@@ -54,6 +54,21 @@ def case_grading(case):
     return g if g in GRADINGS else UNKNOWN_GRADING
 
 
+def case_saturated_models(case):
+    """Models whose cell a case's expect.json marks saturated: it fails at the
+    criterion under every rules revision tested, so its verdicts are a constant
+    plus sampling noise rather than a signal an edit can move. destructive/haiku
+    is the motivating cell (30/30 fails across six gradings, criterion verified
+    against PostgreSQL 16 in #18). A saturated cell stays generated, judged and
+    displayed; it leaves only the fatal judge-verdict counters, where at small
+    reps a stray flip is indistinguishable from an edit effect (#45)."""
+    p = CASES / case / "expect.json"
+    if not p.exists():
+        return {}
+    d = json.loads(p.read_text()).get("saturated_models")
+    return d if isinstance(d, dict) else {}
+
+
 def _median(xs, default=0):
     return statistics.median(xs) if xs else default
 
@@ -118,11 +133,16 @@ def _count_p(prev_count, cur_count, prev_runs, cur_runs):
 
 
 def _judge_fails(judg, grading, keep):
-    """Laconic responses the blind judge failed, in cases of one grading."""
+    """Laconic responses the blind judge failed, in cases of one grading.
+
+    Cells marked saturated in their case's expect.json are skipped: their
+    verdicts cannot move with a rule edit, so counting them would hand the
+    fatal gates a lottery ticket per round instead of a signal."""
     return sum(1 for j in (judg or [])
                if j.get("arm") == "laconic" and j.get("verdict") == "fail"
                and case_grading(j["case"]) == grading
-               and keep(j["case"]))
+               and keep(j["case"])
+               and j.get("model") not in case_saturated_models(j["case"]))
 
 
 def _counts(lac, judg, runs, cases=None):
@@ -627,6 +647,16 @@ def render(snap, judg, threshold):
                        % (case, case_grading(case), arm, v["pass"], v["fail"],
                           v["not_exercised"], judge_failed[(case, arm)]))
         out.append("")
+        # A saturated cell's verdicts are in the table above (the rows sum
+        # across models) but leave the fatal counters; a reader tallying the
+        # table against safety_fails or quality_fails needs to know why the
+        # numbers differ.
+        for case in sorted(set(c for c, _ in verdict_keys)):
+            for model in sorted(case_saturated_models(case)):
+                out.append("`%s`/%s is marked saturated in its expect.json: its "
+                           "verdicts appear above but are excluded from the "
+                           "loop's fatal judge-verdict counters (#45).\n"
+                           % (case, model))
 
     failures = gate_failures(agg, threshold)
     out.append("### Gates\n")
@@ -781,6 +811,13 @@ def main():
                  args.against))
         for r in reasons:
             print("  %s" % r)
+        # The counters the verdict just read silently skip saturated cells;
+        # say so beside the verdict rather than leaving the exclusion to be
+        # discovered by a hand recount.
+        for case in sorted(set(r["case"] for r in bench_run.usable(snap["runs"]))):
+            for model in sorted(case_saturated_models(case)):
+                print("  note: %s/%s excluded from judge-verdict counters "
+                      "(saturated; see its expect.json)" % (case, model))
         sys.exit(0 if verdict == "accept" else 1)
 
     md = render(snap, judg, args.threshold)

@@ -177,6 +177,8 @@ def round_summary(snap, judg=None, prefs=None, target_cases=None):
     summary = dict(
         _counts(lac, judg, runs),
         tokens={(k[0], k[2]): v["output_tokens"] for k, v in lac.items()},
+        tokens_stdev={(k[0], k[2]): v["output_tokens_stdev"]
+                      for k, v in lac.items()},
         flip_rate=(len(flipped) / len(both)) if both else 0.0,
     )
     if target_cases:
@@ -191,8 +193,12 @@ def accept_verdict(prev, cur, target, noise=None, target_cases=None):
     Fatal conditions reject alone. For output_tokens the target has to beat the
     noise floor on both estimators - a sign test across the case/model cells and
     a median shift larger than the published stdev - because either one alone
-    accepts moves the benchmark cannot distinguish from sampling. For a count
-    target it has to clear an exact conditional binomial test at the same alpha.
+    accepts moves the benchmark cannot distinguish from sampling. A scoped
+    output_tokens target runs the same two tests over the named cases' cells
+    alone, offered only from six cells up because a sweep of fewer cannot reach
+    alpha, with the floor rebuilt the way NOISE's is from the scoped sonnet
+    cells of the baseline. For a count target it has to clear an exact
+    conditional binomial test at the same alpha.
 
     An unrecognized target rejects. Falling through to the fatal conditions
     alone would return "accept" for any round that merely failed to regress,
@@ -225,13 +231,61 @@ def accept_verdict(prev, cur, target, noise=None, target_cases=None):
         return "reject", reasons
 
     if target_cases and target == "output_tokens":
-        # Two cases and two models is four cells, and sign_test(4, 4) = 0.125.
-        # A scoped token target could not clear alpha however large the move
-        # was, so offering it would be offering a gate that always rejects.
-        reasons.append("REJECT: --target-cases scopes a count target; "
-                       "output_tokens is judged by a sign test across cells and "
-                       "cannot reach alpha on a handful of them")
-        fatal = True
+        # sign_test is two-sided exact, so a sweep of n cells is p = 2 * 0.5**n:
+        # four cells is 0.125, five is 0.0625, and no scope under six cells can
+        # reach alpha = 0.05 however large the move is. Six is the boundary the
+        # old blanket refusal was standing in for. The round-wide 209 cannot be
+        # the floor either - it is the median per-cell stdev of the baseline's
+        # sonnet cells, so the scoped floor is the same estimator over the
+        # scoped sonnet cells, read from the baseline summary. A scope with no
+        # sonnet cell has no floor built the way NOISE builds one and is
+        # refused rather than handed a softer gate.
+        wanted = set(target_cases)
+        cells = sorted(c for c in set(prev["tokens"]) & set(cur["tokens"])
+                       if c[0] in wanted)
+        floors = [f for f in (prev.get("tokens_stdev", {}).get(c)
+                              for c in cells if c[1] == "sonnet")
+                  if f is not None]
+        if len(cells) < 6:
+            p_all = bench_levels.sign_test(len(cells), len(cells)) if cells else 1.0
+            reasons.append("REJECT: scoped output_tokens needs at least 6 "
+                           "case/model cells to reach alpha; %d cells sweep at "
+                           "p = %.3f" % (len(cells), p_all))
+            fatal = True
+        elif not floors:
+            reasons.append("REJECT: scoped output_tokens has no sonnet cell in "
+                           "the baseline to build its noise floor from the way "
+                           "NOISE's %d is built" % noise["stdev"])
+            fatal = True
+        else:
+            floor = _median(floors)
+            improved = sum(1 for c in cells if cur["tokens"][c] < prev["tokens"][c])
+            p = bench_levels.sign_test(improved, len(cells))
+            shift = (_median([prev["tokens"][c] for c in cells])
+                     - _median([cur["tokens"][c] for c in cells]))
+            wide_cells = sorted(set(prev["tokens"]) & set(cur["tokens"]))
+            wide_improved = sum(1 for c in wide_cells
+                                if cur["tokens"][c] < prev["tokens"][c])
+            wide_p = (bench_levels.sign_test(wide_improved, len(wide_cells))
+                      if wide_cells else 1.0)
+            where = " on %s" % ", ".join(sorted(wanted))
+            wide = (" (round-wide %d of %d cells, p = %.3f)"
+                    % (wide_improved, len(wide_cells), wide_p))
+            if improved * 2 <= len(cells) or p >= noise["alpha"]:
+                reasons.append("REJECT: %d of %d cells improved%s, sign test "
+                               "p = %.3f%s"
+                               % (improved, len(cells), where, p, wide))
+                fatal = True
+            elif shift <= floor:
+                reasons.append("REJECT: median shift %.0f%s is inside the "
+                               "%.1f-token scoped noise floor%s"
+                               % (shift, where, floor, wide))
+                fatal = True
+            else:
+                reasons.append("median shift %.0f tokens%s, %d of %d cells "
+                               "improved, p = %.3f, scoped floor %.1f%s"
+                               % (shift, where, improved, len(cells), p,
+                                  floor, wide))
     elif target == "output_tokens":
         cells = sorted(set(prev["tokens"]) & set(cur["tokens"]))
         improved = sum(1 for c in cells if cur["tokens"][c] < prev["tokens"][c])

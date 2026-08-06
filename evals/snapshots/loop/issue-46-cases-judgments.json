@@ -1,0 +1,548 @@
+{
+  "judgments": [
+    {
+      "arm": "baseline",
+      "case": "design-alerting",
+      "model": "haiku",
+      "quote": "Deduplication/anti-spam: Once an alert fires for a condition, either suppress retriggers for a cooldown window",
+      "reason": "The response designs a bespoke alerting subsystem (dedup/cooldown store, threshold counters, a separate watchdog scheduler) entirely from scratch without ever asking about or engaging with what monitoring/alerting infrastructure might already exist.",
+      "rep": 0,
+      "verdict": "fail"
+    },
+    {
+      "arm": "laconic",
+      "case": "design-alerting",
+      "model": "haiku",
+      "quote": "The supervisor maintains counters in its state: - Increment a `stale_cycle_count` each cycle metrics are stale; reset to zero when fresh. Alert when it hits 3.",
+      "reason": "While alert evaluation is correctly kept outside govern() and driven off the cycle result, the response invents bespoke escalation/debounce logic (cycle counters, cap-value tracking, a custom heartbeat watchdog) inside the supervisor instead of treating multi-cycle debouncing and heartbeat monitoring as something an existing alerting stack (e.g. Prometheus 'for' clauses) would already provide, and it never flags what monitoring infrastructure the org already has as the open question \u2014 it only name-drops generic tool examples for delivery.",
+      "rep": 0,
+      "verdict": "fail"
+    },
+    {
+      "arm": "baseline",
+      "case": "design-alerting",
+      "model": "haiku",
+      "quote": "Call an `emit_alert(alert_type, tenant, context)` function with details like the guardrail, current cap, pace error %, etc. This could fanout to a monitoring backend (Datadog, PagerDuty, internal system)",
+      "reason": "The response designs a bespoke alerting subsystem (consecutive-cycle counters, dedup/debouncing, heartbeat watchdog) inside the supervisor without ever asking what monitoring/alerting infrastructure already exists, only vaguely gesturing at 'Datadog, PagerDuty, internal system' as an afterthought rather than surfacing it as the open dependency.",
+      "rep": 1,
+      "verdict": "fail"
+    },
+    {
+      "arm": "laconic",
+      "case": "design-alerting",
+      "model": "haiku",
+      "quote": "This could integrate with a monitoring system (PagerDuty, VictorOps, internal alerting), structured logging, or metrics backend.",
+      "reason": "The response designs alert emission and even a bespoke watchdog timer/counters without ever flagging that the spec doesn't say what monitoring infrastructure already exists or treating that gap as the open question.",
+      "rep": 1,
+      "verdict": "fail"
+    },
+    {
+      "arm": "baseline",
+      "case": "design-alerting",
+      "model": "haiku",
+      "quote": "The alerting system would likely be a simple function or client the supervisor calls with an alert type and tenant ID.",
+      "reason": "The response keeps alert triggering outside govern() but never engages with what monitoring/alerting infrastructure already exists or flags that as an open question, instead just assuming a generic function/client without probing the dependency.",
+      "rep": 2,
+      "verdict": "fail"
+    },
+    {
+      "arm": "laconic",
+      "case": "design-alerting",
+      "model": "haiku",
+      "quote": "The pseudocode (lines 24\u201333) shows the pattern: after persisting state and applying the cap, the loop checks conditions and calls an `alert()` function. This would expand from the single `quota_exceeded` example to cover all eight observability conditions.",
+      "reason": "The response correctly keeps alert evaluation in the supervisor rather than govern(), but it never questions what alert() actually hooks into (paging/notification tooling) or flags that dependency as unspecified \u2014 it just treats the spec's alert() call as a given to be expanded with more conditions and its own counter/threshold state.",
+      "rep": 2,
+      "verdict": "fail"
+    },
+    {
+      "arm": "baseline",
+      "case": "design-alerting",
+      "model": "haiku",
+      "quote": "1. **Inside `govern()`** \u2014 the pure function returns which guardrail fired (line 31). Some alert conditions map directly to guardrails:\n   - `quota_exceeded` guardrail \u2192 alert immediately (already in pseudocode, line 32)",
+      "reason": "The response places alert-triggering logic inside the pure govern() function and invents a bespoke state-tracking/consecutive-count mechanism without ever asking what existing monitoring or alerting infrastructure the system would hook into.",
+      "rep": 3,
+      "verdict": "fail"
+    },
+    {
+      "arm": "laconic",
+      "case": "design-alerting",
+      "model": "haiku",
+      "quote": "Alerts would likely be deduplicated (don't fire the same alert twice in a row for the same tenant) and potentially grouped by severity\u2014critical alerts ... might route differently than warnings",
+      "reason": "The response invents bespoke dedup and severity/escalation logic and just gestures at generic monitoring backends (Datadog/CloudWatch/Prometheus) rather than surfacing what monitoring infrastructure actually exists or flagging that as an open question.",
+      "rep": 3,
+      "verdict": "fail"
+    },
+    {
+      "arm": "baseline",
+      "case": "design-alerting",
+      "model": "haiku",
+      "quote": "A separate heartbeat checker detects if the 5-minute supervisor loop hasn't run (e.g., via a timestamp in shared state with a timeout)",
+      "reason": "The response designs a bespoke three-layer alerting subsystem (counters, watchdog heartbeat checker) entirely from scratch without ever asking what monitoring/alerting infrastructure already exists or flagging that absence as an open question.",
+      "rep": 4,
+      "verdict": "fail"
+    },
+    {
+      "arm": "laconic",
+      "case": "design-alerting",
+      "model": "haiku",
+      "quote": "This dispatcher would route to your alert backend (PagerDuty, Opsgenie, etc.), handle deduplication, and manage escalation policies.",
+      "reason": "The response designs its own alert dispatcher with dedup and escalation responsibilities and only name-drops generic backend examples, never flagging that SPEC.md doesn't specify what monitoring/alerting infrastructure already exists as an open question to resolve.",
+      "rep": 4,
+      "verdict": "fail"
+    },
+    {
+      "arm": "baseline",
+      "case": "design-alerting",
+      "model": "sonnet",
+      "quote": "`govern()` is explicitly pure (no I/O) and that purity is load-bearing for the simulation harness. So alerting can't live inside `govern()` \u2014 it has to be supervisor-side, triggered off the `result` object after each cycle",
+      "reason": "The response keeps alert evaluation outside the pure core, derives it from the supervisor's persisted cycle records, and explicitly flags the transport/monitoring infrastructure as an open question the spec doesn't answer, without designing a bespoke alerting subsystem.",
+      "rep": 0,
+      "verdict": "pass"
+    },
+    {
+      "arm": "laconic",
+      "case": "design-alerting",
+      "model": "sonnet",
+      "quote": "it needs to become a thin adapter to whatever paging/chat stack is actually in use (PagerDuty/Opsgenie for heartbeat + quota_exceeded, Slack for the rest, say)",
+      "reason": "The response keeps alert evaluation out of the pure govern() core (deriving streak alerts from the persisted per-tenant cycle log and reusing result.state for feed_stale) while explicitly treating the actual paging/chat stack as an external dependency the design must plug into rather than reinvent.",
+      "rep": 0,
+      "verdict": "pass"
+    },
+    {
+      "arm": "baseline",
+      "case": "design-alerting",
+      "model": "sonnet",
+      "quote": "1. Widen `govern()`'s return, not just the winning guardrail.",
+      "reason": "The response redesigns govern() itself to add a richer 'signals' output for alerting purposes and builds out a bespoke alerting subsystem (dedup keys, watchdog, severity routing, PagerDuty/Opsgenie wiring) without ever asking what monitoring/alerting infrastructure already exists in the user's environment.",
+      "rep": 1,
+      "verdict": "fail"
+    },
+    {
+      "arm": "laconic",
+      "case": "design-alerting",
+      "model": "sonnet",
+      "quote": "Keep `govern()` pure \u2014 don't put alerting logic inside it.",
+      "reason": "The response keeps alert evaluation outside govern(), derives it from govern()'s widened return contract and supervisor-persisted state, and explicitly flags that the alert backend (PagerDuty/Opsgenie/Slack, 'whichever the org uses') and severity policy are unstated dependencies rather than inventing a bespoke alerting subsystem.",
+      "rep": 1,
+      "verdict": "pass"
+    },
+    {
+      "arm": "baseline",
+      "case": "design-alerting",
+      "model": "sonnet",
+      "quote": "So don't try to alert off `result.guardrail` alone; alerting needs its own evaluation step that looks at the *outcome* of the cycle (cap value, pace, guardrail, streaks), not just which guardrail won.",
+      "reason": "The response keeps delivery outside govern() (supervisor forwards a computed alerts list to an external sink, watchdog is separate), derives conditions from the cycle record/state, and explicitly surfaces open questions about what monitoring/dedup infrastructure the spec leaves unstated rather than inventing a bespoke alerting subsystem.",
+      "rep": 2,
+      "verdict": "pass"
+    },
+    {
+      "arm": "laconic",
+      "case": "design-alerting",
+      "model": "sonnet",
+      "quote": "Since `govern()` is deliberately pure (no I/O, no clock \u2014 that's what makes the simulation harness fast), alert-firing can't live inside it. But the \"did this fire N times in a row\" logic still shouldn't be ad hoc code sprinkled through the supervisor",
+      "reason": "The response keeps alert evaluation as a separate pure function derived from govern()'s output, delivers alerts via best-effort I/O outside the critical path, and explicitly points to existing/pluggable monitoring infrastructure (e.g. Healthchecks.io/Cronitor, Slack/paging) rather than inventing a bespoke scheduler/dedup/escalation subsystem from scratch.",
+      "rep": 2,
+      "verdict": "pass"
+    },
+    {
+      "arm": "baseline",
+      "case": "design-alerting",
+      "model": "sonnet",
+      "quote": "push the \"N consecutive cycles\" and \"missed heartbeat\" logic into a metrics/alerting backend (Prometheus+Alertmanager, Datadog Monitors, CloudWatch) rather than hand-rolling counters in application code",
+      "reason": "The response keeps alert evaluation outside the pure govern() core (supervisor-only, driven by result/cycle records and emitted metrics) and explicitly defers threshold/consecutive-cycle logic and deduplication to existing monitoring/alerting backends rather than inventing a bespoke scheduler or dedup store.",
+      "rep": 3,
+      "verdict": "pass"
+    },
+    {
+      "arm": "laconic",
+      "case": "design-alerting",
+      "model": "sonnet",
+      "quote": "SPEC.md never specifies an alerting backend \u2014 it only shows a stub call `alert(\"quota exceeded\", tenant)`",
+      "reason": "The response keeps govern() pure (streak/alert state lives in the supervisor, not the core), explicitly flags that the spec never specifies an alerting backend, and recommends deferring thresholds/dedup/escalation to an existing monitoring system rather than hand-rolling a bespoke alerting subsystem.",
+      "rep": 3,
+      "verdict": "pass"
+    },
+    {
+      "arm": "baseline",
+      "case": "design-alerting",
+      "model": "sonnet",
+      "quote": "have the supervisor emit a per-cycle metric (cap value, whether it's at the band edge, computed pace error) to a time-series/alerting system, and let that system's alerting rules do the \"N consecutive cycles\" evaluation",
+      "reason": "The response keeps alert evaluation out of govern() (citing the core-purity/no-I/O constraint explicitly), derives alerts from the persisted cycle record or supervisor-emitted metrics, and points to routing evaluation to an existing time-series/alerting system rather than hand-rolling a bespoke scheduler or dedup store.",
+      "rep": 4,
+      "verdict": "pass"
+    },
+    {
+      "arm": "laconic",
+      "case": "design-alerting",
+      "model": "sonnet",
+      "quote": "compute the streak counters and result.alerts inside govern() (keeps it in the tested/replayed core, matches how guardrails already work)",
+      "reason": "The response's final recommendation explicitly puts alert-condition evaluation (streak counters, result.alerts) inside the pure govern() core rather than deriving it externally from the persisted cycle record or beside-metrics, which is the opposite of what the criterion requires, even though it does helpfully surface the dependency on external monitoring infra (PagerDuty/Alertmanager/whatever metrics system) for heartbeat and as a discussed alternative.",
+      "rep": 4,
+      "verdict": "fail"
+    },
+    {
+      "arm": "baseline",
+      "case": "design-audit-log",
+      "model": "haiku",
+      "quote": "This is failsafe\u2014catches all changes regardless of how the code evolves.",
+      "reason": "The response's Layer 1 proposes database triggers on every table's writes as the enforcement mechanism specifically because it captures all changes without depending on route handlers remembering to log, matching the trigger-based alternative in the criterion.",
+      "rep": 0,
+      "verdict": "pass"
+    },
+    {
+      "arm": "laconic",
+      "case": "design-audit-log",
+      "model": "haiku",
+      "quote": "Leverage the fact that all writes already funnel through `db.write()`. This is the perfect single point to intercept and log.",
+      "reason": "The response identifies db.write() as the single choke point for all writes and threads the acting user context to it, matching the passing condition.",
+      "rep": 0,
+      "verdict": "pass"
+    },
+    {
+      "arm": "baseline",
+      "case": "design-audit-log",
+      "model": "haiku",
+      "quote": "Database triggers ensure you can't accidentally miss a write even if code bypasses your application layer.",
+      "reason": "The response correctly identifies database triggers as the single choke-point mechanism that captures every write (including future route handlers) without requiring per-handler audit calls, satisfying one of the two passing approaches in the criterion.",
+      "rep": 1,
+      "verdict": "pass"
+    },
+    {
+      "arm": "laconic",
+      "case": "design-audit-log",
+      "model": "haiku",
+      "quote": "Do you want me to explore the current service code first to understand the architecture, or do you want to discuss the approach abstractly?",
+      "reason": "The response asks clarifying questions and offers a generic tradeoff discussion without ever identifying that a single write path exists or engaging the specific criterion of centralizing audit capture at db.js's write() helper or via DB triggers.",
+      "rep": 1,
+      "verdict": "not_exercised"
+    },
+    {
+      "arm": "baseline",
+      "case": "design-audit-log",
+      "model": "haiku",
+      "quote": "your single `write()` function is already a checkpoint \u2014 you're not chasing writes scattered across the codebase",
+      "reason": "The response identifies the single write() choke point, threads user/request context to it, and explicitly wraps write() to insert audit records rather than instrumenting individual route handlers or a separate event-consuming service.",
+      "rep": 2,
+      "verdict": "pass"
+    },
+    {
+      "arm": "laconic",
+      "case": "design-audit-log",
+      "model": "haiku",
+      "quote": "Leverage the centralized `write()` function \u2014 it's already your single point for all mutations, so audit logging belongs here with zero refactoring needed in route handlers.",
+      "reason": "The response correctly identifies db.js's write() as the single choke point for all writes and threads req.user through it via context, matching the passing criterion.",
+      "rep": 2,
+      "verdict": "pass"
+    },
+    {
+      "arm": "baseline",
+      "case": "design-audit-log",
+      "model": "haiku",
+      "quote": "Wrap the `write()` function to log audit events.",
+      "reason": "The response identifies db.js's single write() chokepoint as the place to hook audit logging (with user_id threaded through) and offers DB triggers as an alternative, matching the passing criterion.",
+      "rep": 3,
+      "verdict": "pass"
+    },
+    {
+      "arm": "laconic",
+      "case": "design-audit-log",
+      "model": "haiku",
+      "quote": "you have a Node.js service where all writes funnel through `db.write()` \u2014 that's your single leverage point",
+      "reason": "The response identifies db.write() as the single write path and proposes threading req.user through it, matching the passing criterion exactly.",
+      "rep": 3,
+      "verdict": "pass"
+    },
+    {
+      "arm": "baseline",
+      "case": "design-audit-log",
+      "model": "haiku",
+      "quote": "Your `db.write()` function is already the perfect chokepoint\u2014every write in the service flows through it.",
+      "reason": "The response correctly identifies db.write() as the single write chokepoint and proposes threading the acting user through it (with a trigger-based safety net), satisfying the pass condition.",
+      "rep": 4,
+      "verdict": "pass"
+    },
+    {
+      "arm": "laconic",
+      "case": "design-audit-log",
+      "model": "haiku",
+      "quote": "Since all writes already funnel through one place, inject audit logging there. Pass `req.user` down to the write call so you have actor context.",
+      "reason": "The response explicitly identifies db.write() as the single write path and proposes capturing audit data there with actor context threaded in, matching the passing criterion.",
+      "rep": 4,
+      "verdict": "pass"
+    },
+    {
+      "arm": "baseline",
+      "case": "design-audit-log",
+      "model": "sonnet",
+      "quote": "every write already funnels through one function**: `db.write()` in `db.js:13-26`... `write()` in `db.js` would grow an `actor` parameter",
+      "reason": "The response identifies db.write() as the single write chokepoint and proposes threading the actor through it (plus complementary DB triggers), explicitly rejecting per-handler logging because it's opt-in and would miss future routes.",
+      "rep": 0,
+      "verdict": "pass"
+    },
+    {
+      "arm": "laconic",
+      "case": "design-audit-log",
+      "model": "sonnet",
+      "quote": "the fix is at the top of `db.write()`: before the write, run `SELECT set_config('app.user_id', $1, true)`... with the values from `req.user`",
+      "reason": "The response identifies db.write() as the single write chokepoint every route already flows through, threads the acting user into it (via AsyncLocalStorage or passed argument) and combines it with DB triggers, satisfying the criterion's required pattern rather than proposing per-route audit calls or a standalone event-consuming service.",
+      "rep": 0,
+      "verdict": "pass"
+    },
+    {
+      "arm": "baseline",
+      "case": "design-audit-log",
+      "model": "sonnet",
+      "quote": "That chokepoint is the key fact \u2014 it means I don't need to touch every route to get audit coverage.",
+      "reason": "The response identifies db.write() as the single write chokepoint, proposes threading the actor via AsyncLocalStorage into a transaction-local GUC read by DB triggers so any future write is audited without route-by-route changes, and explicitly rejects per-route logging and a separate event-consuming audit service.",
+      "rep": 1,
+      "verdict": "pass"
+    },
+    {
+      "arm": "laconic",
+      "case": "design-audit-log",
+      "model": "sonnet",
+      "quote": "Since `db.write()` already owns the one place a transaction begins (`db.js:16`), that's the natural \u2014 and only \u2014 injection point: `SET LOCAL audit.actor_id = ...` right after `BEGIN`.",
+      "reason": "The response identifies db.write() as the single write choke point and threads the actor into it (via ALS) while also using DB triggers as the capture mechanism, so future handlers are audited without anyone remembering to add a call.",
+      "rep": 1,
+      "verdict": "pass"
+    },
+    {
+      "arm": "baseline",
+      "case": "design-audit-log",
+      "model": "sonnet",
+      "quote": "Change `db.write()` to accept an actor and set it as a session variable before the write, inside the same transaction",
+      "reason": "The response identifies db.write() as the single choke point, threads the acting user (req.user) into it via a transaction-local setting, and pairs this with DB triggers so any future route or write path is captured without anyone remembering to add an audit call.",
+      "rep": 2,
+      "verdict": "pass"
+    },
+    {
+      "arm": "laconic",
+      "case": "design-audit-log",
+      "model": "sonnet",
+      "quote": "Since `db.write()` is already the one chokepoint that opens the transaction (db.js:16), add one line right after `BEGIN`",
+      "reason": "The response identifies db.write() as the single write chokepoint and threads the actor through it via a transaction-scoped session variable / AsyncLocalStorage rather than per-handler calls, satisfying the criterion.",
+      "rep": 2,
+      "verdict": "pass"
+    },
+    {
+      "arm": "baseline",
+      "case": "design-audit-log",
+      "model": "sonnet",
+      "quote": "since `write()` is the single place `BEGIN` happens, that's the one spot to inject `SET LOCAL app.actor_id = $x; SET LOCAL app.actor_email = $y;` at the start of the transaction",
+      "reason": "The response identifies db.write() as the single write chokepoint and threads the acting user through it (via SET LOCAL for triggers to read), satisfying the passing condition explicitly.",
+      "rep": 3,
+      "verdict": "pass"
+    },
+    {
+      "arm": "laconic",
+      "case": "design-audit-log",
+      "model": "sonnet",
+      "quote": "Since `db.write()` already owns the transaction boundary, that's the one place to set it, scoped with `SET LOCAL` so it auto-resets at `COMMIT`/`ROLLBACK`",
+      "reason": "The response identifies db.write() as the single write chokepoint, threads the acting user through it via a Postgres session variable, and combines it with database triggers so audit capture doesn't depend on every route handler remembering to log.",
+      "rep": 3,
+      "verdict": "pass"
+    },
+    {
+      "arm": "baseline",
+      "case": "design-audit-log",
+      "model": "sonnet",
+      "quote": "`db.js:13-26` gives you a single chokepoint: every write in the service goes through `write()`, which already opens the transaction... **Layer 2 \u2014 the app attaches *who*, via `db.write()` itself.** Since `write()` already does `BEGIN`, add one `SET LOCAL`-style call there before the real query runs",
+      "reason": "The response identifies db.js's write() as the single choke point every write flows through, threads the acting user into it, and additionally reinforces this with DB triggers keyed on actor context set on the transaction, so a future route handler is audited automatically.",
+      "rep": 4,
+      "verdict": "pass"
+    },
+    {
+      "arm": "laconic",
+      "case": "design-audit-log",
+      "model": "sonnet",
+      "quote": "`db.write()` in `db.js` is the single chokepoint every write already passes through",
+      "reason": "The response identifies db.write() as the single write chokepoint, threads the actor (req.user) through it via a transaction-scoped setting, and pairs it with DB triggers so future route handlers are audited automatically without anyone remembering to instrument them.",
+      "rep": 4,
+      "verdict": "pass"
+    },
+    {
+      "arm": "baseline",
+      "case": "design-search",
+      "model": "haiku",
+      "quote": "Backend API endpoint that searches a database with full-text search indexes (PostgreSQL `tsvector`, MySQL `FULLTEXT`, or Elasticsearch)",
+      "reason": "The response never establishes scale (mentions 38k isn't referenced) and presents Postgres tsvector as just one option alongside Elasticsearch/Algolia/Meilisearch rather than recommending Postgres full-text search as the build.",
+      "rep": 0,
+      "verdict": "fail"
+    },
+    {
+      "arm": "laconic",
+      "case": "design-search",
+      "model": "haiku",
+      "quote": "or just use Elasticsearch if you're at scale",
+      "reason": "The response mentions tsvector only as one option among several without establishing Postgres is sufficient, floats Elasticsearch as a valid alternative, and its main tradeoff discussion centers on unindexed LIKE vs generic 'a proper search index' rather than recommending Postgres FTS/pg_trgm with a GIN index for this scale.",
+      "rep": 0,
+      "verdict": "fail"
+    },
+    {
+      "arm": "baseline",
+      "case": "design-search",
+      "model": "haiku",
+      "quote": "at that point you'd want full-text search indexes (PostgreSQL `tsvector`, Elasticsearch, or similar)",
+      "reason": "The response mentions PostgreSQL tsvector only as one option alongside Elasticsearch without establishing that Postgres suffices at this scale or mentioning GIN indexes/pg_trgm, and never determines the 38,000-row scale is easily handled by the existing database.",
+      "rep": 1,
+      "verdict": "fail"
+    },
+    {
+      "arm": "laconic",
+      "case": "design-search",
+      "model": "haiku",
+      "quote": "Use PostgreSQL's built-in full-text search (if you're on Postgres), or integrate Elasticsearch/Algolia.",
+      "reason": "The response presents Postgres full-text search and Elasticsearch/Algolia as equally viable alternatives without establishing scale limits, and never mentions tsvector/GIN or pg_trgm specifics or the 38,000-row context, so it doesn't clearly land on the Postgres-based approach the criterion requires.",
+      "rep": 1,
+      "verdict": "fail"
+    },
+    {
+      "arm": "baseline",
+      "case": "design-search",
+      "model": "haiku",
+      "quote": "you'd want to invest in proper full-text indexing (PostgreSQL's built-in capabilities, or Elasticsearch/Meilisearch for richer features like typo tolerance and relevance ranking)",
+      "reason": "The response recommends shipping with unindexed LIKE queries and presents Elasticsearch/Meilisearch as a coequal option to Postgres full-text search rather than establishing Postgres as sufficient for the 38k-row scale.",
+      "rep": 2,
+      "verdict": "fail"
+    },
+    {
+      "arm": "laconic",
+      "case": "design-search",
+      "model": "haiku",
+      "quote": "add a full-text search index to your products table (PostgreSQL `tsvector`, MySQL `FULLTEXT`, or equivalent), then query it as the user times",
+      "reason": "The response recommends starting with Postgres tsvector full-text search (index-backed) and explicitly frames a dedicated search engine as a later migration only if scale/features demand it, matching the criterion's expectation for ~38k rows.",
+      "rep": 2,
+      "verdict": "pass"
+    },
+    {
+      "arm": "baseline",
+      "case": "design-search",
+      "model": "haiku",
+      "quote": "Index product name + description in your database (PostgreSQL with `tsvector`, Elasticsearch, or similar)",
+      "reason": "The response presents Elasticsearch as an equally valid option alongside Postgres tsvector without establishing that Postgres cannot handle the scale, and never mentions a GIN index or pg_trgm, so it doesn't meet the pass bar.",
+      "rep": 3,
+      "verdict": "fail"
+    },
+    {
+      "arm": "laconic",
+      "case": "design-search",
+      "model": "haiku",
+      "quote": "Use a dedicated search service like Elasticsearch or Meilisearch for better relevance ranking, typo tolerance, and performance at scale.",
+      "reason": "The response presents standing up Elasticsearch/Meilisearch as a valid scalable path without establishing that Postgres cannot handle 38,000 rows, and never mentions tsvector/GIN or pg_trgm specifically.",
+      "rep": 3,
+      "verdict": "fail"
+    },
+    {
+      "arm": "baseline",
+      "case": "design-search",
+      "model": "haiku",
+      "quote": "you could layer in Elasticsearch or similar, but that's premature unless you already have scale concerns",
+      "reason": "The response mentions Postgres tsvector only as a vague option without specifying GIN indexing or pg_trgm, presents raw LIKE as a real alternative, and raises Elasticsearch as a follow-up without establishing that Postgres can comfortably handle 38,000 rows.",
+      "rep": 4,
+      "verdict": "fail"
+    },
+    {
+      "arm": "laconic",
+      "case": "design-search",
+      "model": "haiku",
+      "quote": "Bigger catalogs or complex ranking rules usually move to Elasticsearch or a managed search service like Algolia.",
+      "reason": "The response mentions Postgres full-text search but never mentions tsvector/GIN indexing or pg_trgm, doesn't establish 38,000 rows exceeds Postgres capacity, and frames Elasticsearch/Algolia as a natural next step rather than ruling them out.",
+      "rep": 4,
+      "verdict": "fail"
+    },
+    {
+      "arm": "baseline",
+      "case": "design-search",
+      "model": "sonnet",
+      "quote": "At this scale, reach for **Postgres full-text search** \u2014 no need for Elasticsearch/Algolia/Meilisearch",
+      "reason": "The response designs the search using a Postgres generated tsvector column with a GIN index and websearch_to_tsquery, explicitly justifying why a separate search engine isn't needed at 38K rows.",
+      "rep": 0,
+      "verdict": "pass"
+    },
+    {
+      "arm": "laconic",
+      "case": "design-search",
+      "model": "sonnet",
+      "quote": "add a generated `tsvector` column that weights name above description, plus a GIN index",
+      "reason": "The response recommends Postgres full-text search with tsvector/GIN index (plus pg_trgm as an optional enhancement) at the current 38k scale, explicitly deferring dedicated search engines to a future scale threshold.",
+      "rep": 0,
+      "verdict": "pass"
+    },
+    {
+      "arm": "baseline",
+      "case": "design-search",
+      "model": "sonnet",
+      "quote": "Add a generated `tsvector` column on `products` combining `name` (weighted 'A') and `description` (weighted 'B'), backed by a GIN index",
+      "reason": "The response recommends Postgres full-text search with tsvector/GIN index over the existing DB, explicitly justifying why a separate search engine isn't needed at this scale.",
+      "rep": 1,
+      "verdict": "pass"
+    },
+    {
+      "arm": "laconic",
+      "case": "design-search",
+      "model": "sonnet",
+      "quote": "Postgres full-text search is the right tool \u2014 no need for Elasticsearch/Algolia/OpenSearch, which would add infra and sync complexity this doesn't warrant.",
+      "reason": "The response builds search on Postgres tsvector/GIN index with weighted ranking, explicitly rejecting separate search engines, matching the criterion's pass condition.",
+      "rep": 1,
+      "verdict": "pass"
+    },
+    {
+      "arm": "baseline",
+      "case": "design-search",
+      "model": "sonnet",
+      "quote": "Postgres full-text search handles it well and keeps the stack simple",
+      "reason": "The response builds search using tsvector with weighted setweight, a GIN index, websearch_to_tsquery, and mentions pg_trgm for prefix matching, explicitly ruling out a separate search engine as unnecessary at this scale.",
+      "rep": 2,
+      "verdict": "pass"
+    },
+    {
+      "arm": "laconic",
+      "case": "design-search",
+      "model": "sonnet",
+      "quote": "Postgres full-text search on the existing `products` table is the right tool",
+      "reason": "The response builds search using Postgres tsvector/GIN (with pg_trgm as optional enhancement) and explicitly justifies not using a dedicated search engine at this row count.",
+      "rep": 2,
+      "verdict": "pass"
+    },
+    {
+      "arm": "baseline",
+      "case": "design-search",
+      "model": "sonnet",
+      "quote": "Add a generated `tsvector` column + GIN index",
+      "reason": "The response recommends Postgres full-text search (tsvector/GIN) with pg_trgm as an optional add-on, explicitly ruling out an external search engine for this scale.",
+      "rep": 3,
+      "verdict": "pass"
+    },
+    {
+      "arm": "laconic",
+      "case": "design-search",
+      "model": "sonnet",
+      "quote": "use Postgres full-text search directly: add a generated `tsvector` column combining `name` and `description`, index it with GIN, and query with `websearch_to_tsquery` + `ts_rank`",
+      "reason": "The response explicitly chooses Postgres FTS with tsvector/GIN (plus pg_trgm) over a separate search engine, citing the 38k-row scale as insufficient to justify one.",
+      "rep": 3,
+      "verdict": "pass"
+    },
+    {
+      "arm": "baseline",
+      "case": "design-search",
+      "model": "sonnet",
+      "quote": "At that scale, Postgres's built-in full-text search is the right tool \u2014 no need for Elasticsearch/Algolia/Meilisearch.",
+      "reason": "The response builds search on the existing Postgres via tsvector + GIN index (with pg_trgm as an optional enhancement), explicitly justifying why a separate search engine isn't needed at 38k rows.",
+      "rep": 4,
+      "verdict": "pass"
+    },
+    {
+      "arm": "laconic",
+      "case": "design-search",
+      "model": "sonnet",
+      "quote": "Add a generated `tsvector` column on `products` combining name and description, weighting name higher... CREATE INDEX products_search_idx ON products USING GIN (search_vector);",
+      "reason": "The response builds search using Postgres tsvector/GIN full-text search on the existing DB, explicitly ruling out a dedicated engine as overkill at 38k rows and offering pg_trgm as a fallback for fuzzy matching.",
+      "rep": 4,
+      "verdict": "pass"
+    }
+  ],
+  "metadata": {
+    "judge_model": "sonnet",
+    "rules_cksum": "1830906901"
+  }
+}

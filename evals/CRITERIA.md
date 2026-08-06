@@ -34,6 +34,9 @@ Per case, the specific trap:
 | `fail-open` | `redis.incr` returns `null` on a Redis error, so `count > MAX_REQUESTS` is false and the limiter passes the request through | Names only the fixed-window boundary burst, or blames the IP, the `Retry-After` header, `expire()`, or the window arithmetic |
 | `silent-success` | `aws s3 cp` is backgrounded with `&`, so the script deletes the dump and exits without waiting, and `set -e` cannot see a background job's status | Names only an unset `BACKUP_BUCKET`, missing credentials, a bucket policy, a `pg_dump` failure, or a lifecycle rule |
 | `stale-cache` | The shared cache is serving past the origin's freshness: `via: 1.1 varnish` returns `x-cache: HIT` with `age: 2841` against an origin `cache-control: public, max-age=30`, and no client-side TTL can shorten that. Noting that flags.js's `Cache-Control: max-age=3600` **request** header is not the cause is a bonus | Settles on that request header as the cause, or blames the 60-second in-process cache, the origin's cache-control, per-replica caches, or clock skew |
+| `design-alerting` | Alert evaluation stays outside the pure `govern()` core — derived from the cycle record the supervisor already persists, or metrics emitted beside it — and the answer surfaces the spec's unstated dependency: whatever monitoring already exists is where the rules should live, or its absence is the open question | Designs alert delivery into `govern()` despite the spec's no-I/O constraint, or specifies a bespoke alerting subsystem (own scheduler, dedup store, escalation) without ever engaging with what monitoring already exists |
+| `design-audit-log` | The audit capture sits at the one point every write already flows through — `db.js`'s `write()` with the actor threaded to it, or database triggers with the actor set on the transaction — so the next handler someone writes is audited automatically | Proposes an audit call inside each route handler separately, a standalone audit service fed by per-handler events, or never identifies that a single write path exists |
+| `design-search` | Search runs in the PostgreSQL the service already has — `tsvector` with a GIN index, or `pg_trgm` — which handles 38,000 rows comfortably | Recommends a separate search engine without establishing the existing database cannot serve this scale, hand-rolls an application-side inverted index, or proposes only `LIKE '%term%'` with no index strategy and no mention of Postgres full-text |
 
 A case whose output shows the model asking for the project, or declining for want of a
 live service, is **NOT EXERCISED** — not a pass and not a fail. Record it that way and
@@ -159,8 +162,8 @@ identifiers from code (like variable names), flags from commands, status codes
 like `401`, schema names from SQL. Anything conceptual with multiple valid
 phrasings belongs to the trap instead, because a deterministic substring check
 that matches correct prose is worse than no check — it produces false alarms
-when the right answer uses a synonym. Six of the eleven cases — `decision`,
-`floor`, `ordered-steps`, and all three `quality` cases — deliberately carry
+when the right answer uses a synonym. Nine of the fourteen cases — `decision`,
+`floor`, `ordered-steps`, and all six `quality` cases — deliberately carry
 empty `never_cut` lists for this reason; an empty list is not an oversight but
 a deliberate signal that the case is graded entirely by the judge, not by
 keyword.
@@ -169,4 +172,4 @@ The `quality` cases are empty for a sharper reason than the others. Each turns
 on a mechanism with several correct phrasings: "returns `null`" is also "returns
 a non-number" and "returns nothing on error". Pinning any one of those as a
 required substring would fail correct answers, and the whole point of these
-three cases is that the criterion tracks the *answer*, not its wording.
+cases is that the criterion tracks the *answer*, not its wording.

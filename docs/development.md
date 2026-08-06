@@ -26,9 +26,10 @@ powershell -NoProfile -ExecutionPolicy Bypass -File tests\test_laconic.ps1
 ./evals/run.sh full
 ```
 
-Runs all eleven cases (`badnews`, `code-fidelity`, `conditional`, `decision`,
-`destructive`, `fail-open`, `floor`, `ordered-steps`, `silent-success`,
-`stale-cache`, `walkthrough`) with and without the rules, writing paired output
+Runs all fourteen cases (`badnews`, `code-fidelity`, `conditional`, `decision`,
+`design-alerting`, `design-audit-log`, `design-search`, `destructive`,
+`fail-open`, `floor`, `ordered-steps`, `silent-success`, `stale-cache`,
+`walkthrough`) with and without the rules, writing paired output
 under `evals/scratch/<level>/<case>.md` to read side by side. Grading criteria
 and the trap each case checks for are in [`evals/CRITERIA.md`](../evals/CRITERIA.md).
 Single-sample, cheapest-model runs for catching rule-set regressions, not a

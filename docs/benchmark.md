@@ -11,6 +11,12 @@ The laconic arm is `rules_cksum` 1830906901, generated 2026-08-03; the three
 control arms are carried unchanged from the 2026-07-30 generation, because no
 control carries rules in its system prompt and none of them can have moved.
 
+Three design-question cases (`design-alerting`, `design-audit-log`,
+`design-search`, added 2026-08-06 for
+[#46](https://github.com/JordanMPDS/laconic/issues/46)) postdate every table
+in this document; they enter the published numbers at the next baseline
+regeneration ([#45](https://github.com/JordanMPDS/laconic/issues/45)).
+
 | vs baseline | tokens (sonnet) | tokens (haiku) | latency (sonnet) | readability violations | answers correct | never-cut failures |
 |---|--:|--:|--:|--:|--:|--:|
 | **laconic** | **-38%** | -1% | **-28%** | **26** | 23 / 30 | 1 / 50 |

@@ -9,5 +9,7 @@ Reached only by `--cases-dir evals/holdout`, which `run.py`, `judge.py`,
 `tests/test_evals_layout.sh` fails if one appears under `evals/cases/`.
 
 Coverage: two never-cut items (a destructive action, an ordered procedure), one
-requested explanation, and one ordinary short question whose correct answer is
-brief.
+requested explanation, one ordinary short question whose correct answer is
+brief, and one bare design question ("how would that be built?") whose
+fixture-anchored answer reuses a mechanism the service already runs
+([#46](https://github.com/JordanMPDS/laconic/issues/46)).

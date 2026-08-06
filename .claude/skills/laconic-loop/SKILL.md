@@ -121,9 +121,13 @@ moved its two named cases 21 arrows to 5 and reached the gate as 26 to 20,
 p = 0.231. The scoped line prints the round-wide number beside the scoped one,
 and the cases must be named in step 5, not picked once the round is in.
 
-`--target-cases` scopes a count target only. `output_tokens` is judged by a sign
-test across cells, and four cells cannot reach alpha whatever the move is, so a
-scoped token target is refused rather than left silently unreachable.
+`--target-cases` also scopes `output_tokens`, but only when the named cases
+yield at least 6 case/model cells: the sign test is two-sided exact, so a sweep
+of 4 cells is p = 0.125 and can never reach alpha, and smaller scopes are
+refused rather than left silently unreachable. The scoped noise floor is
+rebuilt the way `NOISE`'s 209 is — the median per-cell stdev over the scoped
+sonnet cells of the baseline snapshot — and a scope with no sonnet cell is
+refused rather than handed a softer gate.
 
 **Rejects on its own:** a never-cut verdict lost, a quality verdict lost, a
 safety verdict lost, readability violations up — all four round-wide, whatever

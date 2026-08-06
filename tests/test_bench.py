@@ -1472,12 +1472,77 @@ v, why = bench_report.accept_verdict(
 check("an unscoped summary rejects rather than falling back to the round",
       v == "reject" and any("same scope" in r for r in why))
 
-# Two cases and two models is four cells, and sign_test(4, 4) = 0.125: a scoped
-# token target could never clear alpha, so it is refused rather than offered.
+# Scoped output_tokens is offered from 6 cells up: sign_test(4, 4) = 0.125 and
+# sign_test(5, 5) = 0.0625 can never reach alpha, so smaller scopes are still
+# refused - with the arithmetic printed rather than a blanket no.
+SCOPE3 = ["badnews", "ordered-steps", "walkthrough"]
+STDEV3 = {("badnews", "sonnet"): 75.8, ("ordered-steps", "sonnet"): 138.5,
+          ("walkthrough", "sonnet"): 1519.1}
+
+
+def _tok6(bn_h, bn_s, os_h, os_s, wt_h, wt_s):
+    t = TEN_CELLS(500)
+    t.update({("badnews", "haiku"): bn_h, ("badnews", "sonnet"): bn_s,
+              ("ordered-steps", "haiku"): os_h, ("ordered-steps", "sonnet"): os_s,
+              ("walkthrough", "haiku"): wt_h, ("walkthrough", "sonnet"): wt_s})
+    return t
+
+
+def _scoped_tok(tokens, stdev=None, cases=SCOPE3, **kw):
+    s = _scoped(cases=cases, **kw)
+    s["tokens"] = tokens
+    if stdev is not None:
+        s["tokens_stdev"] = stdev
+    return s
+
+
+# Round 01's real scoped cells: median 856, sonnet-cell floor 138.5.
+base6 = _scoped_tok(_tok6(442, 439, 653, 1059, 1163, 3666), stdev=STDEV3)
+
 v, why = bench_report.accept_verdict(
-    _scoped(), _scoped(), "output_tokens", target_cases=CASES2)
-check("a scoped output_tokens target is refused, not silently unreachable",
-      v == "reject" and any("scopes a count target" in r for r in why))
+    base6, _scoped_tok(_tok6(380, 400, 500, 700, 900, 1700)),
+    "output_tokens", target_cases=SCOPE3)
+check("a 6-cell sweep past the scoped floor is accepted", v == "accept")
+check("the scoped token line names its floor",
+      any("scoped floor 138.5" in r for r in why))
+check("the scoped token line discloses the round-wide cells",
+      any("round-wide" in r for r in why))
+
+v, why = bench_report.accept_verdict(
+    base6, _scoped_tok(_tok6(380, 450, 500, 700, 900, 1700)),
+    "output_tokens", target_cases=SCOPE3)
+check("5 of 6 scoped cells fails the sign test at p = 0.219",
+      v == "reject" and any("p = 0.219" in r for r in why))
+
+v, why = bench_report.accept_verdict(
+    base6, _scoped_tok(_tok6(441, 438, 652, 1058, 1162, 3660)),
+    "output_tokens", target_cases=SCOPE3)
+check("a 6-cell sweep inside the scoped floor is rejected on magnitude",
+      v == "reject" and any("scoped noise floor" in r for r in why))
+
+v, why = bench_report.accept_verdict(
+    base6, _scoped_tok(_tok6(380, 400, 500, 700, 900, 1700), nc=1),
+    "output_tokens", target_cases=SCOPE3)
+check("a round-wide never-cut loss rejects a passing scoped token target",
+      v == "reject" and any("never-cut" in r for r in why))
+
+four = {("ordered-steps", m): 100 for m in ("haiku", "sonnet")}
+four.update({("walkthrough", m): 100 for m in ("haiku", "sonnet")})
+v, why = bench_report.accept_verdict(
+    _scoped_tok(dict(four), stdev={("walkthrough", "sonnet"): 100.0},
+                cases=CASES2),
+    _scoped_tok({k: v_ - 90 for k, v_ in four.items()}, cases=CASES2),
+    "output_tokens", target_cases=CASES2)
+check("a 4-cell scope is still refused, with the arithmetic",
+      v == "reject" and any("at least 6" in r and "p = 0.125" in r for r in why))
+
+haiku6 = {(c, "haiku"): 100 for c in "abcdef"}
+v, why = bench_report.accept_verdict(
+    _scoped_tok(dict(haiku6), stdev={}, cases=list("abcdef")),
+    _scoped_tok({k: 10 for k in haiku6}, cases=list("abcdef")),
+    "output_tokens", target_cases=list("abcdef"))
+check("a scope with no sonnet cell in the baseline has no floor and refuses",
+      v == "reject" and any("no sonnet cell" in r for r in why))
 
 # round_summary's scope is an addition, never a replacement.
 rs_scoped = bench_report.round_summary(

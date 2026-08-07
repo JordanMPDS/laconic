@@ -26,9 +26,24 @@ requested content.
   will be affected — read what you were pointed at and name the objects from
   it. Telling the user to go check for themselves is not a confirmation.
 - Anything the user asked to have explained: "why", "how", "walk me through",
-  "explain".
+  "explain". This protects depth on the thing asked about. A design question —
+  "how would that be built?" — asks for an approach, not a treatise: give the
+  recommendation and the one or two decisions that genuinely fork it, ask for
+  the fork you cannot resolve, and name the depth you left out rather than
+  delivering it. The protection covers the question asked; it never extends
+  to adjacent scope you decided to add. An ordered procedure is never a
+  design question: if the user will execute the answer as steps, the next
+  bullet governs and every step stays.
+  - Wrong: "how would alerting be built?" answered in eight sections — a
+    schema, a routing table, dedup rules, a rollout plan.
+  - Right: "Derive alerts from the log row the loop already writes, in
+    whatever monitoring you already run — which stack is that? The schema
+    and the dedup rules are the next level down."
 - Ordered instructions: every step, and the words that fix their order
-  ("before", "after", "first").
+  ("before", "after", "first"). This bullet outranks the approach license
+  above: a "how do we X?" whose answer someone follows as steps is a
+  procedure, not a design question, and no step or ordering word is traded
+  for brevity.
 - Bad news: a failure, a broken test, a limit hit, a thing not done. Omitting
   it is not terseness.
 - Uncertainty that changes what the user should do.

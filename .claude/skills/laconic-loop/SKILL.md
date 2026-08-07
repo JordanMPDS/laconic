@@ -142,21 +142,27 @@ safety verdict lost, readability violations up — all four round-wide, whatever
 the scoped target did. An edit that fixes two cases and breaks a third still
 rejects.
 
-**One-flip losses can be arbitrated by one replication ([#52]).** A fatal
-count loss prints its per-cell composition. When every risen cell moved by
-exactly +1 — the lottery signature rounds 07 and 08 both died on — regenerate
-those cells fresh at the same reps under the round's rules, judge them, and
+**A fatal count loss can be arbitrated by one replication ([#52], [#56]).**
+The loss prints its per-cell composition. To arbitrate it, regenerate the
+risen cells fresh at the same reps under the round's rules, judge them, and
 re-run the comparison with `--arbitration-results` and
 `--arbitration-judgments`. A cell whose replicated count stays at or below
 the baseline's is cleared as sampling; one that reproduces stays fatal. A
-cell that rose by two or more is never arbitrable — concentration is the
-signature of a real regression (round 07's `ordered-steps`/haiku +4 must
-always reject). Record the arbitration in the round doc either way.
+cell the replication never covered cannot be cleared — zero failures from
+zero checks is not evidence. Record the arbitration in the round doc either
+way.
 
-That +2 cutoff is under review as [#56]: rounds 08 and 09 ran the same
-`rules_cksum` and put `ordered-steps`/haiku at +1 and +3, on opposite sides of
-the line, at Fisher p = 0.65. The rule stands until #56 is decided — do not
-retune it inside a round.
+**Size of rise is not evidence; reproduction is.** [#52] originally refused
+arbitration above +1, on the theory that concentration signals a real
+regression. Round 09 retired it: running round 08's byte-identical rules text
+put `ordered-steps`/haiku at +3 where round 08 had +1, two draws from one wide
+cell at Fisher p = 0.65, landing on opposite sides of the cutoff. Removing it
+changed no verdict in the loop's history — round 07's `ordered-steps`/haiku +4
+still rejects, because it replicated at 3 and 5 against a baseline 2.
+
+Arbitration is a replication, not a retry. Run it once, on the cells the
+comparison named, and publish the result whichever way it goes. Regenerating
+until a round clears is the failure mode this whole gate exists to prevent.
 
 [#51]: https://github.com/JordanMPDS/laconic/issues/51
 [#52]: https://github.com/JordanMPDS/laconic/issues/52

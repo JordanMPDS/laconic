@@ -242,15 +242,22 @@ def accept_verdict(prev, cur, target, noise=None, target_cases=None,
 
     arbitration, when given, is a round_summary over one fresh replication of
     disputed cells, generated at the same reps under the round's rules (#52).
-    A fatal count loss whose risen cells each moved by exactly +1 can be
-    cleared by it: the cell must be present in the replication (generated,
-    and for judge-verdict metrics judged) and its replicated count must be at
-    or below the baseline's. A cell that rose by two or more is never
-    arbitrable - concentration is the signature of a real regression, and
-    round 07's ordered-steps/haiku +4 is exactly what must always reject.
+    Any risen cell can be cleared by it, on two conditions: the cell must be
+    present in the replication (generated, and for judge-verdict metrics
+    judged), and its replicated count must be at or below the baseline's.
     Rounds 07 and 08 both died partly on four separate +1 flips in known
     lottery cells; a strict inequality on raw counts fires on those at any
     reps, so the screen stays strict and one replication arbitrates.
+
+    Arbitration used to be refused above +1, on the theory that concentration
+    is the signature of a real regression. Round 09 retired that theory (#56):
+    it ran round 08's byte-identical rules text and put ordered-steps/haiku at
+    +3 where round 08 had +1, two draws from one wide cell at Fisher p = 0.65,
+    sorted onto opposite sides of the cutoff. Size of rise is not evidence of
+    reality here; whether a replication reproduces it is. The cases the cutoff
+    was written to protect are unaffected, because they reproduce: round 07's
+    ordered-steps/haiku +4 replicated at 3 and 5 against a baseline 2, so it
+    still rejects under this rule.
 
     Fatal conditions reject alone. For output_tokens the target has to beat the
     noise floor on both estimators - a sign test across the case/model cells and
@@ -301,8 +308,7 @@ def accept_verdict(prev, cur, target, noise=None, target_cases=None,
                        else arbitration.get("judged_cells")) or set()
             arb_cells = (arbitration.get("cells") or {}).get(key, {})
             cleared = [c for c in risen
-                       if cur_cells.get(c, 0) - prev_cells.get(c, 0) == 1
-                       and c in covered
+                       if c in covered
                        and arb_cells.get(c, 0) <= prev_cells.get(c, 0)]
             blocked = [c for c in risen if c not in cleared]
             if not blocked:
@@ -318,10 +324,9 @@ def accept_verdict(prev, cur, target, noise=None, target_cases=None,
             else:
                 comp += ("; replication did not clear %s"
                          % ", ".join("%s/%s" % c for c in blocked))
-        elif risen and all(cur_cells.get(c, 0) - prev_cells.get(c, 0) == 1
-                           for c in risen):
-            comp += (" (one-flip composition - arbitrate by replicating the "
-                     "risen cells at the same reps; see the loop skill)")
+        elif risen:
+            comp += (" (arbitrable - replicate the risen cells at the same "
+                     "reps; see the loop skill)")
         reasons.append("REJECT: %s lost (%d -> %d)%s"
                        % (label, prev[key], cur[key], comp))
         fatal = True

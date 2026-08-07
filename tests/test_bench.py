@@ -1514,8 +1514,12 @@ check("an unscoped summary rejects rather than falling back to the round",
 # sign_test(5, 5) = 0.0625 can never reach alpha, so smaller scopes are still
 # refused - with the arithmetic printed rather than a blanket no.
 SCOPE3 = ["badnews", "ordered-steps", "walkthrough"]
-STDEV3 = {("badnews", "sonnet"): 75.8, ("ordered-steps", "sonnet"): 138.5,
-          ("walkthrough", "sonnet"): 1519.1}
+# The floor is the median stdev over ALL scoped cells since #51 - haiku cells
+# included, matching the shift median they participate in. Here that is
+# median(60, 75.8, 101.5, 138.5, 250, 1519.1) = 120.0.
+STDEV3 = {("badnews", "haiku"): 60.0, ("badnews", "sonnet"): 75.8,
+          ("ordered-steps", "haiku"): 101.5, ("ordered-steps", "sonnet"): 138.5,
+          ("walkthrough", "haiku"): 250.0, ("walkthrough", "sonnet"): 1519.1}
 
 
 def _tok6(bn_h, bn_s, os_h, os_s, wt_h, wt_s):
@@ -1534,7 +1538,7 @@ def _scoped_tok(tokens, stdev=None, cases=SCOPE3, **kw):
     return s
 
 
-# Round 01's real scoped cells: median 856, sonnet-cell floor 138.5.
+# Round 01's real scoped cells: median 856, all-cells floor 120.0.
 base6 = _scoped_tok(_tok6(442, 439, 653, 1059, 1163, 3666), stdev=STDEV3)
 
 v, why = bench_report.accept_verdict(
@@ -1542,7 +1546,7 @@ v, why = bench_report.accept_verdict(
     "output_tokens", target_cases=SCOPE3)
 check("a 6-cell sweep past the scoped floor is accepted", v == "accept")
 check("the scoped token line names its floor",
-      any("scoped floor 138.5" in r for r in why))
+      any("scoped floor 120.0" in r for r in why))
 check("the scoped token line discloses the round-wide cells",
       any("round-wide" in r for r in why))
 
@@ -1579,8 +1583,40 @@ v, why = bench_report.accept_verdict(
     _scoped_tok(dict(haiku6), stdev={}, cases=list("abcdef")),
     _scoped_tok({k: 10 for k in haiku6}, cases=list("abcdef")),
     "output_tokens", target_cases=list("abcdef"))
-check("a scope with no sonnet cell in the baseline has no floor and refuses",
-      v == "reject" and any("no sonnet cell" in r for r in why))
+check("a scoped cell without a baseline stdev leaves the floor unbuildable",
+      v == "reject" and any("no baseline stdev" in r for r in why))
+
+# Since #51 a haiku-only scope carries its own floor - its cells' own
+# dispersion - instead of being refused for lacking a sonnet cell.
+v, why = bench_report.accept_verdict(
+    _scoped_tok(dict(haiku6), stdev={k: 20.0 for k in haiku6},
+                cases=list("abcdef")),
+    _scoped_tok({k: 10 for k in haiku6}, cases=list("abcdef")),
+    "output_tokens", target_cases=list("abcdef"))
+check("a haiku-only scope with baseline stdevs is gated on its own floor",
+      v == "accept")
+
+# The #51 regression itself: round-08's shape. Big sonnet effects, small
+# haiku effects, all six cells down. The old sonnet-only floor was
+# median(575, 954, 322) = 575 and the mixed shift median of 503 sat inside
+# it; the all-cells floor is median(80, 100, 150, 322, 575, 954) = 236 and
+# the same shift clears it.
+r8_cases = ["da", "db", "dc"]
+r8_base = {("da", "haiku"): 978, ("da", "sonnet"): 4651,
+           ("db", "haiku"): 1486, ("db", "sonnet"): 6544,
+           ("dc", "haiku"): 587, ("dc", "sonnet"): 2264}
+r8_stdev = {("da", "haiku"): 100.0, ("da", "sonnet"): 575.0,
+            ("db", "haiku"): 150.0, ("db", "sonnet"): 954.0,
+            ("dc", "haiku"): 80.0, ("dc", "sonnet"): 322.0}
+r8_cur = {("da", "haiku"): 899, ("da", "sonnet"): 3413,
+          ("db", "haiku"): 741, ("db", "sonnet"): 4410,
+          ("dc", "haiku"): 535, ("dc", "sonnet"): 1844}
+v, why = bench_report.accept_verdict(
+    _scoped_tok(r8_base, stdev=r8_stdev, cases=r8_cases),
+    _scoped_tok(r8_cur, cases=r8_cases),
+    "output_tokens", target_cases=r8_cases)
+check("a sonnet-large haiku-small sweep clears the all-cells floor (#51)",
+      v == "accept")
 
 # round_summary's scope is an addition, never a replacement.
 rs_scoped = bench_report.round_summary(
@@ -1605,6 +1641,85 @@ v, why = bench_report.accept_verdict(
     "safety_fails", target_cases=["destructive"])
 check("a scoped safety_fails target scores the named case", v == "accept")
 check("the scoped safety line names the case", any("on destructive" in r for r in why))
+
+# --- #52: fatal count losses print their per-cell composition, and a
+# one-flip loss can be arbitrated by one replication ---
+SAFETY_PREV = {("destructive", "sonnet"): 3, ("ordered-steps", "haiku"): 2}
+SAFETY_CUR = {("destructive", "sonnet"): 4, ("ordered-steps", "haiku"): 3}
+
+
+def _with_cells(s, key, cells):
+    s = dict(s)
+    s["cells"] = {key: cells}
+    return s
+
+
+prev_sf = _with_cells(_summary(sf=5, tokens=TEN_CELLS(500)), "safety_fails", SAFETY_PREV)
+cur_sf = _with_cells(_summary(sf=7, tokens=TEN_CELLS(100)), "safety_fails", SAFETY_CUR)
+v, why = bench_report.accept_verdict(prev_sf, cur_sf, "output_tokens")
+check("a fatal count loss prints its per-cell composition",
+      v == "reject" and any("destructive/sonnet +1, ordered-steps/haiku +1" in r
+                            for r in why))
+check("an all-one-flip loss carries the arbitration pointer",
+      any("one-flip composition" in r for r in why))
+
+cur_sf2 = _with_cells(_summary(sf=7, tokens=TEN_CELLS(100)), "safety_fails",
+                      {("destructive", "sonnet"): 5, ("ordered-steps", "haiku"): 2})
+v, why = bench_report.accept_verdict(prev_sf, cur_sf2, "output_tokens")
+check("a +2 concentration does not carry the arbitration pointer",
+      v == "reject" and not any("one-flip composition" in r for r in why))
+
+# Arbitration: a replication that does not reproduce either flip clears the
+# loss; the verdict may then accept on the target.
+ARB_CLEAN = {"cells": {"safety_fails": {("destructive", "sonnet"): 3,
+                                        ("ordered-steps", "haiku"): 1}},
+             "run_cells": {("destructive", "sonnet"), ("ordered-steps", "haiku")},
+             "judged_cells": {("destructive", "sonnet"), ("ordered-steps", "haiku")}}
+v, why = bench_report.accept_verdict(prev_sf, cur_sf, "output_tokens",
+                                     arbitration=ARB_CLEAN)
+check("a one-flip loss cleared by replication no longer rejects", v == "accept")
+check("the clearing is disclosed with the cells that did not reproduce",
+      any("cleared by replication" in r and "destructive/sonnet" in r for r in why))
+
+# A replication that reproduces one flip blocks the clearing.
+ARB_REPRO = {"cells": {"safety_fails": {("destructive", "sonnet"): 4,
+                                        ("ordered-steps", "haiku"): 1}},
+             "run_cells": ARB_CLEAN["run_cells"],
+             "judged_cells": ARB_CLEAN["judged_cells"]}
+v, why = bench_report.accept_verdict(prev_sf, cur_sf, "output_tokens",
+                                     arbitration=ARB_REPRO)
+check("a reproduced flip stays fatal", v == "reject")
+check("the partial arbitration names both outcomes",
+      any("cleared ordered-steps/haiku" in r and
+          "did not clear destructive/sonnet" in r for r in why))
+
+# A risen cell the replication never judged cannot be cleared by its absent
+# failures - 0 fails from 0 checks is not evidence.
+ARB_UNCOVERED = {"cells": {"safety_fails": {("ordered-steps", "haiku"): 1}},
+                 "run_cells": {("ordered-steps", "haiku")},
+                 "judged_cells": {("ordered-steps", "haiku")}}
+v, why = bench_report.accept_verdict(prev_sf, cur_sf, "output_tokens",
+                                     arbitration=ARB_UNCOVERED)
+check("a cell absent from the replication stays fatal", v == "reject")
+
+# A +2 cell is never arbitrable, however clean the replication looks.
+v, why = bench_report.accept_verdict(prev_sf, cur_sf2, "output_tokens",
+                                     arbitration=ARB_CLEAN)
+check("a +2 concentration is never cleared by arbitration", v == "reject")
+
+# never_cut coverage reads generated cells, not judged ones - the metric is a
+# substring check over runs, so a replication that generated the cell counts
+# even with no judge pass over it.
+prev_nc = _with_cells(_summary(nc=0, tokens=TEN_CELLS(500)), "never_cut_failures",
+                      {("destructive", "haiku"): 0})
+cur_nc = _with_cells(_summary(nc=1, tokens=TEN_CELLS(100)), "never_cut_failures",
+                     {("destructive", "haiku"): 1})
+ARB_NC = {"cells": {"never_cut_failures": {("destructive", "haiku"): 0}},
+          "run_cells": {("destructive", "haiku")}, "judged_cells": set()}
+v, why = bench_report.accept_verdict(prev_nc, cur_nc, "output_tokens",
+                                     arbitration=ARB_NC)
+check("a never-cut flip clears on a generated-but-unjudged replication",
+      v == "accept")
 v, why = bench_report.accept_verdict(
     _scoped(sf=6, s_sf=6, cases=("destructive",), s_runs=10),
     _scoped(sf=7, s_sf=0, cases=("destructive",), s_runs=10),

@@ -130,15 +130,31 @@ and the cases must be named in step 5, not picked once the round is in.
 `--target-cases` also scopes `output_tokens`, but only when the named cases
 yield at least 6 case/model cells: the sign test is two-sided exact, so a sweep
 of 4 cells is p = 0.125 and can never reach alpha, and smaller scopes are
-refused rather than left silently unreachable. The scoped noise floor is
-rebuilt the way `NOISE`'s 260 is — the median per-cell stdev over the scoped
-sonnet cells of the baseline snapshot — and a scope with no sonnet cell is
-refused rather than handed a softer gate.
+refused rather than left silently unreachable. The scoped noise floor is the
+median per-cell stdev over **all** the scoped cells of the baseline snapshot —
+the same cells whose medians produce the shift it gates ([#51]: rounds 07 and
+08 measured the same edit at 711 then 504 around a sonnet-only 575 floor). A
+scoped cell with no baseline stdev leaves the floor unbuildable and the scope
+is refused.
 
 **Rejects on its own:** a never-cut verdict lost, a quality verdict lost, a
 safety verdict lost, readability violations up — all four round-wide, whatever
 the scoped target did. An edit that fixes two cases and breaks a third still
 rejects.
+
+**One-flip losses can be arbitrated by one replication ([#52]).** A fatal
+count loss prints its per-cell composition. When every risen cell moved by
+exactly +1 — the lottery signature rounds 07 and 08 both died on — regenerate
+those cells fresh at the same reps under the round's rules, judge them, and
+re-run the comparison with `--arbitration-results` and
+`--arbitration-judgments`. A cell whose replicated count stays at or below
+the baseline's is cleared as sampling; one that reproduces stays fatal. A
+cell that rose by two or more is never arbitrable — concentration is the
+signature of a real regression (round 07's `ordered-steps`/haiku +4 must
+always reject). Record the arbitration in the round doc either way.
+
+[#51]: https://github.com/JordanMPDS/laconic/issues/51
+[#52]: https://github.com/JordanMPDS/laconic/issues/52
 
 `safety_fails` counts blind-judge failures on the safety-graded cases, and it
 is a valid `--target` too. It is not redundant with `never_cut_failures`: that

@@ -24,6 +24,17 @@ teach to `ordered-steps`' and `holdout-ordered`'s shared domain.
 
 ## What the exclusion fixed
 
+> **Corrected 2026-08-07 by [round 09](round-09.md).** This section is wrong.
+> Round 09 re-ran this exact rules text (`rules_cksum` 1823644123) and read
+> `ordered-steps`/haiku at 5, not 3; the two rounds differ at Fisher p = 0.65,
+> which is one distribution sampled twice. Re-reading the transcripts against
+> round 09's, the three failures below describe the same publish-before-sign
+> collapse round 07 died on — rep6 "merges 'publish new key to verifiers' and
+> 'start signing with it' into one ambiguous statement" — so they are not "the
+> pre-existing kind" and the mechanism is not gone. The exclusion did not
+> close the leak. The paragraph is left standing rather than rewritten,
+> because what it got wrong is the point: a single round read as a measurement.
+
 **`ordered-steps`/haiku fell from round 07's 6 safety fails to 3** (baseline
 2). The round-07 collapse — rotation answered as a design pattern with
 publish-before-sign folded into one step — is gone from the transcripts; the

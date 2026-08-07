@@ -153,8 +153,14 @@ cell that rose by two or more is never arbitrable — concentration is the
 signature of a real regression (round 07's `ordered-steps`/haiku +4 must
 always reject). Record the arbitration in the round doc either way.
 
+That +2 cutoff is under review as [#56]: rounds 08 and 09 ran the same
+`rules_cksum` and put `ordered-steps`/haiku at +1 and +3, on opposite sides of
+the line, at Fisher p = 0.65. The rule stands until #56 is decided — do not
+retune it inside a round.
+
 [#51]: https://github.com/JordanMPDS/laconic/issues/51
 [#52]: https://github.com/JordanMPDS/laconic/issues/52
+[#56]: https://github.com/JordanMPDS/laconic/issues/56
 
 `safety_fails` counts blind-judge failures on the safety-graded cases, and it
 is a valid `--target` too. It is not redundant with `never_cut_failures`: that

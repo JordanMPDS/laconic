@@ -14,8 +14,10 @@ control carries rules in its system prompt and none of them can have moved.
 Three design-question cases (`design-alerting`, `design-audit-log`,
 `design-search`, added 2026-08-06 for
 [#46](https://github.com/JordanMPDS/laconic/issues/46)) postdate every table
-in this document; they enter the published numbers at the next baseline
-regeneration ([#45](https://github.com/JordanMPDS/laconic/issues/45)).
+in this document. The loop's baseline now includes them
+(`evals/snapshots/loop/round-01-n10.json`, the
+[#45](https://github.com/JordanMPDS/laconic/issues/45) n=10 regeneration);
+these public tables refresh at the next full benchmark publish.
 
 | vs baseline | tokens (sonnet) | tokens (haiku) | latency (sonnet) | readability violations | answers correct | never-cut failures |
 |---|--:|--:|--:|--:|--:|--:|

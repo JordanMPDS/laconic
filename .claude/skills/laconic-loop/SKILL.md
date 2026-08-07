@@ -13,24 +13,30 @@ Design and the reasoning behind every threshold:
 
 ## Before you start
 
-Set `N` to the next round number and `PREV` to the last round's snapshot (for
-round 1 that is `evals/snapshots/results.json` and
-`evals/snapshots/judgments.json`).
+Set `N` to the next round number and `PREV` to the last round's snapshot. The
+current baseline is the #45 regeneration — laconic at n=10 over all 14 cases,
+controls carried at n=5:
 
 ```bash
-N=01
-PREV=evals/snapshots/results.json
-PREV_J=evals/snapshots/judgments.json
+N=07
+PREV=evals/snapshots/loop/round-01-n10.json
+PREV_J=evals/snapshots/loop/round-01-n10-judgments.json
 ```
+
+Generate the round's laconic arm at the same reps (`--reps 10`), and carry
+arms from `$PREV`, not from `evals/snapshots/results.json` — the old committed
+snapshot has no control runs for the three `design-*` cases, so carrying from
+it silently drops them from preference and from the reduction tables.
 
 **Check the baseline's judgments were produced under the criteria in
 `evals/cases/` today.** A criterion that has been corrected since re-grades the
 baseline, and scoring against the stale file reports the difference as something
 the edit did. Two case criteria have been corrected against the real software
-they describe, and both moved several verdicts. Round 01's current baseline is
-`evals/snapshots/loop/round-01-judgments-v2.json` — identical in every verdict
-to `evals/snapshots/judgments.json`, which is also current — and
-`round-01-judgments.json` is the superseded grading. See
+they describe, and both moved several verdicts. Before the #45 regeneration the
+baseline was `evals/snapshots/results.json` with
+`evals/snapshots/loop/round-01-judgments-v2.json` (identical in every verdict
+to `evals/snapshots/judgments.json`); `round-01-judgments.json` is the
+superseded grading. See
 [`LEDGER.md`](../../../evals/results/loop/LEDGER.md) for what moved.
 
 **If you correct a criterion, re-judge every round you will compare, not just
@@ -38,11 +44,11 @@ the baseline.** Re-grading one side and carrying the other publishes a delta
 between two instruments. That mistake shipped once, in the first `safety_fails`
 re-score, and took 20 further judge calls to undo.
 
-## Steps 1-3: measure the round you have (350 calls)
+## Steps 1-3: measure the round you have (~690 calls at n=10)
 
 ```bash
-python3 evals/bench/run.py --arms laconic \
-  --carry-arms-from evals/snapshots/results.json \
+python3 evals/bench/run.py --arms laconic --reps 10 \
+  --carry-arms-from "$PREV" \
   --snapshot "evals/snapshots/loop/round-$N.json"
 python3 evals/bench/judge.py --results "evals/snapshots/loop/round-$N.json" \
   --out "evals/snapshots/loop/round-$N-judgments.json"
@@ -97,7 +103,7 @@ Regenerate the pre-sliced copies, which the test suite checks:
 bash tools/build-rules.sh
 ```
 
-## Steps 6-7: confirm and compare (350 calls)
+## Steps 6-7: confirm and compare (~690 calls)
 
 Repeat steps 1-3 with `N` incremented, then:
 
@@ -125,7 +131,7 @@ and the cases must be named in step 5, not picked once the round is in.
 yield at least 6 case/model cells: the sign test is two-sided exact, so a sweep
 of 4 cells is p = 0.125 and can never reach alpha, and smaller scopes are
 refused rather than left silently unreachable. The scoped noise floor is
-rebuilt the way `NOISE`'s 209 is — the median per-cell stdev over the scoped
+rebuilt the way `NOISE`'s 260 is — the median per-cell stdev over the scoped
 sonnet cells of the baseline snapshot — and a scope with no sonnet cell is
 refused rather than handed a softer gate.
 
@@ -138,7 +144,11 @@ rejects.
 is a valid `--target` too. It is not redundant with `never_cut_failures`: that
 one is a substring check, so a response that names the thing and then calls it
 harmless passes it. `destructive/haiku` did exactly that in rounds 01, 03 and
-04, and until this counter existed no gate saw it.
+04, and until this counter existed no gate saw it. That cell is now marked
+saturated in its `expect.json` (30/30 fails across six gradings; capability
+floor, #45) and is excluded from the judge-verdict counters — still generated,
+judged, and displayed, and `report.py` prints the exclusion beside every
+verdict. The bar for marking a cell saturated is in `evals/CRITERIA.md`.
 
 **Required to accept:** the metric your hypothesis named beats the noise floor
 — a sign test across the case/model cells *and* a median shift larger than the

@@ -54,20 +54,38 @@ def case_grading(case):
     return g if g in GRADINGS else UNKNOWN_GRADING
 
 
+def case_saturated_models(case):
+    """Models whose cell a case's expect.json marks saturated: it fails at the
+    criterion under every rules revision tested, so its verdicts are a constant
+    plus sampling noise rather than a signal an edit can move. destructive/haiku
+    is the motivating cell (30/30 fails across six gradings, criterion verified
+    against PostgreSQL 16 in #18). A saturated cell stays generated, judged and
+    displayed; it leaves only the fatal judge-verdict counters, where at small
+    reps a stray flip is indistinguishable from an edit effect (#45)."""
+    p = CASES / case / "expect.json"
+    if not p.exists():
+        return {}
+    d = json.loads(p.read_text()).get("saturated_models")
+    return d if isinstance(d, dict) else {}
+
+
 def _median(xs, default=0):
     return statistics.median(xs) if xs else default
 
 
-# The noise floor is the published dispersion, not a fresh invention: 209 is
-# laconic's output-token stdev on sonnet in the committed benchmark snapshot,
-# and 0.35 is the preference judge's measured flip rate on 2026-08-01. A move
-# smaller than the instrument's own noise is not an improvement, and a loop that
-# treats it as one churns forever.
+# The noise floor is the published dispersion, not a fresh invention: 260 is
+# the median per-cell output-token stdev over the laconic arm's sonnet cells
+# in the committed baseline snapshot (evals/snapshots/loop/round-01-n10.json,
+# 14 cells at n=10 reps), and 0.35 is the preference judge's measured flip
+# rate on 2026-08-01. A move smaller than the instrument's own noise is not an
+# improvement, and a loop that treats it as one churns forever.
 #
 # This was 175 until the laconic arm was regenerated under current rules on
-# 2026-08-04. The floor tracks whatever the published snapshot disperses at, so
-# it rose with it and the gate is stricter than it was.
-NOISE = {"stdev": 209, "flip_rate_max": 0.35, "alpha": 0.05}
+# 2026-08-04, and 209 until the #45 n=10 regeneration added the three
+# high-dispersion design-question cases on 2026-08-06. The floor tracks
+# whatever the published snapshot disperses at, so it rose both times and the
+# gate is stricter than it was.
+NOISE = {"stdev": 260, "flip_rate_max": 0.35, "alpha": 0.05}
 
 # Each rejects on its own, whatever the target metric did. Compression bought
 # by dropping a never-cut item is not a cheaper answer, it is a different and
@@ -118,11 +136,16 @@ def _count_p(prev_count, cur_count, prev_runs, cur_runs):
 
 
 def _judge_fails(judg, grading, keep):
-    """Laconic responses the blind judge failed, in cases of one grading."""
+    """Laconic responses the blind judge failed, in cases of one grading.
+
+    Cells marked saturated in their case's expect.json are skipped: their
+    verdicts cannot move with a rule edit, so counting them would hand the
+    fatal gates a lottery ticket per round instead of a signal."""
     return sum(1 for j in (judg or [])
                if j.get("arm") == "laconic" and j.get("verdict") == "fail"
                and case_grading(j["case"]) == grading
-               and keep(j["case"]))
+               and keep(j["case"])
+               and j.get("model") not in case_saturated_models(j["case"]))
 
 
 def _counts(lac, judg, runs, cases=None):
@@ -234,8 +257,8 @@ def accept_verdict(prev, cur, target, noise=None, target_cases=None):
         # sign_test is two-sided exact, so a sweep of n cells is p = 2 * 0.5**n:
         # four cells is 0.125, five is 0.0625, and no scope under six cells can
         # reach alpha = 0.05 however large the move is. Six is the boundary the
-        # old blanket refusal was standing in for. The round-wide 209 cannot be
-        # the floor either - it is the median per-cell stdev of the baseline's
+        # old blanket refusal was standing in for. The round-wide NOISE stdev
+        # cannot be the floor either - it is the median per-cell stdev of the baseline's
         # sonnet cells, so the scoped floor is the same estimator over the
         # scoped sonnet cells, read from the baseline summary. A scope with no
         # sonnet cell has no floor built the way NOISE builds one and is
@@ -627,6 +650,16 @@ def render(snap, judg, threshold):
                        % (case, case_grading(case), arm, v["pass"], v["fail"],
                           v["not_exercised"], judge_failed[(case, arm)]))
         out.append("")
+        # A saturated cell's verdicts are in the table above (the rows sum
+        # across models) but leave the fatal counters; a reader tallying the
+        # table against safety_fails or quality_fails needs to know why the
+        # numbers differ.
+        for case in sorted(set(c for c, _ in verdict_keys)):
+            for model in sorted(case_saturated_models(case)):
+                out.append("`%s`/%s is marked saturated in its expect.json: its "
+                           "verdicts appear above but are excluded from the "
+                           "loop's fatal judge-verdict counters (#45).\n"
+                           % (case, model))
 
     failures = gate_failures(agg, threshold)
     out.append("### Gates\n")
@@ -781,6 +814,13 @@ def main():
                  args.against))
         for r in reasons:
             print("  %s" % r)
+        # The counters the verdict just read silently skip saturated cells;
+        # say so beside the verdict rather than leaving the exclusion to be
+        # discovered by a hand recount.
+        for case in sorted(set(r["case"] for r in bench_run.usable(snap["runs"]))):
+            for model in sorted(case_saturated_models(case)):
+                print("  note: %s/%s excluded from judge-verdict counters "
+                      "(saturated; see its expect.json)" % (case, model))
         sys.exit(0 if verdict == "accept" else 1)
 
     md = render(snap, judg, args.threshold)

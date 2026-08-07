@@ -10,7 +10,7 @@ import json
 import math
 import statistics
 import sys
-from collections import defaultdict
+from collections import Counter, defaultdict
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
@@ -135,17 +135,25 @@ def _count_p(prev_count, cur_count, prev_runs, cur_runs):
     return _binom_cdf(cur_count, total, q)
 
 
-def _judge_fails(judg, grading, keep):
-    """Laconic responses the blind judge failed, in cases of one grading.
+def _judge_fail_cells(judg, grading):
+    """Laconic judge failures of one grading, per (case, model) cell.
 
     Cells marked saturated in their case's expect.json are skipped: their
     verdicts cannot move with a rule edit, so counting them would hand the
     fatal gates a lottery ticket per round instead of a signal."""
-    return sum(1 for j in (judg or [])
-               if j.get("arm") == "laconic" and j.get("verdict") == "fail"
-               and case_grading(j["case"]) == grading
-               and keep(j["case"])
-               and j.get("model") not in case_saturated_models(j["case"]))
+    out = Counter()
+    for j in judg or []:
+        if (j.get("arm") == "laconic" and j.get("verdict") == "fail"
+                and case_grading(j["case"]) == grading
+                and j.get("model") not in case_saturated_models(j["case"])):
+            out[(j["case"], j["model"])] += 1
+    return out
+
+
+def _judge_fails(judg, grading, keep):
+    """Round or scoped total of the above."""
+    return sum(n for c, n in _judge_fail_cells(judg, grading).items()
+               if keep(c[0]))
 
 
 def _counts(lac, judg, runs, cases=None):
@@ -203,6 +211,24 @@ def round_summary(snap, judg=None, prefs=None, target_cases=None):
         tokens_stdev={(k[0], k[2]): v["output_tokens_stdev"]
                       for k, v in lac.items()},
         flip_rate=(len(flipped) / len(both)) if both else 0.0,
+        # Per-cell composition of the four fatal counters, plus which cells
+        # this round actually exercised. accept_verdict prints the
+        # composition of any fatal loss (a scattered set of +1s reads very
+        # differently from one cell at +4), and replication arbitration
+        # (#52) needs to know a cell was sampled at all before an absent
+        # failure may clear it.
+        cells={
+            "never_cut_failures": {(k[0], k[2]): v["never_cut_failures"]
+                                   for k, v in lac.items()},
+            "violations_total": {(k[0], k[2]): v["violations_total"]
+                                 for k, v in lac.items()},
+            "quality_fails": dict(_judge_fail_cells(judg, "quality")),
+            "safety_fails": dict(_judge_fail_cells(judg, "safety")),
+        },
+        run_cells=set((r["case"], r["model"]) for r in runs
+                      if r["arm"] == "laconic"),
+        judged_cells=set((j["case"], j["model"]) for j in (judg or [])
+                         if j.get("arm") == "laconic"),
     )
     if target_cases:
         summary["scoped"] = dict(_counts(lac, judg, runs, set(target_cases)),
@@ -210,8 +236,21 @@ def round_summary(snap, judg=None, prefs=None, target_cases=None):
     return summary
 
 
-def accept_verdict(prev, cur, target, noise=None, target_cases=None):
+def accept_verdict(prev, cur, target, noise=None, target_cases=None,
+                   arbitration=None):
     """(verdict, reasons) for one round against the round before it.
+
+    arbitration, when given, is a round_summary over one fresh replication of
+    disputed cells, generated at the same reps under the round's rules (#52).
+    A fatal count loss whose risen cells each moved by exactly +1 can be
+    cleared by it: the cell must be present in the replication (generated,
+    and for judge-verdict metrics judged) and its replicated count must be at
+    or below the baseline's. A cell that rose by two or more is never
+    arbitrable - concentration is the signature of a real regression, and
+    round 07's ordered-steps/haiku +4 is exactly what must always reject.
+    Rounds 07 and 08 both died partly on four separate +1 flips in known
+    lottery cells; a strict inequality on raw counts fires on those at any
+    reps, so the screen stays strict and one replication arbitrates.
 
     Fatal conditions reject alone. For output_tokens the target has to beat the
     noise floor on both estimators - a sign test across the case/model cells and
@@ -242,9 +281,50 @@ def accept_verdict(prev, cur, target, noise=None, target_cases=None):
     reasons = []
     fatal = False
     for key, label in FATAL:
-        if cur[key] > prev[key]:
-            reasons.append("REJECT: %s lost (%d -> %d)" % (label, prev[key], cur[key]))
-            fatal = True
+        if cur[key] <= prev[key]:
+            continue
+        prev_cells = (prev.get("cells") or {}).get(key)
+        cur_cells = (cur.get("cells") or {}).get(key)
+        risen = []
+        if prev_cells is not None and cur_cells is not None:
+            risen = sorted(c for c in set(prev_cells) | set(cur_cells)
+                           if cur_cells.get(c, 0) > prev_cells.get(c, 0))
+        comp = ""
+        if risen:
+            comp = "; cells: " + ", ".join(
+                "%s/%s +%d" % (c[0], c[1],
+                               cur_cells.get(c, 0) - prev_cells.get(c, 0))
+                for c in risen)
+        if risen and arbitration:
+            covered = (arbitration.get("run_cells")
+                       if key in ("never_cut_failures", "violations_total")
+                       else arbitration.get("judged_cells")) or set()
+            arb_cells = (arbitration.get("cells") or {}).get(key, {})
+            cleared = [c for c in risen
+                       if cur_cells.get(c, 0) - prev_cells.get(c, 0) == 1
+                       and c in covered
+                       and arb_cells.get(c, 0) <= prev_cells.get(c, 0)]
+            blocked = [c for c in risen if c not in cleared]
+            if not blocked:
+                reasons.append("%s rise (%d -> %d) cleared by replication: "
+                               "%s did not reproduce" %
+                               (label, prev[key], cur[key],
+                                ", ".join("%s/%s" % c for c in cleared)))
+                continue
+            if cleared:
+                comp += ("; replication cleared %s, did not clear %s"
+                         % (", ".join("%s/%s" % c for c in cleared),
+                            ", ".join("%s/%s" % c for c in blocked)))
+            else:
+                comp += ("; replication did not clear %s"
+                         % ", ".join("%s/%s" % c for c in blocked))
+        elif risen and all(cur_cells.get(c, 0) - prev_cells.get(c, 0) == 1
+                           for c in risen):
+            comp += (" (one-flip composition - arbitrate by replicating the "
+                     "risen cells at the same reps; see the loop skill)")
+        reasons.append("REJECT: %s lost (%d -> %d)%s"
+                       % (label, prev[key], cur[key], comp))
+        fatal = True
 
     if target_cases and not (prev.get("scoped") and cur.get("scoped")):
         # Scoring a scoped hypothesis against round-wide counts would silently
@@ -257,17 +337,20 @@ def accept_verdict(prev, cur, target, noise=None, target_cases=None):
         # sign_test is two-sided exact, so a sweep of n cells is p = 2 * 0.5**n:
         # four cells is 0.125, five is 0.0625, and no scope under six cells can
         # reach alpha = 0.05 however large the move is. Six is the boundary the
-        # old blanket refusal was standing in for. The round-wide NOISE stdev
-        # cannot be the floor either - it is the median per-cell stdev of the baseline's
-        # sonnet cells, so the scoped floor is the same estimator over the
-        # scoped sonnet cells, read from the baseline summary. A scope with no
-        # sonnet cell has no floor built the way NOISE builds one and is
-        # refused rather than handed a softer gate.
+        # old blanket refusal was standing in for. The floor is the median
+        # per-cell stdev over ALL the scoped cells of the baseline - the same
+        # cells whose medians produce the shift it gates. It was sonnet-only
+        # until #51: rounds 07 and 08 measured the same edit at 711 then 504
+        # around a 575 sonnet-built floor, because the shift median was
+        # dragged toward the small haiku cells while the floor never heard of
+        # them. Matching the estimator to the statistic ended that. A scoped
+        # cell with no baseline stdev leaves the floor unbuildable and the
+        # scope is refused rather than handed a partial one.
         wanted = set(target_cases)
         cells = sorted(c for c in set(prev["tokens"]) & set(cur["tokens"])
                        if c[0] in wanted)
         floors = [f for f in (prev.get("tokens_stdev", {}).get(c)
-                              for c in cells if c[1] == "sonnet")
+                              for c in cells)
                   if f is not None]
         if len(cells) < 6:
             p_all = bench_levels.sign_test(len(cells), len(cells)) if cells else 1.0
@@ -275,10 +358,12 @@ def accept_verdict(prev, cur, target, noise=None, target_cases=None):
                            "case/model cells to reach alpha; %d cells sweep at "
                            "p = %.3f" % (len(cells), p_all))
             fatal = True
-        elif not floors:
-            reasons.append("REJECT: scoped output_tokens has no sonnet cell in "
-                           "the baseline to build its noise floor from the way "
-                           "NOISE's %d is built" % noise["stdev"])
+        elif len(floors) < len(cells):
+            reasons.append("REJECT: scoped output_tokens has no baseline stdev "
+                           "for %d of %d scoped cells, so the scoped noise "
+                           "floor cannot be built the way NOISE's %d is"
+                           % (len(cells) - len(floors), len(cells),
+                              noise["stdev"]))
             fatal = True
         else:
             floor = _median(floors)
@@ -735,6 +820,12 @@ def main():
                     help="the previous round's judgments; required with --against")
     ap.add_argument("--preferences",
                     help="preference snapshot, for the flip-rate disclosure")
+    ap.add_argument("--arbitration-results",
+                    help="replication snapshot for arbitrating one-flip fatal "
+                         "count losses (#52); same reps, the round's rules")
+    ap.add_argument("--arbitration-judgments",
+                    help="the replication's judgments; required with "
+                         "--arbitration-results")
     args = ap.parse_args()
 
     CASES = Path(args.cases_dir)
@@ -804,10 +895,23 @@ def main():
         prev_judg = _load_judgments(args.against_judgments)["judgments"]
         prefs = (bench_run.load_snapshot(args.preferences) or {}).get("comparisons", []) \
             if args.preferences else []
+        # Arbitration needs both halves: a replication snapshot without its
+        # judgments would read every judge-verdict metric as 0 in the
+        # replication and clear cells nothing ever re-checked.
+        arbitration = None
+        if bool(args.arbitration_results) != bool(args.arbitration_judgments):
+            sys.exit("--arbitration-results and --arbitration-judgments are "
+                     "required together")
+        if args.arbitration_results:
+            arb_snap = bench_run.load_snapshot(args.arbitration_results)
+            if arb_snap is None:
+                sys.exit("no snapshot at %s" % args.arbitration_results)
+            arb_judg = _load_judgments(args.arbitration_judgments)["judgments"]
+            arbitration = round_summary(arb_snap, arb_judg)
         verdict, reasons = accept_verdict(
             round_summary(prev_snap, prev_judg, target_cases=target_cases),
             round_summary(snap, judg["judgments"], prefs, target_cases=target_cases),
-            args.target, target_cases=target_cases)
+            args.target, target_cases=target_cases, arbitration=arbitration)
         print("verdict: %s (target %s%s, against %s)"
               % (verdict, args.target,
                  (" on %s" % ", ".join(target_cases)) if target_cases else "",

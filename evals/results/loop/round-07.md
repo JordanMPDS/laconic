@@ -78,7 +78,7 @@ procedure whose ordering words are never-cut content. `destructive`/sonnet
 
 Improvements the verdict does not credit, disclosed: `quality_fails` 41 → 38,
 `violations_total` 78 → 30 — the shorter design answers carry far fewer
-arrows. Preference: laconic lost 43–82 decided at a **43% flip rate**, at or
+arrows. Preference: the longer answer won 86 of 120 decided comparisons (72%), at a **45% flip rate** (9 of 20 run in both orders), at or
 above the 35% ceiling, so preference is not citable this round in either
 direction.
 

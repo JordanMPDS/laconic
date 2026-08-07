@@ -1168,7 +1168,30 @@ recs = [{"case": "a", "model": "sonnet", "rep": 0, "order": 0, "winner_arm": "la
         {"case": "b", "model": "sonnet", "rep": 0, "order": 1, "winner_arm": "tie"},
         {"case": "c", "model": "sonnet", "rep": 0, "order": 0, "winner_arm": "laconic"}]
 check("the flip rate counts only comparisons run in both orders",
-      bench_prefer.flip_rate(recs) == (1, 2))
+      bench_prefer.flip_rate(recs) == (1, 2, 0))
+
+# #55: a failed judge call carries winner_arm None, and None != "baseline" is
+# true, so counting it as a flip manufactures position bias out of an API
+# error. Round 09 lost its whole reversed-order pass and scored 95% from zero
+# decided pairs.
+undec = [{"case": "a", "model": "sonnet", "rep": 0, "order": 0, "winner_arm": "laconic"},
+         {"case": "a", "model": "sonnet", "rep": 0, "order": 1, "winner_arm": None},
+         {"case": "b", "model": "sonnet", "rep": 0, "order": 0, "winner_arm": "tie"},
+         {"case": "b", "model": "sonnet", "rep": 0, "order": 1, "winner_arm": "tie"}]
+check("an undecided side leaves the flip rate instead of counting as a flip",
+      bench_prefer.flip_rate(undec) == (0, 1, 1))
+check("a wholly undecided reversed pass measures no pairs at all",
+      bench_prefer.flip_rate(undec[:2]) == (0, 0, 1))
+
+# #55: a resume is a second attempt at one comparison, not a second comparison.
+dup = [{"case": "a", "model": "sonnet", "rep": 0, "order": 1, "winner_arm": None},
+       {"case": "a", "model": "sonnet", "rep": 0, "order": 1, "winner_arm": "laconic"}]
+check("a repaired duplicate collapses to the decided record",
+      bench_prefer._dedupe(dup) == [dup[1]])
+check("dedupe keeps a decided record over a later failure",
+      bench_prefer._dedupe(dup[::-1]) == [dup[1]])
+check("dedupe leaves distinct comparisons alone",
+      len(bench_prefer._dedupe(recs)) == len(recs))
 
 # The headline tally is only readable if the treatment won at similar rates from
 # both sides, so the split has to be reported, not inferred.
@@ -1381,6 +1404,36 @@ check("the rejection names the unknown target", any("unknown target" in r for r 
 
 check("round_summary reads the treatment tokens", rs["tokens"] == {("floor", "sonnet"): 10})
 check("round_summary computes the flip rate", rs["flip_rate"] == 1.0)
+check("a fully decided round reports no undecided pairs", rs["flip_undecided"] == 0)
+
+# #55: round 09's first preference pass lost every reversed-order comparison to
+# API failures, and round_summary read the resulting Nones as position flips.
+RUN1 = {"runs": [{"case": "floor", "arm": "laconic", "model": "sonnet", "rep": 0,
+                  "ok": True, "text": "Fine.", "output_tokens": 10}]}
+rs_undec = bench_report.round_summary(
+    RUN1, [],
+    [{"case": "floor", "model": "sonnet", "rep": 0, "order": 0, "winner_arm": "laconic"},
+     {"case": "floor", "model": "sonnet", "rep": 0, "order": 1, "winner_arm": None}])
+check("an undecided side is not counted as a position flip",
+      rs_undec["flip_rate"] == 0.0 and rs_undec["flip_pairs"] == 0)
+check("the undecided pair is disclosed rather than dropped silently",
+      rs_undec["flip_undecided"] == 1)
+
+# Excluding them creates the opposite hazard: 0 decided pairs divides into a
+# 0% flip rate, which reads as the most citable round possible. Unmeasured has
+# to be named before the ceiling is.
+und = _summary(tokens=TEN_CELLS(100), flip=0.0)
+und["flip_pairs"], und["flip_undecided"] = 0, 20
+v, why = bench_report.accept_verdict(worse, und, "output_tokens")
+check("a round with no decided pair is not citable on a 0% flip rate",
+      v == "accept" and any("unmeasured" in r for r in why))
+
+# A measured round that still lost some pairs says so beside its rate.
+part = _summary(tokens=TEN_CELLS(100), flip=0.1)
+part["flip_pairs"], part["flip_undecided"] = 18, 2
+v, why = bench_report.accept_verdict(worse, part, "output_tokens")
+check("undecided pairs are disclosed beside a citable flip rate",
+      any("2 both-order pair(s) undecided" in r for r in why))
 # floor is graded rule-adherence, so its judge failure is not a quality loss.
 check("round_summary counts only quality-graded judge failures", rs["quality_fails"] == 0)
 # ...and it is not a safety loss either. rule-adherence counts nowhere: its

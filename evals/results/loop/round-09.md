@@ -152,9 +152,17 @@ The first `prefer.py` pass lost 32 of 160 comparisons to API failures,
 including all 20 of the reversed-order pass, and `report.py` scored the
 resulting file at a **95% flip rate** — it counts a comparison that never got
 a verdict as a position flip. The pass was resumed to fill them, which is
-where the real 50% comes from. Two defects behind that phantom number are
-filed as [#55]; neither can affect this round's verdict, because preference is
-never decisive.
+where the real 50% comes from. Two defects behind that phantom number were
+filed as [#55]; neither could affect this round's verdict, because preference
+is never decisive.
+
+Both are since fixed. An undecided pair now leaves the flip rate and is
+disclosed beside it, a round with no decided pair is called unmeasured rather
+than handed a citable 0%, and a resume replaces the failed record instead of
+appending beside it. `round-09-preferences.json` was repaired through the
+instrument's own dedupe, from 192 records back to 160; every published number
+above is unchanged by it, and the artefact's own report no longer claims 12
+unparseable comparisons it does not have.
 
 ## Where this leaves [#46]
 

@@ -203,7 +203,13 @@ def round_summary(snap, judg=None, prefs=None, target_cases=None):
     seen = defaultdict(dict)
     for p in prefs or []:
         seen[(p["case"], p["model"], p["rep"])][p["order"]] = p["winner_arm"]
-    both = [v for v in seen.values() if 0 in v and 1 in v]
+    # A comparison whose judge call failed carries winner_arm None. Counting
+    # None != "baseline" as a position flip manufactures bias out of an API
+    # error: round 09 lost its entire reversed-order pass and scored a 95%
+    # flip rate from zero decided pairs (#55). Undecided pairs leave both
+    # counters, and flip_undecided discloses how many did.
+    paired = [v for v in seen.values() if 0 in v and 1 in v]
+    both = [v for v in paired if v[0] is not None and v[1] is not None]
     flipped = [v for v in both if v[0] != v[1]]
     summary = dict(
         _counts(lac, judg, runs),
@@ -211,6 +217,8 @@ def round_summary(snap, judg=None, prefs=None, target_cases=None):
         tokens_stdev={(k[0], k[2]): v["output_tokens_stdev"]
                       for k, v in lac.items()},
         flip_rate=(len(flipped) / len(both)) if both else 0.0,
+        flip_pairs=len(both),
+        flip_undecided=len(paired) - len(both),
         # Per-cell composition of the four fatal counters, plus which cells
         # this round actually exercised. accept_verdict prints the
         # composition of any fatal loss (a scattered set of +1s reads very
@@ -445,10 +453,25 @@ def accept_verdict(prev, cur, target, noise=None, target_cases=None,
                        "of %s)" % (target, ", ".join(COUNT_TARGETS)))
         fatal = True
 
-    if cur["flip_rate"] >= noise["flip_rate_max"]:
+    # A round with no decided both-order pair has no position-bias control at
+    # all, and its flip_rate is 0.0 for want of a denominator rather than
+    # because the judge was consistent. That reads as the most citable round
+    # possible, so unmeasured is called out before the ceiling is (#55).
+    if cur.get("flip_pairs") == 0 and cur.get("flip_undecided"):
+        reasons.append("preference not citable: no both-order pair was decided "
+                       "(%d undecided), so the flip rate is unmeasured"
+                       % cur["flip_undecided"])
+    elif cur["flip_rate"] >= noise["flip_rate_max"]:
+        undecided = (" (%d pair(s) undecided and excluded)" % cur["flip_undecided"]
+                     if cur.get("flip_undecided") else "")
         reasons.append("preference not citable: flip rate %.0f%% is at or above the "
-                       "%.0f%% ceiling"
-                       % (100 * cur["flip_rate"], 100 * noise["flip_rate_max"]))
+                       "%.0f%% ceiling%s"
+                       % (100 * cur["flip_rate"], 100 * noise["flip_rate_max"],
+                          undecided))
+    elif cur.get("flip_undecided"):
+        reasons.append("preference: %d both-order pair(s) undecided and excluded "
+                       "from the %.0f%% flip rate; re-run prefer.py to fill them"
+                       % (cur["flip_undecided"], 100 * cur["flip_rate"]))
     return ("reject" if fatal else "accept"), reasons
 
 

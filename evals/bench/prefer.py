@@ -190,14 +190,40 @@ def response_lengths(snap):
             for r in bench_run.usable(snap["runs"])}
 
 
+def _dedupe(records):
+    """One record per (case, model, rep, order), a decided one winning.
+
+    Order is preserved by first appearance, so a repaired file still reads in
+    the sequence it was generated in.
+    """
+    at, out = {}, []
+    for r in records:
+        key = (r["case"], r["model"], r["rep"], r["order"])
+        if key not in at:
+            at[key] = len(out)
+            out.append(r)
+        elif out[at[key]]["winner_arm"] is None:
+            out[at[key]] = r
+    return out
+
+
 def flip_rate(records):
-    """Comparisons run in both orders whose verdict did not survive the flip."""
+    """Comparisons run in both orders whose verdict did not survive the flip.
+
+    Returns (flipped, both, undecided). A comparison whose judge call failed
+    carries winner_arm None, and None != "baseline" is true, so counting it as
+    a flip manufactures position bias out of an API error - round 09 lost its
+    whole reversed-order pass that way and scored 95% from zero decided pairs
+    (#55). A pair with an undecided side leaves both counters and is disclosed
+    separately.
+    """
     by = collections.defaultdict(dict)
     for r in records:
         by[(r["case"], r["model"], r["rep"])][r["order"]] = r["winner_arm"]
     both = [v for v in by.values() if 0 in v and 1 in v]
-    flipped = [v for v in both if v[0] != v[1]]
-    return len(flipped), len(both)
+    decided = [v for v in both if v[0] is not None and v[1] is not None]
+    flipped = [v for v in decided if v[0] != v[1]]
+    return len(flipped), len(decided), len(both) - len(decided)
 
 
 def report(records, treatment, control, lengths=None):
@@ -235,7 +261,7 @@ def report(records, treatment, control, lengths=None):
                   "no larger than this is not a preference result."
                   % (won, total, 100.0 * won / total, treatment))
 
-    flipped, both = flip_rate(records)
+    flipped, both, undecided = flip_rate(records)
     if both:
         print("\nOrder flip rate: %d of %d comparisons run in both orders "
               "changed verdict (%.0f%%)." % (flipped, both, 100.0 * flipped / both))
@@ -243,8 +269,11 @@ def report(records, treatment, control, lengths=None):
             print("At or above 50% the judge is measuring position, not quality - "
                   "do not publish the table above as a preference result.")
     else:
-        print("\nNo comparisons were run in both orders, so the flip rate is "
+        print("\nNo comparisons were decided in both orders, so the flip rate is "
               "unmeasured and the table above carries no position-bias control.")
+    if undecided:
+        print("%d pair(s) had an undecided side and left the flip rate; re-run "
+              "to fill them before citing preference." % undecided)
 
 
 def main():
@@ -309,8 +338,16 @@ def main():
         sys.exit("claude binary not found or not executable: %s "
                  "(set --claude-bin or fix PATH)" % args.claude_bin)
 
-    done = set((c["case"], c["model"], c["rep"], c["order"])
-               for c in prior["comparisons"] if c["winner_arm"] is not None)
+    # Collapse any duplicate keys a pre-#55 resume left behind, keeping a
+    # decided record over an undecided one for the same comparison. Without
+    # this a file can hold both, and any tally that counts records rather
+    # than keys double-counts: round-09-preferences.json held 192 records for
+    # 160 comparisons.
+    prior["comparisons"] = _dedupe(prior["comparisons"])
+    at = {(c["case"], c["model"], c["rep"], c["order"]): i
+          for i, c in enumerate(prior["comparisons"])}
+    done = set(k for k, i in at.items()
+               if prior["comparisons"][i]["winner_arm"] is not None)
     todo = [w for w in work if (w[0][0], w[0][1], w[0][2], w[3]) not in done]
 
     def judge_one(item):
@@ -334,7 +371,15 @@ def main():
 
     with ThreadPoolExecutor(max_workers=args.jobs) as pool:
         for i, rec in enumerate(pool.map(judge_one, todo), 1):
-            prior["comparisons"].append(rec)
+            # Replace the failed record for this comparison rather than
+            # appending beside it (#55): a resume is a second attempt at one
+            # comparison, not a second comparison.
+            key = (rec["case"], rec["model"], rec["rep"], rec["order"])
+            if key in at:
+                prior["comparisons"][at[key]] = rec
+            else:
+                at[key] = len(prior["comparisons"])
+                prior["comparisons"].append(rec)
             prior["metadata"] = {"judge_model": args.model, "rules_cksum": rules_cksum,
                                  "treatment": args.treatment, "control": args.control}
             bench_run.save_snapshot(args.out, prior)  # after each: resumable if killed

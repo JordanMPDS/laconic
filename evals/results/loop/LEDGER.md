@@ -63,3 +63,18 @@ alike, round 03 loses safety 8 to 10 and round 04 holds at 8.
 [#55]: https://github.com/JordanMPDS/laconic/issues/55
 [#56]: https://github.com/JordanMPDS/laconic/issues/56
 [#61]: https://github.com/JordanMPDS/laconic/issues/61
+
+**Round 11 onward is scored against `round-01-n10-v2.json`.** It is the same
+snapshot extended with [#60]'s three `verdict-*` cells, generated under the
+same `rules_cksum` 1830906901. Every original cell is byte-identical, the
+`verdict-*` laconic runs all pass their traps, and so `never_cut_failures`,
+`quality_fails` and `safety_fails` are unchanged at 2, 41 and 6.
+`violations_total` moves 78 to 86 because three more cases produce text.
+
+Rounds 01 to 10 above were scored against the 14-case `round-01-n10.json` and
+stay that way — their snapshots contain no `verdict-*` runs, so re-scoring
+them against `-v2` would read those cells as missing rather than unchanged.
+The round-wide counters in those rows are therefore not directly comparable to
+round 11's.
+
+[#60]: https://github.com/JordanMPDS/laconic/issues/60

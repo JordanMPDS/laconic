@@ -262,6 +262,21 @@ with tempfile.TemporaryDirectory() as td:
                                      "rep": 1, "ok": True, "text": "y"}]) ==
           [{"case": "c", "arm": "a", "model": "haiku", "rep": 1, "ok": True, "text": "y"}])
 
+# #61: a resume is a second attempt at one cell, not a second cell. Before the
+# fix the retry was appended beside the failure, so round-08.json carries 740
+# records for 700 cells - every duplicate a (failed, succeeded) pair.
+retry = {"case": "c", "arm": "a", "model": "haiku", "rep": 0, "ok": True, "text": "y"}
+check("a retried cell collapses to its successful run",
+      bench_run.dedupe([failed, retry]) == [retry])
+check("dedupe prefers the success whichever order it appears in",
+      bench_run.dedupe([retry, failed]) == [retry])
+check("dedupe leaves distinct cells alone",
+      len(bench_run.dedupe([failed, dict(failed, rep=1), dict(failed, arm="b")])) == 3)
+# The pair differs only by arm, so a dedupe keying on (case, model, rep) alone
+# would collapse two real cells into one and silently halve a round.
+check("dedupe keys on arm too",
+      len(bench_run.dedupe([retry, dict(retry, arm="laconic")])) == 2)
+
 import judge as bench_judge  # noqa: E402
 
 v = bench_judge.parse_verdict('{"verdict":"pass","quote":"q","reason":"r"}')

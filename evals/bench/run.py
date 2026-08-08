@@ -108,6 +108,30 @@ def usable(runs):
     return [r for r in runs if r.get("ok")]
 
 
+def dedupe(runs):
+    """One record per (arm, case, model, rep), a successful one winning.
+
+    A resume re-runs the keys that failed, and before #61 it appended the
+    retry beside the failure instead of replacing it: round-08.json carries
+    740 records for 700 cells, every duplicate a (failed, succeeded) pair.
+    usable() filters failures so no published number ever moved, but the
+    invariant is worth holding rather than relying on - len(snap["runs"]) is
+    otherwise a lie, and any consumer reading runs directly double-counts.
+
+    Order is preserved by first appearance, so a repaired file still reads in
+    generation order.
+    """
+    at, out = {}, []
+    for r in runs:
+        key = run_key(r.get("case"), r.get("arm"), r.get("model"), r.get("rep"))
+        if key not in at:
+            at[key] = len(out)
+            out.append(r)
+        elif not out[at[key]].get("ok"):
+            out[at[key]] = r
+    return out
+
+
 def carry_arms(snap, source, keep_arms):
     """Copy every usable run whose arm is not being regenerated.
 
@@ -248,6 +272,16 @@ def main():
         sys.exit("snapshot was generated from different rules (cksum %s vs %s); "
                  "move it aside before regenerating"
                  % (snap["metadata"].get("rules_cksum"), cksum))
+    # Collapse duplicates a pre-#61 resume appended, so a file written by the
+    # old code repairs itself the first time it is touched.
+    dropped = len(snap["runs"]) - len(dedupe(snap["runs"]))
+    if dropped:
+        snap["runs"] = dedupe(snap["runs"])
+        save_snapshot(args.snapshot, snap)
+        print("repaired %d duplicate run record(s) left by an earlier resume "
+              "(#61); no usable run was affected" % dropped)
+    at = {run_key(r.get("case"), r.get("arm"), r.get("model"), r.get("rep")): i
+          for i, r in enumerate(snap["runs"])}
     done = completed_keys(snap)
 
     total = len(cases) * len(arm_names) * len(models) * args.reps
@@ -274,7 +308,15 @@ def main():
                         res = call(claude_bin, model, prompt, arms[arm], scratch)
                         shutil.rmtree(scratch, ignore_errors=True)
                     res.update({"case": case, "arm": arm, "model": model, "rep": rep})
-                    snap["runs"].append(res)
+                    # Replace the failed record for this cell rather than
+                    # appending beside it (#61): a resume is a second attempt
+                    # at one cell, not a second cell.
+                    key = run_key(case, arm, model, rep)
+                    if key in at:
+                        snap["runs"][at[key]] = res
+                    else:
+                        at[key] = len(snap["runs"])
+                        snap["runs"].append(res)
                     save_snapshot(args.snapshot, snap)
                     print("[%d/%d] %-14s %-16s %-7s rep%d %s"
                           % (n, total, case, arm, model, rep,

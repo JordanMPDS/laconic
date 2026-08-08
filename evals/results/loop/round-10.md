@@ -40,6 +40,41 @@ preference not citable: flip rate 40% is at or above the 35% ceiling
 | `safety_fails` | 6 | 11 | 8 | 11 | **7 → 6 arbitrated** |
 | `violations_total` | 78 | 30 | 43 | 19 | **58** |
 
+## The edit
+
+Never-cut is byte-identical to master. The entire diff is one bullet added to
+`level: full` (commit `eaf4cfe`), reproduced here because the revert removes
+it from the tree and round 11 re-applies it:
+
+```diff
+@@ -94,6 +94,17 @@ prose with the ceremony stripped.
+  - No unrequested alternatives, no "you could also".
+  - No teaching a concept the question already shows the user knows.
+  - No next-steps list unless they asked what is next.
++- A design question asks for an approach, not a treatise. "How would that be
++  built?" is about something that does not exist yet, and what it wants is the
++  recommendation, the one or two decisions that genuinely fork it, and a name
++  for the depth you left out. Ask for the fork you cannot resolve. Explaining
++  something that already exists is a different request, and it is protected
++  above.
++  - Wrong: "how would alerting be built?" answered in eight sections — a
++    schema, a routing table, dedup rules, a rollout plan.
++  - Right: "Derive alerts from the log row the loop already writes, in
++    whatever monitoring you already run — which stack is that? The schema
++    and the dedup rules are the next level down."
+ 
+ Typical shape: one to three sentences, or a short list. One sentence is a
+ complete answer.
+```
+
+"Ask for the fork you cannot resolve" is the clause that rejected the round.
+Everything else in the bullet earned its keep.
+
+Two consequences accepted before the numbers came in, both still true: the
+licence no longer applies at `lite` (correct — lite cuts ceremony, not
+substance, and the benchmark runs at `full`), and it might not have fired at
+all against never-cut's "how". It fired, harder than in any previous round.
+
 ## The mechanism worked
 
 `ordered-steps` is the cell that killed all three previous rounds. It is back
@@ -145,10 +180,17 @@ larger. What remains is narrower than anything the issue has faced before: a
 single clause, "ask for the fork you cannot resolve", competing with
 enumeration on destructive-confirmation prompts.
 
-Round 11 should keep the relocation and constrain that clause — the question
-comes after the objects are named, not instead of one. The obvious form is to
-make the asking conditional on the enumeration being complete, in the
-`level: full` bullet, without touching never-cut again.
+Round 11 should **re-apply** the relocation and constrain that clause — the
+question comes after the objects are named, not instead of one. The obvious
+form is to make the asking conditional on the enumeration being complete, in
+the `level: full` bullet, without touching never-cut again.
+
+The relocation is not in master: this round rejected as a whole, so the whole
+edit reverted, including the part that worked. Round 11 starts from
+1830906901 and re-applies the `level: full` bullet with the constraint added,
+which is one edit in the sense rounds 08 and 09 used — they carried round
+07's bound forward the same way. The diff to write is in "The edit" above,
+plus the new clause.
 
 ## Instrument note, filed separately
 

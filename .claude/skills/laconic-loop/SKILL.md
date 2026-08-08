@@ -97,6 +97,23 @@ Then edit `rules/laconic.md`. One edit per round. A hypothesis written
 afterwards is indistinguishable from a story about whatever happened to move,
 and the ledger timestamps it against the round it predicted.
 
+**Where a rule lives outranks what it says about where it lives.** When a new
+licence bleeds into content it should not reach, move it rather than write
+its limits into it. Rounds 07, 08 and 09 put a design-question licence in the
+"Never cut" list and tried to bound it in prose — round 08 and 09 went as far
+as "this bullet outranks the approach license above" — and `ordered-steps`/haiku
+read 6, 3 and 5 against a baseline 2. Round 10 moved the same licence into
+`level: full`, wrote no precedence sentence at all, and the cell returned to 2
+while the token effect grew. The section headers already encode the hierarchy
+("Never cut (every level, including ultra)"); a rule placed under one inherits
+its limits without being told them.
+
+**A rejected round reverts the whole edit, including the parts that worked.**
+Carrying a proven component forward into the next round's edit is normal and
+counts as one edit — rounds 08 and 09 carried round 07's bound, round 11
+carries round 10's relocation. Re-state the carried part in the new
+hypothesis so the ledger row is readable on its own.
+
 Regenerate the pre-sliced copies, which the test suite checks:
 
 ```bash

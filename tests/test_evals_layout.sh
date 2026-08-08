@@ -46,7 +46,7 @@ else
 fi
 
 count=$(ls -d "$ROOT"/evals/cases/*/ 2>/dev/null | wc -l | tr -d ' ')
-if [ "$count" = "14" ]; then ok "14 cases present"; else fail "14 cases present (found $count)"; fi
+if [ "$count" = "17" ]; then ok "17 cases present"; else fail "17 cases present (found $count)"; fi
 
 for dir in "$ROOT"/evals/cases/*/; do
   name=$(basename "$dir")

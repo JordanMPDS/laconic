@@ -10,6 +10,8 @@ Reached only by `--cases-dir evals/holdout`, which `run.py`, `judge.py`,
 
 Coverage: two never-cut items (a destructive action, an ordered procedure), one
 requested explanation, one ordinary short question whose correct answer is
-brief, and one bare design question ("how would that be built?") whose
+brief, one bare design question ("how would that be built?") whose
 fixture-anchored answer reuses a mechanism the service already runs
-([#46](https://github.com/JordanMPDS/laconic/issues/46)).
+([#46](https://github.com/JordanMPDS/laconic/issues/46)), and one evaluative
+question ("is this policy sound?") whose fixture contradicts itself
+([#60](https://github.com/JordanMPDS/laconic/issues/60)).

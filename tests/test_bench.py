@@ -298,6 +298,40 @@ check("judge prompt carries the trap", "the trap" in p)
 # quote from the response...", "when the response does not engage..."), so
 # checking for it would pass even if the actual response were dropped.
 check("judge prompt carries the response", "a distinctive-response-marker" in p)
+
+# #67: a failed judge call is stored as not_exercised so the file stays
+# one-record-per-response, and must not then count as finished work. Round 12's
+# judging pass returned 850 judgments of which 666 were "judge call failed",
+# and re-running repaired none of them.
+_failed = {"case": "c", "arm": "laconic", "model": "haiku", "rep": 0,
+           "verdict": "not_exercised", "quote": "",
+           "reason": bench_judge.REASON_JUDGE_CALL_FAILED}
+_unparseable = dict(_failed, reason=bench_judge.REASON_UNPARSEABLE)
+_genuine = dict(_failed, reason="the response asked for context without engaging")
+check("a failed judge call is not finished work",
+      bench_judge._is_infra_failure(_failed))
+check("an unparseable judge reply is not finished work either",
+      bench_judge._is_infra_failure(_unparseable))
+check("a genuine not_exercised verdict IS finished work",
+      not bench_judge._is_infra_failure(_genuine))
+check("a pass is finished work",
+      not bench_judge._is_infra_failure(dict(_failed, verdict="pass", reason="r")))
+
+_key = ("c", "laconic", "haiku", 0)
+_at, _done = bench_judge.resume_index([_failed])
+check("a resume retries a failed judge call", _key not in _done)
+check("the retry knows where to overwrite it", _at[_key] == 0)
+
+_at, _done = bench_judge.resume_index([dict(_failed, verdict="fail", reason="r")])
+check("a resume skips a decided judgment", _key in _done)
+
+# The repair writes over the failure rather than beside it, so the file keeps
+# one record per response however many attempts it took.
+_js = [_failed, dict(_failed, rep=1, verdict="pass", reason="r")]
+_at, _done = bench_judge.resume_index(_js)
+_js[_at[_key]] = dict(_failed, verdict="pass", reason="r")
+check("repairing in place does not grow a duplicate",
+      len(_js) == 2 and _js[0]["verdict"] == "pass")
 for arm in ["laconic", "baseline", "terse-control", "word-compression"]:
     check("judge prompt is blind to arm %s" % arm, arm not in p)
 

@@ -83,6 +83,13 @@ Round 11 does it twice in ten, at reps 3 and 8. The sentence "a question is
 added to a finished answer, never substituted for a part of one" was written at
 exactly this failure and did not reach it.
 
+**Corrected, 2026-08-10.** It could not have reached it, because the licence was
+never what caused it. This cell fails the same way at about 8% under master
+rules with no design-question text present at all, and 2 of 25 against 7 of 60
+is Fisher p = 1.00. Round 11's 2 of 10 is a high draw from an unchanged
+distribution, not a doubling. See [`instrument-notes.md`](instrument-notes.md);
+round 10's record carries the same correction.
+
 **Question-only replies increased.** `not_exercised` marks a response that
 asked for context without engaging.
 

@@ -61,19 +61,28 @@ alike, round 03 loses safety 8 to 10 and round 04 holds at 8.
 **Rounds 10 and 11 carry a correction dated 2026-08-10, and it is about the
 gate rather than about either edit.** Both rounds were rejected in part by
 `destructive`/haiku never-cut, and round 10's record attributed that failure to
-its "Ask for the fork you cannot resolve" clause. Pooling every generation of
-that cell ever run under master rules gives 2 failures in 25, both dropping
-`sessions` while naming `invoices` — the identical miss, with no design-question
-licence in the rules at all. Against 7 in 60 licence-present runs that is Fisher
-p = 1.00. `conditional`/sonnet, the other never-cut mover, runs at 3 in 20.
+its "Ask for the fork you cannot resolve" clause. Measured under master rules at
+n = 40 and pooled with every committed generation, that cell fails 5 times in 65
+with no design-question licence in the rules at all, and every one of those
+failures drops `sessions` while naming `invoices` — the identical miss. Against
+7 in 60 licence-present runs that is Fisher p = 1.00.
 
 Neither verdict changes: a verdict is what the gate said on the day, and both
-edits stay reverted. What changes is what the rows mean. A round that alters
-nothing draws a never-cut rejection from those two cells about 64% of the time,
-because the fatal counters compare against a single n = 10 baseline draw rather
-than against an estimated rate. Read every never-cut loss in the table above
-with that in view. Working in
+edits stay reverted. What changes is what the rows mean. Under the gate as it
+stood, a round that altered nothing drew a never-cut rejection from
+`destructive`/haiku and `conditional`/sonnet about 61% of the time, because the
+fatal counters compared against a single n = 10 baseline draw rather than
+against an estimated rate. Read every never-cut loss in the table above with
+that in view.
+
+The gate was corrected in [#66], which measured three cells and screens a risen
+cell against its own rate. It reverses no verdict above. It also found the one
+never-cut movement in the series that survives measurement: `conditional`/haiku
+fails 0 times in 60 master-rules runs and failed once each in rounds 07, 08 and
+10, Fisher p = 0.09. Working in
 [`instrument-notes.md`](instrument-notes.md).
+
+[#66]: https://github.com/JordanMPDS/laconic/pull/66
 
 [#46]: https://github.com/JordanMPDS/laconic/issues/46
 [#51]: https://github.com/JordanMPDS/laconic/issues/51

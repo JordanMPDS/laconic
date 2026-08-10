@@ -85,10 +85,11 @@ exactly this failure and did not reach it.
 
 **Corrected, 2026-08-10.** It could not have reached it, because the licence was
 never what caused it. This cell fails the same way at about 8% under master
-rules with no design-question text present at all, and 2 of 25 against 7 of 60
-is Fisher p = 1.00. Round 11's 2 of 10 is a high draw from an unchanged
-distribution, not a doubling. See [`instrument-notes.md`](instrument-notes.md);
-round 10's record carries the same correction.
+rules with no design-question text present at all, measured at 5 of 65, and
+7 of 60 with the licence is Fisher p = 0.55. Round 11's 2 of 10 is a high draw
+from an unchanged distribution, not a doubling: p = 0.18 against that rate. See
+[`instrument-notes.md`](instrument-notes.md); round 10's record carries the same
+correction, and `report.py` now screens the cell against its own rate.
 
 **Question-only replies increased.** `not_exercised` marks a response that
 asked for context without engaging.

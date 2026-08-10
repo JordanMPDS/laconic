@@ -153,14 +153,14 @@ instead of the third object.~~ The never-cut bullet requires "naming exactly
 what will be affected"; this is precisely the miss it exists to catch, and the
 most consequential of the three objects to drop.
 
-**The attribution to the clause is corrected, 2026-08-10.** Pooling every
-generation of `destructive`/haiku ever run under master rules — no
-design-question licence present in any form, 25 distinct responses across five
-committed snapshots — gives 2 never-cut failures, and **both of them drop
-`sessions` while naming `invoices`, the same miss described above.** Neither
-ends on a question. Against the 7 failures in 60 licence-present runs that is
-Fisher p = 1.00, and the licence does not move how often the model asks either
-(40% under master rules, 37% with it, p = 0.81).
+**The attribution to the clause is corrected, 2026-08-10.** `destructive`/haiku
+was measured under master rules at n = 40 and pooled with every committed
+generation at that checksum — no design-question licence present in any form,
+65 distinct responses — giving 5 never-cut failures, and **every one of them
+drops `sessions` while naming `invoices`, the same miss described above.**
+Against the 7 failures in 60 licence-present runs that is Fisher p = 0.55, and
+the licence does not move how often the model asks either (40% under master
+rules, 37% with it, p = 0.81).
 
 Within the licence rounds asking and failing still travel together, 6 of 7
 failures against 16 of 53 passes, p = 0.008. Pooled with the master runs that
@@ -180,18 +180,26 @@ mechanism visible on a second case, and the gate's rule since [#56] is that a
 reproduced cell stays fatal regardless of size.~~
 
 **Also corrected, 2026-08-10.** The reject followed the gate's rule, and the
-rule is what is now in question. This cell fails at about 8% under master
-rules, so a round that changes nothing draws at least one failure 57% of the
-time, and the baseline's 0 of 10 that the gate compared against happens 43% of
-the time by chance. The [#56] replication was asked whether the failure
-reproduces, and it does — but it reproduces under master rules too. What the
-gate needed to ask was whether the round's count exceeds the cell's own rate,
-and it had no estimate of that rate to ask with.
+rule was the problem. This cell fails at 7.7% under master rules, so a round
+that changes nothing draws at least one failure 55% of the time, and the
+baseline's 0 of 10 that the gate compared against happens 43% of the time by
+chance. The [#56] replication was asked whether the failure reproduces, and it
+does — but it reproduces under master rules too. What the gate needed to ask was
+whether the round's count exceeds the cell's own rate, and it had no estimate of
+that rate to ask with. It has one now: [#66] screens a risen cell against its
+measured rate, and re-scoring this round under it drops `destructive`/haiku from
+the never-cut line.
 
-This does not make round 10 an accept. Its rules edit stays reverted and its
-verdict stays in the ledger, because a verdict is what the gate said on the
-day. It does mean the evidence that round 10's edit was harmful is now roughly
-nil, which is the reason to run it again rather than to move on from it.
+This does not make round 10 an accept, and re-scored it still rejects. Its rules
+edit stays reverted and its verdict stays in the ledger, because a verdict is
+what the gate said on the day.
+
+What it rejects on now is `conditional`/haiku, and that is a better question.
+That cell fails 0 times in 60 master-rules runs and failed once here, once in
+round 07 and once in round 08 — Fisher p = 0.09, the only never-cut movement in
+the series that survives measurement. Re-running this edit unchanged is a clean
+test of it: a fourth firing means the licence has a real cost, and no firing
+leaves the edit with no evidence against it.
 
 ## Preference
 
@@ -234,3 +242,4 @@ dropped.
 [#46]: https://github.com/JordanMPDS/laconic/issues/46
 [#56]: https://github.com/JordanMPDS/laconic/issues/56
 [#61]: https://github.com/JordanMPDS/laconic/issues/61
+[#66]: https://github.com/JordanMPDS/laconic/pull/66

@@ -62,41 +62,57 @@ have landed negative in 9 of their 10 draws across rounds 07 to 11, so the scope
 costs roughly one round in five. The never-cut gate below costs roughly two in
 three. Both are worth fixing and only one of them is worth blocking on.
 
-## The `destructive`/haiku never-cut gate is a lottery
+## Two never-cut lotteries and one signal
+
+**This section is what [#66] was built from, and [#66] is merged.** The rates
+below are in `evals/snapshots/loop/cell-rates.json` and `report.py` screens
+against them; what follows is the measurement, not a live defect.
 
 `never_cut_failures` is a substring check, so `destructive`/haiku is graded on it
 even though the cell is `saturated_models` for judge verdicts. It rejected round
 10 on its own, at one failure against a baseline of zero.
 
-Pooling every generation of that cell ever run under master rules — same
-`rules_cksum` 1830906901, no design-question licence present in any form, from
-`results.json`, `destructive-recheck.json`, `levels-full.json`, `round-01.json`
-and `round-01-n10-v2.json`, deduplicated by response text:
+Three cells were measured under master rules — `rules_cksum` 1830906901, no
+design-question licence present in any form — at n = 40 each, pooled with every
+committed generation at that checksum and deduplicated by response text:
 
-| arm | never-cut failures | n | rate |
-| --- | --: | --: | --: |
-| master rules, pooled | 2 | 25 | 8% |
-| licence present, rounds 07 to 11 plus arbitration | 7 | 60 | 12% |
+| cell | master rules | 95% CI | baseline draw | r10 | r11 |
+| --- | --: | --- | --: | --: | --: |
+| `destructive`/haiku | 5 of 65 (7.7%) | 2.6–19.9% | 0 of 10 | 1 | 2 |
+| `conditional`/sonnet | 8 of 60 (13.3%) | 5.5–26.1% | 2 of 10 | 1 | 3 |
+| `conditional`/haiku | 0 of 60 (0.0%) | under 5% | 0 of 10 | 1 | 0 |
 
-Fisher exact, 2 of 25 against 7 of 60: **p = 1.00**. The licence does not move
-this cell.
+Against their licence-present counts across rounds 07 to 11, the three separate
+cleanly:
 
-Both master-rules failures drop `sessions` while naming `invoices` — the exact
-fingerprint round 10 attributed to its "Ask for the fork you cannot resolve"
-clause, produced with no such clause anywhere in the rules.
+| cell | licence present | master rules | Fisher | reading |
+| --- | --: | --: | --: | --- |
+| `destructive`/haiku | 7 of 60 | 5 of 65 | p = 0.55 | lottery |
+| `conditional`/sonnet | 7 of 50 | 8 of 60 | p = 1.00 | lottery |
+| `conditional`/haiku | 3 of 50 | 0 of 60 | **p = 0.09** | possibly real |
 
-The baseline's 0 of 10 was a lucky draw against an 8% rate: at that rate a zero
-happens 43% of the time. The same pooling for the other never-cut mover:
+All three of `destructive`/haiku's n = 40 failures drop `sessions` while naming
+`invoices` — the exact fingerprint round 10 attributed to its "Ask for the fork
+you cannot resolve" clause, produced with no such clause anywhere in the rules.
+Its baseline draw of 0 of 10 was luck: at 7.7% a zero happens 43% of the time.
 
-| cell | master rules | baseline draw | r10 | r11 |
-| --- | --: | --: | --: | --: |
-| `destructive`/haiku | 2 of 25 (8%) | 0 of 10 | 1 | 2 |
-| `conditional`/sonnet | 3 of 20 (15%) | 2 of 10 | 1 | 3 |
+Under the pre-[#66] gate, a round that changed nothing at all drew at least one
+`destructive`/haiku failure 55% of the time and three or more `conditional`
+/sonnet failures 14% of the time — **about 61% of rounds should have expected a
+never-cut rejection unconnected to the edit.** Every never-cut count in rounds
+07 to 11 is an ordinary draw from these rates; the largest, round 11's 2 of 10,
+is p = 0.18.
 
-A round that changes nothing at all draws at least one `destructive`/haiku
-failure 57% of the time, and three or more `conditional`/sonnet failures 18% of
-the time. **Roughly 64% of rounds should expect a never-cut rejection from these
-two cells for no reason connected to the edit.**
+`conditional`/haiku is the exception and the more useful finding. It never fails
+in 60 master-rules runs and failed once each in rounds 07, 08 and 10. It is the
+only never-cut movement in the whole [#46] series that survives measurement, a
+rate of zero clears nothing under the screen, and it is therefore what a re-run
+of round 10 is now judged on.
+
+Re-scoring rounds 07 to 11 with the screen active reverses no verdict. All five
+still reject; the screen changes which cells carry the rejection.
+
+[#66]: https://github.com/JordanMPDS/laconic/pull/66
 
 ## Asking is a property of the case, not of the licence
 

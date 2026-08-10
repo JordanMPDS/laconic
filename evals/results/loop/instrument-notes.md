@@ -62,6 +62,42 @@ have landed negative in 9 of their 10 draws across rounds 07 to 11, so the scope
 costs roughly one round in five. The never-cut gate below costs roughly two in
 three. Both are worth fixing and only one of them is worth blocking on.
 
+## The judge disagrees with itself at 5.3%, not 9.6%
+
+Round 13 re-judged round 12's 340 laconic responses a second time under
+identical criteria. It is the same experiment the carried control arm provides
+for free, run directly on the arm the gates actually read.
+
+| | control arm (r10 vs r11) | **laconic arm (round 13)** |
+| --- | --: | --: |
+| responses graded twice | 415 | 340 |
+| verdict agreement | 90.4% | **94.7%** |
+| `pass` to `fail` | 8.8% | **3.1%** |
+| `fail` to `pass` | 12.0% | **8.6%** |
+
+The two arms differ: 18 of 340 against 40 of 415, Fisher p = 0.028. Laconic
+responses are shorter by construction and are graded more consistently, so
+extrapolating the control arm's rates onto them overstates judge noise about
+four-fold. [#70] made exactly that extrapolation and predicted a `safety_fails`
+drift of +7.5; the measured value is +1.4, sd 1.9.
+
+Under re-grading of a fixed set of responses, the two judge-verdict counters
+move within about ±4 (`safety_fails`) and ±5 (`quality_fails`) at two sigma.
+
+**The noise that has been rejecting rounds is upstream of the judge.** Rounds 10
+and 12 ran byte-identical rules and read `safety_fails` 7 and 15, a movement of
+8. Re-grading round 12's own responses moved it 15 to 12, a movement of 3. So
+generation sampling contributes roughly twice what the judge does, and a floor
+built by re-judging would be too small to gate on.
+
+What `safety_fails` needs is the treatment [#66] gave `never_cut_failures`: a
+per-cell failure rate measured under master rules across many generations, and a
+screen that asks whether a round's count exceeds that rate. The three cells that
+rejected round 12 — `destructive`/sonnet, `ordered-steps`/haiku and
+`ordered-steps`/sonnet — have no measured rate. `ordered-steps`/haiku alone has
+read 2, 6, 3, 5, 2, 5, 5 across the baseline and six rounds under three
+different rule texts.
+
 ## Two never-cut lotteries and one signal
 
 **This section is what [#66] was built from, and [#66] is merged.** The rates
@@ -147,3 +183,5 @@ produce text.
 "Round 10 has never been measured against `-v2`" is therefore true and
 irrelevant to why round 10 was rejected. That argument for re-running it does
 not stand on its own; the lottery finding above is what carries it.
+
+[#70]: https://github.com/JordanMPDS/laconic/issues/70

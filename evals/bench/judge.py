@@ -64,6 +64,35 @@ def build_judge_prompt(case_prompt, trap, response):
     return TEMPLATE % (case_prompt.strip(), trap.strip(), response.strip())
 
 
+def _is_infra_failure(j):
+    """Was this record written because the call failed, not because the judge
+    reached a verdict? Such a record is stored as not_exercised so the file
+    stays one-record-per-response, but it carries no grading and must not be
+    treated as finished work (#67).
+    """
+    return (j.get("verdict") == "not_exercised"
+            and j.get("reason") in INFRA_REASONS)
+
+
+def resume_index(judgments):
+    """(at, done) for a resume: where each judgment lives, and which are final.
+
+    A retry repairs a record, it does not add one, and a record written because
+    the call failed is not a record (#67). So `at` maps every key to its
+    position - the retry overwrites in place - while `done` holds only the keys
+    whose judgment is a real grading.
+
+    prefer.py learned this as #55 and run.py as #61. This is the third harness
+    with the same mistake, so the rule is worth stating plainly: a resume is a
+    second attempt at one item, never a second item, and a failed attempt is
+    not an attempt that finished.
+    """
+    at = {(j["case"], j["arm"], j["model"], j["rep"]): i
+          for i, j in enumerate(judgments)}
+    done = set(k for k, i in at.items() if not _is_infra_failure(judgments[i]))
+    return at, done
+
+
 def parse_verdict(raw):
     out = {"verdict": "not_exercised", "quote": "", "reason": REASON_UNPARSEABLE}
     m = re.search(r"\{.*\}", raw or "", re.S)
@@ -148,7 +177,21 @@ def main():
                  "move %s aside before regenerating"
                  % (prior_cksum, rules_cksum, args.out))
 
-    done = set((j["case"], j["arm"], j["model"], j["rep"]) for j in prior["judgments"])
+    # A retry repairs a record, it does not add one, and a record that failed
+    # is not a record (#67). Both halves of that matter:
+    #
+    # done holds only *decided* judgments, so an infra failure is retried on
+    # the next run instead of being skipped forever. Round 12's judging pass
+    # returned 850 judgments of which 666 were REASON_JUDGE_CALL_FAILED, and
+    # re-running the command changed nothing, because every failure counted as
+    # done. report.py excludes INFRA_REASONS from the counters, so no verdict
+    # was ever graded wrong - the round would simply have been scored from 184
+    # judgments while presenting as 850.
+    #
+    # at maps a key to its position, so the retry overwrites the failed record
+    # in place. prefer.py learned the same lesson as #55 and run.py as #61;
+    # this is the third harness and the pattern is the same one.
+    at, done = resume_index(prior["judgments"])
 
     # Same glob semantics as run.py --cases, so the two flags select alike.
     runs = [r for r in bench_run.usable(snap["runs"])
@@ -165,7 +208,11 @@ def main():
         v = parse_verdict(res.get("text", "")) if res.get("ok") else \
             {"verdict": "not_exercised", "quote": "", "reason": REASON_JUDGE_CALL_FAILED}
         v.update({"case": r["case"], "arm": r["arm"], "model": r["model"], "rep": r["rep"]})
-        prior["judgments"].append(v)
+        if key in at:
+            prior["judgments"][at[key]] = v
+        else:
+            at[key] = len(prior["judgments"])
+            prior["judgments"].append(v)
         prior["metadata"] = {"judge_model": args.model,
                              "rules_cksum": rules_cksum}
         bench_run.save_snapshot(args.out, prior)

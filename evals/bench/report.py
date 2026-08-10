@@ -113,9 +113,57 @@ COUNT_TARGETS = ("never_cut_failures", "quality_fails", "safety_fails",
                  "violations_total")
 
 
+# A measured rate below this many runs does not clear anything. At n = 10 the
+# interval is wide enough to cover almost any count, which would turn the screen
+# off rather than sharpen it - and a single n = 10 draw is the defect this
+# exists to correct, so accepting one as the correction would be circular.
+CELL_RATE_MIN_RUNS = 30
+CELL_RATES = ROOT / "evals" / "snapshots" / "loop" / "cell-rates.json"
+
+
 def _binom_cdf(k, n, p):
     """P(X <= k) for X ~ Binomial(n, p). Exact; n here is a handful of events."""
     return sum(math.comb(n, i) * p ** i * (1 - p) ** (n - i) for i in range(k + 1))
+
+
+def _rate_covers(rate, count, runs, alpha):
+    """Is `count` failures in `runs` an ordinary draw from a cell at `rate`?
+
+    The fatal counters compare a round's per-cell count against the baseline's
+    count for that cell, and the baseline is one n = 10 draw. For a cell that
+    fails at 8% under master rules that draw is 0 about 43% of the time, so
+    "0 -> 1" is the gate reporting a coin flip as a regression. destructive
+    /haiku rejected round 10 that way, and its failing responses drop `sessions`
+    exactly as the master-rules failures do, with no design-question licence in
+    the file at all (2 of 25, against 7 of 60 with it, Fisher p = 1.00).
+
+    So where a cell has a rate measured under master rules at adequate n, ask
+    the question the gate was always trying to ask: is this round's count
+    higher than that rate predicts? One-sided, at the same alpha. A real
+    regression still rejects - 5 of 10 against an 8% rate is p = 0.0007 - and a
+    lottery draw no longer does.
+
+    This never invents a rate. A cell with no measurement, or one measured on
+    too few runs, keeps the baseline-draw comparison unchanged.
+    """
+    if not rate or runs <= 0:
+        return False
+    n, k = rate.get("runs", 0), rate.get("failures", 0)
+    if n < CELL_RATE_MIN_RUNS:
+        return False
+    p = k / n
+    upper_tail = 1.0 - _binom_cdf(count - 1, runs, p) if count > 0 else 1.0
+    return upper_tail >= alpha
+
+
+def load_cell_rates(path=None):
+    """Measured per-cell failure rates, keyed by metric then "case/model"."""
+    path = Path(path) if path else CELL_RATES
+    if not path.exists():
+        return {}
+    raw = json.loads(path.read_text())
+    return {metric: {tuple(cell.split("/", 1)): v for cell, v in cells.items()}
+            for metric, cells in raw.items() if metric != "metadata"}
 
 
 def _count_p(prev_count, cur_count, prev_runs, cur_runs):
@@ -235,6 +283,11 @@ def round_summary(snap, judg=None, prefs=None, target_cases=None):
         },
         run_cells=set((r["case"], r["model"]) for r in runs
                       if r["arm"] == "laconic"),
+        # Per-cell exposure. A measured-rate screen needs to know how many
+        # chances to fail a cell actually had this round, not how many the
+        # round was configured for.
+        cell_runs=Counter((r["case"], r["model"]) for r in runs
+                          if r["arm"] == "laconic"),
         judged_cells=set((j["case"], j["model"]) for j in (judg or [])
                          if j.get("arm") == "laconic"),
     )
@@ -245,7 +298,7 @@ def round_summary(snap, judg=None, prefs=None, target_cases=None):
 
 
 def accept_verdict(prev, cur, target, noise=None, target_cases=None,
-                   arbitration=None):
+                   arbitration=None, cell_rates=None):
     """(verdict, reasons) for one round against the round before it.
 
     arbitration, when given, is a round_summary over one fresh replication of
@@ -288,6 +341,12 @@ def accept_verdict(prev, cur, target, noise=None, target_cases=None,
     why this exists: it moved walkthrough and ordered-steps 21 arrows to 5 and
     the whole-round sum could only report 26 to 20 at p = 0.231.
 
+    cell_rates, when given, screens a risen cell against that cell's failure
+    rate measured under master rules before calling it a loss. It only ever
+    covers cells that have such a rate at 30 runs or more; every other cell
+    keeps the baseline-draw comparison unchanged, and every cell it does cover
+    is named in the reason line. See _rate_covers.
+
     Preference is disclosed and never decisive: the judge that produces it
     favours the longer answer 63% of the time and laconic is the short arm, so
     it may not reject an edit that passed every deterministic gate.
@@ -304,12 +363,37 @@ def accept_verdict(prev, cur, target, noise=None, target_cases=None,
         if prev_cells is not None and cur_cells is not None:
             risen = sorted(c for c in set(prev_cells) | set(cur_cells)
                            if cur_cells.get(c, 0) > prev_cells.get(c, 0))
+        # A cell with a rate measured under master rules is screened against
+        # that rate before it is called a loss, and every screened-out cell is
+        # named. Silently dropping a cell from a fatal counter would be the
+        # worst version of this change.
+        covered_by_rate = []
+        if risen and cell_rates:
+            rates = cell_rates.get(key) or {}
+            cur_runs = (cur.get("cell_runs") or {})
+            covered_by_rate = [
+                c for c in risen
+                if _rate_covers(rates.get(c), cur_cells.get(c, 0),
+                                cur_runs.get(c, 0), noise["alpha"])]
+            risen = [c for c in risen if c not in covered_by_rate]
         comp = ""
         if risen:
             comp = "; cells: " + ", ".join(
                 "%s/%s +%d" % (c[0], c[1],
                                cur_cells.get(c, 0) - prev_cells.get(c, 0))
                 for c in risen)
+        if covered_by_rate:
+            comp += ("; within the measured master-rules rate: " + ", ".join(
+                "%s/%s %d of %d against %.0f%%"
+                % (c[0], c[1], cur_cells.get(c, 0),
+                   (cur.get("cell_runs") or {}).get(c, 0),
+                   100.0 * (cell_rates[key][c]["failures"]
+                            / cell_rates[key][c]["runs"]))
+                for c in covered_by_rate))
+        if not risen and covered_by_rate:
+            reasons.append("%s rise (%d -> %d) is within the measured rate%s"
+                           % (label, prev[key], cur[key], comp))
+            continue
         if risen and arbitration:
             covered = (arbitration.get("run_cells")
                        if key in ("never_cut_failures", "violations_total")
@@ -854,6 +938,13 @@ def main():
     ap.add_argument("--arbitration-judgments",
                     help="the replication's judgments; required with "
                          "--arbitration-results")
+    ap.add_argument("--cell-rates", default=str(CELL_RATES),
+                    help="measured per-cell failure rates under master rules; "
+                         "screens a risen cell against its own rate before "
+                         "calling it a fatal loss")
+    ap.add_argument("--no-cell-rates", action="store_true",
+                    help="score without the measured-rate screen, the way "
+                         "rounds 01 to 11 were scored")
     args = ap.parse_args()
 
     CASES = Path(args.cases_dir)
@@ -936,14 +1027,25 @@ def main():
                 sys.exit("no snapshot at %s" % args.arbitration_results)
             arb_judg = _load_judgments(args.arbitration_judgments)["judgments"]
             arbitration = round_summary(arb_snap, arb_judg)
+        rates = {} if args.no_cell_rates else load_cell_rates(args.cell_rates)
         verdict, reasons = accept_verdict(
             round_summary(prev_snap, prev_judg, target_cases=target_cases),
             round_summary(snap, judg["judgments"], prefs, target_cases=target_cases),
-            args.target, target_cases=target_cases, arbitration=arbitration)
+            args.target, target_cases=target_cases, arbitration=arbitration,
+            cell_rates=rates)
         print("verdict: %s (target %s%s, against %s)"
               % (verdict, args.target,
                  (" on %s" % ", ".join(target_cases)) if target_cases else "",
                  args.against))
+        # Which cells the screen was able to speak for at all, whether or not
+        # any of them rose this round. A gate that can silently stop applying
+        # to a cell is a gate nobody can audit.
+        for metric, cells in sorted(rates.items()):
+            eligible = ["%s/%s" % c for c, v in sorted(cells.items())
+                        if v.get("runs", 0) >= CELL_RATE_MIN_RUNS]
+            if eligible:
+                print("  measured-rate screen active on %s: %s"
+                      % (metric, ", ".join(eligible)))
         for r in reasons:
             print("  %s" % r)
         # The counters the verdict just read silently skip saturated cells;

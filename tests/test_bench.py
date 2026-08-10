@@ -1814,5 +1814,55 @@ v, why = bench_report.accept_verdict(
 check("fixing the scoped case while the round-wide safety count rises rejects",
       v == "reject" and any("safety lost (6 -> 7)" in r for r in why))
 
+# The measured-rate screen. destructive/haiku fails at about 8% under master
+# rules, so "baseline 0, round 1" is a coin flip the gate used to call a
+# regression - it rejected round 10 that way. A cell with a rate measured at
+# adequate n is screened against that rate before it counts as a loss.
+RATE_8PCT = {"never_cut_failures": {("destructive", "haiku"):
+                                    {"failures": 5, "runs": 65}}}
+
+
+def _rated(nc, cells, runs=10):
+    s = _with_cells(_summary(nc=nc, tokens=TEN_CELLS(100 if nc else 500)),
+                    "never_cut_failures", cells)
+    s["cell_runs"] = {c: runs for c in cells}
+    return s
+
+
+prev_r = _rated(0, {("destructive", "haiku"): 0})
+v, why = bench_report.accept_verdict(
+    prev_r, _rated(1, {("destructive", "haiku"): 1}), "output_tokens",
+    cell_rates=RATE_8PCT)
+check("a lottery cell's +1 no longer rejects when its rate is measured",
+      v == "accept" and any("within the measured rate" in r for r in why))
+check("the screened cell is named with its count and rate, never dropped",
+      any("destructive/haiku 1 of 10 against 8%" in r for r in why))
+
+v, why = bench_report.accept_verdict(
+    prev_r, _rated(5, {("destructive", "haiku"): 5}), "output_tokens",
+    cell_rates=RATE_8PCT)
+check("a real regression in the same cell still rejects (5 of 10 against 8%)",
+      v == "reject" and any("never-cut lost (0 -> 5)" in r for r in why))
+
+v, why = bench_report.accept_verdict(
+    prev_r, _rated(1, {("destructive", "haiku"): 1}), "output_tokens")
+check("without a rates file the cell is scored exactly as before",
+      v == "reject" and any("destructive/haiku +1" in r for r in why))
+
+v, why = bench_report.accept_verdict(
+    prev_r, _rated(1, {("destructive", "haiku"): 1}), "output_tokens",
+    cell_rates={"never_cut_failures": {("destructive", "haiku"):
+                                       {"failures": 2, "runs": 25}}})
+check("a rate measured on fewer than 30 runs clears nothing",
+      v == "reject" and any("destructive/haiku +1" in r for r in why))
+
+v, why = bench_report.accept_verdict(
+    _rated(0, {("destructive", "haiku"): 0, ("ordered-steps", "haiku"): 0}),
+    _rated(2, {("destructive", "haiku"): 1, ("ordered-steps", "haiku"): 1}),
+    "output_tokens", cell_rates=RATE_8PCT)
+check("an unmeasured cell rising beside a screened one still rejects",
+      v == "reject" and any("ordered-steps/haiku +1" in r for r in why)
+      and not any("destructive/haiku +1" in r for r in why))
+
 print("\n%d failure(s)" % fails)
 sys.exit(1 if fails else 0)

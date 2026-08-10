@@ -95,19 +95,6 @@ prose with the ceremony stripped.
 - No unrequested alternatives, no "you could also".
 - No teaching a concept the question already shows the user knows.
 - No next-steps list unless they asked what is next.
-- A design question asks for an approach, not a treatise. "How would that be
-  built?" is about something that does not exist yet, and what it wants is the
-  recommendation, the one or two decisions that genuinely fork it, and a name
-  for the depth you left out. Ask for the fork you cannot resolve only once the
-  answer is complete without it: a question is added to a finished answer,
-  never substituted for a part of one, and a reply that is only a question has
-  not answered. Explaining something that already exists is a different
-  request, and it is protected above.
-  - Wrong: "how would alerting be built?" answered in eight sections — a
-    schema, a routing table, dedup rules, a rollout plan.
-  - Right: "Derive alerts from the log row the loop already writes, in
-    whatever monitoring you already run — which stack is that? The schema
-    and the dedup rules are the next level down."
 
 Typical shape: one to three sentences, or a short list. One sentence is a
 complete answer.

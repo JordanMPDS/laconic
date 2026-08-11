@@ -95,6 +95,80 @@ against a small one. If the true rate under the edit is around 6%, forty runs
 expect about 2.4 failures and will most often land in the inconclusive band.
 That is stated now rather than discovered afterwards.
 
+---
+
+# Results
+
+**Zero failures in 40 fresh runs under the edit.** 40 generations, 0 failed,
+no judge calls.
+
+| source | failures | runs |
+| --- | --: | --: |
+| fresh n = 40 under the edit | **0** | 40 |
+| round 10 | 1 | 10 |
+| round 12 | 0 | 10 |
+| round 14 | 1 | 10 |
+| **pooled, deduplicated by response text** | **2** | **70** |
+
+Nothing deduplicated away — all 70 responses are distinct.
+
+| | rate | 95% CI |
+| --- | --: | --- |
+| the relocation edit | 2 of 70, **2.9%** | 0.3% – 9.9% |
+| master rules | 0 of 60, 0.0% | 0.0% – 6.0% |
+
+**Two-sided Fisher against 0 of 60: p = 0.499.** Registered outcome 2. Not
+significant, and the fresh runs moved it *away* from significance rather than
+toward it — the cell read p = 0.109 at 2 of 30 and reads p = 0.499 at 2 of 70.
+
+## What this does and does not license
+
+It does not clear the cell. `conditional`/haiku remains fatal at one failure in
+ten, exactly as before; this measurement changes no gate and its rate is
+deliberately kept out of `cell-rates.json`, which holds master-rules rates the
+screen uses to clear rounds.
+
+What it changes is the expected cost of round 15. On the raw history the cell
+fired in two of three draws of this edit. At the measured 2.9% the chance of it
+firing at least once in a round of ten is **25%**, so the fourth draw is roughly
+a one-in-four risk rather than a two-in-three one.
+
+The two rates are also no longer distinguishable. The edit's interval runs to
+9.9% and master's to 6.0%, and they overlap across almost their whole length.
+The evidence that this cell detects anything about the edit is now weak enough
+that it is worth saying plainly: **the strongest remaining objection to the
+relocation edit is a cell that fails 2.9% of the time with the edit and somewhere
+under 6% without it.**
+
+## Where the power actually sits
+
+The registered power table said this reaches significance only at 4 or more
+fresh failures, and it found none, so the inconclusive band was the likely
+landing and it landed there. But the null side carries real information too:
+
+| | P(0 failures in 40) |
+| --- | --: |
+| if the true rate under the edit is 2.9% | 0.31 |
+| if it is 10% | 0.015 |
+
+So 0 of 40 does not establish that the edit is harmless, but it does make a
+rate near 10% unlikely. The reading that the edit roughly triples a near-zero
+rate is not supported; the reading that both rates are small and close together
+is.
+
+## What would settle it
+
+Not more runs at this scale. Separating 2.9% from something under 6% needs
+several hundred runs per side, which is more than a year of rounds at n = 10 and
+more than this question is worth. The question the loop actually needs answered
+is different and cheaper: **should a fatal gate reject a round on a single
+failure in ten, in a cell whose measured rate is under 6%?** [#66] answered a
+version of that for cells with measurable rates and deliberately left the
+zero-rate case alone. This cell is the zero-rate case, and nothing here decides
+it.
+
+Round 15 runs, per registered outcome 2.
+
 [#46]: https://github.com/JordanMPDS/laconic/issues/46
 [#66]: https://github.com/JordanMPDS/laconic/pull/66
 [#78]: https://github.com/JordanMPDS/laconic/issues/78

@@ -367,6 +367,7 @@ def main():
             "winner": v["winner"],
             "winner_arm": winning_arm(v["winner"], args.treatment, args.control, t_is_a),
             "reason": v["reason"],
+            "usage": bench_judge.usage_of(res),
         }
 
     with ThreadPoolExecutor(max_workers=args.jobs) as pool:

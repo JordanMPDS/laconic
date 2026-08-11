@@ -1898,5 +1898,77 @@ check("an unmeasured cell rising beside a screened one still rejects",
       v == "reject" and any("ordered-steps/haiku +1" in r for r in why)
       and not any("destructive/haiku +1" in r for r in why))
 
+
+# --- #68: the graders keep the usage fields they already receive -------------
+#
+# Generation was priced from the start and both grading stages were not, so a
+# round showed the cost of 340 of its 1,380 calls. The capture is one line in
+# each grader; what needs testing is that the totals distinguish "this stage
+# was free" from "this stage was never measured".
+
+u = bench_judge.usage_of(bench_run.parse_cli_json(GOOD_JSON))
+check("usage_of lifts the token fields off a call", u["output_tokens"] == 33
+      and u["cache_read_input_tokens"] == 17615)
+check("usage_of lifts the cost", u["total_cost_usd"] == 0.0096)
+check("usage_of covers every field it names",
+      set(u) == set(bench_judge.USAGE_FIELDS))
+check("a failed call prices as zeros, not as missing keys",
+      bench_judge.usage_of({"ok": False})
+      == {f: 0 for f in bench_judge.USAGE_FIELDS})
+
+_runs = [{"ok": True, "output_tokens": 100, "total_cost_usd": 0.01,
+          "input_tokens": 5, "cache_creation_input_tokens": 0,
+          "cache_read_input_tokens": 900, "duration_ms": 10, "num_turns": 1},
+         {"ok": False}]
+_judg = [{"verdict": "pass", "usage": dict(u)},
+         {"verdict": "fail", "usage": dict(u)}]
+_prefs = [{"winner": "A", "usage": dict(u)}]
+
+_snap = {"metadata": {}, "runs": _runs}
+rows = {r["stage"]: r for r in bench_report.cost_summary(_snap, _judg, _prefs)}
+check("a failed run is not counted as a call", rows["generation"]["calls"] == 1)
+check("generation totals its own flat fields",
+      rows["generation"]["output_tokens"] == 100)
+check("judging totals the nested usage", rows["judging"]["output_tokens"] == 66)
+check("preference is priced too",
+      rows["preference"]["priced"] == 1
+      and abs(rows["preference"]["total_cost_usd"] - 0.0096) < 1e-9)
+
+# carry_arms() copies the controls forward with their usage intact, so a round
+# that totals every run in its snapshot bills itself for an earlier round's
+# calls - round 12 reads 850 runs against the 340 it issued.
+_carried = {"metadata": {"carried_arms_from": {"arms": ["baseline"]}},
+            "runs": _runs + [{"ok": True, "arm": "baseline", "output_tokens": 700,
+                              "total_cost_usd": 9.99, "input_tokens": 0,
+                              "cache_creation_input_tokens": 0,
+                              "cache_read_input_tokens": 0, "duration_ms": 0,
+                              "num_turns": 1}]}
+_crows = bench_report.cost_summary(_carried, _judg, _prefs)
+_cmap = {r["stage"]: r for r in _crows}
+check("a carried arm is not counted as this round's generation",
+      _cmap["generation"]["calls"] == 1)
+check("the carried run is still reported, not dropped",
+      _cmap["carried (paid earlier)"]["output_tokens"] == 700)
+_ctable = bench_report._cost_table(_crows)
+check("and it is excluded from the round total",
+      "**this round**" in _ctable and "9.99" not in _ctable.split("**this round**")[0]
+      and abs(sum(r["total_cost_usd"] for r in _crows if r["billed"]) - 0.0388) < 1e-9)
+
+_old = bench_report.cost_summary({"metadata": {}, "runs": _runs},
+                                 [{"verdict": "pass"}] * 3, [])
+_oldrows = {r["stage"]: r for r in _old}
+check("a pre-#68 judgments file counts its calls but prices none",
+      _oldrows["judging"]["calls"] == 3 and _oldrows["judging"]["priced"] == 0)
+check("and the table says so rather than printing a confident $0.00",
+      "No usage recorded for: judging" in bench_report._cost_table(_old))
+check("a stage with no records at all is not called unpriced",
+      "preference" not in bench_report._cost_table(_old).split(
+          "No usage recorded for:")[-1])
+
+_flat = bench_report.cost_summary(
+    {"metadata": {}, "runs": []}, [{"verdict": "pass", "output_tokens": 41}], [])
+check("a flat output_tokens on a judgment is not read as usage (#68)",
+      _flat[1]["priced"] == 0 and _flat[1]["output_tokens"] == 0)
+
 print("\n%d failure(s)" % fails)
 sys.exit(1 if fails else 0)

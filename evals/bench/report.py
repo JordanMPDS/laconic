@@ -735,7 +735,95 @@ def _by_arm_model(agg, field, arms, models, fmt="%s", agg_fn=_median):
     return "\n".join(rows)
 
 
-def render(snap, judg, threshold):
+def _usage_of(rec, nested):
+    """One record's usage fields, or None if it carries none.
+
+    Runs store them flat (run.py writes parse_cli_json's output straight onto
+    the record); judgments and comparisons store them under "usage" (#68).
+    A record from before that fix, or from a call that failed, has neither -
+    and None keeps it out of the priced count rather than totalling it as a
+    free call.
+    """
+    u = rec.get("usage") if nested else rec
+    if not isinstance(u, dict):
+        return None
+    got = {k: u[k] for k in bench_judge.USAGE_FIELDS if k in u}
+    return got or None
+
+
+def cost_summary(snap, judgments=(), comparisons=()):
+    """Per-stage token and dollar totals for one round.
+
+    Generation was always priced and the two grading stages were not, which
+    made the round's headline cost the smaller half of the bill: a 340-run
+    round issues 340 generation calls, 340 judge calls and 700 preference
+    comparisons, so 1,040 of its 1,380 calls carried no price at all (#68).
+
+    Carried arms are separated from generated ones. carry_arms() copies the
+    control runs forward with their usage fields intact, so totalling every
+    run in the file bills this round for calls an earlier round paid: round 12
+    carries three control arms and reads 850 runs against the 340 it actually
+    issued. The carried row is kept rather than dropped - the tokens are real
+    and the snapshot's numbers rest on them - but it is not this round's cost.
+
+    "priced" is reported beside "calls" on purpose. Snapshots recorded before
+    the capture landed total to zero, and a bare $0.00 for a stage that
+    plainly cost money would read as a measurement rather than as a gap.
+    """
+    carried = set((snap.get("metadata", {}).get("carried_arms_from") or {}).get("arms") or [])
+    runs = [r for r in snap.get("runs", []) if r.get("ok")]
+    stages = (("generation", [r for r in runs if r.get("arm") not in carried], False),
+              ("judging", list(judgments), True),
+              ("preference", list(comparisons), True),
+              ("carried (paid earlier)", [r for r in runs if r.get("arm") in carried], False))
+    rows = []
+    for name, records, nested in stages:
+        used = [u for u in (_usage_of(r, nested) for r in records) if u]
+        row = {"stage": name, "calls": len(records), "priced": len(used),
+               "billed": not name.startswith("carried")}
+        for f in bench_judge.USAGE_FIELDS:
+            row[f] = sum(u.get(f, 0) for u in used)
+        rows.append(row)
+    return rows
+
+
+SUMMED = ("calls", "priced", "input_tokens", "cache_creation_input_tokens",
+          "cache_read_input_tokens", "output_tokens", "total_cost_usd")
+
+
+def _cost_row(label, r):
+    return "| %s | %d | %d | %s | %s | %s | %s | %s |" % (
+        label, r["calls"], r["priced"],
+        "{:,}".format(r["input_tokens"]),
+        "{:,}".format(r["cache_creation_input_tokens"]),
+        "{:,}".format(r["cache_read_input_tokens"]),
+        "{:,}".format(r["output_tokens"]),
+        ("**%.2f**" if label.startswith("**") else "%.2f") % r["total_cost_usd"])
+
+
+def _cost_table(rows):
+    out = ["| stage | calls | priced | input | cache write | cache read | output | USD |",
+           "|---|--:|--:|--:|--:|--:|--:|--:|"]
+    billed = [r for r in rows if r["billed"]]
+    for r in billed:
+        out.append(_cost_row(r["stage"], r))
+    # The total covers what this round issued. Carried runs are listed under
+    # it, outside the sum, because they were paid for in the round that
+    # generated them and adding them here would bill the same calls twice.
+    out.append(_cost_row("**this round**", {f: sum(r[f] for r in billed) for f in SUMMED}))
+    for r in rows:
+        if not r["billed"] and r["calls"]:
+            out.append(_cost_row(r["stage"], r))
+    unpriced = [r["stage"] for r in rows if r["calls"] and not r["priced"]]
+    if unpriced:
+        out.append("")
+        out.append("_No usage recorded for: %s. Snapshots written before #68 "
+                   "carry none; those stages cost money the table cannot show._"
+                   % ", ".join(unpriced))
+    return "\n".join(out)
+
+
+def render(snap, judg, threshold, prefs=()):
     agg = aggregate(snap)
     arms, models = _arms_present(agg), _models_present(agg)
     meta = snap["metadata"]
@@ -796,6 +884,10 @@ def render(snap, judg, threshold):
     out.append(_by_arm_model(agg, "cost", arms, models, "%.4f") + "\n")
     out.append("### Duration, ms (median)\n")
     out.append(_by_arm_model(agg, "duration_ms", arms, models, "%.0f") + "\n")
+
+    out.append("### What the round cost\n")
+    out.append(_cost_table(cost_summary(snap, judg.get("judgments", []),
+                                        prefs)) + "\n")
 
     # "0 failures" only means something once you know how many responses were
     # actually checked. Six cases (decision, floor, ordered-steps, and the
@@ -994,6 +1086,12 @@ def main():
                                             total_usable, missing_judgments),
              file=sys.stderr)
 
+    # Loaded here rather than inside the --against branch: preference is 700 of
+    # a round's 1,380 calls, and the cost table in the rendered report needs it
+    # on the path that has no --against at all.
+    prefs = (bench_run.load_snapshot(args.preferences) or {}).get("comparisons", []) \
+        if args.preferences else []
+
     # The loop's compare step. Exits 1 on reject so a round that fails its own
     # accept rule fails a command, the same contract the gates already keep.
     if args.against:
@@ -1012,8 +1110,6 @@ def main():
                      "round's verdicts every comparison reads as a quality "
                      "regression from 0")
         prev_judg = _load_judgments(args.against_judgments)["judgments"]
-        prefs = (bench_run.load_snapshot(args.preferences) or {}).get("comparisons", []) \
-            if args.preferences else []
         # Arbitration needs both halves: a replication snapshot without its
         # judgments would read every judge-verdict metric as 0 in the
         # replication and clear cells nothing ever re-checked.
@@ -1057,7 +1153,7 @@ def main():
                       "(saturated; see its expect.json)" % (case, model))
         sys.exit(0 if verdict == "accept" else 1)
 
-    md = render(snap, judg, args.threshold)
+    md = render(snap, judg, args.threshold, prefs)
     if args.markdown:
         Path(args.markdown).write_text(md)
         print("wrote %s" % args.markdown)

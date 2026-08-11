@@ -62,6 +62,15 @@ have landed negative in 9 of their 10 draws across rounds 07 to 11, so the scope
 costs roughly one round in five. The never-cut gate below costs roughly two in
 three. Both are worth fixing and only one of them is worth blocking on.
 
+**Due as of 2026-08-11: round 14 was the next round, and the scope cost it.**
+`design-search`/haiku came in at **+32 tokens, 0.24 of its own 135 standard
+deviation**, while every other cell fell and the median shift reached −1008 —
+larger than either previous draw of the same rules. Round 11 failed this target
+because the other noise cell landed heads; round 14 failed it because this one
+did. Two of the last four rounds, on a target whose effect size grew each time.
+The estimate of one round in five was optimistic: it is running at one in two.
+See [`round-14.md`](round-14.md).
+
 ## The judge disagrees with itself at 5.3%, not 9.6%
 
 Round 13 re-judged round 12's 340 laconic responses a second time under

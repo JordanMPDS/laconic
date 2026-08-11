@@ -45,8 +45,20 @@ else
   ok "gitignore no longer excludes evals/results"
 fi
 
+# 19 since 2026-08-11: design-rate-limit and design-retry take the scoped
+# output_tokens target from six case/model cells to ten. At six, one cell that
+# has never moved outside its own noise takes the two-sided sign test from
+# p = 0.031 to p = 0.219, which rejected rounds 11 and 14 outright. Eight cells
+# does not fix it (7 of 8 is p = 0.070); ten does (9 of 10 is p = 0.021).
 count=$(ls -d "$ROOT"/evals/cases/*/ 2>/dev/null | wc -l | tr -d ' ')
-if [ "$count" = "17" ]; then ok "17 cases present"; else fail "17 cases present (found $count)"; fi
+if [ "$count" = "19" ]; then ok "19 cases present"; else fail "19 cases present (found $count)"; fi
+
+design=$(ls -d "$ROOT"/evals/cases/design-*/ 2>/dev/null | wc -l | tr -d ' ')
+if [ "$design" -ge 5 ]; then
+  ok "at least 5 design cases, so the scoped token target has 10 cells"
+else
+  fail "at least 5 design cases, so the scoped token target has 10 cells (found $design)"
+fi
 
 for dir in "$ROOT"/evals/cases/*/; do
   name=$(basename "$dir")

@@ -34,6 +34,14 @@ REASON_JUDGE_CALL_FAILED = "judge call failed"
 REASON_UNPARSEABLE = "unparseable"
 INFRA_REASONS = (REASON_JUDGE_CALL_FAILED, REASON_UNPARSEABLE)
 
+# The cost fields run.py's parse_cli_json already lifts off every call. Named
+# here rather than inlined because prefer.py records the same set, and a round
+# that prices its generation calls on one field list and its judge calls on
+# another is not a round anyone can total.
+USAGE_FIELDS = ("input_tokens", "output_tokens", "cache_creation_input_tokens",
+                "cache_read_input_tokens", "total_cost_usd", "duration_ms",
+                "num_turns")
+
 TEMPLATE = """You are grading one response against one specific criterion.
 
 The question that was asked:
@@ -62,6 +70,24 @@ or answers a different question. That is neither a pass nor a fail.
 
 def build_judge_prompt(case_prompt, trap, response):
     return TEMPLATE % (case_prompt.strip(), trap.strip(), response.strip())
+
+
+def usage_of(res):
+    """The cost fields off one call, as a nested dict.
+
+    bench_run.call returns these on every successful call and both graders
+    discarded them, so a round priced its 340 generation calls and left its
+    340 judge calls and 700 preference comparisons unpriced (#68). Nested
+    under a single key rather than flattened onto the record: report.py reads
+    output_tokens off a *run* as the length metric the loop targets, and a
+    judgment carrying a flat output_tokens of its own is a field that means
+    something different under the same name.
+
+    A failed call carries no usage - bench_run.call returns a bare
+    {"ok": False} - so the zeros are the truth about it rather than a
+    placeholder, and a retry that succeeds overwrites the record with its own.
+    """
+    return {k: res.get(k, 0) for k in USAGE_FIELDS}
 
 
 def _is_infra_failure(j):
@@ -207,7 +233,8 @@ def main():
         res = _call_blind(claude_bin, args.model, prompt)
         v = parse_verdict(res.get("text", "")) if res.get("ok") else \
             {"verdict": "not_exercised", "quote": "", "reason": REASON_JUDGE_CALL_FAILED}
-        v.update({"case": r["case"], "arm": r["arm"], "model": r["model"], "rep": r["rep"]})
+        v.update({"case": r["case"], "arm": r["arm"], "model": r["model"], "rep": r["rep"],
+                  "usage": usage_of(res)})
         if key in at:
             prior["judgments"][at[key]] = v
         else:

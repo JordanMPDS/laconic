@@ -152,6 +152,10 @@ def carry_arms(snap, source, keep_arms):
     return snap
 
 
+def _now():
+    return datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+
+
 def new_snapshot(reps, models, level, rules_cksum, arms, claude_bin="claude"):
     arms_dict = {}
     for k, v in arms.items():
@@ -161,7 +165,7 @@ def new_snapshot(reps, models, level, rules_cksum, arms, claude_bin="claude"):
         arms_dict[k] = entry
     return {
         "metadata": {
-            "generated_at": datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
+            "generated_at": _now(),
             "claude_cli_version": _cli_version(claude_bin),
             "git_commit": _git_commit(),
             "laconic_level": level,
@@ -253,6 +257,14 @@ def main():
     if not cases:
         sys.exit("no cases matched: %s" % args.cases)
 
+    # Resolved once, then stamped onto every run below. The snapshot-level
+    # stamp is written when the file is created and never again, so a round
+    # assembled into a pre-seeded file inherits that file's provenance:
+    # round-12.json carries round-01-n10-v2.json's CLI and date for runs made
+    # three days later on a different CLI (#80). A per-run stamp cannot be
+    # inherited, and it can represent a round that legitimately spans hours.
+    cli_version = _cli_version(claude_bin)
+
     arms = dict(ARMS)
     arms["laconic"] = laconic_rules(ROOT, args.level)
     if not arms["laconic"].strip():
@@ -307,7 +319,9 @@ def main():
                             shutil.copytree(fixture, scratch, dirs_exist_ok=True)
                         res = call(claude_bin, model, prompt, arms[arm], scratch)
                         shutil.rmtree(scratch, ignore_errors=True)
-                    res.update({"case": case, "arm": arm, "model": model, "rep": rep})
+                    res.update({"case": case, "arm": arm, "model": model, "rep": rep,
+                                "generated_at": _now(),
+                                "claude_cli_version": cli_version})
                     # Replace the failed record for this cell rather than
                     # appending beside it (#61): a resume is a second attempt
                     # at one cell, not a second cell.

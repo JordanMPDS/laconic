@@ -55,13 +55,23 @@ def case_grading(case):
 
 
 def case_saturated_models(case):
-    """Models whose cell a case's expect.json marks saturated: it fails at the
-    criterion under every rules revision tested, so its verdicts are a constant
-    plus sampling noise rather than a signal an edit can move. destructive/haiku
-    is the motivating cell (30/30 fails across six gradings, criterion verified
-    against PostgreSQL 16 in #18). A saturated cell stays generated, judged and
-    displayed; it leaves only the fatal judge-verdict counters, where at small
-    reps a stray flip is indistinguishable from an edit effect (#45)."""
+    """Models whose cell a case's expect.json marks as unable to signal a rule
+    edit. Two mechanisms qualify, and each entry names which one it is:
+
+    - **Stuck at fail.** The cell fails under every rules revision tested, so
+      its verdicts are a constant plus sampling noise. destructive/haiku is the
+      motivating cell: 30 of 30 across six gradings, criterion verified against
+      PostgreSQL 16 in #18.
+    - **Stuck at a coin flip.** The cell's own master-rules rate is near 50%,
+      where a binomial's variance is largest, so its per-round count swings
+      several counts under no treatment. ordered-steps/haiku is that cell, at
+      29 of 60 (#78). The measured-rate screen handles its own rise but not the
+      round-wide total it feeds, and that total is what decides whether the
+      fatal check runs at all.
+
+    A saturated cell stays generated, judged and displayed; it leaves only the
+    fatal judge-verdict counters, where at small reps a stray flip is
+    indistinguishable from an edit effect (#45)."""
     p = CASES / case / "expect.json"
     if not p.exists():
         return {}
@@ -823,16 +833,45 @@ def _cost_table(rows):
     return "\n".join(out)
 
 
+def run_provenance(snap):
+    """When a snapshot's runs were generated and by which CLI, read off the
+    runs rather than off metadata (#80).
+
+    The metadata stamp is written once, when the file is created, and never
+    updated. So a round assembled from per-case shards into a pre-seeded file
+    inherits the provenance of whatever that file was born from:
+    round-12.json records CLI 2.1.223 and 6 August, both of them
+    round-01-n10-v2.json's, for runs generated three days later on 2.1.226.
+    A per-run stamp cannot be inherited that way, and a round that legitimately
+    spans hours or CLI versions can say so instead of picking one.
+
+    Falls back to the metadata stamp when no run carries its own, which is
+    true of every snapshot committed before run.py started stamping them.
+    Carried arms are older runs and are usually unstamped, so the span
+    describes what this round generated; carry_arms writes its own separate
+    disclosure for the rest.
+    """
+    runs = snap.get("runs", [])
+    meta = snap.get("metadata", {})
+    when = sorted(r["generated_at"] for r in runs if r.get("generated_at"))
+    vers = sorted(set(r["claude_cli_version"] for r in runs
+                      if r.get("claude_cli_version")))
+    if not when:
+        return meta.get("generated_at"), meta.get("claude_cli_version")
+    span = when[0] if when[0] == when[-1] else "%s to %s" % (when[0], when[-1])
+    return span, ", ".join(vers) or meta.get("claude_cli_version")
+
+
 def render(snap, judg, threshold, prefs=()):
     agg = aggregate(snap)
     arms, models = _arms_present(agg), _models_present(agg)
     meta = snap["metadata"]
     excluded = len([r for r in snap["runs"] if not r.get("ok")])
 
+    generated, cli = run_provenance(snap)
     out = []
     out.append("_Generated: %s · CLI: %s · commit: %s_" %
-               (meta.get("generated_at"), meta.get("claude_cli_version"),
-                meta.get("git_commit")))
+               (generated, cli, meta.get("git_commit")))
     out.append("_Level: %s · reps: %s · rules cksum: %s_\n" %
                (meta.get("laconic_level"), meta.get("reps"), meta.get("rules_cksum")))
     out.append("**Excluded runs (call failed, never scored): %d**\n" % excluded)

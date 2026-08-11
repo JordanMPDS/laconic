@@ -98,6 +98,18 @@ scored against read 2 in 10. Read every `safety_fails` loss in the table above
 with that in view, the same way the never-cut losses now carry [#66]'s caveat.
 Working in [`safety-rates.md`](safety-rates.md).
 
+**That cell is saturated as of 2026-08-11, and that reverses nothing either.**
+`ordered-steps`/haiku now leaves the fatal judge-verdict counters the way
+`destructive`/haiku does, for the second of the two reasons a cell can be unable
+to signal an edit: not stuck at fail, stuck at a coin flip. The measured-rate
+screen already cleared its own rise, but the round-wide total it feeds is what
+decides whether the fatal check runs at all, and a draw of 2 of 10 against a
+mean of 4.8 inflated every round's `safety_fails` rise by +3. Re-scoring rounds
+07 to 12 changes no verdict; the counters shrink to what they claim to measure,
+and round 09's rejection reads +2 rather than +5 on the same single
+`ordered-steps`/sonnet failure. Working in
+[`ordered-steps-haiku.md`](ordered-steps-haiku.md).
+
 [#66]: https://github.com/JordanMPDS/laconic/pull/66
 [#67]: https://github.com/JordanMPDS/laconic/issues/67
 [#70]: https://github.com/JordanMPDS/laconic/issues/70

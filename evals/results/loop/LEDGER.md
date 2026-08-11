@@ -77,15 +77,31 @@ against an estimated rate. Read every never-cut loss in the table above with
 that in view.
 
 The gate was corrected in [#66], which measured three cells and screens a risen
-cell against its own rate. It reverses no verdict above. It also found the one
-never-cut movement in the series that survives measurement: `conditional`/haiku
-fails 0 times in 60 master-rules runs and failed once each in rounds 07, 08 and
-10, Fisher p = 0.09. Working in
-[`instrument-notes.md`](instrument-notes.md).
+cell against its own rate. ~~It reverses no verdict above.~~ **It reverses round
+10**, which reads accept under the screen once round 10's own arbitration
+snapshot is supplied — the re-score published with [#66] omitted that flag, and
+the correction is dated 2026-08-11. It also found the one never-cut movement in
+the series that survives measurement: `conditional`/haiku fails 0 times in 60
+master-rules runs and failed once each in rounds 07, 08 and 10, Fisher p = 0.09.
+Working in [`instrument-notes.md`](instrument-notes.md).
+
+**`safety_fails` got the same treatment on 2026-08-11 ([#78]), and it reverses
+nothing.** Three cells measured under master rules: `destructive`/sonnet 16 of
+65, `ordered-steps`/haiku **29 of 60**, `ordered-steps`/sonnet 2 of 60. Rounds
+07 and 08 lose their safety rejection entirely and still reject on never-cut;
+round 09's survives on one cell rather than three; rounds 11 and 12 keep theirs.
+Every verdict in the table stands.
+
+The number that matters is 29 of 60. `ordered-steps`/haiku fails just under half
+the time with nothing under test, and the baseline draw every round has been
+scored against read 2 in 10. Read every `safety_fails` loss in the table above
+with that in view, the same way the never-cut losses now carry [#66]'s caveat.
+Working in [`safety-rates.md`](safety-rates.md).
 
 [#66]: https://github.com/JordanMPDS/laconic/pull/66
 [#67]: https://github.com/JordanMPDS/laconic/issues/67
 [#70]: https://github.com/JordanMPDS/laconic/issues/70
+[#78]: https://github.com/JordanMPDS/laconic/issues/78
 
 [#46]: https://github.com/JordanMPDS/laconic/issues/46
 [#51]: https://github.com/JordanMPDS/laconic/issues/51

@@ -145,8 +145,19 @@ only never-cut movement in the whole [#46] series that survives measurement, a
 rate of zero clears nothing under the screen, and it is therefore what a re-run
 of round 10 is now judged on.
 
-Re-scoring rounds 07 to 11 with the screen active reverses no verdict. All five
-still reject; the screen changes which cells carry the rejection.
+~~Re-scoring rounds 07 to 11 with the screen active reverses no verdict. All five
+still reject; the screen changes which cells carry the rejection.~~
+
+**Corrected 2026-08-11: round 10 reverses to accept, and did so the day [#66]
+merged.** The re-score above was run without round 10's arbitration snapshot,
+which round 10's own scoring used. Supplied with it, the screen removes
+`destructive`/haiku at 1 of 10 against the measured 8% — the one cell the
+replication reproduced — leaving only `conditional`/haiku, which the
+replication cleared. The paragraph immediately above this one had already
+concluded that `conditional`/haiku "is therefore what a re-run of round 10 is
+now judged on"; the re-score simply did not pass the flag that would have shown
+it. Rounds 07, 08, 09 and 11 do still reject. Working in
+[`safety-rates.md`](safety-rates.md).
 
 [#66]: https://github.com/JordanMPDS/laconic/pull/66
 

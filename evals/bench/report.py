@@ -782,10 +782,20 @@ def cost_summary(snap, judgments=(), comparisons=()):
     """
     carried = set((snap.get("metadata", {}).get("carried_arms_from") or {}).get("arms") or [])
     runs = [r for r in snap.get("runs", []) if r.get("ok")]
+    # A carried judgment carries the usage of the call that originally bought
+    # it, exactly as a carried run does, so it is split out for the same
+    # reason (#83). The split reads the per-record marker judge.py writes when
+    # it copies a verdict forward - not the arm - because the arm alone cannot
+    # tell the two cases apart. Round 14 re-graded its own controls and really
+    # did spend $25.05 doing so; pricing that as "paid earlier" would
+    # understate what the round cost by 41%.
+    judged = list(judgments)
     stages = (("generation", [r for r in runs if r.get("arm") not in carried], False),
-              ("judging", list(judgments), True),
+              ("judging", [j for j in judged if not j.get("carried")], True),
               ("preference", list(comparisons), True),
-              ("carried (paid earlier)", [r for r in runs if r.get("arm") in carried], False))
+              ("carried (paid earlier)", [r for r in runs if r.get("arm") in carried], False),
+              ("carried judgments (paid earlier)",
+               [j for j in judged if j.get("carried")], True))
     rows = []
     for name, records, nested in stages:
         used = [u for u in (_usage_of(r, nested) for r in records) if u]

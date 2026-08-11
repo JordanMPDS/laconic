@@ -64,6 +64,7 @@ python3 evals/bench/run.py --arms laconic --reps 10 \
   --carry-arms-from "$PREV" \
   --snapshot "evals/snapshots/loop/round-$N.json"
 python3 evals/bench/judge.py --results "evals/snapshots/loop/round-$N.json" \
+  --carry-judgments-from "$PREV_J" --jobs 6 \
   --out "evals/snapshots/loop/round-$N-judgments.json"
 python3 evals/bench/prefer.py --results "evals/snapshots/loop/round-$N.json" \
   --control baseline --jobs 6 --out "evals/snapshots/loop/round-$N-preferences.json"
@@ -71,6 +72,19 @@ python3 evals/bench/prefer.py --results "evals/snapshots/loop/round-$N.json" \
 
 The controls are carried, not regenerated: no control arm carries rules in its
 system prompt, so they cannot have moved.
+
+**Their verdicts are carried too, and both flags matter.** Round 14 carried the
+control *runs* and then re-graded them anyway: 510 of its 850 judge calls, and
+$25.05 of its $41.37 judging bill, spent re-grading text the baseline had
+already graded and no fatal gate reads. Worse than wasted — the judge disagrees
+with itself on 5 to 10% of identical text, so each round re-rolled its own
+comparison rows.
+
+`--carry-judgments-from` prints a warning when the source predates
+`criteria_cksum`, which is every judgments file committed before 2026-08-11.
+That warning is the rule below restated by the tool, and it is not decoration:
+**if any case criterion has changed since the source was written, do not
+carry — re-judge.**
 
 ## Step 4: review, no calls
 

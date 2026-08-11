@@ -14,6 +14,7 @@ import re
 import shutil
 import sys
 import tempfile
+import zlib
 from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 
@@ -89,6 +90,79 @@ def usage_of(res):
     placeholder, and a retry that succeeds overwrites the record with its own.
     """
     return {k: res.get(k, 0) for k in USAGE_FIELDS}
+
+
+def criteria_cksum(cases_dir):
+    """A checksum over exactly what the judge is shown: each case's trap.
+
+    This is the condition under which one round's verdicts may be reused by
+    another, and the loop already states it in prose - "if you correct a
+    criterion, re-judge every round you will compare". Two case criteria have
+    been corrected against the real software they describe and both moved
+    verdicts, so the rule is not hypothetical.
+
+    Only `trap` is hashed, not the whole file. expect.json also carries
+    never_cut, grading, saturated_models and criteria_source, and none of
+    those reaches the judge's prompt: saturating ordered-steps/haiku on
+    2026-08-11 changed that file without changing a single grading, and a
+    whole-file hash would have refused a carry that was perfectly valid.
+    """
+    traps = {}
+    for d in sorted(Path(cases_dir).iterdir()):
+        p = d / "expect.json"
+        if p.is_file():
+            traps[d.name] = json.loads(p.read_text()).get("trap", "")
+    return str(zlib.crc32(json.dumps(traps, sort_keys=True).encode()))
+
+
+def carry_judgments(prior, at, done, source, snap, arms, source_path, criteria):
+    """Copy the carried arms' verdicts forward instead of re-grading them.
+
+    run.py carries the control arms because no control carries rules in its
+    system prompt, so they cannot have moved, and #77 stopped billing the round
+    for those generations. judge.py then graded every run in the snapshot
+    anyway: round 14 spent $25.05 of its $41.37 judging bill re-grading 510
+    carried responses that are byte-identical to the baseline's, already graded
+    there, and read by no fatal gate - `_judge_fail_cells` filters to the
+    laconic arm (#83). That is 60% of the round's judge calls.
+
+    Re-grading them was not merely wasteful, it was worse than free: the judge
+    disagrees with itself on 5 to 10% of identical text (#70), so every round
+    re-rolled its own comparison rows.
+
+    Only keys that exist as usable runs in this snapshot are copied, and a key
+    already decided here is left alone - a carry is not allowed to overwrite a
+    grading this round performed. Anything the source does not cover stays on
+    the todo list and is judged normally, so a partial source degrades to fewer
+    calls rather than to missing verdicts.
+
+    Returns the provenance record to stamp into metadata.
+    """
+    wanted = {(r["case"], r["arm"], r["model"], r["rep"])
+              for r in bench_run.usable(snap["runs"]) if r["arm"] in arms}
+    copied = 0
+    for j in source.get("judgments", []):
+        key = (j.get("case"), j.get("arm"), j.get("model"), j.get("rep"))
+        if key not in wanted or key in done or _is_infra_failure(j):
+            continue
+        # Marked on the record, not merely in metadata: report.py prices a
+        # round by splitting calls this round bought from calls it inherited,
+        # and the marker is what makes that split truthful per record. Round
+        # 14 re-graded its controls and really did pay $25.05 for them, so a
+        # file without markers must keep counting them as this round's cost.
+        rec = dict(j, carried=True)
+        if key in at:
+            prior["judgments"][at[key]] = rec
+        else:
+            at[key] = len(prior["judgments"])
+            prior["judgments"].append(rec)
+        done.add(key)
+        copied += 1
+    src_criteria = (source.get("metadata") or {}).get("criteria_cksum")
+    return {"path": source_path, "arms": sorted(arms), "judgments": copied,
+            "uncovered": len(wanted) - copied,
+            "criteria_cksum": src_criteria,
+            "criteria_verified": bool(src_criteria) and src_criteria == criteria}
 
 
 def _is_infra_failure(j):
@@ -176,6 +250,11 @@ def main():
                          "service rather than the harness, and more workers may "
                          "reach that ceiling sooner. Raise it only with evidence, "
                          "and record what the failure rate did (#71).")
+    ap.add_argument("--carry-judgments-from",
+                    help="judgments snapshot to copy the carried arms' verdicts from, "
+                         "instead of re-grading responses an earlier round already "
+                         "graded. Pairs with run.py --carry-arms-from, and the arms "
+                         "it copies are the ones that snapshot recorded carrying (#83)")
     args = ap.parse_args()
 
     CASES = Path(args.cases_dir)
@@ -228,6 +307,46 @@ def main():
     # this is the third harness and the pattern is the same one.
     at, done = resume_index(prior["judgments"])
 
+    criteria = criteria_cksum(CASES)
+    meta = {"judge_model": args.model, "rules_cksum": rules_cksum,
+            "criteria_cksum": criteria}
+
+    # The carried arms' verdicts are copied, not bought again (#83).
+    if args.carry_judgments_from:
+        arms = set((snap["metadata"].get("carried_arms_from") or {}).get("arms") or [])
+        if not arms:
+            sys.exit("%s records no carried arms, so there is nothing to carry "
+                     "judgments for; drop --carry-judgments-from" % args.results)
+        source = bench_run.load_snapshot(args.carry_judgments_from)
+        if source is None:
+            sys.exit("no judgments snapshot to carry from: %s"
+                     % args.carry_judgments_from)
+        prov = carry_judgments(prior, at, done, source, snap, arms,
+                               args.carry_judgments_from, criteria)
+        meta["carried_judgments_from"] = prov
+        print("carried %d judgment(s) for arm(s) %s from %s"
+              % (prov["judgments"], ", ".join(prov["arms"]), prov["path"]))
+        if prov["uncovered"]:
+            print("  %d carried run(s) are not covered by that file and will be "
+                  "judged normally" % prov["uncovered"])
+        if not prov["criteria_verified"]:
+            # Loud rather than silent, and recorded in the snapshot as well, so
+            # a reader of the file is not relying on someone having watched the
+            # terminal. A file written before criteria_cksum existed has no
+            # stamp to check, which is every judgments file committed to date.
+            print("  WARNING: the source carries %s, so the criteria behind those "
+                  "verdicts are NOT verified against the criteria in %s. Carry "
+                  "only if no case criterion has changed since it was written."
+                  % ("criteria_cksum %s, which differs from this run's %s"
+                     % (prov["criteria_cksum"], criteria)
+                     if prov["criteria_cksum"] else "no criteria_cksum",
+                     args.cases_dir))
+
+    # Assigned before the loop, not inside it: a pass with nothing left to
+    # judge - every key carried, or a completed resume - must still write its
+    # provenance, and a loop body is not reached when todo is empty.
+    prior["metadata"] = meta
+
     # Same glob semantics as run.py --cases, so the two flags select alike.
     runs = [r for r in bench_run.usable(snap["runs"])
             if fnmatch.fnmatch(r["case"], args.cases)]
@@ -261,13 +380,12 @@ def main():
             else:
                 at[key] = len(prior["judgments"])
                 prior["judgments"].append(v)
-            prior["metadata"] = {"judge_model": args.model,
-                                 "rules_cksum": rules_cksum}
             bench_run.save_snapshot(args.out, prior)  # after each: resumable if killed
             print("[%d/%d] %-14s %-16s %-7s rep%d -> %s"
                   % (i, len(todo), v["case"], v["arm"], v["model"], v["rep"],
                      v["verdict"]), flush=True)
 
+    bench_run.save_snapshot(args.out, prior)
     print("\nwrote %s (%d judgments)" % (args.out, len(prior["judgments"])))
 
 

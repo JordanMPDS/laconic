@@ -98,6 +98,12 @@ rejected round 12 — `destructive`/sonnet, `ordered-steps`/haiku and
 read 2, 6, 3, 5, 2, 5, 5 across the baseline and six rounds under three
 different rule texts.
 
+**Done on 2026-08-11 ([#78]), in [`safety-rates.md`](safety-rates.md).** The
+three rates are 24.6%, 48.3% and 3.3%, and the screen activated with no code
+change. `ordered-steps`/haiku was saturated the same day, for the reason that
+measurement surfaced and deliberately did not settle:
+[`ordered-steps-haiku.md`](ordered-steps-haiku.md).
+
 ## Two never-cut lotteries and one signal
 
 **This section is what [#66] was built from, and [#66] is merged.** The rates

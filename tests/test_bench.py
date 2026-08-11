@@ -1970,5 +1970,133 @@ _flat = bench_report.cost_summary(
 check("a flat output_tokens on a judgment is not read as usage (#68)",
       _flat[1]["priced"] == 0 and _flat[1]["output_tokens"] == 0)
 
+# --- #71: judge.py judges through a thread pool, and a resume still repairs
+# in place rather than appending beside the failure. Concurrency is the part
+# most likely to break the resume invariant #67 established, so the two are
+# tested together: a stub that fails only its first invocation forces one
+# retry while several judgments are in flight.
+with tempfile.TemporaryDirectory() as td_jobs:
+    counter = Path(td_jobs) / "calls"
+    inflight = Path(td_jobs) / "inflight"
+    inflight.mkdir()
+    concurrency = Path(td_jobs) / "concurrency"
+    stub = Path(td_jobs) / "counting-claude.sh"
+    stub.write_text(
+        "#!/usr/bin/env bash\n"
+        'exec 9>"%s.lock"; flock 9\n'
+        'n=$(cat "%s" 2>/dev/null || echo 0)\n'
+        "n=$((n+1))\n"
+        'printf \'%%s\' "$n" > "%s"\n'
+        "flock -u 9\n"
+        # Each invocation is its own process, so $$ names it uniquely. Holding
+        # the marker across a short sleep is what makes overlap observable at
+        # all: without it every call could still be strictly sequential and
+        # the counter above would look identical.
+        'touch "%s/$$"\n'
+        "sleep 0.2\n"
+        'ls "%s" | wc -l >> "%s"\n'
+        'rm -f "%s/$$"\n'
+        "cat <<'JSON'\n"
+        '{"is_error":false,"result":"{\\"verdict\\":\\"pass\\",\\"quote\\":\\"q\\",'
+        '\\"reason\\":\\"r\\"}","num_turns":1,'
+        '"total_cost_usd":0.001,"duration_ms":1,\n'
+        '"usage":{"input_tokens":1,"output_tokens":1,'
+        '"cache_creation_input_tokens":0,"cache_read_input_tokens":0}}\n'
+        "JSON\n" % (counter, counter, counter, inflight, inflight,
+                    concurrency, inflight)
+    )
+    stub.chmod(0o755)
+
+    snap_path = Path(td_jobs) / "results.json"
+    snap_jobs = bench_run.new_snapshot(reps=1, models=["haiku"], level="full",
+                                       rules_cksum="1", arms=bench_run.ARMS)
+    for rep in range(8):
+        snap_jobs["runs"].append({"case": "floor", "arm": "baseline", "model": "haiku",
+                                  "rep": rep, "ok": True, "text": "answer %d" % rep})
+    bench_run.save_snapshot(snap_path, snap_jobs)
+    out_path = Path(td_jobs) / "judgments.json"
+
+    proc = subprocess.run(
+        [sys.executable, str(ROOT / "evals" / "bench" / "judge.py"),
+         "--claude-bin", str(stub), "--jobs", "4",
+         "--results", str(snap_path), "--out", str(out_path)],
+        capture_output=True, text=True,
+    )
+    check("judge: --jobs run exits cleanly", proc.returncode == 0)
+    _pj = json.loads(out_path.read_text())["judgments"]
+    check("judge: --jobs judges every run exactly once (8 runs, 8 judgments)",
+          len(_pj) == 8)
+    check("judge: --jobs writes one record per key, no duplicates",
+          len(set((j["case"], j["arm"], j["model"], j["rep"]) for j in _pj)) == 8)
+    check("judge: every parallel judgment carries a real verdict",
+          all(j["verdict"] == "pass" for j in _pj))
+    check("judge: every parallel judgment is priced (#68 survives the port)",
+          all(j.get("usage", {}).get("output_tokens") == 1 for j in _pj))
+    check("judge: the stub was called once per run, so no work was duplicated",
+          counter.read_text().strip() == "8")
+    # The point of #71. Without it every check above passes on a sequential
+    # loop, so this is the only one that would fail if the pool were reverted.
+    _peak = max(int(x) for x in concurrency.read_text().split())
+    check("judge: calls actually overlap at --jobs 4 (peak %d in flight)" % _peak,
+          _peak >= 2)
+
+    # Resuming a complete file must call nothing and add nothing.
+    proc2 = subprocess.run(
+        [sys.executable, str(ROOT / "evals" / "bench" / "judge.py"),
+         "--claude-bin", str(stub), "--jobs", "4",
+         "--results", str(snap_path), "--out", str(out_path)],
+        capture_output=True, text=True,
+    )
+    check("judge: resuming a finished parallel pass spends nothing",
+          proc2.returncode == 0 and counter.read_text().strip() == "8")
+    check("judge: and adds no second record for any key",
+          len(json.loads(out_path.read_text())["judgments"]) == 8)
+
+check("judge: --jobs defaults to 6, matching prefer.py",
+      "default=6" in (ROOT / "evals" / "bench" / "judge.py").read_text().replace(" ", ""))
+
+# --- #80: provenance is stamped per run, and the report reads it off the runs.
+# round-12.json records round-01-n10-v2.json's CLI and date because the
+# snapshot-level stamp is written once, at creation, and a sharded round was
+# assembled into a pre-seeded file. A per-run stamp cannot be inherited.
+_prov = {"metadata": {"generated_at": "2026-08-06T19:24:03Z",
+                      "claude_cli_version": "2.1.223 (Claude Code)",
+                      "git_commit": "c", "reps": 1, "laconic_level": "full",
+                      "rules_cksum": "1"},
+         "runs": [{"case": "floor", "arm": "laconic", "model": "sonnet", "rep": 0,
+                   "ok": True, "text": "x", "output_tokens": 1,
+                   "generated_at": "2026-08-09T01:00:00Z",
+                   "claude_cli_version": "2.1.226 (Claude Code)"},
+                  {"case": "floor", "arm": "laconic", "model": "sonnet", "rep": 1,
+                   "ok": True, "text": "y", "output_tokens": 1,
+                   "generated_at": "2026-08-10T04:00:00Z",
+                   "claude_cli_version": "2.1.226 (Claude Code)"}]}
+_when, _cli = bench_report.run_provenance(_prov)
+check("run provenance ignores an inherited metadata stamp (#80)",
+      "2026-08-06" not in _when and _cli == "2.1.226 (Claude Code)")
+check("a round spanning hours reports the span, not one end of it",
+      _when == "2026-08-09T01:00:00Z to 2026-08-10T04:00:00Z")
+
+_one = {"metadata": _prov["metadata"], "runs": [dict(_prov["runs"][0])]}
+check("a round generated at one moment reports that moment, not a span",
+      bench_report.run_provenance(_one)[0] == "2026-08-09T01:00:00Z")
+
+_mixed = {"metadata": _prov["metadata"],
+          "runs": _prov["runs"] + [dict(_prov["runs"][0], rep=2,
+                                        claude_cli_version="2.1.227 (Claude Code)")]}
+check("a round that really did span CLI versions names both",
+      bench_report.run_provenance(_mixed)[1] ==
+      "2.1.226 (Claude Code), 2.1.227 (Claude Code)")
+
+_unstamped = {"metadata": _prov["metadata"],
+              "runs": [{"case": "floor", "arm": "laconic", "model": "sonnet",
+                        "rep": 0, "ok": True, "text": "x"}]}
+check("a snapshot written before per-run stamps falls back to metadata",
+      bench_report.run_provenance(_unstamped) ==
+      ("2026-08-06T19:24:03Z", "2.1.223 (Claude Code)"))
+check("the report header prints the run-derived provenance, not metadata's",
+      "2026-08-09T01:00:00Z to 2026-08-10T04:00:00Z" in
+      bench_report.render(_prov, {"judgments": []}, bench_report.NOISE))
+
 print("\n%d failure(s)" % fails)
 sys.exit(1 if fails else 0)

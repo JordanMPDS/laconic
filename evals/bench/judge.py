@@ -14,6 +14,7 @@ import re
 import shutil
 import sys
 import tempfile
+from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
@@ -167,6 +168,14 @@ def main():
     ap.add_argument("--claude-bin", default="claude")
     ap.add_argument("--cases-dir", default=str(CASES),
                     help="case directory holding expect.json; evals/holdout for the reserved set")
+    ap.add_argument("--jobs", type=int, default=6,
+                    help="judgments in flight at once; each is its own subprocess. "
+                         "6 matches prefer.py. Raising it has not been shown to get "
+                         "more work done: round 12 lost 666 of 850 calls running "
+                         "strictly sequentially, so the binding constraint was the "
+                         "service rather than the harness, and more workers may "
+                         "reach that ceiling sooner. Raise it only with evidence, "
+                         "and record what the failure rate did (#71).")
     args = ap.parse_args()
 
     CASES = Path(args.cases_dir)
@@ -222,10 +231,17 @@ def main():
     # Same glob semantics as run.py --cases, so the two flags select alike.
     runs = [r for r in bench_run.usable(snap["runs"])
             if fnmatch.fnmatch(r["case"], args.cases)]
-    for i, r in enumerate(runs, 1):
-        key = (r["case"], r["arm"], r["model"], r["rep"])
-        if key in done:
-            continue
+    todo = [r for r in runs
+            if (r["case"], r["arm"], r["model"], r["rep"]) not in done]
+
+    def judge_one(r):
+        """One judgment. Every call is an independent subprocess against an
+        independent temp dir - _call_blind makes it so for blindness, and that
+        buys thread safety for free - so this runs in a worker thread and
+        touches no shared state. The snapshot is written by the main thread
+        only, which is what makes the resume file consistent if the run is
+        killed mid-pass (#71).
+        """
         case_dir = CASES / r["case"]
         expect = json.loads((case_dir / "expect.json").read_text())
         prompt = build_judge_prompt((case_dir / "prompt.md").read_text(),
@@ -235,16 +251,22 @@ def main():
             {"verdict": "not_exercised", "quote": "", "reason": REASON_JUDGE_CALL_FAILED}
         v.update({"case": r["case"], "arm": r["arm"], "model": r["model"], "rep": r["rep"],
                   "usage": usage_of(res)})
-        if key in at:
-            prior["judgments"][at[key]] = v
-        else:
-            at[key] = len(prior["judgments"])
-            prior["judgments"].append(v)
-        prior["metadata"] = {"judge_model": args.model,
-                             "rules_cksum": rules_cksum}
-        bench_run.save_snapshot(args.out, prior)
-        print("[%d/%d] %-14s %-16s %-7s rep%d -> %s"
-              % (i, len(runs), r["case"], r["arm"], r["model"], r["rep"], v["verdict"]))
+        return v
+
+    with ThreadPoolExecutor(max_workers=args.jobs) as pool:
+        for i, v in enumerate(pool.map(judge_one, todo), 1):
+            key = (v["case"], v["arm"], v["model"], v["rep"])
+            if key in at:
+                prior["judgments"][at[key]] = v
+            else:
+                at[key] = len(prior["judgments"])
+                prior["judgments"].append(v)
+            prior["metadata"] = {"judge_model": args.model,
+                                 "rules_cksum": rules_cksum}
+            bench_run.save_snapshot(args.out, prior)  # after each: resumable if killed
+            print("[%d/%d] %-14s %-16s %-7s rep%d -> %s"
+                  % (i, len(todo), v["case"], v["arm"], v["model"], v["rep"],
+                     v["verdict"]), flush=True)
 
     print("\nwrote %s (%d judgments)" % (args.out, len(prior["judgments"])))
 

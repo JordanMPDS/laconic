@@ -96,5 +96,64 @@ It also does not touch `never_cut_failures`, which is a substring check that
 runs regardless of saturation. `ordered-steps` declares no never-cut strings, so
 the cell contributes nothing there either way.
 
+---
+
+# Results
+
+**No verdict changes, in any of the six rounds.** The prediction registered
+above holds, including its arithmetic.
+
+Control is a copy of `evals/cases` with the `saturated_models` block stripped
+from `ordered-steps` alone; `cell-rates.json` and its `safety_fails` section are
+identical in both passes, so the only difference is the saturation.
+
+| round | verdict | `safety_fails` before | after | ground after |
+| --- | --- | --- | --- | --- |
+| 07 | reject (unchanged) | — | — | never-cut, `conditional`/haiku +1 |
+| 08 | reject (unchanged) | — | — | never-cut, `conditional`/haiku +1 |
+| 09 | reject (unchanged) | 6 → 11 | **4 → 6** | `ordered-steps`/sonnet +1 |
+| 10 | accept (unchanged) | — | — | — |
+| 11 | reject (unchanged) | 6 → 15 | **4 → 10** | `code-fidelity`/haiku +1, `ordered-steps`/sonnet +4 |
+| 12 | reject (unchanged) | 6 → 15 | **4 → 10** | `destructive`/sonnet +4, `ordered-steps`/sonnet +2 |
+
+Rounds 07 and 08 reject on never-cut and their safety ground was already gone
+after [#78]. Round 10's accept is the one [#78] disclosed as a correction, and
+it is unaffected.
+
+## The inflation was exactly the size the pre-registration predicted
+
+The baseline falls 6 to 4, so the cell contributed 2 there. Each round falls by
+5, so the cell contributed 5 there. **Every round's `safety_fails` rise was
+inflated by +3 by this cell alone**, which is the +3 the registered argument
+derived from a baseline draw of 2 against a mean of 4.8 — arrived at before the
+re-score ran, from the rate rather than from these numbers.
+
+Round 09 is where it shows most plainly. Its rejection reads as a rise of +5
+with the cell and +2 without it, and what carries it is a single
+`ordered-steps`/sonnet failure either way. The gate said the same thing before
+and after; it now says it about a counter that means what it claims to.
+
+## Nothing is excluded silently
+
+Both passes print, for every round:
+
+```
+note: ordered-steps/haiku excluded from judge-verdict counters (saturated; see its expect.json)
+```
+
+alongside the same line for `destructive`/haiku. The cell is still generated,
+still judged, and still in the per-cell tables. Its measured rate stays in
+`cell-rates.json`, where it is now unreachable by the screen but remains the
+evidence this decision rests on.
+
+## What is still true and unfixed
+
+The round-wide total is still a gate in front of the per-cell screen, for every
+other cell. Saturation removed the one cell known to be a coin flip; it did not
+change the structure that made that cell able to matter. Any future cell with a
+high master-rules rate will do the same thing, and the rate table is what would
+reveal it — three cells of the fourteen have measured `safety_fails` rates
+today.
+
 [#66]: https://github.com/JordanMPDS/laconic/pull/66
 [#78]: https://github.com/JordanMPDS/laconic/issues/78

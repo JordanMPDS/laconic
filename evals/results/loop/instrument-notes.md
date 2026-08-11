@@ -62,6 +62,13 @@ have landed negative in 9 of their 10 draws across rounds 07 to 11, so the scope
 costs roughly one round in five. The never-cut gate below costs roughly two in
 three. Both are worth fixing and only one of them is worth blocking on.
 
+**Done 2026-08-11, and the recommendation above was wrong.** More cells does not
+fix it: eight cells still rejects on one wrong-way vote at p = 0.070, and each
+new design case adds one working sonnet cell beside one more short haiku cell,
+so the noise fraction does not fall. What fixes it is stopping the short cells
+voting, which needs the extra cases only to keep six cells afterwards. Worked in
+[`token-scope.md`](token-scope.md).
+
 **Due as of 2026-08-11: round 14 was the next round, and the scope cost it.**
 `design-search`/haiku came in at **+32 tokens, 0.24 of its own 135 standard
 deviation**, while every other cell fell and the median shift reached −1008 —

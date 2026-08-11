@@ -130,6 +130,24 @@ COUNT_TARGETS = ("never_cut_failures", "quality_fails", "safety_fails",
 CELL_RATE_MIN_RUNS = 30
 CELL_RATES = ROOT / "evals" / "snapshots" / "loop" / "cell-rates.json"
 
+# A scoped output_tokens cell whose baseline is shorter than this does not vote
+# in the sign test. The test counts votes, so a cell that cannot express the
+# effect still casts one, and two such cells rejected rounds 11 and 14 outright
+# while every other cell fell and the median shift grew.
+#
+# Set from the measured gap, not tuned: every cell that has ever moved outside
+# its own noise has a baseline median of at least 1486 tokens
+# (design-audit-log/haiku), and every cell that never has is at most 978
+# (design-alerting/haiku). No cell sits between. The mechanism is why: this
+# target measures compression of design answers, and a 600-to-1000-token answer
+# has a few hundred tokens of headroom, which is the size of its own dispersion.
+#
+# It governs only the scoped sign test. No fatal counter reads it, dropped cells
+# are named in the verdict, the six-cell floor applies to what remains, and the
+# cells are still generated, judged and tabulated.
+# See evals/results/loop/token-scope.md.
+TOKEN_CELL_MIN_BASELINE = 1200
+
 
 def _binom_cdf(k, n, p):
     """P(X <= k) for X ~ Binomial(n, p). Exact; n here is a handful of events."""
@@ -456,6 +474,35 @@ def accept_verdict(prev, cur, target, noise=None, target_cases=None,
         wanted = set(target_cases)
         cells = sorted(c for c in set(prev["tokens"]) & set(cur["tokens"])
                        if c[0] in wanted)
+        # A cell whose baseline answer is already short cannot express this
+        # target's effect, so it votes noise into a test that counts votes.
+        # See TOKEN_CELL_MIN_BASELINE and evals/results/loop/token-scope.md.
+        #
+        # All or nothing, and only when the scope can afford it. Dropping is
+        # an improvement a large scope can buy, never a way to shrink a small
+        # one into unusability: if removing the short cells would leave fewer
+        # than six, none are removed and the scope is scored exactly as it was
+        # before this existed. That keeps every stored round's verdict intact -
+        # rounds 07 to 14 named three design cases, so dropping two would leave
+        # four and turn round 10's accept into a refusal for want of data it
+        # never had. Partial dropping is not offered: choosing which short cell
+        # to keep would be choosing the answer.
+        short = sorted(c for c in cells
+                       if prev["tokens"][c] < TOKEN_CELL_MIN_BASELINE)
+        if short and len(cells) - len(short) >= 6:
+            cells = [c for c in cells if c not in set(short)]
+            dropped = ("; %d cell(s) below the %d-token floor and not voting: %s"
+                       % (len(short), TOKEN_CELL_MIN_BASELINE,
+                          ", ".join("%s/%s %d" % (c[0], c[1], prev["tokens"][c])
+                                    for c in short)))
+        elif short:
+            dropped = ("; %d cell(s) are below the %d-token floor and voted "
+                       "anyway: dropping them would leave %d cells, under the "
+                       "six a sign test needs to reach alpha. Name more cases "
+                       "in the scope" % (len(short), TOKEN_CELL_MIN_BASELINE,
+                                         len(cells) - len(short)))
+        else:
+            dropped = ""
         floors = [f for f in (prev.get("tokens_stdev", {}).get(c)
                               for c in cells)
                   if f is not None]
@@ -463,7 +510,7 @@ def accept_verdict(prev, cur, target, noise=None, target_cases=None,
             p_all = bench_levels.sign_test(len(cells), len(cells)) if cells else 1.0
             reasons.append("REJECT: scoped output_tokens needs at least 6 "
                            "case/model cells to reach alpha; %d cells sweep at "
-                           "p = %.3f" % (len(cells), p_all))
+                           "p = %.3f%s" % (len(cells), p_all, dropped))
             fatal = True
         elif len(floors) < len(cells):
             reasons.append("REJECT: scoped output_tokens has no baseline stdev "
@@ -485,7 +532,7 @@ def accept_verdict(prev, cur, target, noise=None, target_cases=None,
                       if wide_cells else 1.0)
             where = " on %s" % ", ".join(sorted(wanted))
             wide = (" (round-wide %d of %d cells, p = %.3f)"
-                    % (wide_improved, len(wide_cells), wide_p))
+                    % (wide_improved, len(wide_cells), wide_p)) + dropped
             if improved * 2 <= len(cells) or p >= noise["alpha"]:
                 reasons.append("REJECT: %d of %d cells improved%s, sign test "
                                "p = %.3f%s"

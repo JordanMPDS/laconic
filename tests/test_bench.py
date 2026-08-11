@@ -2261,5 +2261,57 @@ check("a round that really did re-grade its controls is still billed for them",
       _unmarked["judging"]["calls"] == 1
       and abs(_unmarked["judging"]["total_cost_usd"] - 5.0) < 1e-9)
 
+# --- the scoped output_tokens cell floor. A cell whose baseline answer is
+# already short cannot express this target's effect, but the sign test counts
+# votes, so it votes anyway: design-alerting/haiku and design-search/haiku
+# rejected rounds 11 and 14 while every other cell fell.
+#
+# Five cases, each with a big sonnet cell and a small haiku cell, plus one big
+# haiku cell - the shape of the real design scope: 10 cells, 4 below the floor,
+# 6 left, which is exactly what a sign test needs.
+SCOPE5 = ["c0", "c1", "c2", "c3", "c4"]
+_prev_tok = {(c, "sonnet"): 4000 for c in SCOPE5}
+_prev_tok[("c0", "haiku")] = 1500
+_prev_tok.update({(c, "haiku"): 700 for c in SCOPE5 if c != "c0"})
+_stdevs = {c: 400 for c in _prev_tok}
+# Every big cell falls hard; every short cell drifts the wrong way.
+_cur_tok = {c: (v - 1500 if v >= 1200 else v + 40) for c, v in _prev_tok.items()}
+
+_v, _r = bench_report.accept_verdict(
+    _scoped_tok(_prev_tok, stdev=_stdevs, cases=SCOPE5),
+    _scoped_tok(_cur_tok, cases=SCOPE5), "output_tokens", target_cases=SCOPE5)
+_line = " ".join(_r)
+check("the token-cell floor drops the short cells from the sign test",
+      _v == "accept")
+check("and names every cell it dropped rather than shrinking silently",
+      "below the 1200-token floor and not voting" in _line and "c1/haiku 700" in _line)
+check("the surviving cells are the ones that carry the effect (6 of 6)",
+      "6 of 6 cells improved" in _line)
+
+# Without the floor the same round rejects, which is rounds 11 and 14.
+_saved = bench_report.TOKEN_CELL_MIN_BASELINE
+bench_report.TOKEN_CELL_MIN_BASELINE = 0
+_v2s, _r2s = bench_report.accept_verdict(
+    _scoped_tok(_prev_tok, stdev=_stdevs, cases=SCOPE5),
+    _scoped_tok(_cur_tok, cases=SCOPE5), "output_tokens", target_cases=SCOPE5)
+bench_report.TOKEN_CELL_MIN_BASELINE = _saved
+check("without the floor the short wrong-way cells reject the round",
+      _v2s == "reject" and "6 of 10 cells improved" in " ".join(_r2s))
+
+# All or nothing, and only when the scope can afford it: a three-case scope
+# would drop to four cells, so nothing is dropped and it scores exactly as it
+# did before the floor existed. This is what keeps rounds 07-14 intact.
+_v3, _r3 = bench_report.accept_verdict(
+    _scoped_tok(_prev_tok, stdev=_stdevs, cases=SCOPE5[:3]),
+    _scoped_tok(_cur_tok, cases=SCOPE5[:3]), "output_tokens",
+    target_cases=SCOPE5[:3])
+_line3 = " ".join(_r3)
+check("a scope too small to afford the drop keeps every cell instead",
+      "voted anyway" in _line3)
+check("and it says what to do about that rather than refusing outright",
+      "Name more cases in the scope" in _line3)
+check("so a small scope scores exactly as it did before the floor",
+      "4 of 6 cells improved" in _line3 or "of 6 cells improved" in _line3)
+
 print("\n%d failure(s)" % fails)
 sys.exit(1 if fails else 0)

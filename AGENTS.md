@@ -1,0 +1,66 @@
+# laconic
+
+Single source of truth for build, test, and conventions. Read by Claude Code and by
+every delegated agent. Keep it accurate — a delegated agent has no other context.
+
+A Claude Code plugin: shell hooks, markdown rules, and skills. Nothing compiles, and
+nothing installs. The test suites import only the standard library, so there is no
+dependency step and adding one is a design change, not a detail.
+
+## Commands
+
+```sh
+# build (regenerates rules/dist/*.md — required whenever rules/laconic.md changes)
+bash tools/build-rules.sh
+
+# test — all five suites, same as CI
+bash tests/test_rules.sh
+bash tests/test_laconic.sh
+bash tests/test_evals_layout.sh
+python3 tests/test_metrics.py
+python3 tests/test_bench.py
+
+# lint: none configured
+```
+
+Python 3.12 in CI. Run all five before claiming tests pass — `test_rules.sh` is the
+one that catches stale generated files, and it is the easiest to skip by accident.
+
+## Conventions
+
+- **`rules/dist/*.md` is generated. Never edit it by hand.** Edit `rules/laconic.md`,
+  then run `bash tools/build-rules.sh`. `tests/test_rules.sh` fails with
+  "rules/dist/laconic-$level.md is stale" if you forget.
+- **The level-slicing marker contract lives in `hooks/laconic.sh`, and only there.**
+  `tools/build-rules.sh` deliberately shells out to the hook rather than
+  reimplementing the slicing — a second awk pass would be a second thing to keep in
+  sync, and drift would ship a rule file that does not match what the plugin
+  delivers. Do not add a parallel implementation.
+- **The bash and PowerShell paths must stay in sync.** `hooks/laconic.sh` and
+  `hooks/laconic.ps1` implement the same behavior, as do the two statusline scripts.
+  A change to one needs the same change in the other. CI tests PowerShell 5.1
+  specifically, not `pwsh`, because 5.1 is what ships with Windows and is therefore
+  what a user without a Unix environment actually runs.
+- Three levels exist throughout: `lite`, `full`, `ultra`. Anything level-aware has to
+  handle all three.
+- Standard library only, in both the tests and the shipped scripts.
+
+## Out of bounds
+
+Do not modify without being asked explicitly:
+
+- `.claude-plugin/plugin.json` — the version there is released; bumping it is a
+  release decision, not part of a code change.
+- `rules/dist/` by hand — regenerate it instead, per the convention above.
+- `.github/workflows/` — CI configuration.
+- `evals/snapshots/` — recorded benchmark runs. They are evidence, not code, and
+  rewriting them invalidates comparisons against earlier rounds.
+
+## Definition of done
+
+- All five test suites above pass.
+- If `rules/laconic.md` changed, `tools/build-rules.sh` was run and the regenerated
+  `rules/dist/*.md` is included in the diff.
+- No unrelated files changed.
+- No new dependency added. This project has none by design; if a task seems to need
+  one, stop and say so rather than adding it.

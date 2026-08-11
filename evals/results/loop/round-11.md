@@ -114,12 +114,32 @@ relocation and the cell came back worse than it has ever been:
 | `ordered-steps`/haiku | 2 | 6 | 3 | 5 | 2 | **5** |
 | `ordered-steps`/sonnet | 1 | 1 | 1 | 2 | 1 | **5** |
 
-The sonnet row is the new part. It sat at 1 or 2 through every previous round,
+~~The sonnet row is the new part. It sat at 1 or 2 through every previous round,
 including the three that blew up the haiku cell, and round 11 is the first
-edit to move it at all.
+edit to move it at all.~~
 
-The relocation is the only thing round 10 and round 11 share here, and round 10
-held at baseline with it. The clause is what moved.
+~~The relocation is the only thing round 10 and round 11 share here, and round 10
+held at baseline with it. The clause is what moved.~~
+
+**Corrected by round 12, 2026-08-10.** Round 12 ran round 10's rules byte for
+byte — without round 11's sentence — and read `ordered-steps` at **5 on haiku
+and 3 on sonnet**:
+
+| cell | baseline | r07 | r08 | r09 | r10 | r11 | **r12** |
+| --- | --: | --: | --: | --: | --: | --: | --: |
+| `ordered-steps`/haiku | 2 | 6 | 3 | 5 | 2 | 5 | **5** |
+| `ordered-steps`/sonnet | 1 | 1 | 1 | 2 | 1 | 5 | **3** |
+
+Combined across both cells, round 10 read 3 of 20 and round 12 read 8 of 20 from
+the identical file: Fisher p = 0.16, one distribution. The clause is not what
+moved it, and the sonnet cell is not something round 11's edit unlocked.
+
+The mechanism below is real and it is in round 12's transcripts too. What does
+not survive is attributing its *count* to any particular rule text: this cell
+has read 2, 6, 3, 5, 2, 5, 5 with the licence inside never-cut, in `level:
+full`, and with and without the added sentence. The draws do not sort by rule
+text. Round 10's own claim that relocation fixed this cell is caught by the same
+result and is corrected in its record.
 
 Ten failing responses, and the judge's reasons agree: steps merged, ordering
 words dropped, the final step (retiring the old key) omitted. Round 11,
@@ -133,13 +153,29 @@ words dropped, the final step (retiring the old key) omitted. Round 11,
 
 That is not a compressed procedure. It is the *design-answer shape* — a
 recommendation followed by the one decision that forks it — applied to a
-request that requires ordered steps. The bullet describes that shape, and the
+request that requires ordered steps. ~~The bullet describes that shape, and the
 new sentence told the model when its answer counts as complete. Defining
 completeness for a short answer generalized past design questions into every
-request the model could read as one.
+request the model could read as one.~~
 
-The same signature is on `decision`/sonnet, 1 fail to 5, and `stale-cache`/haiku,
-7 to 9.
+**The last sentence is the part round 12 refutes.** The shape is in round 12's
+transcripts as well, produced by a file with no completeness sentence in it. The
+reading that survives is narrower: the bullet describes the design-answer shape,
+and the model sometimes applies that shape to a key-rotation procedure. Nothing
+in the data attributes the frequency to the added sentence.
+
+~~The same signature is on `decision`/sonnet, 1 fail to 5, and `stale-cache`/haiku,
+7 to 9.~~ **Both supporting cells fail on inspection.**
+
+`decision` is a **rule-adherence** case. It feeds no scored counter by
+construction, and the loop's own rule is that a rule-adherence case may not be
+an optimization target — citing it as corroboration was a mistake regardless of
+what it read. Its raw judge fails are 1 at baseline, 2 in round 10, 5 here, 3 in
+round 12.
+
+`stale-cache`/haiku reads 7 at baseline and **9 in rounds 10, 11 and 12 alike**.
+It was already at 9 under round 10's rules, so it was never evidence about round
+11's sentence.
 
 ## The token effect: larger, and it still failed
 

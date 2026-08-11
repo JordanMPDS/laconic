@@ -75,7 +75,7 @@ licence no longer applies at `lite` (correct — lite cuts ceremony, not
 substance, and the benchmark runs at `full`), and it might not have fired at
 all against never-cut's "how". It fired, harder than in any previous round.
 
-## The mechanism worked
+## The mechanism worked ~~(corrected: one draw, and it did not replicate)~~
 
 `ordered-steps` is the cell that killed all three previous rounds. It is back
 at baseline in both cells:
@@ -85,12 +85,30 @@ at baseline in both cells:
 | `ordered-steps`/haiku | 2 | 6 | 3 | 5 | **2** |
 | `ordered-steps`/sonnet | 1 | 1 | 1 | 2 | **1** |
 
-Three rounds put the licence inside the never-cut list, two of them asserting
+~~Three rounds put the licence inside the never-cut list, two of them asserting
 in prose that the ordered-instructions bullet outranked it, and the cell read
 6, 3 and 5. Moving the licence into `level: full` — where the never-cut
 section's own "every level, including ultra" header puts it out of reach
 without any sentence claiming so — took it to 2. Placement did what assertion
-could not.
+could not.~~
+
+**Corrected by round 12, 2026-08-10.** Round 12 ran this file byte for byte and
+read `ordered-steps` at 5 on haiku and 3 on sonnet, against this round's 2 and
+1. Combined, 3 of 20 here and 8 of 20 there from identical rules: Fisher
+p = 0.16, one distribution. The same publish-before-sign collapse is in both
+rounds' transcripts.
+
+Across the baseline and six rounds the haiku cell has read 2, 6, 3, 5, 2, 5, 5 —
+with the licence inside never-cut, in `level: full`, and with and without round
+11's added sentence. **The draws do not sort by rule text.** This round's 2 was
+one draw from a wide cell, and "placement did what assertion could not" is not
+supported by it.
+
+This is the second time the loop has drawn a conclusion from a single low draw
+in this exact cell. Round 08 claimed its mutual exclusion closed the same leak at
+3, and round 09 re-ran the identical rules and read 5 at Fisher p = 0.65. The
+correction is recorded in round 08's file and was not applied to the reasoning
+here.
 
 ## The target passed, larger than ever, and replicated
 

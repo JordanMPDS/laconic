@@ -2098,5 +2098,220 @@ check("the report header prints the run-derived provenance, not metadata's",
       "2026-08-09T01:00:00Z to 2026-08-10T04:00:00Z" in
       bench_report.render(_prov, {"judgments": []}, bench_report.NOISE))
 
+# --- #83: judge.py carries the carried arms' verdicts instead of buying them
+# again. Round 14 spent $25.05 of its $41.37 judging bill re-grading 510
+# control responses that were byte-identical to the baseline's, already graded
+# there, and read by no fatal gate.
+with tempfile.TemporaryDirectory() as td_cj:
+    calls = Path(td_cj) / "calls"
+    stub = Path(td_cj) / "claude.sh"
+    stub.write_text(
+        "#!/usr/bin/env bash\n"
+        'exec 9>"%s.lock"; flock 9\n'
+        'n=$(cat "%s" 2>/dev/null || echo 0); n=$((n+1)); printf \'%%s\' "$n" > "%s"\n'
+        "cat <<'JSON'\n"
+        '{"is_error":false,"result":"{\\"verdict\\":\\"pass\\",\\"quote\\":\\"\\",'
+        '\\"reason\\":\\"fresh\\"}","num_turns":1,"total_cost_usd":0.01,'
+        '"duration_ms":1,\n'
+        '"usage":{"input_tokens":1,"output_tokens":1,'
+        '"cache_creation_input_tokens":0,"cache_read_input_tokens":0}}\n'
+        "JSON\n" % (calls, calls, calls)
+    )
+    stub.chmod(0o755)
+
+    snap_path = Path(td_cj) / "results.json"
+    snap_cj = bench_run.new_snapshot(reps=1, models=["haiku"], level="full",
+                                     rules_cksum="1", arms=bench_run.ARMS)
+    for arm in ("laconic", "baseline", "terse-control"):
+        for rep in range(3):
+            snap_cj["runs"].append({"case": "floor", "arm": arm, "model": "haiku",
+                                    "rep": rep, "ok": True, "text": "answer"})
+    snap_cj["metadata"]["carried_arms_from"] = {
+        "path": "src.json", "rules_cksum": "1",
+        "arms": ["baseline", "terse-control"]}
+    bench_run.save_snapshot(snap_path, snap_cj)
+
+    # The source grades every carried key but one, so the uncovered key must
+    # still be judged rather than silently left without a verdict.
+    src_path = Path(td_cj) / "src-judgments.json"
+    src = {"metadata": {"judge_model": "sonnet", "rules_cksum": "1"},
+           "judgments": []}
+    for arm in ("baseline", "terse-control"):
+        for rep in range(3):
+            if (arm, rep) == ("terse-control", 2):
+                continue
+            src["judgments"].append(
+                {"case": "floor", "arm": arm, "model": "haiku", "rep": rep,
+                 "verdict": "fail", "quote": "", "reason": "from the source",
+                 "usage": {"total_cost_usd": 0.05, "output_tokens": 9}})
+    bench_run.save_snapshot(src_path, src)
+
+    out_path = Path(td_cj) / "judgments.json"
+    proc = subprocess.run(
+        [sys.executable, str(ROOT / "evals" / "bench" / "judge.py"),
+         "--claude-bin", str(stub), "--jobs", "2",
+         "--results", str(snap_path), "--out", str(out_path),
+         "--carry-judgments-from", str(src_path)],
+        capture_output=True, text=True,
+    )
+    check("judge: --carry-judgments-from exits cleanly", proc.returncode == 0)
+    _w = json.loads(out_path.read_text())
+    _by = {(j["case"], j["arm"], j["model"], j["rep"]): j for j in _w["judgments"]}
+    check("judge: every run still has exactly one judgment",
+          len(_w["judgments"]) == 9 and len(_by) == 9)
+    check("judge: the carried verdicts came from the source, not the judge",
+          _by[("floor", "baseline", "haiku", 0)]["reason"] == "from the source")
+    check("judge: carried verdicts are marked as carried (#83)",
+          all(_by[("floor", a, "haiku", r)].get("carried")
+              for a in ("baseline", "terse-control") for r in range(2)))
+    check("judge: the treatment arm was judged, not carried",
+          _by[("floor", "laconic", "haiku", 0)]["reason"] == "fresh"
+          and not _by[("floor", "laconic", "haiku", 0)].get("carried"))
+    check("judge: a carried key the source does not cover is judged normally",
+          _by[("floor", "terse-control", "haiku", 2)]["reason"] == "fresh")
+    # 3 laconic + the one uncovered carried key = 4 calls, not 9.
+    check("judge: only the uncarried runs were bought (4 calls, not 9)",
+          calls.read_text().strip() == "4")
+
+    _prov = _w["metadata"]["carried_judgments_from"]
+    check("judge: the carry is stamped with what it copied",
+          _prov["judgments"] == 5 and _prov["uncovered"] == 1
+          and _prov["arms"] == ["baseline", "terse-control"])
+    check("judge: a source with no criteria_cksum is recorded as unverified",
+          _prov["criteria_verified"] is False)
+    check("judge: and says so on the terminal, not only in the file",
+          "WARNING" in proc.stdout and "criteria" in proc.stdout)
+    check("judge: the run stamps its own criteria_cksum for the next carry",
+          _w["metadata"]["criteria_cksum"] == bench_judge.criteria_cksum(
+              ROOT / "evals" / "cases"))
+
+    # A second pass must buy nothing: carried keys are decided, judged keys
+    # are decided, and a carry may not overwrite a verdict this round bought.
+    proc2 = subprocess.run(
+        [sys.executable, str(ROOT / "evals" / "bench" / "judge.py"),
+         "--claude-bin", str(stub), "--jobs", "2",
+         "--results", str(snap_path), "--out", str(out_path),
+         "--carry-judgments-from", str(src_path)],
+        capture_output=True, text=True,
+    )
+    _w2 = json.loads(out_path.read_text())
+    check("judge: re-running a carried pass spends nothing",
+          proc2.returncode == 0 and calls.read_text().strip() == "4")
+    check("judge: and the carry does not overwrite what this round judged",
+          {(j["case"], j["arm"], j["model"], j["rep"]): j["reason"]
+           for j in _w2["judgments"]}[("floor", "terse-control", "haiku", 2)] == "fresh")
+
+# A snapshot with no carried arms must refuse the flag rather than quietly
+# carrying nothing.
+with tempfile.TemporaryDirectory() as td_nc:
+    snap_path = Path(td_nc) / "results.json"
+    snap_nc = bench_run.new_snapshot(reps=1, models=["haiku"], level="full",
+                                     rules_cksum="1", arms=bench_run.ARMS)
+    snap_nc["runs"].append({"case": "floor", "arm": "laconic", "model": "haiku",
+                            "rep": 0, "ok": True, "text": "x"})
+    bench_run.save_snapshot(snap_path, snap_nc)
+    src_path = Path(td_nc) / "src.json"
+    bench_run.save_snapshot(src_path, {"metadata": {}, "judgments": []})
+    proc = subprocess.run(
+        [sys.executable, str(ROOT / "evals" / "bench" / "judge.py"),
+         "--claude-bin", resolved_rel, "--results", str(snap_path),
+         "--out", str(Path(td_nc) / "j.json"),
+         "--carry-judgments-from", str(src_path)],
+        capture_output=True, text=True,
+    )
+    check("judge: carrying from a snapshot with no carried arms exits non-zero",
+          proc.returncode != 0)
+
+# criteria_cksum must track the trap and nothing else: saturating a model
+# edits expect.json without changing a single grading, and a whole-file hash
+# would refuse a carry that is perfectly valid.
+with tempfile.TemporaryDirectory() as td_cc:
+    cdir = Path(td_cc) / "cases"
+    (cdir / "one").mkdir(parents=True)
+    exp = cdir / "one" / "expect.json"
+    exp.write_text(json.dumps({"trap": "the criterion", "grading": "safety"}))
+    _base = bench_judge.criteria_cksum(cdir)
+    exp.write_text(json.dumps({"trap": "the criterion", "grading": "safety",
+                               "saturated_models": {"haiku": "why"}}))
+    check("criteria_cksum ignores saturated_models (#83)",
+          bench_judge.criteria_cksum(cdir) == _base)
+    exp.write_text(json.dumps({"trap": "a corrected criterion", "grading": "safety"}))
+    check("criteria_cksum changes when the trap changes",
+          bench_judge.criteria_cksum(cdir) != _base)
+
+# The cost table splits carried judgments out, but only when they are marked.
+_mixed_j = [{"arm": "laconic", "usage": {"total_cost_usd": 1.0}},
+            {"arm": "baseline", "carried": True, "usage": {"total_cost_usd": 5.0}}]
+_mrows = {r["stage"]: r for r in bench_report.cost_summary(
+    {"metadata": {"carried_arms_from": {"arms": ["baseline"]}}, "runs": []},
+    _mixed_j, [])}
+check("a carried judgment is not counted as this round's judging",
+      _mrows["judging"]["calls"] == 1
+      and abs(_mrows["judging"]["total_cost_usd"] - 1.0) < 1e-9)
+check("it is reported in its own row rather than dropped",
+      _mrows["carried judgments (paid earlier)"]["calls"] == 1
+      and abs(_mrows["carried judgments (paid earlier)"]["total_cost_usd"] - 5.0) < 1e-9)
+check("and it stays out of the round total",
+      abs(sum(r["total_cost_usd"] for r in _mrows.values() if r["billed"]) - 1.0) < 1e-9)
+
+_unmarked = {r["stage"]: r for r in bench_report.cost_summary(
+    {"metadata": {"carried_arms_from": {"arms": ["baseline"]}}, "runs": []},
+    [{"arm": "baseline", "usage": {"total_cost_usd": 5.0}}], [])}
+check("a round that really did re-grade its controls is still billed for them",
+      _unmarked["judging"]["calls"] == 1
+      and abs(_unmarked["judging"]["total_cost_usd"] - 5.0) < 1e-9)
+
+# --- the scoped output_tokens cell floor. A cell whose baseline answer is
+# already short cannot express this target's effect, but the sign test counts
+# votes, so it votes anyway: design-alerting/haiku and design-search/haiku
+# rejected rounds 11 and 14 while every other cell fell.
+#
+# Five cases, each with a big sonnet cell and a small haiku cell, plus one big
+# haiku cell - the shape of the real design scope: 10 cells, 4 below the floor,
+# 6 left, which is exactly what a sign test needs.
+SCOPE5 = ["c0", "c1", "c2", "c3", "c4"]
+_prev_tok = {(c, "sonnet"): 4000 for c in SCOPE5}
+_prev_tok[("c0", "haiku")] = 1500
+_prev_tok.update({(c, "haiku"): 700 for c in SCOPE5 if c != "c0"})
+_stdevs = {c: 400 for c in _prev_tok}
+# Every big cell falls hard; every short cell drifts the wrong way.
+_cur_tok = {c: (v - 1500 if v >= 1200 else v + 40) for c, v in _prev_tok.items()}
+
+_v, _r = bench_report.accept_verdict(
+    _scoped_tok(_prev_tok, stdev=_stdevs, cases=SCOPE5),
+    _scoped_tok(_cur_tok, cases=SCOPE5), "output_tokens", target_cases=SCOPE5)
+_line = " ".join(_r)
+check("the token-cell floor drops the short cells from the sign test",
+      _v == "accept")
+check("and names every cell it dropped rather than shrinking silently",
+      "below the 1200-token floor and not voting" in _line and "c1/haiku 700" in _line)
+check("the surviving cells are the ones that carry the effect (6 of 6)",
+      "6 of 6 cells improved" in _line)
+
+# Without the floor the same round rejects, which is rounds 11 and 14.
+_saved = bench_report.TOKEN_CELL_MIN_BASELINE
+bench_report.TOKEN_CELL_MIN_BASELINE = 0
+_v2s, _r2s = bench_report.accept_verdict(
+    _scoped_tok(_prev_tok, stdev=_stdevs, cases=SCOPE5),
+    _scoped_tok(_cur_tok, cases=SCOPE5), "output_tokens", target_cases=SCOPE5)
+bench_report.TOKEN_CELL_MIN_BASELINE = _saved
+check("without the floor the short wrong-way cells reject the round",
+      _v2s == "reject" and "6 of 10 cells improved" in " ".join(_r2s))
+
+# All or nothing, and only when the scope can afford it: a three-case scope
+# would drop to four cells, so nothing is dropped and it scores exactly as it
+# did before the floor existed. This is what keeps rounds 07-14 intact.
+_v3, _r3 = bench_report.accept_verdict(
+    _scoped_tok(_prev_tok, stdev=_stdevs, cases=SCOPE5[:3]),
+    _scoped_tok(_cur_tok, cases=SCOPE5[:3]), "output_tokens",
+    target_cases=SCOPE5[:3])
+_line3 = " ".join(_r3)
+check("a scope too small to afford the drop keeps every cell instead",
+      "voted anyway" in _line3)
+check("and it says what to do about that rather than refusing outright",
+      "Name more cases in the scope" in _line3)
+check("so a small scope scores exactly as it did before the floor",
+      "4 of 6 cells improved" in _line3 or "of 6 cells improved" in _line3)
+
 print("\n%d failure(s)" % fails)
 sys.exit(1 if fails else 0)

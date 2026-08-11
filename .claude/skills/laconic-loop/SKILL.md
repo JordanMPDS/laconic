@@ -18,23 +18,40 @@ current baseline is the #45 regeneration extended with [#60]'s cases —
 laconic at n=10 over all 17 cases, controls carried at n=5:
 
 ```bash
-N=11
-PREV=evals/snapshots/loop/round-01-n10-v2.json
-PREV_J=evals/snapshots/loop/round-01-n10-v2-judgments.json
+N=15
+PREV=evals/snapshots/loop/round-01-n10-v3.json
+PREV_J=evals/snapshots/loop/round-01-n10-v3-judgments.json
 ```
 
-**From round 11 the baseline is `-v2`, which is the same snapshot plus the
+**From round 15 the baseline is `-v3`, which is `-v2` plus `design-rate-limit`
+and `design-retry`.** Both were generated at `rules_cksum` 1830906901 like every
+other cell in the file. They exist to take the scoped `output_tokens` target
+from six case/model cells to ten, because four cells is what is left once the
+short ones stop voting — see
+[`token-scope.md`](../../../evals/results/loop/token-scope.md).
+
+**A scoped `output_tokens` hypothesis must now name all five design cases.**
+Naming three leaves four voting cells, which cannot reach alpha, so the gate
+keeps the short cells and tells you to widen the scope:
+
+```
+--target-cases design-alerting,design-audit-log,design-search,design-rate-limit,design-retry
+```
+
+**From round 11 the baseline was `-v2`, which is `round-01-n10.json` plus the
 three `verdict-*` cells** ([#60]'s instrument). Every original cell is
 byte-identical and the new cells were generated under the same
 `rules_cksum` 1830906901, so `never_cut_failures`, `quality_fails` and
 `safety_fails` are unchanged at 2, 41 and 6. Only `violations_total` moves,
 78 to 86, because there are three more cases producing text.
 
-Rounds 01 to 10 were scored against the 14-case `round-01-n10.json` and stay
-that way. Do not re-score an old round against `-v2`: its snapshot has no
-`verdict-*` runs, so every one of those cells would read as missing rather
-than as unchanged. The round-wide counters in rounds 01-10's records are
-therefore not directly comparable to round 11's.
+Rounds 01 to 10 were scored against the 14-case `round-01-n10.json`, rounds 11
+to 14 against `-v2`, and each stays that way. **Do not re-score an old round
+against a later baseline**: its snapshot has no runs for the added cases, so
+every one of those cells reads as missing rather than as unchanged. That is not
+a formality — re-scoring rounds 07 to 14 under the `-v3` scope turned round 10's
+accept into a rejection, purely because the cases it needed did not exist when
+it ran.
 
 Generate the round's laconic arm at the same reps (`--reps 10`), and carry
 arms from `$PREV`, not from `evals/snapshots/results.json` — the old committed
@@ -64,6 +81,7 @@ python3 evals/bench/run.py --arms laconic --reps 10 \
   --carry-arms-from "$PREV" \
   --snapshot "evals/snapshots/loop/round-$N.json"
 python3 evals/bench/judge.py --results "evals/snapshots/loop/round-$N.json" \
+  --carry-judgments-from "$PREV_J" --jobs 6 \
   --out "evals/snapshots/loop/round-$N-judgments.json"
 python3 evals/bench/prefer.py --results "evals/snapshots/loop/round-$N.json" \
   --control baseline --jobs 6 --out "evals/snapshots/loop/round-$N-preferences.json"
@@ -71,6 +89,19 @@ python3 evals/bench/prefer.py --results "evals/snapshots/loop/round-$N.json" \
 
 The controls are carried, not regenerated: no control arm carries rules in its
 system prompt, so they cannot have moved.
+
+**Their verdicts are carried too, and both flags matter.** Round 14 carried the
+control *runs* and then re-graded them anyway: 510 of its 850 judge calls, and
+$25.05 of its $41.37 judging bill, spent re-grading text the baseline had
+already graded and no fatal gate reads. Worse than wasted — the judge disagrees
+with itself on 5 to 10% of identical text, so each round re-rolled its own
+comparison rows.
+
+`--carry-judgments-from` prints a warning when the source predates
+`criteria_cksum`, which is every judgments file committed before 2026-08-11.
+That warning is the rule below restated by the tool, and it is not decoration:
+**if any case criterion has changed since the source was written, do not
+carry — re-judge.**
 
 ## Step 4: review, no calls
 

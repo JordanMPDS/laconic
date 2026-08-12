@@ -205,6 +205,34 @@ survive as evidence that the rule text caused it: the text moves neither the
 failure rate nor the asking rate, and only the co-occurrence of two case
 properties is left.
 
+## Five of the six design cases cannot tell reading from guessing
+
+Round 15's dev set reported `quality_fails` improving in the same round the
+holdout's design case regressed. Worked out on 2026-08-12 at zero model calls,
+in [`design-quality-covariate.md`](design-quality-covariate.md), and the answer
+is neither of the two readings round 15 offered.
+
+Scoped to the five dev design cases, quality pass is 61 of 100 under master
+rules and 61 of 100 under the relocation edit, p = 1.000. Split on whether the
+answer hands a decision back to the user instead of resolving it, the same 200
+responses give two opposite effects that cancel:
+
+| | master rules | the edit | Fisher |
+| --- | --: | --: | --: |
+| answers that ask | 16 of 27 | 10 of 33 | **p = 0.036** |
+| answers that do not | 45 of 73 | 51 of 67 | p = 0.071 |
+
+The dev set held the signal. The round-wide counter summed it away.
+
+Underneath that is the more useful defect. In the `-v3` baseline, the four arms
+name the mechanism their traps require at 44 of 50, 88 of 100, 45 of 50 and 47
+of 50 — `baseline`, `laconic`, `terse-control` and `word-compression`
+respectively — and fail quality at the same rate. **The degenerate arm scores
+like the untreated one.** On these five cases the conventional answer is the
+fixture's answer, so nothing about the response depends on the fixture having
+been read. `holdout-design` is the only design case where it does, which is why
+it is the only one that saw the round 15 edit.
+
 ## What the `-v2` baseline changed
 
 Nothing that any fatal gate reads. Cell by cell, `round-01-n10.json` and

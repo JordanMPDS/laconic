@@ -164,4 +164,21 @@ it could reject anything.
 A does the real work. B is a disclosure that stops the same cancellation from
 being invisible next time.
 
+**Both done 2026-08-12.** A is [`design-discrimination.md`](design-discrimination.md)
+and the [`-v4` baseline](baseline-v4.md). B is in `report.py`: `round_summary`
+carries a `quality_strata` block, `accept_verdict` prints a disclosure line
+whichever way the verdict went, and `render` prints the split for a single
+snapshot. Re-scoring round 15 with it active leaves the verdict exactly as it
+was — the line may never reject — and adds this to the step 7 output:
+
+```
+quality strata (disclosure, not a gate): answers that hand a decision back
+10 of 31 -> 20 of 40, answers that resolve it 42 of 189 -> 28 of 180; the two
+strata moved in OPPOSITE directions, which a flat quality count hides - the
+hands-back stratum got worse
+```
+
+That is the warning the round did not have, printed beside the `quality_fails`
+improvement of 52 to 48 that it did have.
+
 [#46]: https://github.com/JordanMPDS/laconic/issues/46

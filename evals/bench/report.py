@@ -8,6 +8,7 @@ for somebody to notice a number moved.
 import argparse
 import json
 import math
+import re
 import statistics
 import sys
 from collections import Counter, defaultdict
@@ -232,6 +233,77 @@ def _judge_fails(judg, grading, keep):
                if keep(c[0]))
 
 
+# Whether an answer hands a decision back to the user instead of resolving it:
+# any line that is a question. Deliberately the same expression the covariate
+# was measured with, in design-quality-covariate.md - re-tuning a detector
+# after seeing what it found is how a disclosure becomes a story.
+ASKS_BACK = re.compile(r"^[^\n]*\?\s*$", re.M)
+
+
+def _quality_strata(judg, runs):
+    """quality verdicts split on whether the answer handed a decision back.
+
+    Round 15 is why this exists. Its round-wide quality count over the five
+    design cases was 61 of 100 either way, Fisher p = 1.000, and the gate read
+    exactly that. Split on this covariate the same 200 responses hold two real
+    effects in opposite directions - answers that ask went 16 of 27 to 10 of 33
+    (p = 0.036) while answers that resolve went 45 of 73 to 51 of 67 - and the
+    edit shifted responses into the worse group. The counter was flat because
+    the two cancelled, not because nothing moved, and the round was accepted at
+    step 7 and killed by the holdout.
+
+    Disclosure only. The covariate was found after the round it explains, by
+    looking at responses whose verdicts were already known, so using it to
+    reject anything would be the exact mistake pre-registration exists to
+    prevent. It is reported so a cancelling pair is visible in the verdict
+    rather than needing somebody to go looking for it (#88).
+    """
+    text = {(r["case"], r["arm"], r["model"], r["rep"]): r.get("text", "")
+            for r in runs}
+    out = {"asks": {"fails": 0, "n": 0}, "resolves": {"fails": 0, "n": 0}}
+    for j in judg or []:
+        if j.get("arm") != "laconic" or case_grading(j["case"]) != "quality":
+            continue
+        if j.get("verdict") == "not_exercised" and \
+                j.get("reason") in bench_judge.INFRA_REASONS:
+            continue
+        body = text.get((j["case"], j["arm"], j["model"], j["rep"]))
+        if body is None:
+            continue
+        s = out["asks"] if ASKS_BACK.search(body) else out["resolves"]
+        s["n"] += 1
+        s["fails"] += (j.get("verdict") == "fail")
+    return out
+
+
+def _strata_line(prev, cur):
+    """The disclosure line, or None when either round lacks the block.
+
+    Named "disclosure" in its own text because the loop's reason lines are read
+    as gate output, and this one may never be read that way.
+    """
+    a, b = prev.get("quality_strata"), cur.get("quality_strata")
+    if not a or not b:
+        return None
+    moved = {}
+    for k in ("asks", "resolves"):
+        if not a[k]["n"] or not b[k]["n"]:
+            return None
+        moved[k] = (b[k]["fails"] / b[k]["n"]) - (a[k]["fails"] / a[k]["n"])
+    parts = ", ".join(
+        "%s %d of %d -> %d of %d"
+        % (label, a[k]["fails"], a[k]["n"], b[k]["fails"], b[k]["n"])
+        for k, label in (("asks", "answers that hand a decision back"),
+                         ("resolves", "answers that resolve it")))
+    tail = ""
+    if moved["asks"] * moved["resolves"] < 0:
+        worse = "asks" if moved["asks"] > 0 else "resolves"
+        tail = ("; the two strata moved in OPPOSITE directions, which a flat "
+                "quality count hides - the %s stratum got worse"
+                % ("hands-back" if worse == "asks" else "resolves"))
+    return "quality strata (disclosure, not a gate): %s%s" % (parts, tail)
+
+
 def _counts(lac, judg, runs, cases=None):
     """The four count metrics and their exposure, over every case or a subset.
 
@@ -318,6 +390,10 @@ def round_summary(snap, judg=None, prefs=None, target_cases=None):
                           if r["arm"] == "laconic"),
         judged_cells=set((j["case"], j["model"]) for j in (judg or [])
                          if j.get("arm") == "laconic"),
+        # quality_fails split on one covariate, so a cancelling pair is
+        # visible in the verdict instead of needing a separate analysis to
+        # find. Disclosure only - see _quality_strata.
+        quality_strata=_quality_strata(judg, runs),
     )
     if target_cases:
         summary["scoped"] = dict(_counts(lac, judg, runs, set(target_cases)),
@@ -613,6 +689,13 @@ def accept_verdict(prev, cur, target, noise=None, target_cases=None,
         reasons.append("preference: %d both-order pair(s) undecided and excluded "
                        "from the %.0f%% flip rate; re-run prefer.py to fill them"
                        % (cur["flip_undecided"], 100 * cur["flip_rate"]))
+
+    # Last, and never fatal. A flat quality count is exactly when the
+    # cancellation hides, so the line prints whether the round passed or
+    # failed and whatever the counter did.
+    strata = _strata_line(prev, cur)
+    if strata:
+        reasons.append(strata)
     return ("reject" if fatal else "accept"), reasons
 
 
@@ -1045,6 +1128,25 @@ def render(snap, judg, threshold, prefs=()):
                            "verdicts appear above but are excluded from the "
                            "loop's fatal judge-verdict counters (#45).\n"
                            % (case, model))
+
+    # The same split accept_verdict discloses, for a single snapshot. Printed
+    # here too because a round is read one snapshot at a time before it is ever
+    # compared, and this is the number that was flat in round 15 while both of
+    # its halves moved.
+    strata = _quality_strata(judg.get("judgments", []),
+                             bench_run.usable(snap["runs"]))
+    if strata["asks"]["n"] or strata["resolves"]["n"]:
+        out.append("### Quality verdicts, split on whether the answer asks\n")
+        out.append("Laconic arm, quality-graded cases. A response that hands a "
+                   "decision back to the user is counted separately from one "
+                   "that resolves it. **Disclosure, not a gate** - the covariate "
+                   "was found after the round it explains (#88).\n")
+        out.append("| stratum | responses | quality fails |\n|---|--:|--:|")
+        for k, label in (("asks", "hands a decision back"),
+                         ("resolves", "resolves it")):
+            out.append("| %s | %d | %d |"
+                       % (label, strata[k]["n"], strata[k]["fails"]))
+        out.append("")
 
     failures = gate_failures(agg, threshold)
     out.append("### Gates\n")

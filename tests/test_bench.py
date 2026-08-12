@@ -1451,6 +1451,85 @@ v, why = bench_report.accept_verdict(_summary(viol=7), _summary(viol=7), "readab
 check("an unknown target rejects instead of silently passing", v == "reject")
 check("the rejection names the unknown target", any("unknown target" in r for r in why))
 
+# --- #88 part B: quality_fails split on whether the answer hands a decision back ---
+# Round 15's round-wide quality count was flat while both of its halves moved in
+# opposite directions, and the gate read the flat number. The split is
+# disclosure only - it may never reject - but it has to be computed and printed,
+# or the same cancellation is invisible again.
+def _strata_round(rows):
+    """rows: (rep, text, verdict) on a quality-graded case, laconic arm."""
+    runs = [{"case": "design-cache", "arm": "laconic", "model": "sonnet",
+             "rep": r, "ok": True, "text": t, "output_tokens": 100}
+            for r, t, _ in rows]
+    judg = [{"case": "design-cache", "arm": "laconic", "model": "sonnet",
+             "rep": r, "verdict": v} for r, _, v in rows]
+    return bench_report.round_summary({"runs": runs}, judg)
+
+
+ASKED = "Use the CDN. Which stack are you running?"
+RESOLVED = "Scope the no-store header to /account; the CDN already fronts this."
+st = _strata_round([(0, ASKED, "fail"), (1, ASKED, "pass"),
+                    (2, RESOLVED, "fail"), (3, RESOLVED, "pass")])["quality_strata"]
+check("the strata split a round's quality verdicts on the covariate",
+      st == {"asks": {"fails": 1, "n": 2}, "resolves": {"fails": 1, "n": 2}})
+
+# A rule-adherence or safety case may not enter the split, for the same reason
+# it may not enter quality_fails.
+mixed = bench_report.round_summary(
+    {"runs": [{"case": "floor", "arm": "laconic", "model": "sonnet", "rep": 0,
+               "ok": True, "text": ASKED, "output_tokens": 10}]},
+    [{"case": "floor", "arm": "laconic", "model": "sonnet", "rep": 0,
+      "verdict": "fail"}])
+check("a rule-adherence case stays out of the quality strata",
+      mixed["quality_strata"] == {"asks": {"fails": 0, "n": 0},
+                                  "resolves": {"fails": 0, "n": 0}})
+
+# A judge outage is not a verdict, and counting it as one would move a stratum
+# on infrastructure rather than on an answer.
+infra = bench_report.round_summary(
+    {"runs": [{"case": "design-cache", "arm": "laconic", "model": "sonnet",
+               "rep": 0, "ok": True, "text": ASKED, "output_tokens": 10}]},
+    [{"case": "design-cache", "arm": "laconic", "model": "sonnet", "rep": 0,
+      "verdict": "not_exercised",
+      "reason": bench_judge.REASON_JUDGE_CALL_FAILED}])
+check("an infrastructure failure does not enter a stratum",
+      infra["quality_strata"]["asks"]["n"] == 0)
+
+# The cancelling pair: the round-wide count is identical and each half moved.
+before = _strata_round([(0, ASKED, "pass"), (1, ASKED, "pass"),
+                        (2, RESOLVED, "fail"), (3, RESOLVED, "fail")])
+after = _strata_round([(0, ASKED, "fail"), (1, ASKED, "fail"),
+                       (2, RESOLVED, "pass"), (3, RESOLVED, "pass")])
+check("the cancelling pair leaves the round-wide count identical",
+      before["quality_fails"] == after["quality_fails"] == 2)
+line = bench_report._strata_line(before, after)
+check("the cancellation is disclosed", line is not None and "OPPOSITE" in line)
+check("the disclosure says it is not a gate", "not a gate" in line)
+check("the disclosure names which stratum got worse", "hands-back" in line)
+
+# It rides on the verdict whatever the verdict was, and never changes it.
+prev = dict(_summary(tokens=TEN_CELLS(500)), quality_strata=before["quality_strata"])
+cur = dict(_summary(tokens=TEN_CELLS(100)), quality_strata=after["quality_strata"])
+v, why = bench_report.accept_verdict(prev, cur, "output_tokens")
+check("the strata disclosure does not reject an otherwise-passing edit",
+      v == "accept")
+check("the strata disclosure is printed with the reasons",
+      any("quality strata" in r for r in why))
+
+# Two strata moving the same way is not a cancellation and must not be labelled
+# one, or the word stops meaning anything.
+same = _strata_round([(0, ASKED, "fail"), (1, ASKED, "fail"),
+                      (2, RESOLVED, "fail"), (3, RESOLVED, "fail")])
+line_same = bench_report._strata_line(before, same)
+check("strata moving the same way are reported without the cancellation note",
+      line_same is not None and "OPPOSITE" not in line_same)
+
+# A round with an empty stratum cannot be compared on it, and says nothing
+# rather than dividing by zero.
+empty = _strata_round([(0, RESOLVED, "pass")])
+check("an empty stratum produces no disclosure line",
+      bench_report._strata_line(before, empty) is None)
+
 check("round_summary reads the treatment tokens", rs["tokens"] == {("floor", "sonnet"): 10})
 check("round_summary computes the flip rate", rs["flip_rate"] == 1.0)
 check("a fully decided round reports no undecided pairs", rs["flip_undecided"] == 0)

@@ -15,20 +15,33 @@ Design and the reasoning behind every threshold:
 
 Set `N` to the next round number and `PREV` to the last round's snapshot. The
 current baseline is the #45 regeneration extended with [#60]'s cases —
-laconic at n=10 over all 17 cases, controls carried at n=5:
+laconic at n=10 over all 22 cases, controls carried at n=5:
 
 ```bash
-N=15
-PREV=evals/snapshots/loop/round-01-n10-v3.json
-PREV_J=evals/snapshots/loop/round-01-n10-v3-judgments.json
+N=16
+PREV=evals/snapshots/loop/round-01-n10-v4.json
+PREV_J=evals/snapshots/loop/round-01-n10-v4-judgments.json
 ```
 
-**From round 15 the baseline is `-v3`, which is `-v2` plus `design-rate-limit`
-and `design-retry`.** Both were generated at `rules_cksum` 1830906901 like every
-other cell in the file. They exist to take the scoped `output_tokens` target
-from six case/model cells to ten, because four cells is what is left once the
-short ones stop voting — see
-[`token-scope.md`](../../../evals/results/loop/token-scope.md).
+**From round 16 the baseline is `-v4`, which is `-v3` plus `design-cache`,
+`design-realtime` and `design-upload`.** Every cell in the file is at
+`rules_cksum` 1830906901, and `-v4` is identical to `-v3` on every fatal counter
+once the three new cases are removed.
+
+The three exist because the five older design cases cannot tell a derived answer
+from a recalled one: on all five the answer a model gives without opening a file
+is already the fixture's answer, so `baseline`, `laconic`, `terse-control` and
+`word-compression` all score alike. That is why the round 15 edit passed every
+dev-set gate and was killed by the holdout. **On the three new cases, no
+response that failed to resolve the fixture has ever passed** — see
+[`design-discrimination.md`](../../../evals/results/loop/design-discrimination.md)
+and [#88].
+
+**`-v3` remains the baseline for the scoped `output_tokens` target.** The five
+older design cases carry it, and they still do: it is a length measurement and
+does not depend on the property they lack — see
+[`token-scope.md`](../../../evals/results/loop/token-scope.md). What they may no
+longer be read as is evidence about design-answer quality.
 
 **A scoped `output_tokens` hypothesis must now name all five design cases.**
 Naming three leaves four voting cells, which cannot reach alpha, so the gate

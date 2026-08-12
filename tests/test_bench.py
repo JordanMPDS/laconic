@@ -1451,6 +1451,43 @@ v, why = bench_report.accept_verdict(_summary(viol=7), _summary(viol=7), "readab
 check("an unknown target rejects instead of silently passing", v == "reject")
 check("the rejection names the unknown target", any("unknown target" in r for r in why))
 
+# --- #96 follow-on: a scoped count target can name one model ---
+# The composition table made the need obvious and there was no way to act on it.
+# Round 16's six-cell scope was 82% haiku by expected failures, so a real sonnet
+# effect could not reach a threshold the pooled scope set. A hypothesis that
+# expects one stratum to move has to be able to say so before the round.
+_MRUNS = [{"case": "design-cache", "arm": "laconic", "model": m, "rep": 0,
+           "ok": True, "text": "x", "output_tokens": 100}
+          for m in ("haiku", "sonnet")]
+_MJUDG = [{"case": "design-cache", "arm": "laconic", "model": "haiku", "rep": 0,
+           "verdict": "fail"},
+          {"case": "design-cache", "arm": "laconic", "model": "sonnet", "rep": 0,
+           "verdict": "pass"}]
+both = bench_report.round_summary({"runs": _MRUNS}, _MJUDG,
+                                  target_cases=["design-cache"])
+son = bench_report.round_summary({"runs": _MRUNS}, _MJUDG,
+                                 target_cases=["design-cache"],
+                                 target_models=["sonnet"])
+check("an unscoped-by-model target counts both models",
+      both["scoped"]["quality_fails"] == 1 and both["scoped"]["n_runs"] == 2)
+check("naming a model narrows the scoped count to that stratum",
+      son["scoped"]["quality_fails"] == 0 and son["scoped"]["n_runs"] == 1)
+check("the model scope is recorded in the summary so it cannot be added later",
+      son["scoped"]["models"] == ["sonnet"] and both["scoped"]["models"] is None)
+
+# The round-wide counters are what the fatal conditions read, and narrowing the
+# target must not narrow them - an edit that helps sonnet and breaks haiku still
+# has to reject.
+check("naming a model leaves the round-wide counters over both",
+      son["quality_fails"] == both["quality_fails"] == 1)
+
+# Omitting it is the old behaviour exactly, which is what keeps stored rounds
+# where they are: no round before 17 passed target_models at all.
+check("omitting the model scope reproduces the previous scoped count",
+      bench_report.round_summary({"runs": _MRUNS}, _MJUDG,
+                                 target_cases=["design-cache"])["scoped"]
+      == both["scoped"])
+
 # --- #96: a count target is scored against the measured rates, not one draw ---
 # report.py fed cell_rates to the fatal screen and not to the target, so a count
 # target still compared against a single n=10 baseline draw - the defect #66 was

@@ -1451,6 +1451,47 @@ v, why = bench_report.accept_verdict(_summary(viol=7), _summary(viol=7), "readab
 check("an unknown target rejects instead of silently passing", v == "reject")
 check("the rejection names the unknown target", any("unknown target" in r for r in why))
 
+# --- #96: a count target is scored against the measured rates, not one draw ---
+# report.py fed cell_rates to the fatal screen and not to the target, so a count
+# target still compared against a single n=10 baseline draw - the defect #66 was
+# filed about, fixed on half the gate. Round 16 read its sonnet cells 5 -> 2
+# against the draw, which looks like a win, and 2 of 30 against the measured
+# 22 of 120 is p = 0.165.
+RATES_2 = {("a", "haiku"): {"failures": 20, "runs": 40},
+           ("a", "sonnet"): {"failures": 2, "runs": 40}}
+CELLS_2 = [("a", "haiku"), ("a", "sonnet")]
+
+check("a fully measured scope is scored against the pooled rate",
+      abs(bench_report._rate_count_p(RATES_2, CELLS_2, 4, 20) -
+          bench_report._binom_cdf(4, 26, 20 / 100)) < 1e-12)
+
+# The guard is what keeps every stored round where it was. Three of the four
+# stored count-target rounds target violations_total, which has no measured
+# rates at all, and the fourth is round 16.
+check("a scope missing one rate falls back rather than scoring on a subset",
+      bench_report._rate_count_p(RATES_2, CELLS_2 + [("b", "haiku")], 4, 20) is None)
+check("no rates at all falls back",
+      bench_report._rate_count_p({}, CELLS_2, 4, 20) is None)
+check("a scope with no cells falls back",
+      bench_report._rate_count_p(RATES_2, [], 4, 20) is None)
+# A measured rate of 0 across the whole scope leaves nothing to test against,
+# the same way _count_p refuses a target already at 0.
+check("an all-zero measured scope falls back instead of dividing by nothing",
+      bench_report._rate_count_p({("a", "haiku"): {"failures": 0, "runs": 40}},
+                                 [("a", "haiku")], 0, 20) is None)
+
+# The composition table is the part that would have changed round 16 before it
+# ran: six cells that behaved like three.
+comp = bench_report._scope_composition(RATES_2, CELLS_2,
+                                       {("a", "haiku"): 10, ("a", "sonnet"): 10})
+check("scope composition ranks cells by measured rate",
+      [c for c, _, _ in comp] == [("a", "haiku"), ("a", "sonnet")])
+check("scope composition reports each cell's expected share",
+      abs(comp[0][2] - 5.0) < 1e-9 and abs(comp[1][2] - 0.5) < 1e-9)
+check("scope composition is empty when a cell has no rate",
+      bench_report._scope_composition(RATES_2, CELLS_2 + [("b", "haiku")],
+                                      {}) == [])
+
 # --- #88 part B: quality_fails split on whether the answer hands a decision back ---
 # Round 15's round-wide quality count was flat while both of its halves moved in
 # opposite directions, and the gate read the flat number. The split is

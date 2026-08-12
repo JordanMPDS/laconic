@@ -249,6 +249,57 @@ an arm contrast cannot test what a rule edit does to one. Under the test as
 first registered, all four candidates would have been rejected, including the
 three that work.
 
+## A count target was scored against one draw, not the measured rates
+
+Found on 2026-08-12 while reading round 16, filed as [#96], fixed the same day.
+
+`report.py` fed `cell_rates` to the fatal screen and not to the target metric,
+so a count target still compared a round against a single n = 10 draw per cell —
+the defect [#66] was filed about, fixed on half the gate. Round 16's scoped
+sonnet cells read **5 to 2** against the baseline draw, which looks like a clear
+improvement; **2 of 30 against the measured 22 of 120 is p = 0.165.** The
+"established on sonnet" reading was published before it was checked against the
+rates, and it was wrong.
+
+Scoring against the measured rates is worth real power for no extra calls:
+
+| scoped count | against a baseline draw | against the measured rates |
+| --- | --: | --: |
+| 28 of 60 | 0.397 | 0.391 |
+| 24 of 60 | 0.209 | 0.084 |
+| 22 of 60 | 0.136 | **0.030** |
+| 20 of 60 | 0.080 | **0.009** |
+
+The detectable improvement moves from 18 of 60 to 22 of 60.
+
+**Re-scored across every stored count-target round: 0 of 4 verdicts move.**
+Rounds 01, 03 and 04 target `violations_total`, which has no measured rates at
+all, so they fall back to `_count_p` verbatim. Round 16 is the only round with a
+fully measured scope and it rejects either way, at p = 0.397 before and p = 0.313
+after.
+
+The scope composition is now printed beside a scoped count target, which is the
+part that would have changed round 16 *before* it ran rather than explaining it
+afterwards:
+
+```
+design-realtime/haiku 100% (10.0 of 31.8 expected), design-cache/haiku 92% (9.2),
+design-upload/haiku 70% (7.0), design-realtime/sonnet 45% (4.5),
+design-cache/sonnet 10% (1.0), design-upload/sonnet 0% (0.0)
+```
+
+Six cells that behave like three: 82% of that target was haiku, and sonnet could
+have gone to zero and moved the total by 5 of 60.
+
+**Third instance of one pattern in two days** — an aggregate silently reporting
+on one stratum while wearing the name of the whole. The short token cells voting
+in a scoped `output_tokens` target ([`token-scope.md`](token-scope.md)), a
+round-wide `quality_fails` flat across two effects that cancelled
+([`design-quality-covariate.md`](design-quality-covariate.md)), and this. All
+three are now fixed.
+
+[#96]: https://github.com/JordanMPDS/laconic/issues/96
+
 ## What the `-v2` baseline changed
 
 Nothing that any fatal gate reads. Cell by cell, `round-01-n10.json` and

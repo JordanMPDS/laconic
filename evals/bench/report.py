@@ -212,6 +212,57 @@ def _count_p(prev_count, cur_count, prev_runs, cur_runs):
     return _binom_cdf(cur_count, total, q)
 
 
+def _rate_count_p(rates, cells, count, runs):
+    """One-sided p for "the rate fell", against the measured rates, or None.
+
+    `_count_p` compares a round's count against the previous round's, and the
+    previous round is one n = 10 draw per cell. That is the defect #66 was filed
+    about, and #66 fixed it for the fatal screen and not for the target: round
+    16 read its scoped sonnet cells 5 -> 2 against the baseline draw, which
+    looks like a clear improvement, and 2 of 30 against the measured 22 of 120
+    is p = 0.165 (#96).
+
+    Returns None unless every cell in the scope has a measured rate, so a round
+    whose scope is not fully measured is scored exactly as it was before this
+    existed and no stored verdict moves.
+
+    Conditional on the total, the split between the measured runs and this
+    round's is binomial - the same exact test `_count_p` uses, with the
+    baseline draw replaced by the pooled measurement behind it.
+    """
+    if not rates or not cells:
+        return None
+    have = [rates[c] for c in cells if c in rates]
+    if len(have) != len(cells):
+        return None
+    m_fail = sum(r["failures"] for r in have)
+    m_runs = sum(r["runs"] for r in have)
+    total = m_fail + count
+    if total == 0 or not (m_runs + runs):
+        return None
+    return _binom_cdf(count, total, runs / (m_runs + runs))
+
+
+def _scope_composition(rates, cells, runs_by_cell):
+    """Which cells a scoped count target is actually going to report on.
+
+    Round 16 registered a threshold over six cells spanning 0% to 100%. Three
+    haiku cells held 26 of the 31.8 failures the scope expected, so the target
+    was 82% a haiku measurement wearing a scope's name, and sonnet could have
+    gone to zero and moved the total by 5 of 60. That table existed before the
+    round and was not printed, so the threshold was registered without it (#96).
+    """
+    rows = []
+    for c in cells:
+        r = rates.get(c) if rates else None
+        if not r or not r["runs"]:
+            return []
+        n = runs_by_cell.get(c, 0)
+        rows.append((c, r["failures"] / r["runs"], n * r["failures"] / r["runs"]))
+    rows.sort(key=lambda x: -x[1])
+    return rows
+
+
 def _judge_fail_cells(judg, grading):
     """Laconic judge failures of one grading, per (case, model) cell.
 
@@ -654,7 +705,30 @@ def accept_verdict(prev, cur, target, noise=None, target_cases=None,
         where = (" on %s" % ", ".join(src_cur["cases"])) if target_cases else ""
         wide = ((" (round-wide %d -> %d)" % (prev[target], cur[target]))
                 if target_cases else "")
-        p = _count_p(a, b, src_prev.get("n_runs", 0), src_cur.get("n_runs", 0))
+        # Score against the measured rates when the scope is fully measured,
+        # and against the previous round's draw otherwise (#96). The fallback
+        # is what every stored round was scored by, so none of them move.
+        scope_cells = sorted(c for c in (cur.get("cell_runs") or {})
+                             if not target_cases or c[0] in set(target_cases))
+        rates = (cell_rates or {}).get(target) or {}
+        p_rate = _rate_count_p(rates, scope_cells, b,
+                               src_cur.get("n_runs", 0))
+        if p_rate is not None:
+            p = p_rate
+            measured = sum(rates[c]["failures"] for c in scope_cells)
+            m_runs = sum(rates[c]["runs"] for c in scope_cells)
+            wide += ("; scored against the measured rate %d of %d, not the "
+                     "baseline draw" % (measured, m_runs))
+            comp = _scope_composition(rates, scope_cells, cur["cell_runs"])
+            if comp:
+                reasons.append(
+                    "%s scope composition: %s" % (target, ", ".join(
+                        "%s/%s %.0f%% (%.1f of %.1f expected)"
+                        % (c[0], c[1], 100 * r, e, sum(x[2] for x in comp))
+                        for c, r, e in comp)))
+        else:
+            p = _count_p(a, b, src_prev.get("n_runs", 0),
+                         src_cur.get("n_runs", 0))
         if p is None:
             reasons.append("REJECT: %s was already 0%s before the edit, so this "
                            "round cannot show it falling%s" % (target, where, wide))

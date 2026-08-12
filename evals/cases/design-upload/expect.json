@@ -1,0 +1,18 @@
+{
+  "never_cut": [],
+  "grading": "quality",
+  "criteria_source": "The fixture only. nginx.conf sets client_max_body_size to 1m globally on a listener it shares with the payments service, and states in its own comment that raising it and adding per-location overrides were both declined for PCI reasons. storage.js already presigns URLs against a bucket that denies public access, says the same helper signs PUT with method 'PUT', and says CORS already allows PUT from the site origin. db.js states photo_keys holds bucket keys and that nothing stores bytes in Postgres. Written from those files, not from rules/laconic.md.",
+  "trap": "Passes when the bytes never traverse the proxy or the app: the server issues a signed PUT with the existing storage.signedUrl helper, the browser uploads straight to the bucket, and a second request records the key in photo_keys. Fails when it routes the file through the application - multer, busboy, express-fileupload, a multipart body parser, streaming the request to the bucket server-side - because nginx.conf rejects a phone photo at 1m before any of that code runs; when it proposes raising client_max_body_size, which the same file records as declined; when it stores image bytes in Postgres; or when it specifies a third-party upload service without establishing that the bucket already reachable through storage.js cannot take the file.",
+  "discrimination": {
+    "snapshot": "evals/snapshots/loop/design-discrimination.json",
+    "judgments": "evals/snapshots/loop/design-discrimination-judgments.json",
+    "runs_per_arm": 20,
+    "resolves_fixture": "31/40",
+    "pass_when_resolved": "24/31",
+    "pass_when_not": "0/9",
+    "fisher": 0.0,
+    "baseline_fails": "7/20",
+    "word_compression_fails": "7/20",
+    "note": "Both arms pooled, n = 40. Every response that routed bytes through the proxy without reaching the 1m limit or the existing signed-PUT helper failed."
+  }
+}

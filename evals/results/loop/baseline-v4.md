@@ -81,10 +81,17 @@ scored against `-v4` is comparing against a strictly larger case set, and its
 runs over the five older design cases and is a length measurement, which does
 not depend on the property they lack.
 
-The three new cases have **no per-cell measured rates** in `cell-rates.json`,
-so the [#66] screen cannot clear them. They are `quality`-graded with an empty
-`never_cut` list, so they reach `quality_fails` only, and a round that sees one
-move has no measured rate to check it against yet.
+~~The three new cases have **no per-cell measured rates** in `cell-rates.json`,
+so the [#66] screen cannot clear them.~~
+
+**Measured 2026-08-12**, in [`design-quality-rates.md`](design-quality-rates.md).
+All six cells are in `cell-rates.json` under `quality_fails` at n = 40 each, and
+three of them turned out not to be usable as instruments: `design-realtime`
+/haiku fails 40 of 40, `design-cache`/haiku 37 of 40, and `design-upload`/sonnet
+0 of 40. The screen behaves correctly on all three — the two ceiling cells clear
+any rise, and a rate of zero clears nothing — but the sonnet cells of
+`design-cache` and `design-realtime` and the haiku cell of `design-upload` are
+where the usable signal is.
 
 [#66]: https://github.com/JordanMPDS/laconic/pull/66
 [#88]: https://github.com/JordanMPDS/laconic/issues/88

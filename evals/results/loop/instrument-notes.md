@@ -233,6 +233,22 @@ fixture's answer, so nothing about the response depends on the fixture having
 been read. `holdout-design` is the only design case where it does, which is why
 it is the only one that saw the round 15 edit.
 
+**Three replacements admitted 2026-08-12**, in
+[`design-discrimination.md`](design-discrimination.md): `design-cache`,
+`design-realtime` and `design-upload`, each built so the fixture contradicts the
+answer a model gives without reading it. On all three, **no response that failed
+to resolve the fixture passed** — 0 of 10, 0 of 21 and 0 of 9, against 19 of 30,
+14 of 19 and 24 of 31 for those that did. A fourth candidate was built, measured
+and discarded: keyset paging is the conventional answer to a paging question, so
+`design-pagination` carried the defect it was meant to fix.
+
+The acceptance test itself was corrected first, and the correction registered
+before the data existed. `word-compression` does not compress a design answer —
+on the four candidates it came back *longer* than `baseline` on two of them — so
+an arm contrast cannot test what a rule edit does to one. Under the test as
+first registered, all four candidates would have been rejected, including the
+three that work.
+
 ## What the `-v2` baseline changed
 
 Nothing that any fatal gate reads. Cell by cell, `round-01-n10.json` and

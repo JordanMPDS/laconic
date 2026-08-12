@@ -50,8 +50,17 @@ fi
 # has never moved outside its own noise takes the two-sided sign test from
 # p = 0.031 to p = 0.219, which rejected rounds 11 and 14 outright. Eight cells
 # does not fix it (7 of 8 is p = 0.070); ten does (9 of 10 is p = 0.021).
+#
+# 22 since 2026-08-12: design-cache, design-realtime and design-upload, for
+# #88. The first five design cases cannot separate the treatment arm from the
+# arm told to drop articles and use arrows, because on all five the answer a
+# model gives without opening a file is already the fixture's answer. These
+# three are built the other way round: the fixture contradicts what the model
+# would otherwise say. A fourth candidate, design-pagination, was built and
+# discarded - keyset paging is the conventional answer to it, so it had the
+# defect it was meant to fix. See design-discrimination.md.
 count=$(ls -d "$ROOT"/evals/cases/*/ 2>/dev/null | wc -l | tr -d ' ')
-if [ "$count" = "19" ]; then ok "19 cases present"; else fail "19 cases present (found $count)"; fi
+if [ "$count" = "22" ]; then ok "22 cases present"; else fail "22 cases present (found $count)"; fi
 
 design=$(ls -d "$ROOT"/evals/cases/design-*/ 2>/dev/null | wc -l | tr -d ' ')
 if [ "$design" -ge 5 ]; then
@@ -59,6 +68,33 @@ if [ "$design" -ge 5 ]; then
 else
   fail "at least 5 design cases, so the scoped token target has 10 cells (found $design)"
 fi
+
+# Every design case added for #88 records the discrimination check it passed.
+# Two numbers, both computed from one snapshot: `headroom`, the share of
+# responses that resolve the fixture's contradiction, and `bite`, the pass rate
+# among those that do against those that do not. A case where nearly every
+# response resolves the fixture cannot detect a rule that stops them resolving
+# it, and a case where both groups pass alike is grading something other than
+# whether the fixture was read. Five cases reached the design scope without
+# either number ever being computed, which is how the scope came to contain
+# nothing that could see the round 15 edit.
+for dir in "$ROOT"/evals/cases/design-cache "$ROOT"/evals/cases/design-realtime \
+           "$ROOT"/evals/cases/design-upload; do
+  name=$(basename "$dir")
+  if python3 -c "
+import json,sys
+d=json.load(open('$dir/expect.json'))
+c=d.get('discrimination')
+sys.exit(0 if isinstance(c,dict) and isinstance(c.get('snapshot'),str) and c['snapshot']
+         and all(k in c for k in ('resolves_fixture','pass_when_resolved',
+                                  'pass_when_not','fisher'))
+         else 1)
+"; then
+    ok "case $name records its discrimination check"
+  else
+    fail "case $name records its discrimination check"
+  fi
+done
 
 for dir in "$ROOT"/evals/cases/*/; do
   name=$(basename "$dir")

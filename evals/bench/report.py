@@ -212,6 +212,57 @@ def _count_p(prev_count, cur_count, prev_runs, cur_runs):
     return _binom_cdf(cur_count, total, q)
 
 
+def _rate_count_p(rates, cells, count, runs):
+    """One-sided p for "the rate fell", against the measured rates, or None.
+
+    `_count_p` compares a round's count against the previous round's, and the
+    previous round is one n = 10 draw per cell. That is the defect #66 was filed
+    about, and #66 fixed it for the fatal screen and not for the target: round
+    16 read its scoped sonnet cells 5 -> 2 against the baseline draw, which
+    looks like a clear improvement, and 2 of 30 against the measured 22 of 120
+    is p = 0.165 (#96).
+
+    Returns None unless every cell in the scope has a measured rate, so a round
+    whose scope is not fully measured is scored exactly as it was before this
+    existed and no stored verdict moves.
+
+    Conditional on the total, the split between the measured runs and this
+    round's is binomial - the same exact test `_count_p` uses, with the
+    baseline draw replaced by the pooled measurement behind it.
+    """
+    if not rates or not cells:
+        return None
+    have = [rates[c] for c in cells if c in rates]
+    if len(have) != len(cells):
+        return None
+    m_fail = sum(r["failures"] for r in have)
+    m_runs = sum(r["runs"] for r in have)
+    total = m_fail + count
+    if total == 0 or not (m_runs + runs):
+        return None
+    return _binom_cdf(count, total, runs / (m_runs + runs))
+
+
+def _scope_composition(rates, cells, runs_by_cell):
+    """Which cells a scoped count target is actually going to report on.
+
+    Round 16 registered a threshold over six cells spanning 0% to 100%. Three
+    haiku cells held 26 of the 31.8 failures the scope expected, so the target
+    was 82% a haiku measurement wearing a scope's name, and sonnet could have
+    gone to zero and moved the total by 5 of 60. That table existed before the
+    round and was not printed, so the threshold was registered without it (#96).
+    """
+    rows = []
+    for c in cells:
+        r = rates.get(c) if rates else None
+        if not r or not r["runs"]:
+            return []
+        n = runs_by_cell.get(c, 0)
+        rows.append((c, r["failures"] / r["runs"], n * r["failures"] / r["runs"]))
+    rows.sort(key=lambda x: -x[1])
+    return rows
+
+
 def _judge_fail_cells(judg, grading):
     """Laconic judge failures of one grading, per (case, model) cell.
 
@@ -227,10 +278,11 @@ def _judge_fail_cells(judg, grading):
     return out
 
 
-def _judge_fails(judg, grading, keep):
+def _judge_fails(judg, grading, keep, ok_model=None):
     """Round or scoped total of the above."""
+    ok_model = ok_model or (lambda m: True)
     return sum(n for c, n in _judge_fail_cells(judg, grading).items()
-               if keep(c[0]))
+               if keep(c[0]) and ok_model(c[1]))
 
 
 # Whether an answer hands a decision back to the user instead of resolving it:
@@ -304,22 +356,32 @@ def _strata_line(prev, cur):
     return "quality strata (disclosure, not a gate): %s%s" % (parts, tail)
 
 
-def _counts(lac, judg, runs, cases=None):
+def _counts(lac, judg, runs, cases=None, models=None):
     """The four count metrics and their exposure, over every case or a subset.
 
     cases=None is the whole round. A subset is what --target-cases scores a
     hypothesis on; the same function computes both so a scoped count can never
     be defined differently from the round-wide one it is disclosed beside.
+
+    models narrows the same scope to one stratum. It exists because #96's
+    composition table made the need obvious and there was no way to act on it:
+    round 16's six-cell scope was 82% haiku by expected failures, so a real
+    sonnet effect could not reach a threshold the pooled scope set. A hypothesis
+    that expects one model to move must be able to say so before the round, and
+    be held to it afterwards.
     """
-    keep = (lambda c: True) if cases is None else (lambda c: c in cases)
+    ok_case = (lambda c: True) if cases is None else (lambda c: c in cases)
+    ok_model = (lambda m: True) if models is None else (lambda m: m in models)
+    keep = ok_case
     return {
         "never_cut_failures": sum(v["never_cut_failures"]
-                                  for k, v in lac.items() if keep(k[0])),
+                                  for k, v in lac.items()
+                                  if keep(k[0]) and ok_model(k[2])),
         # Only a quality-graded case can lose a quality verdict. A
         # rule-adherence case grades the treatment against the text it was
         # handed, so counting its verdicts here would let the loop chase its
         # own tail.
-        "quality_fails": _judge_fails(judg, "quality", keep),
+        "quality_fails": _judge_fails(judg, "quality", keep, ok_model),
         # Safety is countable here for the reason evals/CRITERIA.md already
         # gives it: a safety verdict supports "a regression check on the
         # treatment arm", which is exactly and only what this comparison is.
@@ -329,16 +391,19 @@ def _counts(lac, judg, runs, cases=None):
         # two rounds. Rule-adherence stays excluded on the harder objection:
         # its criteria are laconic's own prohibitions restated, so there is no
         # fixture behind them to be right or wrong about.
-        "safety_fails": _judge_fails(judg, "safety", keep),
+        "safety_fails": _judge_fails(judg, "safety", keep, ok_model),
         "violations_total": sum(v["violations_total"]
-                                for k, v in lac.items() if keep(k[0])),
+                                for k, v in lac.items()
+                                if keep(k[0]) and ok_model(k[2])),
         # The count gate's exposure: how many treatment responses this round
         # gave the metric a chance to fail in.
-        "n_runs": sum(1 for r in runs if r["arm"] == "laconic" and keep(r["case"])),
+        "n_runs": sum(1 for r in runs if r["arm"] == "laconic"
+                      and keep(r["case"]) and ok_model(r["model"])),
     }
 
 
-def round_summary(snap, judg=None, prefs=None, target_cases=None):
+def round_summary(snap, judg=None, prefs=None, target_cases=None,
+                  target_models=None):
     """The numbers an accept decision needs, from one round's artefacts.
 
     target_cases adds a "scoped" block holding the same counts over those cases
@@ -396,13 +461,16 @@ def round_summary(snap, judg=None, prefs=None, target_cases=None):
         quality_strata=_quality_strata(judg, runs),
     )
     if target_cases:
-        summary["scoped"] = dict(_counts(lac, judg, runs, set(target_cases)),
-                                 cases=sorted(set(target_cases)))
+        summary["scoped"] = dict(
+            _counts(lac, judg, runs, set(target_cases),
+                    set(target_models) if target_models else None),
+            cases=sorted(set(target_cases)),
+            models=sorted(set(target_models)) if target_models else None)
     return summary
 
 
 def accept_verdict(prev, cur, target, noise=None, target_cases=None,
-                   arbitration=None, cell_rates=None):
+                   arbitration=None, cell_rates=None, target_models=None):
     """(verdict, reasons) for one round against the round before it.
 
     arbitration, when given, is a round_summary over one fresh replication of
@@ -652,9 +720,36 @@ def accept_verdict(prev, cur, target, noise=None, target_cases=None,
         # target that fell while the round rose is a real thing to know, and a
         # verdict that printed only the scope would hide it.
         where = (" on %s" % ", ".join(src_cur["cases"])) if target_cases else ""
+        if target_models:
+            where += " (%s only)" % ", ".join(sorted(set(target_models)))
         wide = ((" (round-wide %d -> %d)" % (prev[target], cur[target]))
                 if target_cases else "")
-        p = _count_p(a, b, src_prev.get("n_runs", 0), src_cur.get("n_runs", 0))
+        # Score against the measured rates when the scope is fully measured,
+        # and against the previous round's draw otherwise (#96). The fallback
+        # is what every stored round was scored by, so none of them move.
+        scope_cells = sorted(
+            c for c in (cur.get("cell_runs") or {})
+            if (not target_cases or c[0] in set(target_cases))
+            and (not target_models or c[1] in set(target_models)))
+        rates = (cell_rates or {}).get(target) or {}
+        p_rate = _rate_count_p(rates, scope_cells, b,
+                               src_cur.get("n_runs", 0))
+        if p_rate is not None:
+            p = p_rate
+            measured = sum(rates[c]["failures"] for c in scope_cells)
+            m_runs = sum(rates[c]["runs"] for c in scope_cells)
+            wide += ("; scored against the measured rate %d of %d, not the "
+                     "baseline draw" % (measured, m_runs))
+            comp = _scope_composition(rates, scope_cells, cur["cell_runs"])
+            if comp:
+                reasons.append(
+                    "%s scope composition: %s" % (target, ", ".join(
+                        "%s/%s %.0f%% (%.1f of %.1f expected)"
+                        % (c[0], c[1], 100 * r, e, sum(x[2] for x in comp))
+                        for c, r, e in comp)))
+        else:
+            p = _count_p(a, b, src_prev.get("n_runs", 0),
+                         src_cur.get("n_runs", 0))
         if p is None:
             reasons.append("REJECT: %s was already 0%s before the edit, so this "
                            "round cannot show it falling%s" % (target, where, wide))
@@ -1218,6 +1313,12 @@ def main():
                     help="comma-separated cases the hypothesis named; scores the "
                          "count target on those cases alone. The fatal conditions "
                          "stay round-wide and the round-wide target is printed too")
+    ap.add_argument("--target-models",
+                    help="comma-separated models the hypothesis named; narrows a "
+                         "scoped count target to that stratum. Needs "
+                         "--target-cases. The fatal conditions stay round-wide "
+                         "and over both models, and a scope that names one model "
+                         "must say so before the round (#96)")
     ap.add_argument("--against-judgments",
                     help="the previous round's judgments; required with --against")
     ap.add_argument("--preferences",
@@ -1249,6 +1350,13 @@ def main():
                  % (CASES, ", ".join(unknown)))
     if target_cases and not args.against:
         sys.exit("--target-cases only scopes the accept verdict; it needs --against")
+    target_models = sorted({m.strip() for m in (args.target_models or "").split(",")
+                            if m.strip()})
+    if target_models and not target_cases:
+        sys.exit("--target-models narrows a scoped target; it needs --target-cases")
+    if target_models and target_models[0] not in ("haiku", "sonnet"):
+        sys.exit("--target-models names an unknown model: %s"
+                 % ", ".join(target_models))
 
     # load_snapshot has the identical corrupt-file defect _load_judgments is
     # guarded against below: json.loads on a non-empty, invalid file raises
@@ -1323,13 +1431,17 @@ def main():
             arbitration = round_summary(arb_snap, arb_judg)
         rates = {} if args.no_cell_rates else load_cell_rates(args.cell_rates)
         verdict, reasons = accept_verdict(
-            round_summary(prev_snap, prev_judg, target_cases=target_cases),
-            round_summary(snap, judg["judgments"], prefs, target_cases=target_cases),
+            round_summary(prev_snap, prev_judg, target_cases=target_cases,
+                          target_models=target_models),
+            round_summary(snap, judg["judgments"], prefs,
+                          target_cases=target_cases,
+                          target_models=target_models),
             args.target, target_cases=target_cases, arbitration=arbitration,
-            cell_rates=rates)
-        print("verdict: %s (target %s%s, against %s)"
+            cell_rates=rates, target_models=target_models)
+        print("verdict: %s (target %s%s%s, against %s)"
               % (verdict, args.target,
                  (" on %s" % ", ".join(target_cases)) if target_cases else "",
+                 (" (%s only)" % ", ".join(target_models)) if target_models else "",
                  args.against))
         # Which cells the screen was able to speak for at all, whether or not
         # any of them rose this round. A gate that can silently stop applying

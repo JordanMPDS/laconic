@@ -2717,5 +2717,108 @@ check("carried_arms_from names the arms actually copied",
 check("run.py never replaces the metadata block, so a resume cannot drop it",
       'snap["metadata"] = ' not in (ROOT / "evals" / "bench" / "run.py").read_text())
 
+
+# --- #103: violations_total is a clustered count, not a binomial one ---
+# The other three fatal counters are one event per run: a run either fails the
+# case or it does not. violations_total is not - one response can carry seven,
+# and they arrive together. On the -v4 baseline the per-response counts have
+# variance 3x their mean, so _count_p's binomial null is three times too tight.
+def _vr(*cells):
+    """cells: (name, [per-response violation counts])"""
+    return {(n, "sonnet"): v for n, v in cells}
+
+
+# Identical distributions must not read as an improvement however they cluster.
+_flat = _vr(("a", [1] * 20))
+check("a cell compared against itself gives no evidence of a fall",
+      bench_report._cluster_count_p(_flat, _flat) > 0.4)
+
+# The property that matters: the same totals, one spread and one clustered.
+# Binomial cannot tell them apart; the bootstrap must.
+_spread_prev = _vr(("a", [1] * 20))          # 20 violations, 20 responses
+_spread_cur = _vr(("a", [1] * 10 + [0] * 10))  # 10 violations, spread
+_clump_prev = _vr(("a", [10, 10] + [0] * 18))  # 20 violations, 2 responses
+_clump_cur = _vr(("a", [10] + [0] * 19))       # 10 violations, 1 response
+_p_spread = bench_report._cluster_count_p(_spread_prev, _spread_cur)
+_p_clump = bench_report._cluster_count_p(_clump_prev, _clump_cur)
+check("a spread halving is strong evidence", _p_spread < 0.05)
+check("the same halving carried by one response is not", _p_clump > 0.2)
+check("and the binomial test cannot tell the two apart",
+      bench_report._count_p(20, 10, 20, 20) == bench_report._count_p(20, 10, 20, 20))
+
+# Degenerate inputs fall back rather than inventing a number.
+check("no shared cell gives no p",
+      bench_report._cluster_count_p(_vr(("a", [1])), _vr(("b", [1]))) is None)
+check("an all-zero comparison gives no p",
+      bench_report._cluster_count_p(_vr(("a", [0, 0])), _vr(("a", [0, 0]))) is None)
+check("an empty scope gives no p", bench_report._cluster_count_p({}, {}) is None)
+
+# Seeded: a stored round must re-score to the same number every time, or the
+# ledger stops being reproducible.
+check("the bootstrap is deterministic",
+      bench_report._cluster_count_p(_spread_prev, _spread_cur) == _p_spread)
+
+# The per-response counts have to survive round_summary, or there is nothing to
+# resample. They are computed already and were being thrown away after summing.
+_VRUNS = [{"case": "walkthrough", "arm": "laconic", "model": "sonnet", "rep": r,
+           "ok": True, "text": t, "output_tokens": 100}
+          for r, t in enumerate(["A -> b and c -> d.", "Plain english here."])]
+_vsum = bench_report.round_summary({"runs": _VRUNS}, [])
+check("round_summary keeps the per-response violation counts",
+      sorted(_vsum["violation_runs"][("walkthrough", "sonnet")]) == [0, 2])
+check("and they still sum to violations_total",
+      sum(_vsum["violation_runs"][("walkthrough", "sonnet")])
+      == _vsum["violations_total"])
+
+# The fatal readability branch was a bare integer comparison over a statistic
+# whose bootstrap sd is about 16. A rise inside that noise is now disclosed
+# rather than fatal - and a rise the bootstrap can see still rejects.
+def _summ(vals):
+    runs = [{"case": "walkthrough", "arm": "laconic", "model": "sonnet", "rep": i,
+             "ok": True, "text": ("X -> y. " * v) if v else "Plain english here.",
+             "output_tokens": 100}
+            for i, v in enumerate(vals)]
+    return bench_report.round_summary({"runs": runs}, [])
+
+
+_noise_prev, _noise_cur = _summ([0] * 18 + [3, 3]), _summ([0] * 17 + [3, 3, 3])
+_v, _r = bench_report.accept_verdict(_noise_prev, _noise_cur, "violations_total")
+check("a readability rise inside the noise no longer rejects on its own",
+      any("inside the sampling noise" in x for x in _r))
+check("and it says so with its p and its issue number",
+      any("#103" in x for x in _r))
+
+_real_prev, _real_cur = _summ([0] * 20), _summ([1] * 20)
+_v2, _r2 = bench_report.accept_verdict(_real_prev, _real_cur, "violations_total")
+check("a readability rise the bootstrap can see is still fatal", _v2 == "reject")
+check("and it is still reported as a loss",
+      any(x.startswith("REJECT: readability lost") for x in _r2))
+
+# The target path prints the binomial beside the bootstrap, so a stored round
+# stays readable against the test it was actually scored by.
+_t_prev, _t_cur = _summ([1] * 20), _summ([0] * 20)
+_v3, _r3 = bench_report.accept_verdict(_t_prev, _t_cur, "violations_total")
+check("a violations_total target is scored by the bootstrap",
+      any("bootstrapped over responses" in x for x in _r3))
+check("and discloses what the binomial would have said",
+      any("the binomial reads" in x for x in _r3))
+
+# The guard that keeps the history where it is. Rounds 16 and 17 ran
+# byte-identical rules; the gate read 0.029 and 0.016, and the honest test puts
+# a single round of that effect on the other side of alpha.
+_r17 = ROOT / "evals" / "snapshots" / "loop" / "round-17.json"
+_b_v4 = ROOT / "evals" / "snapshots" / "loop" / "round-01-n10-v4.json"
+if _r17.exists() and _b_v4.exists():
+    _ps = bench_report.round_summary(json.loads(_b_v4.read_text()), [])
+    _qs = bench_report.round_summary(json.loads(_r17.read_text()), [])
+    check("round 17's readability drop is 158 -> 121",
+          (_ps["violations_total"], _qs["violations_total"]) == (158, 121))
+    _pb = bench_report._count_p(158, 121, _ps["n_runs"], _qs["n_runs"])
+    _pc = bench_report._cluster_count_p(_ps["violation_runs"], _qs["violation_runs"])
+    check("the binomial calls it significant (p = %.4f)" % _pb, _pb < 0.05)
+    check("the clustered test does not (p = %.4f)" % _pc, _pc > 0.05)
+    check("and the gap is about the 3x over-dispersion, not a rounding change",
+          _pc / _pb > 2.0)
+
 print("\n%d failure(s)" % fails)
 sys.exit(1 if fails else 0)

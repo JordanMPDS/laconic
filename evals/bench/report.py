@@ -8,6 +8,7 @@ for somebody to notice a number moved.
 import argparse
 import json
 import math
+import random
 import re
 import statistics
 import sys
@@ -212,6 +213,54 @@ def _count_p(prev_count, cur_count, prev_runs, cur_runs):
     return _binom_cdf(cur_count, total, q)
 
 
+CLUSTER_BOOTSTRAP_DRAWS = 20000
+CLUSTER_BOOTSTRAP_SEED = 103
+
+
+def _cluster_count_p(prev_runs, cur_runs, draws=CLUSTER_BOOTSTRAP_DRAWS):
+    """One-sided p for "the count fell", for a count whose events cluster.
+
+    `_count_p` is exact conditional on each event being an independent per-run
+    Bernoulli, which is what `never_cut_failures`, `quality_fails` and
+    `safety_fails` are: a run either fails the case or it does not.
+
+    `violations_total` is not that shape (#103). One response can carry seven
+    violations, and they arrive together - a response that reaches for an arrow
+    reaches for several. On the -v4 baseline's 440 laconic responses the
+    per-response counts have mean 0.359 and variance 1.085, a ratio of 3.0
+    where binomial assumes 1, so the binomial p is optimistic by about the
+    square root of that. Rounds 16 and 17 read 0.029 and 0.016 under
+    `_count_p`; pooled and bootstrapped they are 0.042.
+
+    Resamples whole responses within each cell, which keeps a heavy response
+    intact instead of spreading its violations over the round, and returns the
+    share of resamples in which the round did not beat the baseline. Seeded, so
+    a stored round re-scores to the same number every time.
+
+    Both arguments map a cell to its per-response counts. Cells present on one
+    side only are ignored: a cell with no baseline cannot say the count fell.
+    """
+    cells = [c for c in prev_runs if c in cur_runs and prev_runs[c] and cur_runs[c]]
+    if not cells:
+        return None
+    if sum(sum(prev_runs[c]) for c in cells) == 0 and \
+            sum(sum(cur_runs[c]) for c in cells) == 0:
+        return None
+    rng = random.Random(CLUSTER_BOOTSTRAP_SEED)
+    worse = 0
+    for _ in range(draws):
+        prev_tot = cur_tot = 0
+        for c in cells:
+            pv, cv = prev_runs[c], cur_runs[c]
+            for _ in range(len(pv)):
+                prev_tot += pv[rng.randrange(len(pv))]
+            for _ in range(len(cv)):
+                cur_tot += cv[rng.randrange(len(cv))]
+        if cur_tot >= prev_tot:
+            worse += 1
+    return worse / draws
+
+
 def _rate_count_p(rates, cells, count, runs):
     """One-sided p for "the rate fell", against the measured rates, or None.
 
@@ -395,6 +444,12 @@ def _counts(lac, judg, runs, cases=None, models=None):
         "violations_total": sum(v["violations_total"]
                                 for k, v in lac.items()
                                 if keep(k[0]) and ok_model(k[2])),
+        # The same sum, kept per cell as the per-response counts behind it, so
+        # the target can be scored by a test that resamples responses rather
+        # than assuming one violation per run (#103).
+        "violation_runs": {(k[0], k[2]): list(v.get("violation_runs") or [])
+                           for k, v in lac.items()
+                           if keep(k[0]) and ok_model(k[2])},
         # The count gate's exposure: how many treatment responses this round
         # gave the metric a chance to fail in.
         "n_runs": sum(1 for r in runs if r["arm"] == "laconic"
@@ -529,6 +584,26 @@ def accept_verdict(prev, cur, target, noise=None, target_cases=None,
     for key, label in FATAL:
         if cur[key] <= prev[key]:
             continue
+        # violations_total is a clustered count, and until #103 this branch was
+        # a bare integer comparison over a statistic whose bootstrap sd at n=10
+        # per cell is about 16. Under a null edit the round-wide total rises
+        # about half the time, so any rise rejecting made this the one fatal
+        # counter that could reject a round for nothing. It never has, because
+        # every edit the loop has tried moved violations down by 20 to 107 -
+        # margins far outside that noise - but a scoped edit has no such margin.
+        #
+        # Disclosed rather than dropped: a rise inside the noise prints, with
+        # its p, and does not reject. A rise the bootstrap can distinguish is
+        # fatal exactly as before.
+        if key == "violations_total":
+            p_rise = _cluster_count_p(cur.get("violation_runs") or {},
+                                      prev.get("violation_runs") or {})
+            if p_rise is not None and p_rise > noise["alpha"]:
+                reasons.append(
+                    "%s rise (%d -> %d) is inside the sampling noise of a "
+                    "clustered count, p = %.3f (#103)"
+                    % (label, prev[key], cur[key], p_rise))
+                continue
         prev_cells = (prev.get("cells") or {}).get(key)
         cur_cells = (cur.get("cells") or {}).get(key)
         risen = []
@@ -750,6 +825,24 @@ def accept_verdict(prev, cur, target, noise=None, target_cases=None,
         else:
             p = _count_p(a, b, src_prev.get("n_runs", 0),
                          src_cur.get("n_runs", 0))
+        # violations_total overrides both of the above (#103). Its events are
+        # not one per run, so neither the binomial split against the previous
+        # round nor the one against a measured rate is the right null - both
+        # assume a variance three times too small. The bootstrap is scoped the
+        # same way the count is, and the binomial number prints beside it so a
+        # stored round stays readable against the way it was scored.
+        if target == "violations_total":
+            scope = set(scope_cells)
+            p_cluster = _cluster_count_p(
+                {c: v for c, v in (src_prev.get("violation_runs") or {}).items()
+                 if c in scope},
+                {c: v for c, v in (src_cur.get("violation_runs") or {}).items()
+                 if c in scope})
+            if p_cluster is not None:
+                wide += ("; bootstrapped over responses, not runs (#103; the "
+                         "binomial reads %s)"
+                         % ("%.3f" % p if p is not None else "nothing"))
+                p = p_cluster
         if p is None:
             reasons.append("REJECT: %s was already 0%s before the edit, so this "
                            "round cannot show it falling%s" % (target, where, wide))
@@ -822,6 +915,13 @@ def aggregate(snap):
             # correctly show a regression. Median stays for the display
             # table; these two are what gate_failures() checks.
             "violations_total": sum(s["violations"] for s in scored),
+            # Kept, not just summed (#103). violations_total is the one count
+            # target whose events are not one-per-run: a response that reaches
+            # for an arrow reaches for several, so the per-response counts have
+            # a variance three times their mean and the binomial test the other
+            # counters use is optimistic. _cluster_count_p resamples these
+            # whole, which is what respects the clustering.
+            "violation_runs": [s["violations"] for s in scored],
             "violations_flagged_responses": sum(1 for s in scored if s["violations"] > 0),
             "article_rate": _median([s["article_rate"] for s in scored], 0.0),
             "aux_verb_rate": _median([s["aux_verb_rate"] for s in scored], 0.0),

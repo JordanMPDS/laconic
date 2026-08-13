@@ -300,6 +300,35 @@ three are now fixed.
 
 [#96]: https://github.com/JordanMPDS/laconic/issues/96
 
+## Saturation was covering two problems with one field
+
+Decided 2026-08-13 for [#94], in
+[`saturation-decision.md`](saturation-decision.md).
+
+`design-realtime`/haiku has failed 60 of 60 and looked like a case for
+`saturated_models`. It is not, and neither was `destructive`/haiku. The three
+cells the field would apply to split cleanly:
+
+| cell | master-rules rate | problem | treatment |
+| --- | --: | --- | --- |
+| `design-realtime`/haiku | 40 of 40 | level | measured rate, not marked |
+| `destructive`/haiku | 53 of 55 | level | **marking retired**, rate added |
+| `ordered-steps`/haiku | 29 of 60 | variance | **stays marked** |
+
+A **level** problem is solved by a measured rate. The fatal counters reject only
+on a rise; the screen clears any rise a high-rate cell can produce; and a cell
+drawn at 10 of 10 in the baseline cannot rise at all. Excluding it subtracts
+fall-detection and adds nothing — and a fall is the outcome an edit would be
+trying to produce.
+
+A **variance** problem cannot be reached by the screen, because a coin-flip
+cell's draw pushes the round-wide total up and that total gates whether the
+fatal check runs at all. Exclusion is the only tool.
+
+Re-scored across 15 stored rounds with `destructive`/haiku counted again: **0
+verdicts move**, and the cell cannot rise in any of them because every baseline
+draws it at 10 of 10.
+
 ## What the `-v2` baseline changed
 
 Nothing that any fatal gate reads. Cell by cell, `round-01-n10.json` and

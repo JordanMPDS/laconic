@@ -239,6 +239,20 @@ loop registered.** Rounds 01, 03 and 04 each named one and missed it.
 
 ## And the arrows relocated anyway
 
+> **Correction, 2026-08-13.** This section is wrong. The position table below was
+> computed with a line-level regex rather than the detector's own hits, and the
+> detector exempts quoted numeric progressions such as `7 → 11 → 14`, which
+> `violations_total` has never counted. Counted correctly, arrows fell in *every*
+> position — bullets 50 to 37, numbered items 42 to 29, **running prose 48 to
+> 45** — and nothing relocated. The apparent rise in prose is a rise in quoted
+> numeric progressions, which are not violations. The conclusion drawn below
+> about [#34] does not follow, and the round's other findings are unaffected: the
+> target, the arbitration and the never-cut regression are all computed from the
+> gate's own numbers. Full measurement across six rules revisions and 6,434
+> responses: [`arrow-forms-across-revisions.md`](arrow-forms-across-revisions.md).
+
+
+
 | position | baseline | round 16 | round 17 | **round 18** |
 | --- | --: | --: | --: | --: |
 | bullet item | 50 | 44 | 49 | **37** |
@@ -346,9 +360,11 @@ worse.
    rounds named this metric and none met it.
 2. **The clause that reaches it is not safe to ship.** `destructive`/haiku goes
    from 0 of 10 to 6 of 20, reproduced, dropping the same identifier every time.
-3. **Arrows relocate into ordinary sentences.** This closes the last cheap
-   answer to [#34]: the remaining arrows are in the position the rule names
-   first, so the next attempt cannot be another enumerated position.
+3. ~~**Arrows relocate into ordinary sentences.**~~ **Retracted 2026-08-13.**
+   Arrows fell in every position; the relocation was a measurement error of
+   mine, corrected above. What the round does establish here is the opposite and
+   is worth more: this edit lowered arrows everywhere, most in the position it
+   named. See [`arrow-forms-across-revisions.md`](arrow-forms-across-revisions.md).
 4. **The instrument moved first, and it mattered.** [#103] was found while
    registering this round, not after reading its numbers, and the gate it
    replaced would have called this target p = 0.001.

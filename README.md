@@ -127,27 +127,37 @@ check.
 
 | vs baseline | tokens (sonnet) | tokens (haiku) | latency (sonnet) | readability violations | answers correct | never-cut failures |
 |---|--:|--:|--:|--:|--:|--:|
-| **laconic** | **-38%** | -1% | **-28%** | **26** | 30 / 30 | 0 / 50 |
-| terse-control | -11% | +3% | -13% | 50 | 27 / 30 | 1 / 50 |
-| word-compression | +3% | +4% | -13% | 60 | 28 / 30 | 0 / 50 |
-| baseline | 0% | 0% | 0% | 60 | 28 / 30 | 0 / 50 |
+| **laconic** | **-38%** | -1% | **-28%** | **26** | 23 / 30 | 1 / 50 |
+| terse-control | -11% | +3% | -13% | 50 | 24 / 30 | 1 / 50 |
+| word-compression | +3% | +4% | -13% | 60 | 21 / 30 | 1 / 50 |
+| baseline | 0% | 0% | 0% | 60 | 21 / 30 | 0 / 50 |
+
+**Two columns were corrected on 2026-08-04, both against the plugin.** Answer
+quality read 28 / 27 / 28 / **30** and never-cut read 0 / 1 / 0 / 0, because two
+case criteria asserted things their technologies do not do — `destructive` on
+`ON DELETE CASCADE` and `stale-cache` on a request `Cache-Control: max-age`.
+Both were verified against PostgreSQL 16 and Varnish 7.4 and rewritten.
+**Laconic no longer leads the quality column and no longer holds a clean
+never-cut sheet.**
 
 The laconic arm was regenerated on 2026-08-03 under the rules this repository
 ships today; the controls are carried unchanged, because none of them takes
-rules in its system prompt. Every laconic column moved and every one moved in
-laconic's favour, so read
+rules in its system prompt. Read
 [the regeneration note](docs/benchmark.md#the-2026-08-04-regeneration) before
-quoting them: only the readability column is attributable to a rule change, the
-answer-quality column drifted on the controls' own unchanged text, and the same
-regeneration cost `walkthrough` its 56% compression result, which is now 1%.
+quoting any of it: only the readability column is attributable to a rule change,
+and the same regeneration cost `walkthrough` its 56% compression result, which
+is now 1%.
 
 Laconic is still the cleanest arm on readability and it does not score 0. Nine
 responses of 110 break its own no-arrows rule, and `report.py` exits 1 on the
 committed snapshot for exactly that reason.
 See [`docs/benchmark.md`](docs/benchmark.md#readability--the-whole-point).
 
-Every figure here is a `full`-level figure. Per-case tables, cost, and what each
-number does and does not support are in
+Every figure here is a `full`-level figure, measured on the eleven original
+cases. The eval suite has since grown to twenty-two, and those tables refresh at
+the next full benchmark publish; the rules themselves have not moved, because
+every improvement round from 01 to 17 was rejected. Per-case tables, cost, and
+what each number does and does not support are in
 [`docs/benchmark.md`](docs/benchmark.md); the method and every honesty note are
 in
 [`evals/results/2026-07-31-benchmark.md`](evals/results/2026-07-31-benchmark.md).

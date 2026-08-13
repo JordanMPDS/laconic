@@ -44,6 +44,14 @@ one that catches stale generated files, and it is the easiest to skip by acciden
 - Three levels exist throughout: `lite`, `full`, `ultra`. Anything level-aware has to
   handle all three.
 - Standard library only, in both the tests and the shipped scripts.
+- **A benchmark round reads the working tree for hours, so editing `rules/laconic.md`
+  or anything under `evals/cases/` while one is running corrupts it.** Both are
+  checksummed into every snapshot (`rules_cksum`, `cases_cksum`), and `run.py`,
+  `judge.py` and `prefer.py` all refuse to resume across a change rather than
+  producing one round generated from two different instruments. If a round is in
+  flight, do not touch either tree — including by switching branches, which is how
+  this nearly cost round 17. `--allow-case-change` is the deliberate override and
+  stamps the fact into the snapshot.
 
 ## Out of bounds
 

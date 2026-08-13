@@ -11,13 +11,19 @@ The laconic arm is `rules_cksum` 1830906901, generated 2026-08-03; the three
 control arms are carried unchanged from the 2026-07-30 generation, because no
 control carries rules in its system prompt and none of them can have moved.
 
-Three design-question cases (`design-alerting`, `design-audit-log`,
-`design-search`, added 2026-08-06 for
-[#46](https://github.com/JordanMPDS/laconic/issues/46)) postdate every table
-in this document. The loop's baseline now includes them
-(`evals/snapshots/loop/round-01-n10.json`, the
-[#45](https://github.com/JordanMPDS/laconic/issues/45) n=10 regeneration);
-these public tables refresh at the next full benchmark publish.
+**Eleven of the suite's twenty-two cases postdate every table in this
+document**, and the eleven measured here are the original set. Added since:
+eight `design-*` design questions for
+[#46](https://github.com/JordanMPDS/laconic/issues/46), three on 2026-08-06 and
+five on 2026-08-11, and three `verdict-*` evaluative questions on 2026-08-07 for
+[#60](https://github.com/JordanMPDS/laconic/issues/60). The loop's
+baseline includes all of them (`evals/snapshots/loop/round-01-n10-v4.json`,
+extending the [#45](https://github.com/JordanMPDS/laconic/issues/45) n=10
+regeneration); these public tables refresh at the next full benchmark publish.
+
+The published rules have not moved since this benchmark: every loop round from
+01 to 17 was rejected, so `rules_cksum` 1830906901 is still what ships. The
+tables are stale in coverage, not in what they measured.
 
 | vs baseline | tokens (sonnet) | tokens (haiku) | latency (sonnet) | readability violations | answers correct | never-cut failures |
 |---|--:|--:|--:|--:|--:|--:|

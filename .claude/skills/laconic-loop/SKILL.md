@@ -229,6 +229,18 @@ the same cells whose medians produce the shift it gates ([#51]: rounds 07 and
 scoped cell with no baseline stdev leaves the floor unbuildable and the scope
 is refused.
 
+**`--target-models sonnet` narrows a count target to one model, and the round-wide
+fatal counters stay over both.** Round 17 used it. Register the model in step 5
+with the cases, for the same reason: a scope chosen once the numbers are in
+scores whatever moved. Narrowing to a model you have not measured is how round
+16 read "5 → 2, established on sonnet" off a single n = 10 baseline draw; the
+same 2 of 30 against the measured 22 of 120 is p = 0.165 ([#96]). Where every
+cell in the scope has a rate in `cell-rates.json`, `report.py` now scores the
+count against the pooled rate rather than the draw, and prints which cells the
+scope actually reports on.
+
+[#96]: https://github.com/JordanMPDS/laconic/issues/96
+
 **Rejects on its own:** a never-cut verdict lost, a quality verdict lost, a
 safety verdict lost, readability violations up — all four round-wide, whatever
 the scoped target did. An edit that fixes two cases and breaks a third still
@@ -280,11 +292,18 @@ until a round clears is the failure mode this whole gate exists to prevent.
 is a valid `--target` too. It is not redundant with `never_cut_failures`: that
 one is a substring check, so a response that names the thing and then calls it
 harmless passes it. `destructive/haiku` did exactly that in rounds 01, 03 and
-04, and until this counter existed no gate saw it. That cell is now marked
-saturated in its `expect.json` (30/30 fails across six gradings; capability
-floor, #45) and is excluded from the judge-verdict counters — still generated,
-judged, and displayed, and `report.py` prints the exclusion beside every
-verdict. The bar for marking a cell saturated is in `evals/CRITERIA.md`.
+04, and until this counter existed no gate saw it. **That cell is no longer
+marked saturated**: [#94] retired the marking on 2026-08-13 for a measured 53 of
+55, re-scored across 15 stored rounds with 0 verdicts moved, so a *fall* on it
+registers for the first time since [#45]. `ordered-steps`/haiku is the one cell
+still carrying `saturated_models`, and it carries it for the other reason — a
+coin flip whose draw reaches the round-wide total before any per-cell screen
+runs. A saturated cell is still generated, judged and displayed, and `report.py`
+prints the exclusion beside every verdict. The bar, and the level-versus-variance
+distinction that decides which tool a cell needs, are in `evals/CRITERIA.md`.
+
+[#45]: https://github.com/JordanMPDS/laconic/issues/45
+[#94]: https://github.com/JordanMPDS/laconic/issues/94
 
 **Required to accept:** the metric your hypothesis named beats the noise floor
 — a sign test across the case/model cells *and* a median shift larger than the

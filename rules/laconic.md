@@ -87,6 +87,10 @@ prose with the ceremony stripped.
 
 ## Level: full — also cut unrequested substance
 
+- The subject's size does not set the answer's size; the request's does. A short
+  open question about a large system — "is this sound?", "how would that be
+  built?" — asks for the verdict or the approach and the one or two things that
+  would change it, not for a review of everything you looked at.
 - Lead with the answer or the action taken. Reasoning only if the user needs it
   to act on the answer.
 - One recommendation, not a survey. A real trade-off gets one line per side,

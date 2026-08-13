@@ -329,6 +329,67 @@ Re-scored across 15 stored rounds with `destructive`/haiku counted again: **0
 verdicts move**, and the cell cannot rise in any of them because every baseline
 draws it at 10 of 10.
 
+## A provenance stamp that described the invocation, not the file
+
+Fixed 2026-08-13 for [#86].
+
+`round-15-judgments.json` is committed carrying this:
+
+```json
+"carried_judgments_from": { "judgments": 0, "uncovered": 570 }
+```
+
+Both numbers are wrong for the file they sit in. It holds **565 carried
+verdicts**, and **5** runs are genuinely uncovered because they are infra
+failures in the source, which [#67] correctly refuses to carry. Round 15 was
+generated during a service outage, resumed, and judged in two passes; the second
+pass found every carried key already decided, copied nothing, and stamped what
+that call had done over what the first call had done.
+
+`uncovered` was the worse half. Computed as `len(wanted) - copied`, it conflated
+"the source has no verdict for this run" with "this run was carried on an
+earlier pass", so a reader would conclude the source covers nothing.
+
+Both counts are now read back out of the file: `judgments` counts the `carried`
+markers `report.py` already prices by, and `uncovered` counts wanted keys the
+source has no usable verdict for. Neither depends on how many passes the round
+took. Recomputed against all three committed rounds that carry a stamp:
+
+| round | stored | recomputed | judged in |
+| --- | --- | --- | --- |
+| 15 | 0 carried, 570 uncovered | **565 carried, 5 uncovered** | two passes |
+| 16 | 660 carried, 0 uncovered | 660 carried, 0 uncovered | one pass |
+| 17 | 660 carried, 0 uncovered | 660 carried, 0 uncovered | one pass |
+
+Only the resumed round moves, which is the check worth having: a fix that also
+moved the two correct stamps would be a different bug.
+
+**`round-15-judgments.json` is not rewritten.** Snapshots are evidence, and the
+carried records are in the file, so anyone can recompute the true numbers from it
+— which is what the test suite now does on every run. The stamp is wrong; the
+work it describes was correct in both passes.
+
+Two related holes closed with it. `judge.py` assigns its metadata block
+wholesale, so a resume that omitted `--carry-judgments-from` deleted the stamp
+outright rather than merely miscounting it; the stamp now outlives the flag,
+because the carried records do. And `run.py`'s `carried_arms_from`, which [#86]
+flagged as the same shape, does not drift — it is written once at creation, and
+`run.py` mutates its metadata rather than replacing it. That is now pinned by a
+test instead of being true by accident.
+
+## The case-material guard could not be reached
+
+Found and fixed 2026-08-13, one commit after [#69] shipped it.
+
+[#69]'s guard read the round's run list one assignment too early, so `judge.py`
+raised `UnboundLocalError` on any snapshot carrying a `cases_cksum` — which is
+every snapshot generated from that commit onward. The [#69] tests covered
+`cases_cksum` as a function and never ran `main()`; the one manual smoke test
+used a committed snapshot, which predates the field and took the other branch.
+
+The guard now runs against the same globbed run list the judging pass uses, and
+a subprocess test drives `main()` to the refusal.
+
 ## What the `-v2` baseline changed
 
 Nothing that any fatal gate reads. Cell by cell, `round-01-n10.json` and
@@ -341,4 +402,7 @@ produce text.
 irrelevant to why round 10 was rejected. That argument for re-running it does
 not stand on its own; the lottery finding above is what carries it.
 
+[#67]: https://github.com/JordanMPDS/laconic/issues/67
+[#69]: https://github.com/JordanMPDS/laconic/issues/69
 [#70]: https://github.com/JordanMPDS/laconic/issues/70
+[#86]: https://github.com/JordanMPDS/laconic/issues/86

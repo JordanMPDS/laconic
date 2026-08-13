@@ -136,14 +136,28 @@ def carry_judgments(prior, at, done, source, snap, arms, source_path, criteria):
     the todo list and is judged normally, so a partial source degrades to fewer
     calls rather than to missing verdicts.
 
-    Returns the provenance record to stamp into metadata.
+    Returns the provenance record to stamp into metadata. Both of its counts
+    describe the *state of the file*, not the actions of this call (#86). A
+    resume re-runs this function with the carried keys already in `done`, so a
+    call-scoped count copies nothing and reports 0 carried; round 15 was
+    generated during an outage, resumed, and its committed stamp says "0
+    carried, 570 uncovered" over a file holding 565 carried verdicts and 5
+    genuinely uncovered ones. A provenance stamp that changes when the work is
+    interrupted describes the interruption rather than the provenance.
     """
     wanted = {(r["case"], r["arm"], r["model"], r["rep"])
               for r in bench_run.usable(snap["runs"]) if r["arm"] in arms}
-    copied = 0
+    covered = set()
     for j in source.get("judgments", []):
         key = (j.get("case"), j.get("arm"), j.get("model"), j.get("rep"))
-        if key not in wanted or key in done or _is_infra_failure(j):
+        if key not in wanted or _is_infra_failure(j):
+            continue
+        # Coverage is a property of the source, so it is recorded before the
+        # skip below. "The source has no verdict for this run" and "this run
+        # was carried on an earlier pass" are different facts, and conflating
+        # them is exactly what made round 15's uncovered read 570 instead of 5.
+        covered.add(key)
+        if key in done:
             continue
         # Marked on the record, not merely in metadata: report.py prices a
         # round by splitting calls this round bought from calls it inherited,
@@ -157,10 +171,15 @@ def carry_judgments(prior, at, done, source, snap, arms, source_path, criteria):
             at[key] = len(prior["judgments"])
             prior["judgments"].append(rec)
         done.add(key)
-        copied += 1
+    # The same marker report.py prices by, counted back out of the file. It is
+    # written by this function and by nothing else, so it is the file's own
+    # record of what was carried into it, whatever it took to get there.
+    held = sum(1 for j in prior["judgments"]
+               if j.get("carried")
+               and (j.get("case"), j.get("arm"), j.get("model"), j.get("rep")) in wanted)
     src_criteria = (source.get("metadata") or {}).get("criteria_cksum")
-    return {"path": source_path, "arms": sorted(arms), "judgments": copied,
-            "uncovered": len(wanted) - copied,
+    return {"path": source_path, "arms": sorted(arms), "judgments": held,
+            "uncovered": len(wanted) - len(covered),
             "criteria_cksum": src_criteria,
             "criteria_verified": bool(src_criteria) and src_criteria == criteria}
 
@@ -310,6 +329,12 @@ def main():
     # this is the third harness and the pattern is the same one.
     at, done = resume_index(prior["judgments"])
 
+    # Same glob semantics as run.py --cases, so the two flags select alike.
+    # Resolved here rather than beside `todo` because the #69 guard below reads
+    # it: a guard that runs after the work it guards is not a guard.
+    runs = [r for r in bench_run.usable(snap["runs"])
+            if fnmatch.fnmatch(r["case"], args.cases)]
+
     # #69: the snapshot records the case material it was generated from. If the
     # tree has moved since, judging grades responses against criteria that did
     # not exist when they were produced, which is the "delta between two
@@ -335,6 +360,14 @@ def main():
     meta = {"judge_model": args.model, "rules_cksum": rules_cksum,
             "criteria_cksum": criteria}
 
+    # `prior["metadata"] = meta` below replaces the block wholesale, so a resume
+    # that omits --carry-judgments-from would delete a stamp describing verdicts
+    # that are still in the file - the same defect as #86's miscount, in its
+    # most complete form. The carried records outlive the flag, so the stamp
+    # does too.
+    if not args.carry_judgments_from and prior_meta.get("carried_judgments_from"):
+        meta["carried_judgments_from"] = prior_meta["carried_judgments_from"]
+
     # The carried arms' verdicts are copied, not bought again (#83).
     if args.carry_judgments_from:
         arms = set((snap["metadata"].get("carried_arms_from") or {}).get("arms") or [])
@@ -348,7 +381,9 @@ def main():
         prov = carry_judgments(prior, at, done, source, snap, arms,
                                args.carry_judgments_from, criteria)
         meta["carried_judgments_from"] = prov
-        print("carried %d judgment(s) for arm(s) %s from %s"
+        # "holds", not "copied": on a resume this call copies nothing and the
+        # file still holds every verdict the first pass carried (#86).
+        print("holds %d carried judgment(s) for arm(s) %s from %s"
               % (prov["judgments"], ", ".join(prov["arms"]), prov["path"]))
         if prov["uncovered"]:
             print("  %d carried run(s) are not covered by that file and will be "
@@ -371,9 +406,6 @@ def main():
     # provenance, and a loop body is not reached when todo is empty.
     prior["metadata"] = meta
 
-    # Same glob semantics as run.py --cases, so the two flags select alike.
-    runs = [r for r in bench_run.usable(snap["runs"])
-            if fnmatch.fnmatch(r["case"], args.cases)]
     todo = [r for r in runs
             if (r["case"], r["arm"], r["model"], r["rep"]) not in done]
 

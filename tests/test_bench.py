@@ -2687,8 +2687,15 @@ with tempfile.TemporaryDirectory() as td_69:
         {"metadata": {"rules_cksum": "1", "cases_cksum": "not-the-live-one"},
          "runs": [{"case": "destructive", "arm": "laconic", "model": "haiku",
                    "rep": 0, "ok": True, "text": "t"}]}))
+    # A stub, because judge.py checks the binary before it checks anything else
+    # and CI has no claude on PATH. The guard refuses before any call, so the
+    # stub is never invoked - it only has to exist and be executable.
+    _stub69 = Path(td_69) / "claude"
+    _stub69.write_text("#!/usr/bin/env bash\nexit 1\n")
+    _stub69.chmod(0o755)
     _r69 = subprocess.run(
         [sys.executable, str(ROOT / "evals" / "bench" / "judge.py"),
+         "--claude-bin", str(_stub69),
          "--results", str(_s69), "--out", str(Path(td_69) / "j.json")],
         capture_output=True, text=True)
     check("judge: a snapshot with a case checksum does not crash main()",

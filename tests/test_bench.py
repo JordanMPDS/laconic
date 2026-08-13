@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 """Validates harness logic against stubs - no live model calls."""
 import json
+import pathlib
 import os
 import re
 import shutil
@@ -1487,6 +1488,62 @@ check("omitting the model scope reproduces the previous scoped count",
       bench_report.round_summary({"runs": _MRUNS}, _MJUDG,
                                  target_cases=["design-cache"])["scoped"]
       == both["scoped"])
+
+# --- #69: the case material a round was generated from is pinned ---
+# Every harness reads the working tree while it runs, and a round takes hours.
+# rules_cksum has guarded the rules text since the beginning; the cases were not
+# guarded at all, so editing a case or switching branches mid-pass produced one
+# round graded against two different criteria with nothing recording it. This
+# nearly cost round 17 when a rebase mid-round briefly reverted the tree.
+import tempfile as _tf
+
+_cd = pathlib.Path(_tf.mkdtemp()) / "cases"
+(_cd / "c1").mkdir(parents=True)
+(_cd / "c1" / "prompt.md").write_text("q?\n")
+(_cd / "c1" / "expect.json").write_text(json.dumps({"trap": "t"}))
+_base = bench_run.cases_cksum(_cd, ["c1"])
+
+(_cd / "c1" / "prompt.md").write_text("a different question?\n")
+check("editing a prompt changes the case checksum",
+      bench_run.cases_cksum(_cd, ["c1"]) != _base)
+(_cd / "c1" / "prompt.md").write_text("q?\n")
+check("restoring the prompt restores it",
+      bench_run.cases_cksum(_cd, ["c1"]) == _base)
+
+# The trap is what the judge grades against, and correcting one has moved
+# verdicts twice in this project's history.
+(_cd / "c1" / "expect.json").write_text(json.dumps({"trap": "different"}))
+check("editing a trap changes the case checksum",
+      bench_run.cases_cksum(_cd, ["c1"]) != _base)
+(_cd / "c1" / "expect.json").write_text(json.dumps({"trap": "t"}))
+
+# The fixture is what a design case's answer is derived from, so a fixture edit
+# invalidates generation even though it never reaches the judge's prompt.
+(_cd / "c1" / "fixture").mkdir()
+(_cd / "c1" / "fixture" / "app.js").write_text("x")
+_with_fixture = bench_run.cases_cksum(_cd, ["c1"])
+check("adding a fixture file changes the case checksum", _with_fixture != _base)
+(_cd / "c1" / "fixture" / "app.js").write_text("y")
+check("editing a fixture file changes it again",
+      bench_run.cases_cksum(_cd, ["c1"]) != _with_fixture)
+(_cd / "c1" / "fixture" / "app.js").unlink()
+(_cd / "c1" / "fixture").rmdir()
+check("deleting the fixture restores the original checksum",
+      bench_run.cases_cksum(_cd, ["c1"]) == _base)
+
+# Scoped to the round's own cases: adding a case must not invalidate a resume
+# of a round that never touched it.
+(_cd / "c2").mkdir()
+(_cd / "c2" / "prompt.md").write_text("other\n")
+check("an unrelated case does not affect a scoped checksum",
+      bench_run.cases_cksum(_cd, ["c1"]) == _base)
+check("naming the new case does affect it",
+      bench_run.cases_cksum(_cd, ["c1", "c2"]) != _base)
+
+# The dirty-tree record is informational, never a refusal: the loop's own
+# workflow edits rules/laconic.md and runs before committing in some orders.
+check("the dirty-tree probe returns a bool or None",
+      bench_run._git_dirty() in (True, False, None))
 
 # --- #96: a count target is scored against the measured rates, not one draw ---
 # report.py fed cell_rates to the fatal screen and not to the target, so a count

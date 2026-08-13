@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 """Validates harness logic against stubs - no live model calls."""
+import glob
 import json
 import pathlib
 import os
@@ -13,6 +14,7 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "evals" / "bench"))
 import run as bench_run  # noqa: E402
+import metrics as bench_metrics  # noqa: E402
 
 fails = 0
 
@@ -2819,6 +2821,106 @@ if _r17.exists() and _b_v4.exists():
     check("the clustered test does not (p = %.4f)" % _pc, _pc > 0.05)
     check("and the gap is about the 3x over-dispersion, not a rounding change",
           _pc / _pb > 2.0)
+
+
+# --- #34: violations_total is one number over two forms that never move together
+# Round 18 read 158 -> 129 over chains at -42% and mappings at +25%. Rounds 16
+# and 17 did the same with an edit nowhere near the arrow rule. A round
+# targeting one form could not tell whether it moved it or traded it for the
+# other. Disclosure only - the detector's verdict about what an arrow is does
+# not change, and no gate reads the split.
+_af = bench_metrics.arrow_forms
+check("two arrows on one line are a chain",
+      _af("A -> b -> c happens.") == {"chain": 2, "mapping": 0})
+check("one arrow on a line is a mapping",
+      _af("Database query -> Redis.") == {"chain": 0, "mapping": 1})
+check("the split is per line, not per response",
+      _af("A -> b -> c.\nQuery -> Redis.") == {"chain": 2, "mapping": 1})
+check("a response with no arrows reports zeros",
+      _af("Nothing wrong with this one.") == {"chain": 0, "mapping": 0})
+
+# The exemption the detector already makes must not reappear on either side of
+# the split, or the disclosure would contradict the number it discloses.
+check("a quoted numeric progression is in neither form",
+      _af("The queue climbed (7 -> 11 -> 14).") == {"chain": 0, "mapping": 0})
+# Arrows inside code are not prose in the first place.
+check("arrows in a fenced block are in neither form",
+      _af("Fine here:\n```\na -> b -> c\n```\n") == {"chain": 0, "mapping": 0})
+
+# The invariant that makes this a disclosure rather than a second opinion.
+for _t in ["A -> b -> c and x -> y.", "- Values (old -> new)",
+           "1. Query -> Redis -> page.", "Plain english.",
+           "The queue climbed 7 -> 11 -> 14 then x -> y."]:
+    _f, _s = _af(_t), bench_metrics.score(_t)
+    check("chain + mapping == symbol_connectors for %r" % _t[:28],
+          _f["chain"] + _f["mapping"] == _s["symbol_connectors"])
+
+# Against every response this repository has committed, not just fixtures.
+_checked = _mismatch = 0
+for _p in sorted(glob.glob(str(ROOT / "evals" / "snapshots" / "**" / "*.json"),
+                           recursive=True)):
+    if any(x in _p for x in ("judgments", "preferences", "cell-rates")):
+        continue
+    try:
+        _sn = json.loads(pathlib.Path(_p).read_text())
+    except (ValueError, OSError):
+        continue
+    for _r in (_sn.get("runs") or []):
+        _tx = _r.get("text") or ""
+        if not _tx or not _r.get("ok"):
+            continue
+        _checked += 1
+        _f, _s = _af(_tx), bench_metrics.score(_tx)
+        if _f["chain"] + _f["mapping"] != _s["symbol_connectors"]:
+            _mismatch += 1
+check("the invariant holds on all %d committed responses" % _checked,
+      _checked > 1000 and _mismatch == 0)
+
+# The disclosure line: present, never fatal, and loud when the forms diverge.
+def _forms_summary(text_by_rep):
+    runs = [{"case": "walkthrough", "arm": "laconic", "model": "sonnet",
+             "rep": i, "ok": True, "text": t, "output_tokens": 100}
+            for i, t in enumerate(text_by_rep)]
+    return bench_report.round_summary({"runs": runs}, [])
+
+
+_fp = _forms_summary(["A -> b -> c.", "A -> b -> c.", "Query -> Redis."])
+_fc = _forms_summary(["Plain english here.", "Query -> Redis.", "Query -> Redis."])
+check("round_summary carries the split",
+      _fp["arrow_forms"] == {"chain": 4, "mapping": 1})
+_line = bench_report._arrow_form_line(_fp, _fc)
+check("the disclosure names both forms and both directions",
+      "chains of three or more 4 -> 0" in _line and "two-term mappings 1 -> 2" in _line)
+check("and says so when they diverge", "OPPOSITE directions" in _line)
+check("it is labelled a disclosure, because the reason lines read as gate output",
+      _line.startswith("arrow forms (disclosure, not a gate):"))
+check("no divergence note when both forms fall",
+      "OPPOSITE" not in bench_report._arrow_form_line(_fp, _forms_summary(["Plain."])))
+check("a round with no arrows on either side prints nothing",
+      bench_report._arrow_form_line(_forms_summary(["Plain english here."]),
+                                    _forms_summary(["Also plain here."])) is None)
+
+# It may never change a verdict. A round whose arrows all became mappings still
+# passes if its counters held, and still fails if they did not.
+_v_forms, _r_forms = bench_report.accept_verdict(_fp, _fc, "violations_total")
+check("the disclosure appears in the reason list",
+      any(x.startswith("arrow forms (disclosure") for x in _r_forms))
+check("and it is not a REJECT line",
+      not any(x.startswith("REJECT") and "arrow forms" in x for x in _r_forms))
+
+# The numbers the #34 spec is built on, pinned against the real snapshots.
+_b_v4 = ROOT / "evals" / "snapshots" / "loop" / "round-01-n10-v4.json"
+_r18 = ROOT / "evals" / "snapshots" / "loop" / "round-18.json"
+if _b_v4.exists() and _r18.exists():
+    _pb = bench_report.round_summary(json.loads(_b_v4.read_text()), [])
+    _p18 = bench_report.round_summary(json.loads(_r18.read_text()), [])
+    check("the -v4 baseline is 96 chains and 44 mappings",
+          _pb["arrow_forms"] == {"chain": 96, "mapping": 44})
+    check("round 18 is 56 chains and 55 mappings",
+          _p18["arrow_forms"] == {"chain": 56, "mapping": 55})
+    check("so the headline fell while mappings rose, which is #34's whole point",
+          _p18["violations_total"] < _pb["violations_total"]
+          and _p18["arrow_forms"]["mapping"] > _pb["arrow_forms"]["mapping"])
 
 print("\n%d failure(s)" % fails)
 sys.exit(1 if fails else 0)

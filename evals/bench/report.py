@@ -405,6 +405,45 @@ def _strata_line(prev, cur):
     return "quality strata (disclosure, not a gate): %s%s" % (parts, tail)
 
 
+def _sum_forms(dicts):
+    """Add up arrow_forms blocks. Keys fixed so an empty round still reports."""
+    out = {"chain": 0, "mapping": 0}
+    for d in dicts:
+        for k in out:
+            out[k] += d.get(k, 0)
+    return out
+
+
+def _arrow_form_line(prev, cur):
+    """The chain-versus-mapping disclosure, or None when either round lacks it.
+
+    violations_total is one number over two forms that have never moved
+    together. Round 18 read 158 -> 129, a fall of 21%, over chains at -42% and
+    mappings at +25%; rounds 16 and 17 did the same thing with an edit nowhere
+    near the arrow rule. A round targeting one form cannot currently tell
+    whether it moved it or traded it for the other.
+
+    Disclosure, never a gate, for the reason #34 gives: the published violation
+    number is doing real work, and splitting what it reports must not become a
+    way of lowering it.
+    """
+    a, b = prev.get("arrow_forms"), cur.get("arrow_forms")
+    if not a or not b:
+        return None
+    if not any(a.values()) and not any(b.values()):
+        return None
+    parts = ", ".join("%s %d -> %d" % (label, a[k], b[k])
+                      for k, label in (("chain", "chains of three or more"),
+                                       ("mapping", "two-term mappings")))
+    d_chain, d_map = b["chain"] - a["chain"], b["mapping"] - a["mapping"]
+    tail = ""
+    if d_chain * d_map < 0:
+        worse = "mappings" if d_map > 0 else "chains"
+        tail = ("; the two forms moved in OPPOSITE directions, which the "
+                "violations_total headline hides - %s rose" % worse)
+    return "arrow forms (disclosure, not a gate): %s%s" % (parts, tail)
+
+
 def _counts(lac, judg, runs, cases=None, models=None):
     """The four count metrics and their exposure, over every case or a subset.
 
@@ -514,6 +553,8 @@ def round_summary(snap, judg=None, prefs=None, target_cases=None,
         # visible in the verdict instead of needing a separate analysis to
         # find. Disclosure only - see _quality_strata.
         quality_strata=_quality_strata(judg, runs),
+        # Disclosure only - see metrics.arrow_forms and _arrow_form_line (#34).
+        arrow_forms=_sum_forms(v.get("arrow_forms") or {} for v in lac.values()),
     )
     if target_cases:
         summary["scoped"] = dict(
@@ -881,6 +922,9 @@ def accept_verdict(prev, cur, target, noise=None, target_cases=None,
     # Last, and never fatal. A flat quality count is exactly when the
     # cancellation hides, so the line prints whether the round passed or
     # failed and whatever the counter did.
+    forms = _arrow_form_line(prev, cur)
+    if forms:
+        reasons.append(forms)
     strata = _strata_line(prev, cur)
     if strata:
         reasons.append(strata)
@@ -922,6 +966,10 @@ def aggregate(snap):
             # counters use is optimistic. _cluster_count_p resamples these
             # whole, which is what respects the clustering.
             "violation_runs": [s["violations"] for s in scored],
+            # Disclosure only (#34). Summed into nothing; chain + mapping always
+            # equals this cell's symbol_connectors.
+            "arrow_forms": _sum_forms(metrics.arrow_forms(r.get("text", ""))
+                                      for r in runs),
             "violations_flagged_responses": sum(1 for s in scored if s["violations"] > 0),
             "article_rate": _median([s["article_rate"] for s in scored], 0.0),
             "aux_verb_rate": _median([s["aux_verb_rate"] for s in scored], 0.0),

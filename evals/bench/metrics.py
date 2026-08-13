@@ -141,11 +141,49 @@ def _symbol_hits(prose):
     """
     hits = []
     for line in prose.splitlines():
-        for m in SYMBOLS.finditer(line):
-            if _is_numeric_progression(line, m.start(), m.end()):
-                continue
-            hits.append(m.group(0))
+        hits.extend(m.group(0) for m in _line_arrow_hits(line))
     return hits
+
+
+def _line_arrow_hits(line):
+    """The counted arrows on one line. The single place the skip lives, so
+    _symbol_hits and arrow_forms can never disagree about what an arrow is.
+    """
+    return [m for m in SYMBOLS.finditer(line)
+            if not _is_numeric_progression(line, m.start(), m.end())]
+
+
+def arrow_forms(text):
+    """The same arrows _symbol_hits counts, split by the shape they take.
+
+    Two or more on a line is a chain - "a -> b -> c", the sequencing
+    rules/laconic.md spends most of its arrow paragraph on. One is a mapping -
+    "Database query -> Redis", which the rule names in a single clause of six.
+
+    They are worth separating because they do not move together, and
+    violations_total sums them. Across the three edits measured on the 22-case
+    set, every one lowered chains and raised mappings:
+
+        form        baseline  r16  r17  r18
+        chains            96   61   49   56
+        two-term maps     44   56   61   55
+        total            140  117  110  111
+
+    Each of those rounds reported a headline that fell about 20% over components
+    moving in opposite directions, and none could see it while running. That is
+    the same failure #88 found in quality_fails, in a second metric.
+
+    Disclosure only. Nothing here is summed into violations_total, no gate reads
+    it, and the detector's own verdict about what counts as an arrow is
+    unchanged - chain + mapping always equals symbol_connectors (#34).
+    """
+    prose, _ = split_text(text)
+    out = {"chain": 0, "mapping": 0}
+    for line in prose.splitlines():
+        n = len(_line_arrow_hits(line))
+        if n:
+            out["chain" if n >= 2 else "mapping"] += n
+    return out
 
 
 BOLD_LABEL = re.compile(r"\*\*[^*\n]+\*\*")

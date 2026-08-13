@@ -156,7 +156,8 @@ def _now():
     return datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
 
 
-def new_snapshot(reps, models, level, rules_cksum, arms, claude_bin="claude"):
+def new_snapshot(reps, models, level, rules_cksum, arms, claude_bin="claude",
+                 cases_ck=None, cases_dir=None):
     arms_dict = {}
     for k, v in arms.items():
         entry = {"system_prompt": v}
@@ -168,6 +169,9 @@ def new_snapshot(reps, models, level, rules_cksum, arms, claude_bin="claude"):
             "generated_at": _now(),
             "claude_cli_version": _cli_version(claude_bin),
             "git_commit": _git_commit(),
+            "git_dirty": _git_dirty(),
+            "cases_cksum": cases_ck,
+            "cases_dir": cases_dir,
             "laconic_level": level,
             "rules_cksum": rules_cksum,
             "reps": reps,
@@ -185,6 +189,56 @@ def _cli_version(claude_bin):
     except (OSError, subprocess.TimeoutExpired):
         return "unknown"
     return out.stdout.strip() if out.returncode == 0 else "unknown"
+
+
+def cases_cksum(cases_dir, names):
+    """A checksum over the case material a round was actually produced from.
+
+    Every harness reads the working tree while it runs - prompt.md and the
+    fixture in run.py, prompt.md and expect.json in judge.py, prompt.md in
+    prefer.py - and a round takes hours. Editing a case, or switching branches,
+    mid-pass silently produces one round graded against two different sets of
+    criteria, with nothing in the snapshot recording that it happened. The
+    rules text has been guarded by rules_cksum since the beginning; the cases
+    were not guarded at all (#69).
+
+    Hashes prompt.md, expect.json and every file under fixture/, for the cases
+    in this round only, so an unrelated case being added or edited does not
+    invalidate a resume. Directory names are included, so deleting a fixture
+    file is caught as well as editing one.
+    """
+    out = {}
+    for name in sorted(names):
+        d = Path(cases_dir) / name
+        entry = {}
+        for rel in ("prompt.md", "expect.json"):
+            f = d / rel
+            if f.is_file():
+                entry[rel] = zlib.crc32(f.read_bytes())
+        fixture = d / "fixture"
+        if fixture.is_dir():
+            entry["fixture"] = {
+                str(f.relative_to(fixture)): zlib.crc32(f.read_bytes())
+                for f in sorted(fixture.rglob("*")) if f.is_file()}
+        out[name] = entry
+    return str(zlib.crc32(json.dumps(out, sort_keys=True).encode()))
+
+
+def _git_dirty():
+    """Whether the tree had uncommitted changes when the pass started.
+
+    Recorded rather than refused: the loop's own workflow edits rules/laconic.md
+    and runs before committing in some orders, and a hard refusal would block
+    legitimate work. What it buys is that a snapshot produced from an
+    uncommitted tree says so, instead of carrying a git_commit that does not
+    describe what ran.
+    """
+    try:
+        out = subprocess.run(["git", "-C", str(ROOT), "status", "--porcelain"],
+                             capture_output=True, text=True)
+    except OSError:
+        return None
+    return bool(out.stdout.strip()) if out.returncode == 0 else None
 
 
 def _git_commit():
@@ -235,6 +289,10 @@ def main():
     ap.add_argument("--claude-bin", default="claude")
     ap.add_argument("--cases-dir", default=str(CASES),
                     help="case directory to glob; evals/holdout for the reserved set")
+    ap.add_argument("--allow-case-change", action="store_true",
+                    help="resume a snapshot whose case material has changed since "
+                         "it was started. Records the override in the metadata; "
+                         "see #69 before using it")
     ap.add_argument("--carry-arms-from",
                     help="snapshot to copy the arms this run is not regenerating from")
     args = ap.parse_args()
@@ -264,6 +322,7 @@ def main():
     # three days later on a different CLI (#80). A per-run stamp cannot be
     # inherited, and it can represent a round that legitimately spans hours.
     cli_version = _cli_version(claude_bin)
+    case_ck = cases_cksum(cases_dir, [d.name for d in cases])
 
     arms = dict(ARMS)
     arms["laconic"] = laconic_rules(ROOT, args.level)
@@ -273,7 +332,8 @@ def main():
 
     snap = load_snapshot(args.snapshot)
     if snap is None:
-        snap = new_snapshot(args.reps, models, args.level, cksum, arms, claude_bin)
+        snap = new_snapshot(args.reps, models, args.level, cksum, arms, claude_bin,
+                            cases_ck=case_ck, cases_dir=str(cases_dir))
         if args.carry_arms_from:
             source = load_snapshot(args.carry_arms_from)
             if source is None:
@@ -284,6 +344,26 @@ def main():
         sys.exit("snapshot was generated from different rules (cksum %s vs %s); "
                  "move it aside before regenerating"
                  % (snap["metadata"].get("rules_cksum"), cksum))
+    else:
+        # The same guard the rules have had since the beginning, for the case
+        # material (#69). A snapshot written before this field existed carries
+        # None and is resumed with a note rather than refused - refusing would
+        # make every committed snapshot unresumable to no purpose.
+        stored = snap["metadata"].get("cases_cksum")
+        if stored is None:
+            print("note: this snapshot predates the case-set checksum (#69), so "
+                  "a mid-round case change cannot be detected in it")
+        elif stored != case_ck and not args.allow_case_change:
+            sys.exit("the case material changed since this snapshot was started "
+                     "(cases_cksum %s vs %s). Resuming would produce one round "
+                     "generated from two different case sets. Restore the cases, "
+                     "or pass --allow-case-change if the change genuinely cannot "
+                     "affect the runs" % (stored, case_ck))
+        elif stored != case_ck:
+            print("warning: case material changed since this snapshot was started "
+                  "(%s vs %s), continuing because --allow-case-change was given"
+                  % (stored, case_ck))
+            snap["metadata"]["cases_cksum_overridden"] = [stored, case_ck]
     # Collapse duplicates a pre-#61 resume appended, so a file written by the
     # old code repairs itself the first time it is touched.
     dropped = len(snap["runs"]) - len(dedupe(snap["runs"]))

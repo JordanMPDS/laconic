@@ -288,6 +288,9 @@ def main():
     ap.add_argument("--claude-bin", default="claude")
     ap.add_argument("--jobs", type=int, default=6,
                     help="comparisons in flight at once; each is its own subprocess")
+    ap.add_argument("--allow-case-change", action="store_true",
+                    help="compare runs whose case material has changed since they "
+                         "were generated; see #69 before using it")
     ap.add_argument("--dry-run", action="store_true",
                     help="print what would be called and spend nothing")
     ap.add_argument("--report-only", action="store_true",
@@ -306,6 +309,23 @@ def main():
         report(prior["comparisons"], m.get("treatment", args.treatment),
                m.get("control", args.control), response_lengths(snap))
         return
+
+    # #69: the comparison prompt is built from the live prompt.md, so a case
+    # edited since generation would compare two responses under a question
+    # neither was asked.
+    stored = snap.get("metadata", {}).get("cases_cksum")
+    if stored is not None:
+        live = bench_run.cases_cksum(CASES, sorted({r["case"] for r in snap["runs"]}))
+        if stored != live and not args.allow_case_change:
+            sys.exit("the case material changed since these runs were generated "
+                     "(cases_cksum %s vs %s). Restore the cases, or pass "
+                     "--allow-case-change (#69)" % (stored, live))
+        if stored != live:
+            print("warning: case material changed since generation (%s vs %s), "
+                  "continuing because --allow-case-change was given" % (stored, live))
+    else:
+        print("note: this snapshot predates the case-set checksum (#69), so a "
+              "mid-round case change cannot be detected in it")
 
     pairs = pairs_from(snap, args.treatment, args.control)
     if not pairs:

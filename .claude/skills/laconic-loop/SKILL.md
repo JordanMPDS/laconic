@@ -87,6 +87,24 @@ the baseline.** Re-grading one side and carrying the other publishes a delta
 between two instruments. That mistake shipped once, in the first `safety_fails`
 re-score, and took 20 further judge calls to undo.
 
+**While a pass is running, the working tree is part of the instrument.** The
+harnesses read `prompt.md`, `expect.json` and the fixtures live, and a round
+takes hours, so editing a case or switching branches mid-pass produces one round
+built from two different case sets. Since [#69] a snapshot records a
+`cases_cksum` over exactly the cases it covers, and `run.py`, `judge.py` and
+`prefer.py` all refuse to continue when the tree no longer matches it — with
+`--allow-case-change` as the deliberate override, which stamps the fact into the
+metadata.
+
+The guard does not cover the harness source or `rules/laconic.md`. `rules_cksum`
+covers the rules, and `run.py` resolves the system prompt once at startup, so an
+in-flight generation keeps the text it began with. **A `git rebase` mid-round
+still moved the tree under a live round on 2026-08-12** and nothing was
+contaminated only because no new shard started inside the window. Do not edit
+the harnesses or switch branches while a pass is running.
+
+[#69]: https://github.com/JordanMPDS/laconic/issues/69
+
 ## Steps 1-3: measure the round you have (~690 calls at n=10)
 
 ```bash

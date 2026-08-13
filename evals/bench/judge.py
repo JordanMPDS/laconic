@@ -242,6 +242,9 @@ def main():
     ap.add_argument("--claude-bin", default="claude")
     ap.add_argument("--cases-dir", default=str(CASES),
                     help="case directory holding expect.json; evals/holdout for the reserved set")
+    ap.add_argument("--allow-case-change", action="store_true",
+                    help="judge runs whose case material has changed since they "
+                         "were generated; see #69 before using it")
     ap.add_argument("--jobs", type=int, default=6,
                     help="judgments in flight at once; each is its own subprocess. "
                          "6 matches prefer.py. Raising it has not been shown to get "
@@ -306,6 +309,27 @@ def main():
     # in place. prefer.py learned the same lesson as #55 and run.py as #61;
     # this is the third harness and the pattern is the same one.
     at, done = resume_index(prior["judgments"])
+
+    # #69: the snapshot records the case material it was generated from. If the
+    # tree has moved since, judging grades responses against criteria that did
+    # not exist when they were produced, which is the "delta between two
+    # instruments" the loop skill warns about in prose and could not check.
+    stored = prior.get("metadata", {}).get("cases_cksum") or \
+        snap.get("metadata", {}).get("cases_cksum")
+    if stored is not None:
+        live = bench_run.cases_cksum(CASES, sorted({r["case"] for r in runs}))
+        if stored != live and not args.allow_case_change:
+            sys.exit("the case material changed since these runs were generated "
+                     "(cases_cksum %s vs %s). Judging now would grade them against "
+                     "criteria they were not produced under. Restore the cases, or "
+                     "pass --allow-case-change if the change cannot affect the "
+                     "verdicts (#69)" % (stored, live))
+        if stored != live:
+            print("warning: case material changed since generation (%s vs %s), "
+                  "continuing because --allow-case-change was given" % (stored, live))
+    else:
+        print("note: this snapshot predates the case-set checksum (#69), so a "
+              "mid-round case change cannot be detected in it")
 
     criteria = criteria_cksum(CASES)
     meta = {"judge_model": args.model, "rules_cksum": rules_cksum,

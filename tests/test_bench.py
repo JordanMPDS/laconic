@@ -2548,5 +2548,167 @@ check("and it says what to do about that rather than refusing outright",
 check("so a small scope scores exactly as it did before the floor",
       "4 of 6 cells improved" in _line3 or "of 6 cells improved" in _line3)
 
+
+# --- #86: a provenance stamp describes the file, not the invocation ---
+# carry_judgments counted what it copied *this call*. A resume finds the carried
+# keys already in `done`, copies nothing, and stamped "0 carried"; `uncovered`,
+# computed as wanted-minus-copied, then reported the whole round as uncovered.
+# round-15-judgments.json is committed saying "0 carried, 570 uncovered" over a
+# file that holds 565 carried verdicts and is missing 5.
+def _cj(prior, source, snap_runs, arms=("baseline",)):
+    at, done = bench_judge.resume_index(prior["judgments"])
+    return bench_judge.carry_judgments(prior, at, done, source,
+                                       {"runs": snap_runs}, set(arms),
+                                       "src.json", "C")
+
+
+_CJ_RUNS = [{"case": "floor", "arm": "baseline", "model": "haiku", "rep": r,
+             "ok": True, "text": "t"} for r in range(4)]
+_CJ_SRC = {"metadata": {"criteria_cksum": "C"},
+           "judgments": [{"case": "floor", "arm": "baseline", "model": "haiku",
+                          "rep": r, "verdict": "pass"} for r in range(4)]}
+
+_p1 = {"metadata": {}, "judgments": []}
+_prov1 = _cj(_p1, _CJ_SRC, _CJ_RUNS)
+check("a first pass carries every covered run", _prov1["judgments"] == 4)
+check("and reports nothing uncovered", _prov1["uncovered"] == 0)
+
+# The bug, exactly: same file, same source, run again. Every key is already in
+# `done`, so the call copies nothing.
+_prov2 = _cj(_p1, _CJ_SRC, _CJ_RUNS)
+check("a resume copies nothing but still reports what the file holds",
+      _prov2["judgments"] == 4)
+check("a resume does not report the carried runs as uncovered",
+      _prov2["uncovered"] == 0)
+check("a resume adds no second record for a carried key",
+      len(_p1["judgments"]) == 4)
+check("the stamp is invariant across the resume, which is the property #86 wants",
+      _prov1 == _prov2)
+
+# `uncovered` must mean "the source has no verdict for this run" and nothing
+# else. An infra failure in the source is not a verdict (#67), so those runs are
+# genuinely uncovered - and stay so on a resume, where they are also not `done`.
+_CJ_SRC_GAP = {"metadata": {"criteria_cksum": "C"},
+               "judgments": [{"case": "floor", "arm": "baseline", "model": "haiku",
+                              "rep": 0, "verdict": "pass"},
+                             {"case": "floor", "arm": "baseline", "model": "haiku",
+                              "rep": 1, "verdict": "not_exercised",
+                              "reason": bench_judge.REASON_JUDGE_CALL_FAILED}]}
+_g1 = {"metadata": {}, "judgments": []}
+_pg1 = _cj(_g1, _CJ_SRC_GAP, _CJ_RUNS)
+check("an infra failure in the source is not carried", _pg1["judgments"] == 1)
+check("and the runs the source cannot cover are counted as uncovered",
+      _pg1["uncovered"] == 3)
+_pg2 = _cj(_g1, _CJ_SRC_GAP, _CJ_RUNS)
+check("both halves survive a resume", _pg2["judgments"] == 1 and _pg2["uncovered"] == 3)
+
+# A verdict this round judged itself is not carried and must not be counted as
+# one, however the file was assembled. The marker is what report.py prices by.
+_own = {"metadata": {},
+        "judgments": [{"case": "floor", "arm": "baseline", "model": "haiku",
+                       "rep": 0, "verdict": "fail"}]}
+_pown = _cj(_own, _CJ_SRC, _CJ_RUNS)
+check("a verdict judged here is left alone by the carry",
+      _own["judgments"][0]["verdict"] == "fail"
+      and not _own["judgments"][0].get("carried"))
+check("and is not counted as carried, though the source does cover it",
+      _pown["judgments"] == 3 and _pown["uncovered"] == 0)
+
+# Recomputed against the three committed rounds that carry a stamp: the two that
+# were judged in one pass do not move, and the one that was resumed does. A fix
+# that changed the correct stamps too would be a different bug.
+for _rd, _want in (("15", (565, 5)), ("16", (660, 0)), ("17", (660, 0))):
+    _jf = ROOT / "evals" / "snapshots" / "loop" / ("round-%s-judgments.json" % _rd)
+    _sf = ROOT / "evals" / "snapshots" / "loop" / ("round-%s.json" % _rd)
+    if not (_jf.exists() and _sf.exists()):
+        continue
+    _jd = json.loads(_jf.read_text())
+    _st = _jd["metadata"].get("carried_judgments_from") or {}
+    _src = bench_run.load_snapshot(ROOT / _st["path"])
+    _snap = json.loads(_sf.read_text())
+    _arms = set((_snap["metadata"].get("carried_arms_from") or {}).get("arms") or [])
+    _pr = {"metadata": {}, "judgments": [dict(j) for j in _jd["judgments"]]}
+    _at, _dn = bench_judge.resume_index(_pr["judgments"])
+    _rp = bench_judge.carry_judgments(_pr, _at, _dn, _src, _snap, _arms, "p", "C")
+    check("round %s recomputes to %d carried / %d uncovered" % ((_rd,) + _want),
+          (_rp["judgments"], _rp["uncovered"]) == _want)
+    check("round %s's stored file needs no rewriting to say so" % _rd,
+          len(_pr["judgments"]) == len(_jd["judgments"]))
+
+# The stamp outlives the flag. judge.py assigns metadata wholesale, so a resume
+# that omits --carry-judgments-from would delete a record of verdicts still in
+# the file - the same defect in its most complete form.
+with tempfile.TemporaryDirectory() as td_86:
+    _stub86 = Path(td_86) / "claude"
+    _stub86.write_text(
+        '#!/usr/bin/env bash\ncat >/dev/null\n'
+        'printf \'{"type":"result","subtype":"success","result":'
+        '"VERDICT: pass\\\\nQUOTE: q","usage":{"input_tokens":1,"output_tokens":1}}\\n\'\n')
+    _stub86.chmod(0o755)
+
+    _s86 = bench_run.new_snapshot(reps=1, models=["haiku"], level="full",
+                                  rules_cksum="1", arms=bench_run.ARMS)
+    _s86["metadata"]["carried_arms_from"] = {"path": "src", "rules_cksum": "1",
+                                             "arms": ["baseline"]}
+    _s86["runs"] = [{"case": "floor", "arm": a, "model": "haiku", "rep": 0,
+                     "ok": True, "text": "t"} for a in ("baseline", "laconic")]
+    _sp86 = Path(td_86) / "results.json"
+    bench_run.save_snapshot(_sp86, _s86)
+
+    _srcp86 = Path(td_86) / "source-judgments.json"
+    _srcp86.write_text(json.dumps({"metadata": {"criteria_cksum": "C"},
+                                   "judgments": [{"case": "floor", "arm": "baseline",
+                                                  "model": "haiku", "rep": 0,
+                                                  "verdict": "pass"}]}))
+    _op86 = Path(td_86) / "judgments.json"
+    _cmd86 = [sys.executable, str(ROOT / "evals" / "bench" / "judge.py"),
+              "--claude-bin", str(_stub86), "--results", str(_sp86),
+              "--out", str(_op86)]
+    _r86a = subprocess.run(_cmd86 + ["--carry-judgments-from", str(_srcp86)],
+                           capture_output=True, text=True)
+    check("judge: the carrying pass exits cleanly", _r86a.returncode == 0)
+    _m86a = json.loads(_op86.read_text())["metadata"].get("carried_judgments_from")
+    check("judge: it stamps the carry", (_m86a or {}).get("judgments") == 1)
+
+    _r86b = subprocess.run(_cmd86, capture_output=True, text=True)
+    check("judge: a resume without the flag exits cleanly", _r86b.returncode == 0)
+    _m86b = json.loads(_op86.read_text())["metadata"].get("carried_judgments_from")
+    check("judge: and does not delete the stamp for verdicts still in the file",
+          _m86b == _m86a)
+
+# --- #69 follow-up: the case-material guard runs inside main(), so main() has to
+# reach it. It read the run list one assignment too early and raised
+# UnboundLocalError on every snapshot carrying a cases_cksum, which is every
+# snapshot generated after the guard shipped. The unit tests covered the
+# checksum function and never main().
+with tempfile.TemporaryDirectory() as td_69:
+    _s69 = Path(td_69) / "results.json"
+    _s69.write_text(json.dumps(
+        {"metadata": {"rules_cksum": "1", "cases_cksum": "not-the-live-one"},
+         "runs": [{"case": "destructive", "arm": "laconic", "model": "haiku",
+                   "rep": 0, "ok": True, "text": "t"}]}))
+    _r69 = subprocess.run(
+        [sys.executable, str(ROOT / "evals" / "bench" / "judge.py"),
+         "--results", str(_s69), "--out", str(Path(td_69) / "j.json")],
+        capture_output=True, text=True)
+    check("judge: a snapshot with a case checksum does not crash main()",
+          "UnboundLocalError" not in _r69.stderr)
+    check("judge: a mismatched case checksum stops the pass",
+          _r69.returncode != 0 and "case material changed" in _r69.stderr)
+
+# run.py's carried_arms_from was the same shape and does not drift, for a reason
+# worth pinning: it is written when the snapshot is created, and run.py mutates
+# metadata rather than replacing it, so a resume cannot reach it.
+_ca = bench_run.new_snapshot(reps=1, models=["haiku"], level="full",
+                             rules_cksum="1", arms=bench_run.ARMS)
+bench_run.carry_arms(_ca, {"__path": "src.json", "metadata": {"rules_cksum": "1"},
+                           "runs": [{"case": "floor", "arm": "baseline",
+                                     "model": "haiku", "rep": 0, "ok": True}]},
+                     ["laconic"])
+check("carried_arms_from names the arms actually copied",
+      _ca["metadata"]["carried_arms_from"]["arms"] == ["baseline"])
+check("run.py never replaces the metadata block, so a resume cannot drop it",
+      'snap["metadata"] = ' not in (ROOT / "evals" / "bench" / "run.py").read_text())
+
 print("\n%d failure(s)" % fails)
 sys.exit(1 if fails else 0)

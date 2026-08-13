@@ -142,3 +142,157 @@ Registered risks, both known before the round:
 [#88]: https://github.com/JordanMPDS/laconic/issues/88
 [#96]: https://github.com/JordanMPDS/laconic/issues/96
 [#97]: https://github.com/JordanMPDS/laconic/pull/97
+
+---
+
+# Results
+
+**Reject, on two grounds.** Edit reverted; master stays at 1830906901.
+
+```
+verdict: reject (target quality_fails on design-cache, design-realtime,
+                 design-upload (sonnet only), against round-01-n10-v4.json)
+  REJECT: never-cut lost (2 -> 3); cells: walkthrough/haiku +1 (arbitrable)
+  REJECT: quality_fails 5 -> 3 on design-cache, design-realtime, design-upload
+          (sonnet only), p = 0.234; scored against the measured rate 22 of 120
+```
+
+## The registered target: 5 of 60, against a threshold of 4
+
+| | sonnet fails |
+| --- | --: |
+| round 16 | 2 of 30 |
+| round 17 | 3 of 30 |
+| **pooled, deduplicated by response text** | **5 of 60 (8.3%)** |
+| master rules, measured | 22 of 120 (18.3%) |
+
+Nothing deduplicated away; all 60 responses are distinct. One-sided
+**p = 0.072** against a registered threshold of **4 of 60**.
+
+**This is registered outcome 2, word for word**: *"Pooled 5 to 9 of 60 — reject.
+The effect is probably real and smaller than this instrument can resolve, and
+the honest write-up says the loop cannot settle it at n = 60 rather than
+reaching for a softer test."*
+
+The rate halved, 18.3% to 8.3%, in the same direction across two independent
+rounds, and it missed alpha by 0.022. That is the most likely reading and it is
+not evidence.
+
+## The other rejection, and why it was not arbitrated
+
+`never_cut_failures` 2 → 3, all of it `walkthrough`/haiku going 0 → 1.
+
+**That cell has no measured rate.** `cell-rates.json` covers `conditional`/haiku,
+`conditional`/sonnet and `destructive`/haiku for never-cut, so `walkthrough`
+/haiku is still scored the pre-[#66] way: one n = 10 baseline draw against one
+n = 10 round draw. It is exactly the situation [#66] describes and deliberately
+left in place for cells nobody has measured.
+
+The loss is arbitrable by replication. **It was not arbitrated**, because the
+round rejects on its target independently and arbitration could not change the
+verdict — only the reason list. Spending ~20 calls to remove one of two
+rejections would buy nothing. If a future round wants `walkthrough`/haiku
+screened, the fix is 40 generations to measure it, not an arbitration.
+
+## Round-wide
+
+| metric | `-v4` | **r17** | r16, same edit |
+| --- | --: | --: | --: |
+| `never_cut_failures` | 2 | **3** | 2 |
+| `quality_fails` | 83 | 77 | 74 |
+| `safety_fails` | 4 | 4 | 4 |
+| `violations_total` | 158 | **121** | 125 |
+
+The readability improvement reproduces: 158 → 125 in round 16 and 158 → 121
+here, on byte-identical rules. That is the most consistent thing this edit does,
+and it is not what the edit was written for and was never its target.
+
+## Haiku, pooled, still flat
+
+Secondary and not a target, reported because it was registered:
+
+| | haiku fails |
+| --- | --: |
+| pooled r16 + r17 | 51 of 60 (85.0%) |
+| master rules, measured | 105 of 120 (87.5%) |
+
+Fisher **p = 0.647**. At n = 60 the reading is unchanged from round 16's n = 30:
+no detectable movement. Round 16's write-up said the effect was "unmeasured on
+haiku" rather than absent; doubling the sample did not change that, and it is
+now a 60-run null rather than a 30-run one.
+
+## The registered risk that materialised
+
+`design-upload`/sonnet, the zero-rate tripwire, contributes **2 of the 5 pooled
+failures** — 2 of 20 against a measured 0 of 40, Fisher p = 0.107.
+
+So the scope's improvement is being partly offset by the one cell that fails
+never under master rules. Two readings, and n = 20 cannot separate them: the
+edit slightly harms that cell, or a 0-of-40 measurement understated a small
+non-zero rate. Either way the cell is doing the opposite of what the scope
+needs, and it was named as a risk before the round rather than after.
+
+Per cell, pooled: `design-cache`/sonnet 1 of 20, `design-realtime`/sonnet 2 of
+20, `design-upload`/sonnet 2 of 20. **The effect is not concentrated in
+`design-realtime` after all**, which was the other registered worry, and that
+one did not materialise.
+
+## Tokens, reported because registered
+
+Seven of ten older design cells down, sign test p = 0.344, median shift 53
+tokens. Nothing, and consistent with round 16's −152 at p = 0.754. **This edit
+does not shorten design answers**, across two rounds and 20 cell-measurements.
+
+## The [#88] strata line
+
+```
+answers that hand a decision back 22 of 47 -> 25 of 47,
+answers that resolve it 61 of 233 -> 52 of 233; the two strata moved in
+OPPOSITE directions
+```
+
+Third round running, third time the same shape: resolving answers improve,
+asking answers get worse. Round 16 read 22 of 47 → 28 of 44 and this reads 22 of
+47 → 25 of 47, so the effect is smaller here but the sign is identical.
+
+## What this round establishes
+
+1. **The sonnet effect is probably real and this instrument cannot prove it.**
+   Two rounds, same direction, 18.3% to 8.3% pooled, p = 0.072. The registration
+   said a smaller-than-6.7% effect would reject, and an 8.3% one did.
+2. **Settling it costs more than it is worth at this scale.** At the observed
+   8.3%, the expected count sits just above the threshold at every sample size
+   worth running:
+
+   | sonnet runs | threshold | expected at 8.3% |
+   | --: | --: | --: |
+   | 90 | 7 | 7.5 |
+   | 120 | 11 | 10.0 |
+   | 240 | 26 | 20.0 |
+
+   120 runs is the first size where the expected count clears, and that is 60
+   more generations plus 60 judge calls for a coin-flip on a rule that does not
+   shorten anything.
+3. **The edit's reproducible effect is on readability, not on design quality.**
+   `violations_total` 158 → 125 and 158 → 121 across two rounds. If this rule is
+   worth another attempt, that is the target to register, and it is a different
+   hypothesis from the one this round tested.
+
+## Costs and the outage
+
+440 generations and 440 judge calls, with 660 control verdicts carried ([#83]).
+Fourth service outage in two days: 100 of 440 generations failed and [#61]'s
+resume repaired all of them, after which judging ran with 0 infrastructure
+failures.
+
+**One near-miss worth recording.** `git rebase` was run against this branch while
+generation was in flight, which briefly left the working tree at master's rules —
+[#69] exactly. No run was contaminated: `run.py` resolves the system prompt once
+at startup, so the five in-flight processes kept the edit's text, and every one
+of the 22 shard files is stamped 1497646142. The window was short enough that no
+new shard started under master's rules, which was luck rather than design. #69 is
+still open and this is the second time it has nearly cost a round.
+
+[#61]: https://github.com/JordanMPDS/laconic/issues/61
+[#69]: https://github.com/JordanMPDS/laconic/issues/69
+[#83]: https://github.com/JordanMPDS/laconic/issues/83

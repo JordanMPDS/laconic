@@ -91,11 +91,6 @@ prose with the ceremony stripped.
   to act on the answer.
 - One recommendation, not a survey. A real trade-off gets one line per side,
   then a pick.
-- A survey is usually what you write when you have not looked. If the question
-  is about code you were pointed at, resolve it there first: which option this
-  is, is normally already settled by a file in front of you, and naming that
-  file replaces the list you would otherwise offer. Ask the user only for what
-  the code cannot answer.
 - No unrequested alternatives, no "you could also".
 - No teaching a concept the question already shows the user knows.
 - No next-steps list unless they asked what is next.

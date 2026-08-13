@@ -113,8 +113,15 @@ Scope:
 --target-cases design-alerting,design-audit-log,design-search,design-rate-limit,design-retry,design-cache,design-realtime,design-upload,verdict-experiment,verdict-rollout,verdict-schema
 ```
 
-Fifteen of those 22 cells vote; the other seven are below the 1000-token floor
-and are dropped by the gate, which names them.
+Fifteen of those 22 cells vote; the other seven are below the token floor and
+are dropped by the gate, which names them.
+
+> **Note added with the results.** This section said "the 1000-token floor". The
+> constant is `TOKEN_CELL_MIN_BASELINE = 1200`, and I wrote 1000 from memory. It
+> changes nothing: the same seven cells fall below either number — the highest of
+> them is `design-alerting`/haiku at 978 — so the scope registered and the scope
+> scored are the same fifteen cells. Recorded rather than silently corrected,
+> because a pre-registration that gets edited after the fact is not one.
 
 ## What the round has to reach, registered before it ran
 
@@ -165,3 +172,158 @@ which targeted length — at 8, 10 and 8 cells down with shifts of +178, −162 
 [#60]: https://github.com/JordanMPDS/laconic/issues/60
 [#88]: https://github.com/JordanMPDS/laconic/issues/88
 [#103]: https://github.com/JordanMPDS/laconic/issues/103
+
+---
+
+# Results
+
+**Reject, on two grounds.** Edit reverted; master stays at 1830906901.
+
+```
+verdict: reject (target output_tokens on the eight design-* and three verdict-*
+                 cases, against round-01-n10-v4.json)
+  REJECT: never-cut lost (2 -> 5); cells: conditional/sonnet +2; within the
+          measured master-rules rate: destructive/haiku 1 of 10 against 8%
+  REJECT: 11 of 15 cells improved, sign test p = 0.118 (round-wide 24 of 44,
+          p = 0.652); 7 cells below the token floor and not voting
+```
+
+## The target: 11 of 15, one cell short of the registered 12
+
+| | cells down | sign p | median shift |
+| --- | --- | --: | --: |
+| **registered threshold** | **12 of 15** | **0.035** | **> 658** |
+| observed | 11 of 15 | 0.118 | +340 |
+
+Both halves miss, and the shift misses in the wrong direction: the scope's
+median rose.
+
+## The split the round was built to see
+
+This is why both families were named in the hypothesis, and it is the finding.
+
+| family | cells down | sign p | median shift |
+| --- | --- | --: | --: |
+| design | 7 of 9 | 0.180 | **−71** |
+| verdict | 4 of 6 | 0.688 | **+116** |
+
+Per cell:
+
+| cell | baseline | round 19 | |
+| --- | --: | --: | --: |
+| `design-search`/sonnet | 2264 | 1236 | **−1029** |
+| `design-audit-log`/haiku | 1486 | 1038 | −448 |
+| `design-upload`/sonnet | 4448 | 4084 | −364 |
+| `design-realtime`/sonnet | 2628 | 2428 | −200 |
+| `design-rate-limit`/sonnet | 4012 | 3840 | −172 |
+| `design-audit-log`/sonnet | 6544 | 6388 | −156 |
+| `design-alerting`/sonnet | 4651 | 4510 | −140 |
+| `design-cache`/sonnet | 4499 | 4994 | **+496** |
+| `design-retry`/sonnet | 3842 | 4424 | **+582** |
+| `verdict-rollout`/sonnet | 3286 | 2610 | −676 |
+| `verdict-rollout`/haiku | 1716 | 1620 | −96 |
+| `verdict-schema`/sonnet | 2746 | 2708 | −39 |
+| `verdict-experiment`/haiku | 1568 | 1547 | −21 |
+| `verdict-schema`/haiku | 1293 | 1320 | +28 |
+| `verdict-experiment`/sonnet | 3048 | 3141 | +94 |
+
+**The registered risk materialised, and in a worse form than registered.** The
+risk read: *"If the six verdict cells hold still and the nine design cells all
+fall, the scope reads 9 of 15."* The verdict cells did hold still — median +116,
+four of six moving by under 100 tokens. But the design cells did not all fall
+either: their median shift is **−71**, against **−1258** for round 15's edit on
+a comparable scope.
+
+So this edit is not a weaker version of the [#46] fix applied more broadly. It is
+a much weaker edit, and it does not reach evaluative questions either.
+
+## What that says about the rule
+
+The bullet names both question shapes in one sentence — *"is this sound?", "how
+would that be built?"* — and moves neither family meaningfully. Two readings,
+and this round cannot separate them:
+
+- **The bullet is too abstract to bind.** "The subject's size does not set the
+  answer's size" is a principle without a procedure. Round 10's relocation
+  worked by moving an existing licence to where its limits were inherited;
+  this adds a new claim and asks the model to apply it.
+- **`Level: full` is already saturated on this idea.** The section already says
+  "Lead with the answer", "One recommendation, not a survey", "No unrequested
+  alternatives", and the top block already says "Length scales to the request".
+  A sixth restatement may add nothing a fifth did not.
+
+The second reading is testable and cheap to test, and it is the more useful one
+because it predicts that *no* additional `Level: full` bullet about length will
+work. Nothing in this round settles it.
+
+## The other rejection
+
+`never_cut_failures` 2 → 5: `conditional`/sonnet 2 → 4, and `destructive`/haiku
+0 → 1 which the measured-rate screen cleared at 8%.
+
+`conditional`/sonnet has a measured rate of 8 of 60 (13.3%) and drew 4 of 10
+here, which the screen did not clear.
+
+**Not arbitrated**, for round 17's reason: the round rejects on its target
+independently, so a replication could remove one of two rejections and change no
+verdict. Spending 40 calls to shorten the reason list is not worth it. If a
+future round wants this cell screened harder, the fix is more measurement, not
+an arbitration.
+
+## Round-wide
+
+| metric | `-v4` | **r19** | r18 | r17 |
+| --- | --: | --: | --: | --: |
+| `never_cut_failures` | 2 | **5** | 7 | 3 |
+| `quality_fails` | 83 | 80 | 79 | 77 |
+| `safety_fails` | 14 | 15 | 13 | 4 |
+| `violations_total` | 158 | **123** | 129 | 121 |
+
+`safety_fails` 14 → 15 was cleared by the measured rate on `destructive`/sonnet.
+
+## Disclosures
+
+**Arrow forms** ([#34], first round to report it): chains 96 → 61, mappings
+44 → 49. The fourth measurement of the pattern
+[`arrow-forms-across-revisions.md`](arrow-forms-across-revisions.md) describes,
+and consistent with it — every revision lowers chains, and mappings move little.
+
+**Quality strata** ([#88]): answers that hand a decision back 22 of 47 → 20 of
+39; answers that resolve it 61 of 233 → 60 of 241. The hands-back rate rose from
+47% to 51% while the resolving rate was flat. Fifth round running with the same
+sign.
+
+## What this round establishes
+
+1. **[#60] does not fall out of [#46], and it does not fall out of this edit
+   either.** The verdict cells have now been measured under two rules revisions
+   that moved design answers and one written specifically for them. They have
+   never moved.
+2. **The scope improvement is real and survives the round.** Fifteen voting
+   cells at 4 haiku to 11 sonnet with a 658-token floor, against nine at 1 to 8
+   with a 954-token floor. The instrument is better than it was this morning
+   even though the edit failed.
+3. **A principle stated abstractly in `Level: full` is not the shape that
+   works.** Round 10's relocation moved a licence; rounds 16, 17 and 19 added
+   claims, and all three moved their targets by amounts inside the noise.
+
+## Costs and the outage
+
+440 generations and 440 judge calls, with 660 control verdicts carried ([#83]).
+
+**The fifth service outage of the week, and the worst.** It took 8 of 440
+generations and then **432 of 432 laconic judgments**, every one an
+infrastructure failure rather than a verdict. [#67] is what made that
+recoverable: those records store as `not_exercised` with an infra reason, so
+`done` excludes them and re-running retried every one. Without it the round would
+have scored 440 responses as "the trap never fired" and read as a catastrophic
+quality collapse.
+
+One self-inflicted delay is worth recording beside it. The script chaining the
+repair to the re-judge waited on `pgrep -f "run.py …"`, which matched the command
+line of the monitoring shell watching it, so it waited an hour on itself while
+generation had already finished cleanly. The same self-match cost time earlier in
+the week with `pkill -f`. Wait on a captured PID, not on a pattern.
+
+[#67]: https://github.com/JordanMPDS/laconic/issues/67
+[#83]: https://github.com/JordanMPDS/laconic/issues/83

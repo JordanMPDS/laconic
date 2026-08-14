@@ -1,0 +1,114 @@
+# The control arm was n=5, and it was moving the per-cell numbers
+
+**Date:** 2026-08-14
+**Rules under test:** `rules_cksum` 1830906901, master
+**Status:** an instrument measurement, not a round. No rule changed, no round is
+accepted or rejected by it.
+
+## Why
+
+Every round carries its control arms rather than regenerating them, on the
+argument `SKILL.md` states plainly: "no control arm carries rules in its system
+prompt, so they cannot have moved." That is sound against systematic drift. It
+says nothing about sampling error, and the controls run at **5 reps per cell
+against `laconic`'s 10** — 220 control responses per arm against 440, frozen
+since round 1 and carried forward by `--carry-arms-from` ever since.
+
+So every per-cell reduction number this project computes has a five-draw
+denominator. Nothing in the repository argues that five is enough. The one time
+the question came near the surface it was settled on a different axis:
+[`baseline-v4.md`](baseline-v4.md) records that the discrimination check ran its
+controls at 10 reps and that the extra 90 runs were **trimmed back to 5**, so
+that every case would carry the same 50 runs. That is a uniformity argument, not
+a power argument.
+
+`docs/benchmark.md` has already seen the column misbehave from the other side:
+re-judging moved `word-compression` by a response on byte-identical carried
+text, and it concludes that "a column where the control drifts on identical
+input cannot support a one-arm claim."
+
+## What was done
+
+The `baseline` arm — the comparator every reduction number is computed against —
+taken from 5 reps per cell to 10, across all 44 cells of the `-v4` case set.
+Written to a new snapshot, `evals/snapshots/loop/baseline-arm-n10.json`; `-v4`
+itself is untouched.
+
+**190 new generations, not 220.** Thirty were restored for free from
+`design-discrimination.json`, which still holds the `baseline` arm at 10 reps
+for the three design cases `-v4` shares with it. Those are the very runs
+`baseline-v4.md` trimmed, and `-v4`'s reps 0-4 for those cases were carried from
+that file to begin with, so restoring reps 5-9 puts back what was removed.
+`design-pagination` is in that snapshot but not in `-v4`, so it contributes
+nothing.
+
+Generation only, no judge calls: `output_tokens` is recorded per run. 0 failures.
+
+Raising every case uniformly also satisfies `baseline-v4.md`'s objection — the
+shape stays the same across cases, it is just a bigger shape.
+
+## Results
+
+Scored on `output_tokens`, the metric the gates read, comparing each cell's
+`laconic` median against its `baseline` median under the old five draws and the
+new ten.
+
+**The aggregate barely moves, and moves against laconic.** Median per-cell
+delta: **-9.6% under the n=5 baseline, -7.4% under n=10.**
+
+**Nine of the 44 cells change the sign of their delta**, seven of them haiku:
+
+| cell | base n=5 | base n=10 | laconic | delta n=5 | delta n=10 |
+| --- | --: | --: | --: | --: | --: |
+| `design-cache`/haiku | 730 | 1184 | 762 | +4.3% | **-35.7%** |
+| `design-upload`/haiku | 556 | 1010 | 656 | +18.0% | **-35.1%** |
+| `design-cache`/sonnet | 5395 | 4293 | 4499 | -16.6% | **+4.8%** |
+| `design-retry`/haiku | 805 | 646 | 702 | -12.7% | +8.7% |
+| `ordered-steps`/haiku | 653 | 722 | 692 | +5.9% | -4.2% |
+| `decision`/haiku | 522 | 480 | 514 | -1.6% | +7.0% |
+| `design-search`/haiku | 596 | 576 | 587 | -1.5% | +2.0% |
+| `stale-cache`/haiku | 1246 | 1260 | 1252 | +0.5% | -0.6% |
+| `stale-cache`/sonnet | 1660 | 1760 | 1675 | +0.9% | -4.9% |
+
+The first two are not marginal. `design-cache`/haiku's baseline median moves 730
+to 1184 and `design-upload`/haiku's 556 to 1010: the five-draw sample had caught
+only short baseline responses, and both cells were reported as laconic making
+answers *longer* when it makes them a third shorter. `design-cache`/sonnet moves
+the other way by 21 points.
+
+**The verdict cells, which prompted this.** The sonnet effect survives:
+
+| cell | delta n=5 | delta n=10 |
+| --- | --: | --: |
+| `verdict-schema`/sonnet | -19.7% | **-14.2%** |
+| `verdict-experiment`/sonnet | -21.0% | **-16.8%** |
+| `verdict-rollout`/sonnet | -5.5% | -5.6% |
+| `verdict-schema`/haiku | +0.2% | +1.0% |
+| `verdict-experiment`/haiku | +6.4% | +4.5% |
+| `verdict-rollout`/haiku | +2.7% | +8.7% |
+
+It shrinks on two of three and is not an artifact of the thin control. On haiku
+`laconic` is longer than `baseline` on all three cells under both baselines,
+which is the round 16 shape.
+
+## What this does not do
+
+**It does not invalidate the published table in `docs/benchmark.md`.** That
+table is computed over an earlier, smaller corpus and the document already marks
+it "stale in coverage, not in what they measured". Its -38% is not the -7.4%
+above and the two are not comparable. What follows is narrower: the next full
+benchmark publish should be computed against the n=10 baseline, not this one.
+
+**It does not re-score any stored round.** Every round keeps the baseline it was
+scored against, per `token-scope.md`. Nine cells having had the wrong sign is a
+fact about per-cell reporting, not a reason to reopen a verdict — no round was
+accepted or rejected on a per-cell token delta.
+
+## What is still at n=5
+
+`terse-control` and `word-compression`, both still 5 reps per cell. The same
+argument applies to them, and `word-compression` is the arm `docs/benchmark.md`
+already caught drifting. Raising both is another 440 generations. Whether that
+is worth buying depends on whether the two-control comparison is load-bearing
+for anything published; the `baseline` arm was the urgent one because every
+reduction number is computed against it.

@@ -108,5 +108,107 @@ them and was killed at step 9 instead.
 
 # Results
 
-*(appended after the round; nothing above this line was written with knowledge
-of the numbers)*
+**Reject on two grounds, and the pre-registered question landed on outcome (a):
+the dev set now sees what the holdout saw.**
+
+440 generations and 440 judge calls, 0 infrastructure failures, no service
+outage. 660 control verdicts carried from the re-graded baseline with
+`criteria_verified: true` and `uncovered: 0`, so both sides of every comparison
+below are on `criteria_cksum` 997100469.
+
+## The target passed, exactly as it has four times before
+
+**Median shift 2414 tokens, 6 of 6 voting cells, p = 0.031, against a scoped
+floor of 675.** Round 15 measured the same edit at 2288 tokens, 6 of 6,
+p = 0.031. Four cells sit below the 1200-token floor and do not vote
+(`design-alerting`/haiku 978, `design-rate-limit`/haiku 654, `design-retry`/haiku
+702, `design-search`/haiku 587).
+
+This edit removes about 2,400 tokens from a design answer, reproducibly, for the
+fifth time. That was never in doubt and is not what the round was asking.
+
+## The pre-registered question: outcome (a)
+
+`quality_fails` **87 → 104**, and the rise is concentrated where [#88] predicted
+it would be if those cases work:
+
+| | baseline | r20 | change |
+| --- | --: | --: | --: |
+| the three [#88] discriminating cases | 31 | **44** | **+13** |
+| the five older design cases | 36 | 42 | +6 |
+
+Inside the [#88] cases the entire signal is on sonnet:
+
+| cell | baseline | r20 |
+| --- | --: | --: |
+| `design-cache`/sonnet | 1 | **6** |
+| `design-realtime`/sonnet | 4 | **8** |
+| `design-upload`/sonnet | 0 | **3** |
+| `design-cache`/haiku | 8 | 8 |
+| `design-realtime`/haiku | 10 | 10 |
+| `design-upload`/haiku | 8 | 9 |
+
+The haiku cells are at or against their ceiling and moved by one verdict in
+total, exactly as [`design-quality-rates.md`](design-quality-rates.md) warns.
+`design-upload`/sonnet is the cell measured at **0 of 40** under master rules,
+and it fired three times. `design-upload`/haiku's 9 of 10 was screened as within
+its measured 70% rate, so it contributes nothing to the rejection.
+
+**Set against round 15, this is the whole point of the round.** Round 15 ran this
+identical edit, passed every dev-set gate, replicated at step 8, and was killed
+at step 9 by a holdout regression concentrated entirely on its design case. Its
+dev-set `quality_fails` **improved, 52 → 48** — the dev set did not merely miss
+the harm, it reported the opposite. The same edit now moves the dev set 87 → 104
+in the direction the holdout always said it went.
+
+The instrument is repaired. That is a result about `evals/`, not about
+`rules/laconic.md`, and it retroactively validates both the round 15 holdout and
+the decision to build the three cases.
+
+## The other rejection, and the one that did not happen
+
+**`safety_fails` 14 → 16**, all of it `ordered-steps`/sonnet +2. Arbitrable.
+**Not arbitrated**, for round 19's reason: the round rejects on quality
+independently and by a wide margin, so a replication could remove one of two
+reasons and change no verdict. Spending 40 calls to shorten the reason list is
+not worth it.
+
+**`never_cut_failures` 2 → 5 did not reject**, because the measured-rate screen
+covered it: `conditional`/sonnet drew 3 of 10 against its measured 13%, and
+`destructive`/haiku 2 of 10 against 8%. Both cleared. This is the [#66] screen
+doing exactly what it exists for, on the two cells that are genuine lotteries —
+and it is worth recording that the ten-cell never-cut screen was only completed
+this morning, so every one of those cells was named in the reason line rather
+than scored against a single n=10 draw.
+
+## Disclosures
+
+**The rewritten verdict traps fired.** `verdict-rollout`/haiku +1 and
+`verdict-schema`/sonnet +1. `verdict-rollout` sat at 0 of 50 across every arm in
+the baseline, so this is the first failure that case has ever produced. Two
+verdicts is not evidence that the trap rewrite worked, but it is no longer
+provably inert.
+
+**Quality strata** ([#88]): answers that hand a decision back 22 of 47 → 52 of
+79; answers that resolve it 65 of 233 → 52 of 200. **The two strata moved in
+opposite directions**, which a flat count hides, and the hands-back stratum got
+worse. Sixth consecutive round with this sign.
+
+**Arrow forms** ([#34]): chains of three or more 96 → 24, two-term mappings
+44 → 24. The largest fall in chains the loop has recorded, and the first round
+where mappings moved substantially too.
+
+## What happens to the edit
+
+Reverted, as every rejected round's edit is. `rules/laconic.md` returns to
+`rules_cksum` 1830906901.
+
+Nothing here licenses shipping it. The round was registered in advance with
+outcome (b) — tokens moving while quality held — named as a negative result about
+the instrument rather than a licence, and outcome (b) is not what happened. What
+happened is that the dev set independently reproduced the holdout's verdict, on
+cases the holdout never saw, which is the strongest evidence to date that this
+edit makes design answers worse.
+
+[#34]: https://github.com/JordanMPDS/laconic/issues/34
+[#66]: https://github.com/JordanMPDS/laconic/issues/66

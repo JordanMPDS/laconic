@@ -121,6 +121,27 @@ python3 evals/bench/prefer.py --results "evals/snapshots/loop/round-$N.json" \
 The controls are carried, not regenerated: no control arm carries rules in its
 system prompt, so they cannot have moved.
 
+**`concise-style` is newer than the snapshots it would be carried from.** It is
+the native Claude Code `Concise` output style, delivered through `--settings`
+rather than an appended system prompt, so it is the one control that answers
+"does the plugin beat what the CLI already ships". A `$PREV` generated before
+it existed has no `concise-style` runs to copy, so the row would be absent
+from the report. `run.py` prints a `no runs to carry` warning naming any arm
+in that position and records it as `missing_arms` in the snapshot, but it does
+not stop the round — heed the warning and generate the arm once into the carry
+source before the next round:
+
+```bash
+python3 evals/bench/run.py --arms concise-style --reps 10 --snapshot "$PREV"
+python3 evals/bench/judge.py --results "$PREV" --jobs 6 --out "$PREV_J"
+```
+
+`run.py` probes the style against the live CLI before generating anything and
+exits if it is not reaching the model, because an output style the CLI does not
+recognise is dropped without an error — that arm would otherwise run as a
+second copy of `baseline` and the round would publish "the native style changes
+nothing".
+
 **Their verdicts are carried too, and both flags matter.** Round 14 carried the
 control *runs* and then re-graded them anyway: 510 of its 850 judge calls, and
 $25.05 of its $41.37 judging bill, spent re-grading text the baseline had

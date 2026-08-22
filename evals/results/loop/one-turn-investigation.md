@@ -281,26 +281,51 @@ the licence question, because all three of its arms run master rules.
 
 ## Two provenance facts found while checking the above
 
-**`round-18.json` and `round-20.json` were not produced by the committed
-sequential loop.** `run.py` runs one `subprocess.run` and one `save_snapshot`
-per cell, so wall-clock span should exceed summed duration. Reconstructing each
-run's window as `[generated_at - duration_ms, generated_at]` over the full
-440-run laconic arm:
+**Concurrent generation, undisclosed, across most of the 2026-08-11 to
+2026-08-14 corpus.** `run.py` runs one `subprocess.run` and one `save_snapshot`
+per cell, so wall-clock span must exceed summed duration and at most one run can
+be in flight. Reconstructing each run's window as
+`[generated_at - duration_ms, generated_at]` and sweeping for maximum overlap,
+grouped by arm and generation day so carried arms are not mixed with fresh ones:
 
-| snapshot | wall span | summed duration | ratio | max runs in flight |
-|---|--:|--:|--:|--:|
-| round-18 | 35.4 min | 152.9 min | 4.32 | **5** |
-| round-20 | 26.5 min | 115.4 min | 4.36 | **6** |
-| round-21-n10 | 717.2 min | 140.2 min | 0.20 | 1 |
-| round-22-n10 | 612.3 min | 130.7 min | 0.21 | 1 |
+| snapshot | arm | day | wall | summed | ratio | max in flight |
+|---|---|---|--:|--:|--:|--:|
+| round-17 | laconic | 08-12 | 24.0 m | 107.5 m | 4.49 | **5** |
+| round-20 | laconic | 08-14 | 26.5 m | 115.4 m | 4.36 | **6** |
+| round-18 | laconic | 08-13 | 35.4 m | 152.9 m | 4.32 | **5** |
+| baseline-arm-n10 | baseline | 08-14 | 16.9 m | 65.3 m | 3.87 | **6** |
+| design-discrimination | baseline | 08-12 | 27.8 m | 40.8 m | 1.47 | **4** |
+| round-16 | laconic | 08-12 | 277.1 m | 149.3 m | 0.54 | **5** |
+| round-19 | laconic | 08-13 | 210.1 m | 152.3 m | 0.72 | **5** |
+| the carried control batch | all three | 08-12 | ~13 m | ~15 m | ~1.1 | **3** |
+| round-01-n10-v4 | laconic | 08-12 | 26.9 m | 29.0 m | 1.08 | **3** |
+| quality-rates-design | laconic | 08-12 | 667.5 m | 90.5 m | 0.14 | **3** |
+| round-21-n10 | laconic | 08-22 | 717.2 m | 140.2 m | 0.20 | 1 |
+| round-22-n10 | laconic | 08-22 | 612.3 m | 130.7 m | 0.21 | 1 |
 
-Round 20's records in timestamp order are also scrambled relative to the loop
-order at `run.py:447-455`, which round 21's follow exactly. Whatever produced
-those two arms ran several CLI invocations concurrently. Across the 16 snapshots
-with at least 30 laconic sonnet design runs, Spearman correlation between the
-concurrency ratio and the one-turn rate is **0.174** — no measured association,
-so this is a limitation of the round-20-against-round-21 pairing rather than an
-explanation of it. It is nowhere disclosed in either snapshot's metadata.
+A ratio above 1 is direct proof that more CLI-seconds were consumed than
+elapsed. Round 20's records in timestamp order are also scrambled relative to the
+loop order at `run.py:447-455`, which round 21's follow exactly. Round 14, round
+15 and both round-15 holdout files are sequential, as are rounds 21 and 22.
+
+Filed as [#120]. Two consequences for this document.
+
+**The affected set includes evidence this document relies on:** every laconic
+arm from round 16 to round 20, the 2026-08-12 control batch carried into every
+round from 16 to 22, `round-01-n10-v4.json` (the master baseline), and
+`design-discrimination.json`, which is the evidence base admitting the three
+[#88] cases.
+
+**Concurrency is nearly collinear with era, so it is not separable from batch.**
+The three master-rules batches behind phi = 4.49 read 0.200
+(`round-01-n10-v4`, partly at overlap 3), 0.144 (`quality-rates-design`, overlap
+3) and 0.400 (`round-21-n10`, overlap 1) — the two concurrent batches are the two
+low ones. Across the 16 snapshots with at least 30 laconic sonnet design runs,
+Spearman between the concurrency ratio and the one-turn rate is only **0.174**,
+so there is no measured association and this is not a claim of causation. But
+"batch effect" and "execution regime" cannot presently be told apart, and the
+batch bound above should be read as bounding their combination rather than
+either alone.
 
 **`round-21.json` is a strict subset of `round-21-n10.json`.** All 40 shared
 laconic sonnet design cells have byte-identical `text`. They are one experiment
@@ -333,3 +358,5 @@ happen. Any candidate edit for [#46] has to be ungated.
 [#46]: https://github.com/JordanMPDS/laconic/issues/46
 [#88]: https://github.com/JordanMPDS/laconic/issues/88
 [#103]: https://github.com/JordanMPDS/laconic/issues/103
+
+[#120]: https://github.com/JordanMPDS/laconic/issues/120

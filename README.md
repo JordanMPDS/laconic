@@ -120,53 +120,72 @@ implementation reads a flag the other wrote.
 
 ## Benchmark
 
-440 API calls: 11 cases × 5 reps × 2 models × 4 arms — baseline, a terse-only
-control, a synthetic word-compression foil, and laconic. Scored offline on
-compression, readability, answer quality, and a deterministic never-cut safety
-check.
+1100 API calls: 22 cases x 5 reps x 2 models x 5 arms — baseline, a terse-only
+control, a synthetic word-compression foil, Claude Code's own built-in `Concise`
+output style, and laconic. Scored offline on compression, readability, latency
+and cost, with a deterministic never-cut safety check and a blind judge for
+answer quality.
 
-| vs baseline | tokens (sonnet) | tokens (haiku) | latency (sonnet) | readability violations | answers correct | never-cut failures |
+| vs baseline | tokens (sonnet) | tokens (haiku) | latency (sonnet) | readability violations | quality pass rate | never-cut failures |
 |---|--:|--:|--:|--:|--:|--:|
-| **laconic** | **-38%** | -1% | **-28%** | **26** | 23 / 30 | 1 / 50 |
-| terse-control | -11% | +3% | -13% | 50 | 24 / 30 | 1 / 50 |
-| word-compression | +3% | +4% | -13% | 60 | 21 / 30 | 1 / 50 |
-| baseline | 0% | 0% | 0% | 60 | 21 / 30 | 0 / 50 |
+| **laconic** | -32% | -9% | -32% | **66** | 59.7% | **0 / 50** |
+| concise-style | **-55%** | **-12%** | **-52%** | 113 | 58.4% | 3 / 50 |
+| terse-control | -3% | -2% | 0% | 107 | **71.9%** | 1 / 50 |
+| word-compression | +7% | +5% | +6% | 176 | 70.3% | 1 / 50 |
+| baseline | 0% | 0% | 0% | 134 | 68.1% | 0 / 50 |
 
-**Two columns were corrected on 2026-08-04, both against the plugin.** Answer
-quality read 28 / 27 / 28 / **30** and never-cut read 0 / 1 / 0 / 0, because two
-case criteria asserted things their technologies do not do — `destructive` on
-`ON DELETE CASCADE` and `stale-cache` on a request `Cache-Control: max-age`.
-Both were verified against PostgreSQL 16 and Varnish 7.4 and rewritten.
-**Laconic no longer leads the quality column and no longer holds a clean
-never-cut sheet.**
+**What laconic wins.** It is the cleanest arm on readability by a wide margin —
+66 violations against baseline's 134, and 31 of 220 responses carrying one
+against baseline's 49. It is the cheapest arm per call on Sonnet, $0.0636
+against baseline's $0.1099, despite not being the shortest. And it leads the
+rule-adherence cases, 63.3% against baseline's 43.3%, which is the grading that
+tests the style prohibitions the rules actually state.
 
-The laconic arm was regenerated on 2026-08-03 under the rules this repository
-ships today; the controls are carried unchanged, because none of them takes
-rules in its system prompt. Read
-[the regeneration note](docs/benchmark.md#the-2026-08-04-regeneration) before
-quoting any of it: only the readability column is attributable to a rule change,
-and the same regeneration cost `walkthrough` its 56% compression result, which
-is now 1%.
+**What it does not win, and this is the important half.** Laconic does not beat
+baseline on answer quality: 59.7% against 68.1%. That gap is z = -1.45 and does
+not reach significance, so it is not a demonstrated regression — but it is not a
+win either, and nothing in this table supports a claim that the rules make
+answers better. Against `terse-control` the 12.2-point gap **is** significant
+(z = -2.14): a plain "Answer concisely." instruction produced better answers on
+the quality-graded cases than the whole rule file did.
 
-Laconic is still the cleanest arm on readability and it does not score 0. Nine
-responses of 110 break its own no-arrows rule, and `report.py` exits 1 on the
-committed snapshot for exactly that reason.
-See [`docs/benchmark.md`](docs/benchmark.md#readability--the-whole-point).
+**Claude Code now ships a competitor, and on compression it wins.** The built-in
+`Concise` output style cuts Sonnet output 55% against laconic's 32%, at half the
+latency, and is statistically indistinguishable from laconic on answer quality
+(58.4% against 59.7%, z = +0.22). Laconic's remaining edge over it is safety and
+prose quality: `Concise` fails the never-cut check 3 times of 50 where laconic
+fails 0, and carries 113 readability violations against laconic's 66. If you
+want maximum compression and can accept dropped never-cut content, the built-in
+style is free and already installed.
 
-Every figure here is a `full`-level figure, measured on the eleven original
-cases. The eval suite has since grown to twenty-two, and those tables refresh at
-the next full benchmark publish; the rules themselves have not moved, because
-every improvement round from 01 to 17 was rejected. Per-case tables, cost, and
-what each number does and does not support are in
-[`docs/benchmark.md`](docs/benchmark.md); the method and every honesty note are
-in
-[`evals/results/2026-07-31-benchmark.md`](evals/results/2026-07-31-benchmark.md).
+**One column contradicts another, and the judge is the one to believe.** On
+`destructive`, laconic has a clean never-cut sheet and still passes only 2 of 10
+under the blind judge. The never-cut check is a substring test: it confirms the
+response names the `sessions` table, which laconic always does. The judge also
+applies the criterion added in
+[#18](https://github.com/JordanMPDS/laconic/issues/18), which fails a response
+that names the affected table and then tells the user it is safe. Laconic is
+producing that shape. Read the never-cut column as a floor, not as evidence that
+the safety contract holds.
+
+**`report.py` exits 1 on the committed snapshot.** 18 case/model gates fail on
+laconic's readability, and the samples are dominated by arrows — the arm that
+ships the no-arrows rule is breaking it, most heavily on the design cases
+(`design-retry`/sonnet alone carries 13 violations at a median of 3 per
+response).
+
+Every figure is a `full`-level figure over all 22 cases, from
+`evals/snapshots/loop/round-21.json` at `rules_cksum` 1830906901, the rules this
+repository ships. The three control arms were generated eleven days before the
+two new ones and on an older CLI, so read the comparison against baseline with
+that confound in mind; laconic against `concise-style` is the clean one.
+Per-case tables, cost, and what each number does and does not support are in
+[`docs/benchmark.md`](docs/benchmark.md).
 
 **These numbers do not say a reader prefers the result.** A blind judge asked
-exactly that, over 130 comparisons of the archived arm, did not prefer laconic
-to baseline — and its
-own length and position biases came out larger than the gap between the arms, so
-that run supports no conclusion either way:
+exactly that, over 130 comparisons of an archived arm, did not prefer laconic to
+baseline — and its own length and position biases came out larger than the gap
+between the arms, so that run supports no conclusion either way:
 [`evals/results/2026-08-01-preference.md`](evals/results/2026-08-01-preference.md).
 
 ## How this differs from caveman

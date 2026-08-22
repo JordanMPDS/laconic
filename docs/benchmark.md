@@ -1,160 +1,362 @@
 # Benchmark
 
-440 API calls: 11 cases × 5 reps × 2 models × 4 arms — baseline, a terse-only
-control, a synthetic word-compression foil, and laconic. Scored offline on
-compression, readability, answer quality, and a deterministic never-cut safety
-check. Full method, every honesty note, and every table:
-[`evals/results/2026-07-31-benchmark.md`](../evals/results/2026-07-31-benchmark.md),
-which describes the archived snapshot the controls still come from.
+1100 API calls: 22 cases x 5 reps x 2 models x 5 arms — baseline, a terse-only
+control, a synthetic word-compression foil, Claude Code's built-in `Concise`
+output style, and laconic. Scored offline on compression, readability, latency
+and cost, with a deterministic never-cut check and a blind judge for the trap
+criteria.
 
-The laconic arm is `rules_cksum` 1830906901, generated 2026-08-03; the three
-control arms are carried unchanged from the 2026-07-30 generation, because no
-control carries rules in its system prompt and none of them can have moved.
+Snapshot: `evals/snapshots/loop/round-21.json`, judged into
+`evals/snapshots/loop/round-21-judgments.json`. The laconic arm is `rules_cksum`
+1830906901, the rules this repository ships.
 
-**Eleven of the suite's twenty-two cases postdate every table in this
-document**, and the eleven measured here are the original set. Added since:
-eight `design-*` design questions for
-[#46](https://github.com/JordanMPDS/laconic/issues/46), three on 2026-08-06 and
-five on 2026-08-11, and three `verdict-*` evaluative questions on 2026-08-07 for
-[#60](https://github.com/JordanMPDS/laconic/issues/60). The loop's
-baseline includes all of them (`evals/snapshots/loop/round-01-n10-v4.json`,
-extending the [#45](https://github.com/JordanMPDS/laconic/issues/45) n=10
-regeneration); these public tables refresh at the next full benchmark publish.
+**This table covers all 22 cases.** Earlier publications of this page measured
+only the eleven original ones and said they would refresh at the next full
+benchmark publish. This is that publish.
 
-The published rules have not moved since this benchmark: every loop round from
-01 to 17 was rejected, so `rules_cksum` 1830906901 is still what ships. The
-tables are stale in coverage, not in what they measured.
-
-| vs baseline | tokens (sonnet) | tokens (haiku) | latency (sonnet) | readability violations | answers correct | never-cut failures |
+| vs baseline | tokens (sonnet) | tokens (haiku) | latency (sonnet) | readability violations | quality pass rate | never-cut failures |
 |---|--:|--:|--:|--:|--:|--:|
-| **laconic** | **-38%** | -1% | **-28%** | **26** | 23 / 30 | 1 / 50 |
-| terse-control | -11% | +3% | -13% | 50 | 24 / 30 | 1 / 50 |
-| word-compression | +3% | +4% | -13% | 60 | 21 / 30 | 1 / 50 |
-| baseline | 0% | 0% | 0% | 60 | 21 / 30 | 0 / 50 |
+| **laconic** | -32% | -9% | -32% | **66** | 59.7% | **0 / 50** |
+| concise-style | **-55%** | **-12%** | **-52%** | 113 | 58.4% | 3 / 50 |
+| terse-control | -3% | -2% | 0% | 107 | **71.9%** | 1 / 50 |
+| word-compression | +7% | +5% | +6% | 176 | 70.3% | 1 / 50 |
+| baseline | 0% | 0% | 0% | 134 | 68.1% | 0 / 50 |
 
-Every column is reported as measured, on both models and all four arms. The
-per-case tables and the method notes behind each number follow.
+Every column is reported as measured, on both models and all five arms. Three
+readings of it are load-bearing, and two of them are against the plugin.
 
-> **Two columns were corrected on 2026-08-04, both against the plugin.** The
-> answer-quality column read 28 / 27 / 28 / **30** and the never-cut column read
-> 0 / 1 / 0 / 0, because two case criteria asserted things their technologies do
-> not do. `destructive` said `ON DELETE CASCADE` governs table drops
-> ([#18](https://github.com/JordanMPDS/laconic/issues/18)) and `stale-cache`
-> said a request `Cache-Control: max-age=3600` tells a shared cache to serve
-> hour-old responses ([#39](https://github.com/JordanMPDS/laconic/issues/39)).
-> Both were verified against the real software — PostgreSQL 16 and Varnish 7.4 —
-> and rewritten. Laconic no longer leads the quality column and no longer holds
-> a clean never-cut sheet. Full accounts:
-> [`destructive`](../evals/results/2026-08-04-destructive-criterion.md),
-> [`stale-cache`](../evals/results/2026-08-04-stale-cache-criterion.md).
+**Laconic is the cleanest arm on prose and the cheapest on Sonnet.** 66
+readability violations against baseline's 134, 31 of 220 responses carrying one
+against baseline's 49, and $0.0636 per call against baseline's $0.1099 — while
+not being the shortest arm. It also leads rule-adherence at 63.3% against
+baseline's 43.3%.
 
-**The laconic arm was regenerated on 2026-08-03** under the current rules. Every
-laconic figure on this page moved, and each one moved in laconic's favour. Read
-[The 2026-08-04 regeneration](#the-2026-08-04-regeneration) before quoting any of
-them — one of the four columns is attributable to a rule change and three are
-not, and the same regeneration cost laconic its largest per-case compression
-result.
+**Laconic does not win answer quality.** 59.7% against baseline's 68.1% is
+z = -1.45, short of significance: not a demonstrated regression, and not a win.
+Against `terse-control`'s 71.9% the 12.2-point gap is z = -2.14 and does clear
+it. A plain "Answer concisely." instruction produced better answers on the
+quality-graded cases than the whole rule file did, and that is the single
+strongest negative result this benchmark has produced.
 
-**The three levels were then measured against each other**, 330 more calls at
-`lite`, `full` and `ultra`. The ladder the rule text implies is not there: `full`
-is not shorter than `lite` (11 of 22 case/model cells shorter, sign test
-p = 1.00) and `ultra` shortens the model's tool turns more than its answer. The
-never-cut contract holds at every level. Published in full, including what it
-costs this table's readability claim:
-[`evals/results/2026-07-31-levels.md`](../evals/results/2026-07-31-levels.md).
+**Claude Code now ships a competitor that compresses harder.** The built-in
+`Concise` output style cuts Sonnet output 55% against laconic's 32% at half the
+latency, and is indistinguishable from laconic on quality (58.4% against 59.7%,
+z = +0.22). What separates them is the never-cut column and the readability
+column, both of which favour laconic. See
+[The concise-style arm](#the-concise-style-arm).
+
+## Provenance and confounds
+
+The three control arms are carried unchanged from `round-20.json`, generated
+2026-08-11 on CLI 2.1.227. `concise-style` was generated 2026-08-21 on 2.1.238
+and `laconic` on 2026-08-22 on 2.1.239. All five ran against identical case
+material (`cases_cksum` 2389944869).
+
+That makes two comparisons of unequal strength, and they should not be quoted
+interchangeably:
+
+- **laconic against `concise-style` is clean.** Same cases, same rules
+  checksum, one patch release apart, one day apart.
+- **Anything against baseline carries eleven days and eleven patch releases**
+  of possible model and harness drift, landing entirely on the treatment arms.
+  Carrying controls is deliberate — no control takes rules in its system
+  prompt, so a rule change cannot move one — but drift in the models themselves
+  is not controlled by that argument.
+
+The control verdicts were likewise carried rather than re-judged, at a verified
+matching criteria checksum (997100469). Only `concise-style` and `laconic` were
+graded in this round's 440 judge calls.
 
 ## Compression
 
-Median output tokens per case, n=5 per cell. The comparison that matters is
-laconic against `terse-control` — a plain "be terse, no preamble, no closing
-offers" instruction — because that isolates the rule set from merely asking for
-brevity.
+Median output tokens per case, n=5 per cell, medians of per-case medians in the
+final row. The comparison that isolates the rule set from merely asking for
+brevity is laconic against `terse-control`; the comparison that matters for
+whether this plugin still has a reason to exist is laconic against
+`concise-style`.
 
 **Sonnet 4.5**
 
-| case | baseline | terse-control | laconic | saved |
-|---|--:|--:|--:|--:|
-| `floor` | 201 | 220 | 71 | **65%** |
-| `silent-success` | 1105 | 947 | 580 | **48%** |
-| `code-fidelity` | 307 | 315 | 191 | **38%** |
-| `decision` | 839 | 786 | 534 | **36%** |
-| `conditional` | 908 | 981 | 688 | **24%** |
-| `ordered-steps` | 1329 | 1630 | 1059 | **20%** |
-| `fail-open` | 1265 | 1234 | 1081 | **15%** |
-| `stale-cache` | 1660 | 2245 | 1593 | 4% |
-| `walkthrough` | 3701 | 3682 | 3666 | 1% |
-| `badnews` | 435 | 414 | 439 | -1% |
-| `destructive` | 2336 | 2775 | 2542 | **-9%** |
-| **median** | **1105** | **981** | **688** | **38%** |
+| case | baseline | terse-control | concise-style | laconic | laconic saved |
+|---|--:|--:|--:|--:|--:|
+| `decision` | 839 | 786 | 185 | 236 | **72%** |
+| `floor` | 201 | 220 | 69 | 69 | **66%** |
+| `destructive` | 2336 | 2775 | 1488 | 810 | **65%** |
+| `silent-success` | 1105 | 947 | 467 | 475 | **57%** |
+| `design-cache` | 5395 | 4990 | 1167 | 2423 | **55%** |
+| `design-realtime` | 3327 | 3279 | 1134 | 1716 | **48%** |
+| `walkthrough` | 3701 | 3682 | 1471 | 2376 | **36%** |
+| `code-fidelity` | 307 | 315 | 128 | 198 | **36%** |
+| `ordered-steps` | 1329 | 1630 | 555 | 882 | **34%** |
+| `fail-open` | 1265 | 1234 | 588 | 888 | **30%** |
+| `conditional` | 908 | 981 | 671 | 644 | **29%** |
+| `verdict-rollout` | 3478 | 2950 | 1532 | 2470 | **29%** |
+| `design-upload` | 4943 | 3838 | 1469 | 3609 | **27%** |
+| `design-alerting` | 5444 | 5425 | 3366 | 4364 | **20%** |
+| `design-audit-log` | 6255 | 5950 | 3837 | 5167 | **17%** |
+| `design-rate-limit` | 4155 | 4394 | 2767 | 3440 | **17%** |
+| `verdict-schema` | 3419 | 2938 | 1752 | 2834 | **17%** |
+| `design-search` | 2255 | 1929 | 1377 | 2013 | 11% |
+| `design-retry` | 4559 | 4438 | 1652 | 4421 | 3% |
+| `verdict-experiment` | 3856 | 2718 | 2001 | 3887 | -1% |
+| `badnews` | 435 | 414 | 369 | 461 | -6% |
+| `stale-cache` | 1660 | 2245 | 1129 | 1842 | -11% |
+| **median** | **2832** | **2746** | **1272** | **1928** | **32%** |
 
-`destructive` is the one Sonnet case that gets meaningfully longer, which is the
-design working: naming exactly what a `DROP TABLE` affects is never-cut content,
-so laconic has nothing to trim there. `stale-cache` sits at 4% for the same
-reason — it is the case that needs a mechanism explained, and a requested
-explanation is not something laconic cuts.
+**Haiku 4.5**
 
-`walkthrough` is the case that changed. It saved 56% in the archived snapshot
-and saves 1% here, on the same prompt, and it is the case the arrow-prohibition
-revisions were aimed at. Writing "the request calls `currentToken()`, finds the
-token expired, and calls `refresh()`" instead of chaining the same three states
-with arrows costs tokens, and `walkthrough` is nine steps of exactly that. The
-median improved and the suite's largest single compression result disappeared,
-in the same regeneration.
+| case | baseline | terse-control | concise-style | laconic | laconic saved |
+|---|--:|--:|--:|--:|--:|
+| `design-realtime` | 635 | 544 | 546 | 502 | **21%** |
+| `design-retry` | 805 | 747 | 556 | 655 | **19%** |
+| `code-fidelity` | 425 | 421 | 383 | 358 | **16%** |
+| `verdict-rollout` | 1671 | 1573 | 1280 | 1426 | 15% |
+| `conditional` | 956 | 1017 | 925 | 838 | 12% |
+| `badnews` | 469 | 432 | 398 | 413 | 12% |
+| `silent-success` | 775 | 732 | 620 | 684 | 12% |
+| `ordered-steps` | 653 | 636 | 640 | 578 | 11% |
+| `design-search` | 596 | 687 | 544 | 528 | 11% |
+| `destructive` | 711 | 791 | 644 | 659 | 7% |
+| `design-cache` | 730 | 652 | 790 | 697 | 5% |
+| `floor` | 266 | 236 | 242 | 255 | 4% |
+| `walkthrough` | 1228 | 1008 | 1067 | 1201 | 2% |
+| `fail-open` | 922 | 843 | 782 | 931 | -1% |
+| `design-rate-limit` | 657 | 673 | 604 | 683 | -4% |
+| `decision` | 522 | 506 | 469 | 547 | -5% |
+| `verdict-experiment` | 1473 | 1504 | 1545 | 1591 | -8% |
+| `design-alerting` | 941 | 888 | 1013 | 1070 | -14% |
+| `verdict-schema` | 1290 | 1263 | 1055 | 1543 | -20% |
+| `design-upload` | 556 | 571 | 684 | 691 | -24% |
+| `stale-cache` | 1246 | 1355 | 1326 | 1587 | -27% |
+| `design-audit-log` | 787 | 1105 | 810 | 1463 | -86% |
+| **median** | **752** | **740** | **664** | **688** | **9%** |
 
-<details>
-<summary><strong>Haiku 4.5</strong></summary>
+Sonnet is where the compression claim lives, and the case spread is wide: seven
+cases save 30% or more, and three come out longer than baseline. On Haiku the
+median saving is 9% and eight of the 22 cases are negative, `design-audit-log`
+worst at -86%. A 9% median with that spread is not a compression result worth
+quoting on its own.
 
-| case | baseline | terse-control | laconic | saved |
-|---|--:|--:|--:|--:|
-| `badnews` | 469 | 432 | 442 | 6% |
-| `floor` | 266 | 236 | 251 | 6% |
-| `walkthrough` | 1228 | 1008 | 1163 | 5% |
-| `fail-open` | 922 | 843 | 891 | 3% |
-| `silent-success` | 775 | 732 | 753 | 3% |
-| `stale-cache` | 1246 | 1355 | 1203 | 3% |
-| `conditional` | 956 | 1017 | 951 | 1% |
-| `destructive` | 711 | 791 | 704 | 1% |
-| `ordered-steps` | 653 | 636 | 653 | 0% |
-| `decision` | 522 | 506 | 549 | -5% |
-| `code-fidelity` | 425 | 421 | 530 | -25% |
-| **median** | **711** | **732** | **704** | **1%** |
+`concise-style` is shorter than laconic on 19 of 22 Sonnet cases and 16 of 22
+on Haiku, several by large margins — `design-retry` at 1652 tokens against
+laconic's 4421, `design-upload` at 1469 against 3609. Laconic is shorter on
+exactly two Sonnet cases, and which two is the interesting part: `destructive`
+(810 against 1488) and `conditional` (644 against 671) are the two cases that
+carry never-cut keyword lists, and they are also the two cases `concise-style`
+fails the never-cut check on. The arm that keeps the protected content is the
+arm that spends tokens on it.
 
-Haiku's result depends on the aggregation convention, so no compression claim is
-made for it in either direction. The table above is a median of per-case medians
-(1%); a flat median over the 55 raw runs gives 731 against 714, a 2% cut. The
-sign flipped from the archived snapshot's -1%, which is the point: this is a
-number that moves with the estimator and the sample, and nothing should be built
-on it. Sonnet is where the compression claim lives.
-
-</details>
-
-On Sonnet, laconic's max (968) sits below baseline's median (1105), so the gap is
-not one or two short outliers. Its stdev is 209, second-lowest of the four behind
-`word-compression`'s 195 — in the archived snapshot it was 175 and the tightest
-of the four. `report.py`'s noise floor tracks this number and moved with it, which makes
-the loop's accept gate stricter than it was.
+On Sonnet laconic's stdev is 480.5 against baseline's 447.8 and
+`concise-style`'s 246.9. The native style is both shorter and more consistent.
 
 ## Readability — the whole point
 
 Counted on code-stripped prose: arrows standing in a sentence, telegraphic
 abbreviations (`impl`, `req`, `w/`), sentences starting lowercase.
 
-| arm | violations | responses affected (of 110) |
-|---|--:|--:|
-| baseline | 60 | 16 |
-| terse-control | 50 | 12 |
-| word-compression | 60 | 22 |
-| **laconic** | **26** | **9** |
+| arm | violations (haiku) | violations (sonnet) | total | responses affected (of 220) |
+|---|--:|--:|--:|--:|
+| baseline | 61 | 73 | 134 | 49 |
+| terse-control | 36 | 71 | 107 | 42 |
+| word-compression | 103 | 73 | 176 | 64 |
+| concise-style | 48 | 65 | 113 | 49 |
+| **laconic** | **25** | **41** | **66** | **31** |
 
-Laconic is the cleanest arm on violations and is not clean. Nine responses of
-110 break its own no-arrows rule, and `report.py` exits 1 on six case/model
-cells because the gate allows none: `walkthrough` carries 17 of the 26 arrows,
-`silent-success`/haiku 3, `ordered-steps` 4, `destructive`/sonnet 2.
+Laconic is the cleanest arm on both totals and the share of responses carrying a
+violation, and it is not clean. **`report.py` exits 1 on this snapshot: 18
+case/model gates fail, because the gate allows no violations at all.** The
+samples are dominated by arrows, and they concentrate in the design cases the
+suite gained after the rules were last revised:
+
+| cell | violations |
+|---|--:|
+| `design-retry`/sonnet | 13 |
+| `design-upload`/haiku | 6 |
+| `design-upload`/sonnet | 6 |
+| `ordered-steps`/sonnet | 6 |
+| `design-rate-limit`/haiku | 4 |
+| `walkthrough`/haiku | 4 |
+| `design-realtime`/sonnet | 4 |
+
+The arm that ships the no-arrows rule is breaking it on the cases where an
+answer has stages to describe. `design-retry`/sonnet runs a median of 3
+violations per response.
+
+### What readability does not say
+
+The row above counts degraded grammar. It can show laconic making prose worse
+and can never show it making prose better, so "shorter with grammar intact" is
+where the deterministic evidence stops.
+
+A blind judge was then asked the other question — which of two answers better
+serves the reader — over 130 comparisons of responses the archived snapshot
+held, and it has not been re-run against the regenerated arm. **It did not
+prefer laconic.** Against baseline: laconic 37, baseline 52,
+21 ties, p = 0.137. The same judge picked the longer answer 63% of the time
+(p = 0.019) and reversed its verdict on 35% of comparisons it saw twice, both
+effects larger than the gap between arms, so the run supports no preference
+claim in either direction. Reported in full, including the comparison withheld
+for a 50% flip rate:
+[`evals/results/2026-08-01-preference.md`](../evals/results/2026-08-01-preference.md).
+
+## Answer quality
+
+Every case declares in a `grading` field where its criteria came from, and that
+field decides what the row supports. Only `quality` rows compare arms: their
+criteria come from the fixture rather than from `rules/laconic.md`, so no arm
+was instructed toward them.
+
+**Quality-graded cases (14 of 22).**
+
+| arm | pass | fail | pass rate |
+|---|--:|--:|--:|
+| terse-control | 100 | 39 | **71.9%** |
+| word-compression | 97 | 41 | 70.3% |
+| baseline | 92 | 43 | 68.1% |
+| **laconic** | **83** | **56** | **59.7%** |
+| concise-style | 80 | 57 | 58.4% |
+
+Two-proportion tests against laconic: baseline z = -1.45 (not significant),
+`terse-control` z = -2.14 (significant at p < 0.05), `concise-style` z = +0.22
+(noise). The honest summary is that laconic sits at the bottom of this column
+with the native output style, that the gap to baseline is not established, and
+that the gap to a one-sentence terseness instruction is.
+
+**Rule-adherence cases (3 of 22)** grade laconic's own style prohibitions, so
+the treatment arm is being scored on what it was told to do and the controls
+were not. The row is reported because it is what the rules move, not as an
+arm comparison:
+
+| arm | pass rate |
+|---|--:|
+| **laconic** | **63.3%** |
+| concise-style | 60.0% |
+| terse-control | 53.3% |
+| word-compression | 53.3% |
+| baseline | 43.3% |
+
+**Safety cases (5 of 22)** are flat across every arm — 84% to 88%, all inside
+noise. The one row worth reading individually is `destructive`, below.
+
+## Cost, reported net
+
+Median USD per call. The injected rules cost input tokens of their own, so on
+Haiku laconic is the most expensive arm despite emitting fewer output tokens.
+On Sonnet the output saving more than pays for them.
+
+| median USD per call | haiku | sonnet |
+|---|--:|--:|
+| baseline | 0.0145 | 0.1099 |
+| terse-control | 0.0158 | 0.1022 |
+| word-compression | 0.0168 | 0.1099 |
+| concise-style | 0.0174 | 0.0744 |
+| **laconic** | 0.0197 | **0.0636** |
+
+Laconic is the cheapest arm per call on Sonnet, below `concise-style`, despite
+emitting 52% more output tokens than it. Each generation is one call with a
+single question rather than a multi-turn session, so this **overstates** what a
+real session pays once the first turn's cache write becomes a cache read.
+
+## Never-cut check
+
+Checked on the 50 responses per arm that carry a keyword list by design.
+
+| arm | failures | what was dropped |
+|---|--:|---|
+| **laconic** | **0 / 50** | — |
+| baseline | 0 / 50 | — |
+| terse-control | 1 / 50 | `conditional`/sonnet rep3 dropped `leak` |
+| word-compression | 1 / 50 | `destructive`/haiku rep1 dropped `sessions` |
+| concise-style | 3 / 50 | `conditional`/haiku rep0 dropped `leak`; `destructive`/haiku reps 0 and 3 dropped `sessions` |
+
+**This column contradicts the judge, and the judge is the one to believe.** On
+`destructive`, laconic has a clean never-cut sheet and passes **2 of 10** under
+the blind judge, against baseline's 4 and `concise-style`'s 4. Both numbers are
+correct and the gap between them is the finding.
+
+The never-cut check is a deterministic substring test. It confirms that the
+response contains `sessions`, which laconic always does. The judge additionally
+applies the criterion added in
+[#18](https://github.com/JordanMPDS/laconic/issues/18), which fails a response
+that names the affected table and then characterises it as safe — because
+`rules/laconic.md` requires naming exactly what will be affected, and a response
+reporting that an affected table is fine has told the user the opposite of what
+is true for their data. Laconic is producing that shape.
+
+Read the never-cut column as a floor: it rules out the content being absent. It
+does not establish that the safety contract holds, and on the one case where
+both instruments have an opinion, they disagree.
+
+## The concise-style arm
+
+`concise-style` measures the `Concise` output style built into Claude Code
+2.1.x, and it is delivered differently from every other arm. An output style
+**replaces** part of the default system prompt rather than appending to it, so
+`--append-system-prompt` cannot reproduce one and a hand-transcribed copy of the
+style text would be a different treatment wearing the same label. The arm
+therefore carries no system prompt and is passed to the CLI through
+`--settings '{"outputStyle":"Concise"}'`, so what is measured is what Claude
+Code actually ships.
+
+An unrecognised style name is silently ignored: the CLI exits 0 and runs with
+the default system prompt, which would make this arm a second copy of baseline
+wearing a different name. `run.py` guards against that with a live preflight
+probe before any generation call, and refuses to start the round if the style is
+not reaching the model.
+
+This arm exists because it is the closest thing to a native competitor this
+plugin has, and the result is that on compression it wins.
+
+## Scope
+
+What the numbers cover:
+
+- **The compression, readability, latency and cost figures are the
+  load-bearing ones.** They come from deterministic offline scoring of raw
+  response text and depend on no judge.
+- **14 of 22 cases can be compared between arms.** Five grade the never-cut
+  contract, which the treatment arm was instructed to follow and the controls
+  were not; three grade adherence to laconic's own style prohibitions. Neither
+  kind supports an arm comparison, and the trap table publishes `grading` as a
+  column so a row cannot be read out of context.
+- **The quality column now says something it did not before.** At 14 cases it
+  is no longer a single hard case carrying the whole column, and what it shows
+  is laconic at the bottom rather than the top.
+- **The headline Sonnet compression figure has been 28%, 33%, 38% and now
+  32%.** The movements track changes in the case set and in which snapshot was
+  drawn, not measured improvements over one another. This one covers twice as
+  many cases as the 38% did.
+- **Never-cut coverage is 50 of 220 responses per arm.** Cases with an empty
+  keyword list are not checked, and the check cannot see mischaracterisation —
+  see the contradiction documented above.
+- **The snapshot is mixed.** Controls carried from 2026-08-11, `concise-style`
+  from 2026-08-21, `laconic` from 2026-08-22, on three CLI versions. See
+  [Provenance and confounds](#provenance-and-confounds).
+- **n=5 per cell, two models, one vendor.** Differences smaller than the
+  published stdev are treated as noise, and the results speak only to Claude
+  models.
+- **The judge is a Claude model grading Claude outputs,** blind to arm with the
+  rules text withheld. It is not an independent evaluator, and the quality and
+  trap claims are the ones that rest on it.
+- **Every figure above is a `full`-level figure.** The three levels were
+  measured against each other separately and the ladder the level text implies
+  is not there:
+  [`evals/results/2026-07-31-levels.md`](../evals/results/2026-07-31-levels.md).
+- **No reader-preference claim is made anywhere.** The one run that asked a
+  judge which answer served the reader better did not favour laconic and was not
+  interpretable in either direction.
+
+## History
+
+The sections below describe **superseded tables** — the eleven-case, four-arm
+publication that this page replaced. They are kept because each records a
+correction made against the plugin, and the reasoning still applies to how this
+benchmark is read. The figures in them are not the figures above.
 
 ### The 2026-08-04 regeneration
 
-The laconic arm above is the one generated on 2026-08-03 under `rules_cksum`
-1830906901, which is the rules this repository ships today. Before it, the
+The laconic arm in that superseded table was generated on 2026-08-03 under
+`rules_cksum` 1830906901, still the rules this repository ships. Before it, the
 published table scored text generated on 2026-07-30, under rules two revisions
 old — so the readability gate was judging prose that no rule change could reach.
 Regenerating fixed that and nothing else about the gate: it still exits 1, on the
@@ -239,185 +441,10 @@ no level is clean, and the gap between levels is smaller than the earlier
 "12 at `lite` against 0 at `full`" suggested. See
 [`evals/results/2026-07-31-levels.md`](../evals/results/2026-07-31-levels.md).
 
-### What readability does not say
-
-The row above counts degraded grammar. It can show laconic making prose worse
-and can never show it making prose better, so "shorter with grammar intact" is
-where the deterministic evidence stops.
-
-A blind judge was then asked the other question — which of two answers better
-serves the reader — over 130 comparisons of responses the archived snapshot
-held, and it has not been re-run against the regenerated arm. **It did not
-prefer laconic.** Against baseline: laconic 37, baseline 52,
-21 ties, p = 0.137. The same judge picked the longer answer 63% of the time
-(p = 0.019) and reversed its verdict on 35% of comparisons it saw twice, both
-effects larger than the gap between arms, so the run supports no preference
-claim in either direction. Reported in full, including the comparison withheld
-for a 50% flip rate:
-[`evals/results/2026-08-01-preference.md`](../evals/results/2026-08-01-preference.md).
-
-## Answer quality
-
-The three `quality` cases each present a fixture with a buried mechanism and a
-plausible decoy, and ask a diagnostic question. The criterion is whether the
-response names the mechanism, and every word of it comes from the fixture rather
-than from `rules/laconic.md` — which is what makes these the only cases in the
-suite from which a comparison between arms is legitimate.
-
-| arm | answers correct (of 30) |
-|---|--:|
-| baseline | 21 |
-| terse-control | 24 |
-| word-compression | 21 |
-| **laconic** | **23** |
-
-> **Corrected 2026-08-04.** This table read 28 / 27 / 28 / **30** until
-> `stale-cache`'s criterion was rewritten. The old trap required a passing
-> answer to name the client's `Cache-Control: max-age=3600` **request** header
-> as the reason the shared cache serves an hour-old response, which is not what
-> a request `max-age` does — verified against Varnish 7.4 in
-> [`evals/results/2026-08-04-stale-cache-criterion.md`](../evals/results/2026-08-04-stale-cache-criterion.md),
-> closing [#39](https://github.com/JordanMPDS/laconic/issues/39). Every arm was
-> being graded on the wrong answer, so every arm's figure falls, and laconic no
-> longer leads the column.
-
-**Laconic's answers were as often correct as baseline's**, 23 against 21, while
-being 15% shorter on Sonnet across those same three cases. Fisher's exact
-two-sided p = 0.77 — read it as no detectable difference, not as a win. The arm
-that scores highest is `terse-control` at 24, by one response over laconic, and
-that gap is noise by the same test.
-
-This is a coarse instrument. Two of the three cases are at ceiling — every arm
-passes `fail-open` and `silent-success` 10 of 10 — so the entire column is
-`stale-cache`, where every arm is near the floor: 1, 4, 1 and 3 of 10. A single
-hard case carrying a whole quality column is a limit of the case set, not a
-result. Read the column as ruling out a large regression and nothing finer.
-
-That `stale-cache` is hard for every arm is itself measured rather than
-inferred: the same cell regenerated 20 times under unchanged rules passes 7
-times, and four separate draws of it — at three different rule revisions — do
-not differ from one another at any conventional level.
-
-## Cost, reported net
-
-The injected rules cost tokens of their own, so the net per-call cost sits
-slightly above baseline on both models even where output tokens drop.
-
-| median USD per call | haiku | sonnet |
-|---|--:|--:|
-| baseline | 0.0165 | 0.0716 |
-| laconic | 0.0196 | 0.0781 |
-
-Each generation is one `--append-system-prompt` call with a single question, not
-a multi-turn session, so this **overstates** what a real session pays once the
-first turn's cache write becomes a cache read on every turn after it.
-
-## Never-cut check
-
-The never-cut contract is checked on the 50 responses per arm that carry a
-keyword list by design. Laconic fails **1** of them on the current snapshot, as
-do `terse-control` and `word-compression`. `baseline` fails 0.
-
-> **Corrected 2026-08-04.** This section read "laconic fails 0" until
-> `destructive`'s keyword list gained `sessions`. Dropping `users` is blocked by
-> the `sessions` foreign key exactly as it is by the `invoices` one, so a
-> response naming only `invoices` has left out half the blast radius, and the
-> old two-keyword list could not see that. The new miss is
-> `destructive`/haiku rep 3. Full account:
-> [`evals/results/2026-08-04-destructive-criterion.md`](../evals/results/2026-08-04-destructive-criterion.md).
-
-The archived snapshot had 2 laconic failures, and both were read and confirmed at
-the time: one `destructive` response pointed at foreign keys generally rather
-than naming the two tables in the fixture, and one `conditional` response stopped
-short of diagnosing the leak. The `destructive` one was a rule defect — that
-response never opened the schema it was pointed at, and the rule said "including
-exactly what will be affected" without saying *from the material in front of
-you*. The bullet was changed to demand the read.
-
-That fix was reported as confirmed by a re-run coming back "clean at 10 of 10"
-([`evals/results/2026-07-31-destructive-recheck.md`](../evals/results/2026-07-31-destructive-recheck.md)).
-**That number does not survive the corrected criterion: the same ten responses
-grade 4 of 10, with all five haiku responses failing.** The #3 edit fixed the
-response that never opened the schema. It did not fix haiku on this case, and
-the recheck could not tell, because the criterion it used asserted a cascade
-`DROP TABLE` does not perform. The `conditional` failure was left alone for want
-of a textual argument.
-
-So one of the two failures had a fix landed against it and the other did not,
-and the regenerated arm shows 1 rather than 2. That is consistent with the fix
-working and equally consistent with 2-in-50 being rare enough to miss: 2/50
-against 1/50 is Fisher p = 1.0. The rules loop has since failed
-`conditional`/sonnet on never-cut in two separate rounds
-([`round-03.md`](../evals/results/loop/round-03.md)), which is the better
-evidence that the case remains close to the line.
-
-`report.py` still exits 1 against the committed snapshot, now on readability
-alone: six case/model cells carry arrows and the gate allows none.
-
-## Scope
-
-What the numbers cover:
-
-- **The compression, readability, latency and cost figures are the load-bearing
-  ones.** They come from deterministic offline scoring of the raw responses.
-- **Only 3 of the 11 cases can be compared between arms.** Every case declares
-  where its criteria came from in a `grading` field. Five grade the never-cut
-  contract, which the treatment arm was instructed to follow and the controls
-  were not; three grade adherence to laconic's own style prohibitions. Neither
-  kind supports a comparison, and the trap table publishes the field as a column
-  so a row cannot be read out of context.
-- **The quality result rules out a large regression and nothing finer.** Power
-  at n=30 per arm reaches 0.78 only by a drop to 65%. Two of the three cases are
-  at ceiling.
-- **The headline compression figure has been 28%, 33% and now 38% on Sonnet.**
-  28% to 33% came from growing the case set from 8 to 11; 33% to 38% came from
-  regenerating the arm under current rules, one sample against another. None of
-  the three is a measurement of an improvement over the one before it.
-- **Never-cut coverage is 50 of 110 responses per arm.** Six cases carry an
-  empty keyword list and are not checked — three were emptied once an earlier
-  `"if"` keyword turned out to match "different", "specify" and "identify", and
-  the three quality cases turn on mechanisms with several correct phrasings, so
-  any required substring would fail correct answers.
-- **The snapshot is mixed, now for every case.** The laconic arm was generated
-  on 2026-08-03 and all three control arms are carried from 2026-07-30, so
-  treatment and control are never sampled at the same time. This is deliberate —
-  no control carries rules in its system prompt, so a rule change cannot move
-  one — but it does mean any drift in the models themselves lands entirely on
-  the treatment arm.
-- **The laconic arm is a snapshot the rules loop generated for another purpose.**
-  It is round 01's baseline, generated as the control half of a loop round before
-  this regeneration was contemplated, which is why it was not selected for its
-  numbers. It is the only sample that exists under the current rules, and
-  re-drawing one would buy a different draw of the same distribution, not an
-  independent instrument.
-- **n=5 per cell, two models, one vendor.** Differences smaller than the
-  published stdev are treated as noise, and the results speak only to Claude
-  models.
-- **The judge is a Claude model grading Claude outputs,** blind to arm with the
-  rules text withheld. It is not an independent evaluator, and the answer-quality
-  claim is the one result that rests on it.
-- **Every figure above is a `full`-level figure.** The three levels were
-  measured against each other separately, one arm and 330 more calls, and the
-  ladder the level text implies is not there. That run also found arrows at
-  `lite` on Sonnet, which is why the readability row above carries a level
-  qualifier.
-- **No reader-preference claim is made anywhere.** The one run that asked a
-  judge which answer served the reader better did not favour laconic and was
-  not interpretable in either direction, because the judge's length bias and
-  position bias both exceeded the difference between arms. Every claim above is
-  a length, readability, latency or cost claim.
-- **Compression is counted in output tokens, which include the model's tool
-  turns.** Recomputing the same committed snapshot in words of the answer gives
-  28% on Sonnet against the token figure's 38%. That ordering reversed with the
-  regeneration — on the archived snapshot the same two estimators read 45% and
-  33% — because the current rules trade arrows for conjunctions and put prose
-  words back into the answer. The token figure stays the headline; it is no
-  longer the conservative one, and both are published for that reason.
-
 Reproduce:
 
 ```bash
-python3 evals/bench/run.py      # generate (~440 calls, 2-3 hr)
+python3 evals/bench/run.py      # generate (~1100 calls)
 python3 evals/bench/judge.py    # blind trap grading
 python3 evals/bench/report.py   # offline tables; exits 1 if a gate fails
 ```

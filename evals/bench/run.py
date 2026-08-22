@@ -27,12 +27,23 @@ WORD_COMPRESSION = (
     "terms, and use arrows instead of conjunctions."
 )
 
+# Arms delivered by a native Claude Code output style rather than by an
+# appended system prompt. A style replaces part of the default system prompt
+# instead of adding to it, so --append-system-prompt cannot reproduce one and
+# a hand-copied transcription of the style text would be a different
+# treatment wearing the same label. These arms carry no system_prompt and are
+# passed to the CLI through --settings, so the arm measures what Claude Code
+# actually ships. "Concise" is the built-in style added in CLI 2.1.x, and it
+# is the closest thing to a native competitor this plugin has.
+ARM_OUTPUT_STYLES = {"concise-style": "Concise"}
+
 # The laconic entry is a placeholder here and is replaced at runtime with the
 # real hook output, so the benchmark cannot drift from what ships.
 ARMS = {
     "baseline": None,
     "terse-control": "Answer concisely.",
     "word-compression": WORD_COMPRESSION,
+    "concise-style": None,
     "laconic": "",
 }
 
@@ -140,14 +151,23 @@ def carry_arms(snap, source, keep_arms):
     times over for runs that cannot have moved. The provenance stamp names the
     source and its rules_cksum, so a snapshot built this way carries its own
     mixed-snapshot disclosure instead of relying on someone remembering it.
+
+    An arm the source does not have is copied as nothing, which is silent: the
+    round then reports on the arms it happens to hold rather than the arms the
+    benchmark defines, and the reader has no way to tell an arm that was left
+    out from an arm that was never generated. concise-style is the first arm
+    newer than the snapshots it would be carried from, and it will not be the
+    last, so missing_arms records the gap and main() prints it.
     """
     carried = [dict(r) for r in usable(source.get("runs", []))
                if r["arm"] not in keep_arms]
     snap["runs"].extend(carried)
+    carried_arms = sorted(set(r["arm"] for r in carried))
     snap["metadata"]["carried_arms_from"] = {
         "path": source.get("__path", ""),
         "rules_cksum": source.get("metadata", {}).get("rules_cksum"),
-        "arms": sorted(set(r["arm"] for r in carried)),
+        "arms": carried_arms,
+        "missing_arms": sorted(set(ARMS) - set(keep_arms) - set(carried_arms)),
     }
     return snap
 
@@ -163,6 +183,8 @@ def new_snapshot(reps, models, level, rules_cksum, arms, claude_bin="claude",
         entry = {"system_prompt": v}
         if k == "laconic":
             entry["source"] = "hooks/laconic.sh start @ %s" % level
+        if k in ARM_OUTPUT_STYLES:
+            entry["output_style"] = ARM_OUTPUT_STYLES[k]
         arms_dict[k] = entry
     return {
         "metadata": {
@@ -262,10 +284,12 @@ def save_snapshot(path, snap):
     os.replace(str(tmp), str(p))
 
 
-def call(claude_bin, model, prompt, system_prompt, cwd):
+def call(claude_bin, model, prompt, system_prompt, cwd, output_style=None):
     cmd = [claude_bin, "-p", "--model", model, "--output-format", "json"]
     if system_prompt:
         cmd += ["--append-system-prompt", system_prompt]
+    if output_style:
+        cmd += ["--settings", json.dumps({"outputStyle": output_style})]
     env = dict(os.environ, CLAUDE_CODE_SAFE_MODE="1")
     env.pop("LACONIC_DEFAULT", None)
     try:
@@ -276,6 +300,36 @@ def call(claude_bin, model, prompt, system_prompt, cwd):
     if out.returncode != 0:
         return {"ok": False}
     return parse_cli_json(out.stdout)
+
+
+STYLE_PROBE = (
+    'Reply with ONLY the exact line from your system prompt that ends with '
+    'the words "Style Active", or the word NONE if no such line exists.'
+)
+
+
+def output_style_reaches_model(claude_bin, model, style):
+    """Whether --settings actually delivers `style` to the model.
+
+    An unrecognised style name is not an error: the CLI drops it and answers
+    from the default system prompt, verified against 2.1.238. Safe mode also
+    disables custom output styles, and the built-ins surviving
+    CLAUDE_CODE_SAFE_MODE=1 is an observed behavior rather than a documented
+    guarantee. Either way the arm would become a second copy of baseline
+    wearing a treatment label, and the round would publish "the native style
+    changes nothing" as its finding. One probe call before a multi-hour pass
+    is the cheapest way to not spend the pass measuring baseline twice.
+
+    Every built-in style opens its block with "# <Name> Style Active", so the
+    probe asks for that line back and checks the name it got.
+    """
+    scratch = tempfile.mkdtemp()
+    try:
+        res = call(claude_bin, model, STYLE_PROBE, None, scratch,
+                   output_style=style)
+    finally:
+        shutil.rmtree(scratch, ignore_errors=True)
+    return bool(res.get("ok")) and ("# %s Style Active" % style) in res["text"]
 
 
 def main():
@@ -315,6 +369,18 @@ def main():
     if not cases:
         sys.exit("no cases matched: %s" % args.cases)
 
+    # Checked after the cheap argument validation, so a typo in --cases fails
+    # without spending an API call, and before any generation, so a style that
+    # is not landing stops the round instead of silently duplicating baseline.
+    for arm in arm_names:
+        style = ARM_OUTPUT_STYLES.get(arm)
+        if style and not output_style_reaches_model(claude_bin, models[0], style):
+            sys.exit("the %s output style is not reaching the model through "
+                     "--settings on this CLI (%s), so arm %s would be a second "
+                     "copy of baseline. Check that the style exists in this "
+                     "version before running the round."
+                     % (style, _cli_version(claude_bin), arm))
+
     # Resolved once, then stamped onto every run below. The snapshot-level
     # stamp is written when the file is created and never again, so a round
     # assembled into a pre-seeded file inherits that file's provenance:
@@ -340,6 +406,13 @@ def main():
                 sys.exit("no snapshot to carry arms from: %s" % args.carry_arms_from)
             source["__path"] = args.carry_arms_from
             carry_arms(snap, source, arm_names)
+            absent = snap["metadata"]["carried_arms_from"]["missing_arms"]
+            if absent:
+                print("warning: %s has no runs to carry for %s. This is not an "
+                      "error - the round reports on the arms it has - but it is "
+                      "otherwise silent, so generate the arm into the source "
+                      "snapshot first if this round should compare against it."
+                      % (args.carry_arms_from, ", ".join(absent)))
     elif snap["metadata"].get("rules_cksum") != cksum:
         sys.exit("snapshot was generated from different rules (cksum %s vs %s); "
                  "move it aside before regenerating"
@@ -391,13 +464,15 @@ def main():
                     fixture = case_dir / "fixture"
                     if fixture.is_dir():
                         shutil.copytree(fixture, scratch, dirs_exist_ok=True)
-                    res = call(claude_bin, model, prompt, arms[arm], scratch)
+                    res = call(claude_bin, model, prompt, arms[arm], scratch,
+                               ARM_OUTPUT_STYLES.get(arm))
                     shutil.rmtree(scratch, ignore_errors=True)
                     if not res.get("ok"):  # one retry before recording a failure
                         scratch = tempfile.mkdtemp()
                         if fixture.is_dir():
                             shutil.copytree(fixture, scratch, dirs_exist_ok=True)
-                        res = call(claude_bin, model, prompt, arms[arm], scratch)
+                        res = call(claude_bin, model, prompt, arms[arm], scratch,
+                                   ARM_OUTPUT_STYLES.get(arm))
                         shutil.rmtree(scratch, ignore_errors=True)
                     res.update({"case": case, "arm": arm, "model": model, "rep": rep,
                                 "generated_at": _now(),

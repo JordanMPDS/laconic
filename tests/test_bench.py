@@ -48,11 +48,25 @@ check("empty is not ok", bench_run.parse_cli_json("")["ok"] is False)
 check("is_error payload is not ok",
       bench_run.parse_cli_json(json.dumps({"is_error": True, "result": "x"}))["ok"] is False)
 
-check("arms include all four",
-      sorted(bench_run.ARMS) == ["baseline", "laconic", "terse-control", "word-compression"])
+check("arms include all five",
+      sorted(bench_run.ARMS) == ["baseline", "concise-style", "laconic",
+                                 "terse-control", "word-compression"])
 check("baseline has no system prompt", bench_run.ARMS["baseline"] is None)
 check("terse control is exactly the control instruction",
       bench_run.ARMS["terse-control"] == "Answer concisely.")
+
+# The native-output-style arm is delivered by --settings, not by an appended
+# system prompt. If it ever acquired a system_prompt it would be getting the
+# style twice over - once natively and once as text - and would stop being a
+# measurement of what Claude Code ships.
+check("concise-style maps to the built-in Concise output style",
+      bench_run.ARM_OUTPUT_STYLES == {"concise-style": "Concise"})
+check("concise-style carries no system prompt of its own",
+      bench_run.ARMS["concise-style"] is None)
+check("no arm both appends a system prompt and sets an output style",
+      all(not bench_run.ARMS[a] for a in bench_run.ARM_OUTPUT_STYLES))
+check("every styled arm is a real arm",
+      set(bench_run.ARM_OUTPUT_STYLES) <= set(bench_run.ARMS))
 
 rules = bench_run.laconic_rules(ROOT, "full")
 check("laconic rules come from the hook and are non-empty", len(rules) > 200)
@@ -148,6 +162,28 @@ try:
         argv_tail_none = argv_no_prompt.read_text().splitlines()[3:]
         check("system_prompt=None produces no --append-system-prompt flag at all",
               "--append-system-prompt" not in argv_tail_none)
+
+        # The output-style arm rides on --settings, and an unrecognised style
+        # is silently ignored by the CLI rather than rejected. If the flag
+        # stopped being attached, the arm would run as plain baseline and the
+        # round would report the native style making no difference.
+        argv_style = Path(td_argv) / "argv-style.txt"
+        os.environ["STUB_ARGV_OUT"] = str(argv_style)
+        bench_run.call(resolved_rel, "haiku", "test", None, "/tmp",
+                       output_style="Concise")
+        argv_tail_style = argv_style.read_text().splitlines()[3:]
+        check("output_style is passed as a --settings JSON object naming it",
+              "--settings" in argv_tail_style and
+              json.loads(argv_tail_style[argv_tail_style.index("--settings") + 1])
+              == {"outputStyle": "Concise"})
+        check("an output-style call still appends no system prompt",
+              "--append-system-prompt" not in argv_tail_style)
+
+        argv_nostyle = Path(td_argv) / "argv-nostyle.txt"
+        os.environ["STUB_ARGV_OUT"] = str(argv_nostyle)
+        bench_run.call(resolved_rel, "haiku", "test", None, "/tmp")
+        check("output_style=None produces no --settings flag at all",
+              "--settings" not in argv_nostyle.read_text().splitlines()[3:])
 finally:
     if old_stub_argv_out is None:
         os.environ.pop("STUB_ARGV_OUT", None)
@@ -157,6 +193,37 @@ finally:
         os.environ.pop("LACONIC_DEFAULT", None)
     else:
         os.environ["LACONIC_DEFAULT"] = old_laconic_default
+
+# The preflight probe that stops a round from spending hours measuring
+# baseline twice. A style name the CLI does not recognise is dropped without
+# an error, so "the call succeeded" proves nothing on its own - only the
+# style's own banner coming back does.
+old_stub_text = os.environ.get("STUB_TEXT")
+old_stub_fail = os.environ.get("STUB_FAIL")
+try:
+    os.environ["STUB_TEXT"] = "# Concise Style Active"
+    check("probe accepts the style when its banner comes back",
+          bench_run.output_style_reaches_model(resolved_rel, "haiku", "Concise")
+          is True)
+    check("probe rejects a style whose banner names a different style",
+          bench_run.output_style_reaches_model(resolved_rel, "haiku",
+                                               "Explanatory") is False)
+
+    os.environ["STUB_TEXT"] = "NONE"
+    check("probe rejects the style when the model reports no style banner",
+          bench_run.output_style_reaches_model(resolved_rel, "haiku", "Concise")
+          is False)
+
+    os.environ["STUB_FAIL"] = "1"
+    check("probe rejects the style when the probe call itself fails",
+          bench_run.output_style_reaches_model(resolved_rel, "haiku", "Concise")
+          is False)
+finally:
+    for _k, _v in (("STUB_TEXT", old_stub_text), ("STUB_FAIL", old_stub_fail)):
+        if _v is None:
+            os.environ.pop(_k, None)
+        else:
+            os.environ[_k] = _v
 
 # claude-stub.sh's own STUB_FAIL branch is untested - if it were removed, a
 # real generation outage would go undetected offline (the stub would just
@@ -241,6 +308,14 @@ with tempfile.TemporaryDirectory() as td:
           "source" in snap["arms"]["laconic"])
     check("snapshot laconic source contains level",
           "full" in snap["arms"]["laconic"]["source"])
+    # Provenance: a snapshot has to say how the styled arm was delivered, or a
+    # reader cannot tell it apart from an arm that simply got no rules.
+    check("snapshot records the output style the concise-style arm ran under",
+          snap["arms"]["concise-style"]["output_style"] == "Concise")
+    check("snapshot records no output style for the prompt-delivered arms",
+          not any("output_style" in snap["arms"][a]
+                  for a in ("baseline", "terse-control", "word-compression",
+                            "laconic")))
     snap["runs"].append({"case": "decision", "arm": "baseline",
                          "model": "haiku", "rep": 0, "ok": True, "text": "x"})
     bench_run.save_snapshot(snap_path, snap)
@@ -335,7 +410,8 @@ _at, _done = bench_judge.resume_index(_js)
 _js[_at[_key]] = dict(_failed, verdict="pass", reason="r")
 check("repairing in place does not grow a duplicate",
       len(_js) == 2 and _js[0]["verdict"] == "pass")
-for arm in ["laconic", "baseline", "terse-control", "word-compression"]:
+for arm in ["laconic", "baseline", "terse-control", "word-compression",
+            "concise-style"]:
     check("judge prompt is blind to arm %s" % arm, arm not in p)
 
 # judge.py's main() must resolve --claude-bin and fail fast, the same guard
@@ -367,6 +443,13 @@ with tempfile.TemporaryDirectory() as td_judge_e2e:
           not out_path.exists())
 
 import report as bench_report  # noqa: E402
+
+# An arm missing from ARM_ORDER is generated, judged, paid for, and then
+# silently dropped from every table report.py prints.
+check("report orders every arm run.py can generate",
+      set(bench_report.ARM_ORDER) == set(bench_run.ARMS))
+check("report keeps laconic last so it reads against the controls",
+      bench_report.ARM_ORDER[-1] == "laconic")
 
 synthetic = {
     "metadata": {"reps": 2, "models": ["haiku"], "laconic_level": "full",
@@ -1298,12 +1381,62 @@ check("carried snapshot does not take the treatment arm",
 check("carrying stamps the source and its cksum",
       carried["metadata"]["carried_arms_from"]["rules_cksum"] == "111"
       and carried["metadata"]["carried_arms_from"]["arms"] == ["baseline", "terse-control"])
+# An arm the source never had is copied as nothing and nothing says so. The
+# source above holds baseline, laconic and terse-control, and laconic is being
+# regenerated, so the two arms it has never heard of are the gap to disclose.
+check("carrying names the arms it could not carry",
+      carried["metadata"]["carried_arms_from"]["missing_arms"]
+      == ["concise-style", "word-compression"])
+check("an arm being regenerated is not reported as missing",
+      "laconic" not in carried["metadata"]["carried_arms_from"]["missing_arms"])
+src_full = {"metadata": {"rules_cksum": "111"},
+            "runs": [{"case": "a", "arm": a, "model": "sonnet", "rep": 0,
+                      "ok": True, "text": "x"} for a in bench_run.ARMS]}
+check("a source holding every arm reports no gap",
+      bench_run.carry_arms({"metadata": {}, "runs": []}, src_full,
+                           ["laconic"])["metadata"]["carried_arms_from"]
+      ["missing_arms"] == [])
 # Failed runs are excluded from every statistic; carrying them in would
 # reintroduce them under a fresh snapshot's provenance.
 src_bad = {"metadata": {"rules_cksum": "111"},
            "runs": [{"case": "a", "arm": "baseline", "model": "sonnet", "rep": 0, "ok": False}]}
 check("carrying skips failed runs",
       bench_run.carry_arms({"metadata": {}, "runs": []}, src_bad, ["laconic"])["runs"] == [])
+
+# End-to-end, because the disclosure is only worth having if a human sees it:
+# the metadata field can be correct while the print that surfaces it is
+# refactored away, and a warning nobody prints is the silence it was added to
+# fix. Driven through main() as a subprocess against the stub.
+with tempfile.TemporaryDirectory() as td_gap:
+    gap_src = Path(td_gap) / "prev.json"
+    gap_src.write_text(json.dumps({
+        "metadata": {"rules_cksum": "1"},
+        "arms": {"baseline": {"system_prompt": None}},
+        "runs": [{"case": "floor", "arm": "baseline", "model": "haiku", "rep": 0,
+                  "ok": True, "text": "x"}]}))
+    gap_out = Path(td_gap) / "round.json"
+    proc_gap = subprocess.run(
+        [sys.executable, str(ROOT / "evals" / "bench" / "run.py"),
+         "--claude-bin", str(ROOT / "tests" / "stubs" / "claude-stub.sh"),
+         "--arms", "laconic", "--models", "haiku", "--reps", "1",
+         "--cases", "floor", "--carry-arms-from", str(gap_src),
+         "--snapshot", str(gap_out)],
+        capture_output=True, text=True)
+    check("subprocess: the carrying pass still succeeds with a gap",
+          proc_gap.returncode == 0)
+    check("subprocess: main() warns that arms could not be carried",
+          "no runs to carry" in proc_gap.stdout)
+    check("subprocess: the warning names every arm the source lacked",
+          all(a in proc_gap.stdout
+              for a in ("concise-style", "terse-control", "word-compression")))
+    _gap_line = next(l for l in proc_gap.stdout.splitlines()
+                     if "no runs to carry" in l)
+    check("subprocess: the warning does not name the regenerated arm",
+          "laconic" not in _gap_line)
+    check("subprocess: the gap is recorded in the snapshot, not only printed",
+          json.loads(gap_out.read_text())["metadata"]["carried_arms_from"]
+          ["missing_arms"] == ["concise-style", "terse-control",
+                               "word-compression"])
 
 # --- review.py: the failure inventory ---
 import review as bench_review  # noqa: E402

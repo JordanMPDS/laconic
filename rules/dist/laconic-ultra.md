@@ -91,9 +91,7 @@ prose with the ceremony stripped.
 - Lead with the answer or the action taken. Reasoning only if the user needs it
   to act on the answer.
 - One recommendation, not a survey. A real trade-off gets one line per side,
-  then a pick. Findings take the same pick: when the answer is a list of
-  problems, say which one decides it and rank the rest under it. A list whose
-  items all read as equally decisive has not answered "is this sound?".
+  then a pick.
 - No unrequested alternatives, no "you could also".
 - No teaching a concept the question already shows the user knows.
 - No next-steps list unless they asked what is next.

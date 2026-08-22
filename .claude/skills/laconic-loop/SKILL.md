@@ -14,16 +14,50 @@ Design and the reasoning behind every threshold:
 ## Before you start
 
 Set `N` to the next round number and `PREV` to the last round's snapshot. The
-current baseline is the #45 regeneration extended with [#60]'s cases —
-laconic at n=10 over all 22 cases, controls carried at n=5:
+current baseline is round 21 — all five arms at n=5 over all 22 cases, at
+`rules_cksum` 1830906901:
 
 ```bash
-N=16
-PREV=evals/snapshots/loop/round-01-n10-v4.json
-PREV_J=evals/snapshots/loop/round-01-n10-v4-judgments.json
+N=22
+PREV=evals/snapshots/loop/round-21.json
+PREV_J=evals/snapshots/loop/round-21-judgments.json
 ```
 
-**From round 16 the baseline is `-v4`, which is `-v3` plus `design-cache`,
+**From round 22 the baseline is `round-21.json`, and its laconic arm is n=5
+where `-v4`'s was n=10.** That is a real loss of power and it is the price of
+the other three things round 21 has. Read it before running a round:
+
+- **Every fatal counter is now a five-rep draw.** The baseline reads
+  `never_cut_failures` 0, `quality_fails` 56, `safety_fails` 8 and
+  `violations_total` 66. A cell that fails at a low rate is more often 0 in the
+  baseline at n=5 than at n=10, so a single flip reaching the gate as
+  "0 to 1" is correspondingly more likely. `cell-rates.json` is the mitigation
+  and it matters more than it did: screen every risen cell against a measured
+  rate where one exists, and prefer measuring a new cell over arbitrating the
+  same one twice.
+- **Generate the round's laconic arm at `--reps 5`,** matching the baseline. An
+  n=10 round against an n=5 baseline gives the round twice the opportunity to
+  fail a cell and is not the comparison the fatal counters describe.
+- **What round 21 buys.** It carries a `cases_cksum` (2389944869), which `-v4`
+  predates entirely, so the [#69] guard can verify it. It includes the
+  `concise-style` arm, so no round has to seed it. And its judgments were
+  produced under the criteria in `evals/cases/` today, at `criteria_cksum`
+  997100469.
+- **To restore n=10,** generate 220 more laconic runs into the baseline and
+  re-judge that arm, then set `--reps 10` back:
+
+  ```bash
+  python3 evals/bench/run.py --arms laconic --reps 10 --snapshot "$PREV"
+  python3 evals/bench/judge.py --results "$PREV" --jobs 6 --out "$PREV_J"
+  ```
+
+  `run.py` generates only the rep keys the snapshot lacks, so this adds reps 5
+  to 9 and costs 220 calls rather than 440. **It does not rewrite
+  `metadata.reps`,** which `new_snapshot` sets once at creation: the file would
+  hold ten reps of laconic while its metadata still says 5. Correct the field
+  by hand if you do this, or the next reader takes the arm for n=5.
+
+**Rounds 16 to 21 used `-v4`, which is `-v3` plus `design-cache`,
 `design-realtime` and `design-upload`.** Every cell in the file is at
 `rules_cksum` 1830906901, and `-v4` is identical to `-v3` on every fatal counter
 once the three new cases are removed.
@@ -66,10 +100,11 @@ a formality — re-scoring rounds 07 to 14 under the `-v3` scope turned round 10
 accept into a rejection, purely because the cases it needed did not exist when
 it ran.
 
-Generate the round's laconic arm at the same reps (`--reps 10`), and carry
-arms from `$PREV`, not from `evals/snapshots/results.json` — the old committed
-snapshot has no control runs for the three `design-*` cases, so carrying from
-it silently drops them from preference and from the reduction tables.
+Generate the round's laconic arm at the same reps as the baseline
+(`--reps 5`), and carry arms from `$PREV`, not from
+`evals/snapshots/results.json` — the old committed snapshot has no control runs
+for the three `design-*` cases, so carrying from it silently drops them from
+preference and from the reduction tables.
 
 **Check the baseline's judgments were produced under the criteria in
 `evals/cases/` today.** A criterion that has been corrected since re-grades the
@@ -105,10 +140,10 @@ the harnesses or switch branches while a pass is running.
 
 [#69]: https://github.com/JordanMPDS/laconic/issues/69
 
-## Steps 1-3: measure the round you have (~690 calls at n=10)
+## Steps 1-3: measure the round you have (~345 calls at n=5)
 
 ```bash
-python3 evals/bench/run.py --arms laconic --reps 10 \
+python3 evals/bench/run.py --arms laconic --reps 5 \
   --carry-arms-from "$PREV" \
   --snapshot "evals/snapshots/loop/round-$N.json"
 python3 evals/bench/judge.py --results "evals/snapshots/loop/round-$N.json" \
@@ -121,18 +156,22 @@ python3 evals/bench/prefer.py --results "evals/snapshots/loop/round-$N.json" \
 The controls are carried, not regenerated: no control arm carries rules in its
 system prompt, so they cannot have moved.
 
-**`concise-style` is newer than the snapshots it would be carried from.** It is
-the native Claude Code `Concise` output style, delivered through `--settings`
-rather than an appended system prompt, so it is the one control that answers
-"does the plugin beat what the CLI already ships". A `$PREV` generated before
-it existed has no `concise-style` runs to copy, so the row would be absent
-from the report. `run.py` prints a `no runs to carry` warning naming any arm
-in that position and records it as `missing_arms` in the snapshot, but it does
-not stop the round — heed the warning and generate the arm once into the carry
-source before the next round:
+**`concise-style` is in the round-21 baseline, so nothing needs seeding.** It
+is the native Claude Code `Concise` output style, delivered through `--settings`
+rather than an appended system prompt, and it is the one control that answers
+"does the plugin beat what the CLI already ships". Round 21 measured it at
+n=5 alongside everything else, and the answer so far is that on compression it
+wins: -55% on sonnet against laconic's -32%, indistinguishable on quality, and
+3 never-cut failures against laconic's 0. See
+[`docs/benchmark.md`](../../../docs/benchmark.md#the-concise-style-arm).
+
+If a future baseline is ever built from a snapshot predating an arm, `run.py`
+prints a `no runs to carry` warning naming it and records it as `missing_arms`
+in the metadata, but it does not stop the round. That warning is the signal to
+seed the arm into the carry source before continuing:
 
 ```bash
-python3 evals/bench/run.py --arms concise-style --reps 10 --snapshot "$PREV"
+python3 evals/bench/run.py --arms <arm> --reps 5 --snapshot "$PREV"
 python3 evals/bench/judge.py --results "$PREV" --jobs 6 --out "$PREV_J"
 ```
 
@@ -216,7 +255,7 @@ Regenerate the pre-sliced copies, which the test suite checks:
 bash tools/build-rules.sh
 ```
 
-## Steps 6-7: confirm and compare (~690 calls)
+## Steps 6-7: confirm and compare (~345 calls)
 
 Repeat steps 1-3 with `N` incremented, then:
 
@@ -269,9 +308,11 @@ rejects.
 
 **A cell with a measured failure rate is screened against it first.** The
 fatal counters compare a round's per-cell count against the baseline's, and the
-baseline is one n = 10 draw. For a cell that fails at 8% under master rules
-that draw is 0 about 43% of the time, so "0 → 1" was the gate reporting a coin
-flip as a regression. `evals/snapshots/loop/cell-rates.json` holds rates
+baseline is one draw — n = 5 since round 21, where it was n = 10 through round
+21's predecessor. For a cell that fails at 8% under master rules an n = 10 draw
+is 0 about 43% of the time and an n = 5 draw about 66% of the time, so "0 to 1"
+was the gate reporting a coin flip as a regression, and at n = 5 it is a
+likelier coin flip. `evals/snapshots/loop/cell-rates.json` holds rates
 measured under master rules at n ≥ 30; where one exists, a risen cell is a loss
 only if its count is higher than that rate predicts at the same alpha. Every
 screened cell is named in the reason line, and the metrics the screen can speak

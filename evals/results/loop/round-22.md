@@ -4,7 +4,7 @@
 **Snapshot:** `evals/snapshots/loop/round-22.json`, `round-22-judgments.json`,
 `round-22-preferences.json`
 **Rules under test:** `rules_cksum` 2192107416 (baseline 1830906901)
-**Verdict: reject on the target.** Edit reverted.
+**Verdict: reject on the target, at n=5 and again at n=10.** Edit reverted.
 
 First round scored against the round-21 baseline, and the first at **n=5**;
 every round from 16 to 21 ran at n=10. That halving is the story of this
@@ -83,41 +83,88 @@ alpha, and that is the rejection.** No fatal counter rejected:
 own target's p-value**, with all four fatal counters clearing. Every prior
 rejection either lost a counter or missed by a wider margin.
 
-## What n=5 cost
+## The n=10 rerun
 
-The registered effect is 7 failures of 30 falling to 3 of 30. At the n=10 every
-round from 16 to 21 used, the same rates are 14 of 60 against 6 of 60, and the
-same two-sided Fisher that reads 0.299 here reads 0.085 there — still short,
-but a different conversation. At n=15 it reaches 0.027.
+The n=5 round closed by saying the edit was unresolved and wanted a re-run at
+n=10. That re-run was bought — both arms, not just the treatment, since an
+n=10 round against an n=5 baseline gives the round twice the opportunity to
+fail a cell. Snapshots `round-21-n10.json` and `round-22-n10.json`, each
+carrying the original 220 laconic runs plus 220 more, 440 per side, **0
+failed**. The published `round-21.json` was not touched; the n=10 files are
+copies, so every figure in `docs/benchmark.md` still describes the snapshot it
+was computed from.
 
-The loop switched to this baseline for three things round-01-n10-v4 could not
-offer: a `cases_cksum` the [#69] guard can verify, a `concise-style` arm, and
-judgments under today's criteria. The bill for them is arriving on the first
-round, and it is the bill the baseline change predicted in writing.
+**It rejected again, at p = 0.166 against n=5's 0.172.** Doubling the data
+moved the p-value by 0.006.
 
-**This edit is not disproved. It is unresolved**, and it is the strongest
-unresolved candidate the loop has produced for [#60]. Re-running it at n=10
-against an n=10 baseline is the obvious next move, and costs 220 more laconic
-generations plus 220 on the baseline arm.
+The reason is not low power. It is that the effect shrank by as much as the
+power grew:
+
+| | baseline fails | edit fails | gap |
+|---|--:|--:|--:|
+| n=5 | 7 / 30 = 23.3% | 3 / 30 = 10.0% | 13.3pp |
+| n=10 | 11 / 60 = 18.3% | 6 / 60 = 10.0% | 8.3pp |
+
+**The edit's failure rate is stable at exactly 10.0% on both draws. The
+baseline's fell.** Round 21's first five reps were an unlucky draw for master
+rules, and the second five regressed it toward its mean. The n=5 round did not
+merely lack power — it flattered the edit, and the round doc's own projection
+("the same rates at n=10 read 0.085") was wrong because it assumed the n=5
+rates were the truth.
+
+Round-wide says it louder. `quality_fails` moved 56 to 47 at n=5, which
+doubled would predict about −18; the n=10 movement is **104 to 100**.
+
+Every fatal counter cleared again: `never_cut_failures` 0 to 4 inside the
+measured rates (`conditional`/sonnet 2 of 10 against 13%, `destructive`/haiku
+2 of 10 against 8%), `violations_total` 138 to 141 at p = 0.457, and
+`ordered-steps`/haiku excluded as saturated.
+
+## What it would take, and why the loop stops here
+
+The effect is real, small, and almost entirely one case. `verdict-schema` is
+10 of 20 failures against 6 of 20; `verdict-experiment` and `verdict-rollout`
+sit at ceiling and contribute one failure between them across 80 responses.
+
+| scope | observed | responses/arm for 80% power | have | reps/cell needed |
+|---|---|--:|--:|--:|
+| the three cases pooled | 18.3% vs 10.0% | 273 | 60 | **45** |
+| `verdict-schema` alone | 50% vs 30% | 90 | 20 | **45** |
+
+Both routes need 45 reps per cell, roughly 4.5x what has been run, on the
+order of 900 further generations per side.
+
+**The loop stops here and records it.** Two independent draws agree the edit
+moves `verdict-schema` in the right direction by a margin this instrument
+cannot resolve at any n worth buying. That is a finding about the benchmark's
+resolution rather than about the rules, and it is the reason the row exists in
+the ledger.
 
 ## Disclosures
 
 **Preference is not citable.** 240 comparisons, order-flip rate **45%**,
 at or above the 35% ceiling. Not reported in either direction.
 
-**Arrow forms moved in opposite directions**, which the `violations_total`
-headline hides: chains of three or more 31 to 25, two-term mappings 25 to 44.
+**Arrow forms moved in opposite directions** in both draws, which the
+`violations_total` headline hides: chains of three or more 31 to 25 and
+mappings 25 to 44 at n=5; chains **75 to 46** and mappings **41 to 77** at
+n=10.
 The edit asks for ranking prose, and ranking prose invites `A -> B` mappings
 even as it displaces the longer chains. Disclosure, not a gate.
 
-**Strata** ([#88]): answers that hand a decision back 15 of 25 to 8 of 17,
-answers that resolve it 41 of 115 to 39 of 122. Seventh consecutive round
-where the two strata do not move together.
+**Strata** ([#88]): at n=10, answers that hand a decision back went 29 of 53
+to 23 of 41 — **worse** — while answers that resolve it went 75 of 227 to 77
+of 238. Seventh consecutive round where the two strata do not move together,
+and the n=10 draw makes the direction unambiguous.
 
 ## Cost and infrastructure
 
-Generation $9.75 for 220 laconic runs, **0 failed**. 220 judge calls with 880
-control verdicts carried ([#83]); 240 preference comparisons. No outage.
+n=5 round: generation $9.75 for 220 laconic runs, 220 judge calls with 880
+control verdicts carried ([#83]), 240 preference comparisons.
+
+n=10 rerun: $19.36 for 440 further generations across both arms, 440 further
+judge calls. **0 failed generations across all 880 runs in this round**, and
+no outage in either pass.
 
 [#60]: https://github.com/JordanMPDS/laconic/issues/60
 [#69]: https://github.com/JordanMPDS/laconic/issues/69

@@ -353,10 +353,7 @@ def main():
                  "move %s aside before regenerating"
                  % (prior_cksum, rules_cksum, args.out))
 
-    claude_bin = bench_run.resolve_claude_bin(args.claude_bin)
-    if not bench_run.claude_bin_usable(claude_bin):
-        sys.exit("claude binary not found or not executable: %s "
-                 "(set --claude-bin or fix PATH)" % args.claude_bin)
+    claude_bin = bench_run.require_claude_bin(args.claude_bin)
 
     # Collapse any duplicate keys a pre-#55 resume left behind, keeping a
     # decided record over an undecided one for the same comparison. Without

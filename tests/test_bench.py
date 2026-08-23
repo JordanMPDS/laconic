@@ -279,6 +279,19 @@ with tempfile.TemporaryDirectory() as td_nonexec:
 with tempfile.TemporaryDirectory() as td_dir:
     dir_path = Path(td_dir) / "is-a-directory"
     dir_path.mkdir()
+# require_claude_bin is the one guard all four entry points now share, so its
+# two behaviours are tested here rather than four times over.
+check("require_claude_bin returns the resolved path for a usable binary",
+      bench_run.require_claude_bin("tests/stubs/claude-stub.sh") == resolved_rel)
+try:
+    bench_run.require_claude_bin("nonexistent-command-xyz")
+    check("require_claude_bin exits on an unusable binary", False)
+except SystemExit as _e:
+    check("require_claude_bin exits on an unusable binary",
+          "claude binary not found or not executable" in str(_e))
+    check("and its message names the argument the user passed, not the resolved path",
+          "nonexistent-command-xyz" in str(_e) and "--claude-bin" in str(_e))
+
     check("claude_bin_usable rejects directory",
           bench_run.claude_bin_usable(str(dir_path)) is False)
 

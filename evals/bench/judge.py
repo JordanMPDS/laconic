@@ -281,10 +281,7 @@ def main():
 
     CASES = Path(args.cases_dir)
 
-    claude_bin = bench_run.resolve_claude_bin(args.claude_bin)
-    if not bench_run.claude_bin_usable(claude_bin):
-        sys.exit("claude binary not found or not executable: %s "
-                 "(set --claude-bin or fix PATH)" % args.claude_bin)
+    claude_bin = bench_run.require_claude_bin(args.claude_bin)
 
     snap = bench_run.load_snapshot(args.results)
     if snap is None:

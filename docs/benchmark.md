@@ -38,12 +38,15 @@ it. A plain "Answer concisely." instruction produced better answers on the
 quality-graded cases than the whole rule file did, and that is the single
 strongest negative result this benchmark has produced.
 
-**Claude Code now ships a competitor that compresses harder.** The built-in
-`Concise` output style cuts Sonnet output 55% against laconic's 32% at half the
-latency, and is indistinguishable from laconic on quality (58.4% against 59.7%,
-z = +0.22). What separates them is the never-cut column and the readability
-column, both of which favour laconic. See
-[The concise-style arm](#the-concise-style-arm).
+**Claude Code now ships a competitor that compresses harder, and most of that
+compression is not writing.** The built-in `Concise` output style cuts Sonnet
+output 55% against laconic's 32% at half the latency, and is indistinguishable
+from laconic on quality here (58.4% against 59.7%, z = +0.22). A matched
+interleaved batch run on 2026-08-23 decomposed that advantage and it does not
+mean what this table implies: roughly **three fifths of `concise-style`'s
+compression comes from not opening files**, not from tighter prose. See
+[The concise-style arm](#the-concise-style-arm), which now carries the matched
+measurement, and read it before quoting the -55% figure.
 
 ## Provenance and confounds
 
@@ -55,13 +58,22 @@ material (`cases_cksum` 2389944869).
 That makes two comparisons of unequal strength, and they should not be quoted
 interchangeably:
 
-- **laconic against `concise-style` is clean.** Same cases, same rules
-  checksum, one patch release apart, one day apart.
+- **laconic against `concise-style` is the stronger of the two.** Same cases,
+  same rules checksum, one patch release apart, one day apart. It is still not
+  a matched comparison; the matched one is linked below and disagrees on what
+  the compression gap consists of.
 - **Anything against baseline carries eleven days and eleven patch releases**
   of possible model and harness drift, landing entirely on the treatment arms.
-  Carrying controls is deliberate — no control takes rules in its system
-  prompt, so a rule change cannot move one — but drift in the models themselves
-  is not controlled by that argument.
+
+**The argument that used to justify carrying controls has been retired.** It
+read: no control takes rules in its system prompt, so a rule change cannot move
+one. The premise is true and the conclusion does not follow. Regenerated on
+2026-08-22 alongside its treatment, `terse-control`'s one-turn rate went **4 of
+40 to 11 of 40** with nothing changed but the calendar and the CLI. A control
+arm cannot move *because of an edit*, but it moves a great deal on its own, and
+conflating those two claims is what produced every arm comparison in this table
+being against runs from another era. See
+[`interleaved-batch.md`](../evals/results/loop/interleaved-batch.md).
 
 The control verdicts were likewise carried rather than re-judged, at a verified
 matching criteria checksum (997100469). Only `concise-style` and `laconic` were
@@ -306,6 +318,62 @@ not reaching the model.
 
 This arm exists because it is the closest thing to a native competitor this
 plugin has, and the result is that on compression it wins.
+
+### What the style installs, and what it actually does
+
+From the 2.1.240 bundle the style's own first line reads "Keep your responses
+short and direct **while doing the work just as thoroughly**", and its rules 5
+and 6 restate laconic's "length scales to the request" and its never-cut list
+nearly clause for clause. The instruction not to trade thoroughness for brevity
+is present and explicit.
+
+**It does not hold.** A matched interleaved batch on 2026-08-23 — all five arms
+generated in one alternating pass on one CLI, `design-cache`, `design-realtime`
+and `design-upload`, sonnet, n=10, 30 matched cells an arm — measured how often
+each arm opened a file at all:
+
+| arm | read the repository | median tokens |
+|---|--:|--:|
+| `baseline` | 26/30 | 3834 |
+| `terse-control` | 22/30 | 2912 |
+| `word-compression` | 20/30 | 2879 |
+| `laconic` | 18/30 | 3415 |
+| `concise-style` | **7/30** | 1542 |
+
+`concise-style` against `baseline` is Fisher **p = 1.3e-06**; laconic against
+`baseline` is **p = 0.0391**. Both arms suppress investigation; the native style
+suppresses far more.
+
+Holding every arm at `baseline`'s 87% reading rate decomposes the compression:
+
+| arm | actual | at baseline's reading rate | share that is mix-shift |
+|---|--:|--:|--:|
+| `terse-control` | -24% | -19% | 19% |
+| `word-compression` | -25% | -18% | 27% |
+| `concise-style` | **-60%** | **-32%** | **46%** |
+| `laconic` | -11% | **+2%** | **116%** |
+
+Two readings, and both are uncomfortable. **`concise-style`'s headline
+advantage is roughly three fifths a reading effect.** And **laconic does not
+compress grounded design answers at all** — held at baseline's reading rate it
+is 2% *longer* than baseline, so its entire measured token effect on these
+cases is the same mix-shift, in a smaller dose.
+
+The style writes well when it reads. Counting inline code spans as a grounding
+proxy, `concise-style` answers that read the repository cite a median 19.5
+identifiers against `baseline`'s 19 while writing 22% shorter. Its unread
+answers cite 2. The defect is in how often it looks, not in what it produces
+once it has looked.
+
+**Why that matters for the quality column.** In the same batch, pooled over all
+five arms' 150 verdicts, answers that read the repository failed quality **4 of
+93**; answers that did not failed **55 of 57**. Fisher **p = 1.5e-33**.
+Conditional on reading, laconic failed 0 of 18 and `concise-style` 0 of 7 — the
+compression style has no measurable effect on quality at all, and the arms'
+quality ranking is their reading-rate ranking inverted. On design questions the
+only axis that separates these arms is how often they open a file.
+
+Full working: [`round-23.md`](../evals/results/loop/round-23.md).
 
 ## Scope
 

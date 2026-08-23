@@ -102,3 +102,101 @@ from round 21. 220 generations, 220 judge calls, judged at `--jobs 2`.
 Carrying the controls is correct here and only here: the four fatal counters
 compare the laconic arm of two rounds and read no control at all. No
 `laconic`-against-`baseline` claim will be made from this round's carried arms.
+
+---
+
+# Results
+
+**Steps 1-3.** 220 generations, 220 judge calls, **0 failed, 0 infrastructure
+failures**, maximum one run in flight, `rules_cksum` 3694954268.
+
+## Step 7: accept
+
+`report.py` exits 0.
+
+| counter | round 21 | round 24 |
+|---|--:|--:|
+| `never_cut_failures` | 0 | **0** |
+| `quality_fails` | 76 | **71** |
+| `violations_total` | 66 | **35** |
+
+Target: **8 of 9 voting cells improved, p = 0.039, median shift 1452** against a
+scoped floor of 895. Seven haiku cells sit below the 1200-token floor and do not
+vote, which is the gate's own rule and not a scope chosen after the fact.
+
+The measured-rate screens fired on every cell that has historically killed this
+edit — `destructive`, `conditional` and `walkthrough` on never-cut,
+`destructive` and `ordered-steps` on safety — and none rejected. **The
+registered risk did not materialise:** `never_cut_failures` came in at 0, tying
+the lowest this loop has recorded.
+
+Disclosed, not credited: arrow chains 31 to 14, two-term mappings 25 to 18, and
+the resolving-answer stratum 41 of 115 to 27 of 110.
+
+## Step 8: partial. The compression reproduces; the consistency does not
+
+An independent generation of all eight design cases at n=10, fresh snapshot,
+160 runs, 0 failed, maximum one run in flight.
+
+| cell (voting) | baseline | round 24 | replication |
+|---|--:|--:|--:|
+| `design-alerting`/sonnet | 4364 | 2494 | 2200 |
+| `design-audit-log`/sonnet | 5167 | 2877 | 3550 |
+| `design-audit-log`/haiku | 1463 | 1415 | 1260 |
+| `design-cache`/sonnet | 2423 | 1916 | **2874** |
+| `design-rate-limit`/sonnet | 3440 | 1988 | 1471 |
+| `design-realtime`/sonnet | 1716 | **2190** | **1876** |
+| `design-retry`/sonnet | 4421 | 1604 | 1838 |
+| `design-search`/sonnet | 2013 | 1239 | 1224 |
+| `design-upload`/sonnet | 3609 | 2278 | 1925 |
+
+**7 of 9 cells improved, sign test p = 0.1797**, against round 24's 8 of 9 at
+p = 0.039. The median shift is **1618**, larger than round 24's 1452 and past
+the 895 floor, and the grounded median holds at 2541 against baseline's 4350
+(−42%, against round 24's −47%).
+
+`design-realtime`/sonnet went the wrong way in **both** generations.
+`design-cache`/sonnet reversed — the cell the spike had already flagged as
+inert. Round 15's step 8 was 6 of 6 at p = 0.031; this is weaker.
+
+### A claim retracted
+
+Round 24 was reported here and in conversation as showing reading go **up**,
+65% to 72%. That was never tested. It is 29/40 against 26/40, **Fisher
+p = 0.63**. The replication reads 52/80, exactly baseline's 65%, **p = 1.000**.
+On the three [#88] cases the direction survives without reaching alpha:
+baseline 6/15, round 24 10/15 (p = 0.27), replication 18/30 (p = 0.23).
+
+**What the evidence supports is narrower than what was claimed.** The earned
+licence compresses grounded design answers by roughly 45% *without the reading
+collapse the bare licence causes* — the bare licence dropped reading to 23% at
+p = 0.0038, and this holds at baseline. Not reading more. Not collapsing.
+
+## Step 8b: a second replication, registered before it runs
+
+**This is the third generation of one edit, and multiplicity is exactly the
+failure the arbitration rule names.** It is registered here, before generating,
+so it cannot become a retry.
+
+**The decision is made on all three generations pooled, not on the best two.**
+Per-cell medians over round 24 (n=5), replication 1 (n=10) and replication 2
+(n=10) — 25 reps a cell — against the round-21 baseline, sign test across the
+same 9 voting cells, median shift against the same 895 floor.
+
+- **Survives** only if the pooled test reads **8 of 9 or better at p ≤ 0.05**
+  *and* the median shift exceeds 895. Then it goes to step 9.
+- **Fails otherwise.** The edit does not reach the holdout, and this file says
+  so.
+
+Registered limitations, so they are not discovered afterwards. The baseline
+remains n=5, so a 25-rep median is being compared against a 5-rep one and the
+baseline is the noisier side. `design-realtime`/sonnet and `design-cache`/sonnet
+are named now as the two known-bad cells: if they stay wrong-way pooled, that is
+a reported limit of the edit and is not screened away.
+
+Disclosed alongside: per-cell consistency, meaning how many of the three
+independent generations improved each cell. A cell that improves in one of
+three is not the same evidence as one that improves in three, and the sign test
+cannot see the difference.
+
+[#88]: https://github.com/JordanMPDS/laconic/issues/88

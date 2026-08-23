@@ -79,6 +79,20 @@ def claude_bin_usable(claude_bin):
     return bool(shutil.which(claude_bin))
 
 
+def require_claude_bin(arg):
+    """Resolve the CLI path or exit with the same message everywhere.
+
+    run.py, judge.py, prefer.py and subagent.py each opened main() with a
+    byte-identical resolve/test/exit block. One copy, so the message and the
+    resolution rule cannot drift apart.
+    """
+    claude_bin = resolve_claude_bin(arg)
+    if not claude_bin_usable(claude_bin):
+        sys.exit("claude binary not found or not executable: %s "
+                 "(set --claude-bin or fix PATH)" % arg)
+    return claude_bin
+
+
 def parse_cli_json(raw):
     blank = {"ok": False, "text": "", "output_tokens": 0, "input_tokens": 0,
              "cache_creation_input_tokens": 0, "cache_read_input_tokens": 0,
@@ -351,10 +365,7 @@ def main():
                     help="snapshot to copy the arms this run is not regenerating from")
     args = ap.parse_args()
 
-    claude_bin = resolve_claude_bin(args.claude_bin)
-    if not claude_bin_usable(claude_bin):
-        sys.exit("claude binary not found or not executable: %s "
-                 "(set --claude-bin or fix PATH)" % args.claude_bin)
+    claude_bin = require_claude_bin(args.claude_bin)
 
     models = [m.strip() for m in args.models.split(",") if m.strip()]
     arm_names = [a.strip() for a in args.arms.split(",") if a.strip()]

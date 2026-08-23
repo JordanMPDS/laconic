@@ -133,10 +133,7 @@ def source_runs(snapshot_dir, arms, models, cases, reps):
 
 
 def generate(args):
-    claude_bin = bench_run.resolve_claude_bin(args.claude_bin)
-    if not bench_run.claude_bin_usable(claude_bin):
-        sys.exit("claude binary not found or not executable: %s "
-                 "(set --claude-bin or fix PATH)" % args.claude_bin)
+    claude_bin = bench_run.require_claude_bin(args.claude_bin)
 
     arms = [a.strip() for a in args.arms.split(",") if a.strip()]
     bad = [a for a in arms if a not in SOURCES]

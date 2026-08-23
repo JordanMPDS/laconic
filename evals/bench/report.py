@@ -117,13 +117,42 @@ FATAL = (("never_cut_failures", "never-cut"),
          ("safety_fails", "safety"),
          ("violations_total", "readability"))
 
-# The four fatal counters are also the only non-token metrics a hypothesis may
-# name. They are counts of rare events, not distributions, so the token gate's
-# sign-test-plus-median-shift does not transfer: with 7 violations spread over
-# three case/model cells, a sign test across cells cannot reach alpha however
-# large the improvement is, and a token-stdev floor is meaningless for a count.
+# The non-token metrics a hypothesis may name. They are counts of rare events,
+# not distributions, so the token gate's sign-test-plus-median-shift does not
+# transfer: with 7 violations spread over three case/model cells, a sign test
+# across cells cannot reach alpha however large the improvement is, and a
+# token-stdev floor is meaningless for a count.
+#
+# The first four are FATAL as well - each rejects a round on its own. one_turn
+# is a target only, and deliberately: the fatal four are harm counters, and not
+# opening a file is not harm. On floor, decision, code-fidelity and
+# ordered-steps there is nothing to open and one turn is the only possible
+# behaviour. The harm it predicts is already covered by quality_fails, which is
+# fatal; what this counter adds is resolution, not coverage.
 COUNT_TARGETS = ("never_cut_failures", "quality_fails", "safety_fails",
-                 "violations_total")
+                 "violations_total", "one_turn")
+
+# Between-round overdispersion on one_turn, pooled from two estimates computed
+# on opposite sides of the same contrast (#46). Seven independent generations of
+# byte-identical licence rules give chi-square 18.16 on 6 df; three batches of
+# byte-identical master rules on the three #88 cases give 8.97 on 2 df. Pooled,
+# 27.13 on 8 df.
+#
+# The binomial split _count_p assumes is therefore optimistic by about the
+# square root of this, the same shape of error #103 documents for
+# violations_total - and, by coincidence of two unrelated mechanisms, almost the
+# same size. Unlike #103's clustering, no within-round resample recovers this:
+# the extra variance is BETWEEN rounds, and a bootstrap over responses inside
+# one round cannot see it.
+#
+# The real fix is design, not statistics. Generating both sides of a comparison
+# in one interleaved batch removes the between-batch component outright, and
+# resolved a contrast at 40 runs a side that the archive could not resolve at
+# any n (evals/results/loop/interleaved-batch.md). report.py cannot tell whether
+# two snapshots were interleaved, so it applies the inflation regardless and
+# prints the same test at phi = 1 beside it. A round that did interleave should
+# say so in its round doc and may cite that uninflated figure.
+ONE_TURN_PHI = 3.39
 
 
 # A measured rate below this many runs does not clear anything. At n = 10 the
@@ -197,6 +226,19 @@ def load_cell_rates(path=None):
             for metric, cells in raw.items() if metric != "metadata"}
 
 
+def _exposure(src, target):
+    """How many treatment responses gave this metric a chance to move.
+
+    Every count target but one is exposed on every response the round produced.
+    one_turn is not: it is summed only over cases that have a fixture to open,
+    so its denominator has to match its numerator or the rate is wrong by the
+    share of fixture-less cases in the scope.
+    """
+    if target == "one_turn":
+        return src.get("one_turn_n_runs", 0)
+    return src.get("n_runs", 0)
+
+
 def _count_p(prev_count, cur_count, prev_runs, cur_runs):
     """One-sided p for "the rate fell", comparing two counts of rare events.
 
@@ -212,6 +254,35 @@ def _count_p(prev_count, cur_count, prev_runs, cur_runs):
     denom = prev_runs + cur_runs
     q = (cur_runs / denom) if denom else 0.5
     return _binom_cdf(cur_count, total, q)
+
+
+def _inflated_count_p(prev_count, cur_count, prev_runs, cur_runs, phi):
+    """`_count_p` with the variance multiplied by phi.
+
+    The exact binomial split `_count_p` computes is right when each event is an
+    independent per-run Bernoulli AND the underlying rate is the same quantity
+    on both sides. For one_turn the second half fails: the rate drifts between
+    batches at fixed rules text (#46), so two rounds differ by more than
+    sampling before any edit is applied.
+
+    There is no exact conditional test for that, so this is a normal
+    approximation on the same one-sided question - did the rate fall - with the
+    standard error scaled by sqrt(phi). Returns None when nothing was counted
+    on either side, matching `_count_p`, so callers need no extra branch.
+    """
+    total = prev_count + cur_count
+    if total == 0 or prev_runs <= 0 or cur_runs <= 0:
+        return None
+    p_prev = prev_count / prev_runs
+    p_cur = cur_count / cur_runs
+    pooled = total / (prev_runs + cur_runs)
+    var = phi * pooled * (1 - pooled) * (1 / prev_runs + 1 / cur_runs)
+    if var <= 0:
+        return None
+    z = (p_cur - p_prev) / math.sqrt(var)
+    # One-sided, in the direction the gate cares about: small p means the
+    # current round's rate is lower than the previous round's.
+    return 0.5 * math.erfc(-z / math.sqrt(2))
 
 
 CLUSTER_BOOTSTRAP_DRAWS = 20000
@@ -490,6 +561,23 @@ def _counts(lac, judg, runs, cases=None, models=None):
         "violation_runs": {(k[0], k[2]): list(v.get("violation_runs") or [])
                            for k, v in lac.items()
                            if keep(k[0]) and ok_model(k[2])},
+        # Responses that called no tool at all (#46). Counted only over cases
+        # that have a fixture to open: four cases have no fixture/ directory
+        # at all, so their responses are one-turn by construction and forced to
+        # 100%, and ten non-design cases are read every time and sit at 0%.
+        # Pooling those in makes a round-wide total look constant while the
+        # informative part moves - the same predicate run.py:453 already uses
+        # to decide whether to stage a fixture, so a case added later is
+        # classified without a hand-maintained list going stale.
+        #
+        # Floor-pinned cases are deliberately NOT excluded. A cell that cannot
+        # rise only dilutes; one that cannot fall hides.
+        "one_turn": sum(v["one_turn"] for k, v in lac.items()
+                        if keep(k[0]) and ok_model(k[2])
+                        and (CASES / k[0] / "fixture").is_dir()),
+        "one_turn_n_runs": sum(1 for r in runs if r["arm"] == "laconic"
+                               and keep(r["case"]) and ok_model(r["model"])
+                               and (CASES / r["case"] / "fixture").is_dir()),
         # The count gate's exposure: how many treatment responses this round
         # gave the metric a chance to fail in.
         "n_runs": sum(1 for r in runs if r["arm"] == "laconic"
@@ -865,8 +953,8 @@ def accept_verdict(prev, cur, target, noise=None, target_cases=None,
                         % (c[0], c[1], 100 * r, e, sum(x[2] for x in comp))
                         for c, r, e in comp)))
         else:
-            p = _count_p(a, b, src_prev.get("n_runs", 0),
-                         src_cur.get("n_runs", 0))
+            p = _count_p(a, b, _exposure(src_prev, target),
+                         _exposure(src_cur, target))
         # violations_total overrides both of the above (#103). Its events are
         # not one per run, so neither the binomial split against the previous
         # round nor the one against a measured rate is the right null - both
@@ -885,6 +973,29 @@ def accept_verdict(prev, cur, target, noise=None, target_cases=None,
                          "binomial reads %s)"
                          % ("%.3f" % p if p is not None else "nothing"))
                 p = p_cluster
+        # one_turn overrides too, for a different reason (#46). Its events are
+        # one per run, so #103's within-round resample is the wrong correction -
+        # it would return essentially the binomial number. The extra variance is
+        # between rounds, so the standard error is scaled instead. A round that
+        # generated both sides in one interleaved batch has removed that
+        # variance by design and may cite the binomial figure printed here.
+        if target == "one_turn":
+            e_prev, e_cur = _exposure(src_prev, target), _exposure(src_cur, target)
+            p_inf = _inflated_count_p(a, b, e_prev, e_cur, ONE_TURN_PHI)
+            if p_inf is not None:
+                # The reference figure is the SAME test at phi = 1, not
+                # _count_p. _count_p is an exact conditional binomial split and
+                # this is a normal approximation on a difference of
+                # proportions; they are not nested, so quoting one against the
+                # other would attribute their disagreement to phi when part of
+                # it is the change of test. At phi = 1 the only difference is
+                # the inflation, which is what the disclosure is for.
+                p_flat = _inflated_count_p(a, b, e_prev, e_cur, 1.0)
+                wide += ("; variance inflated by phi = %.2f for between-round "
+                         "drift (#46; the same test uninflated reads %s)"
+                         % (ONE_TURN_PHI,
+                            "%.3f" % p_flat if p_flat is not None else "nothing"))
+                p = p_inf
         if p is None:
             reasons.append("REJECT: %s was already 0%s before the edit, so this "
                            "round cannot show it falling%s" % (target, where, wide))
@@ -986,6 +1097,15 @@ def aggregate(snap):
                 1 for r in runs
                 if metrics.never_cut_missing(r.get("text", ""), never_cut)
             ),
+            # A response the model produced without calling a single tool, so
+            # it never opened a file (#46). On sonnet this is a clean proxy:
+            # cache_read_input_tokens is bimodal with no overlap, and 0 of 41
+            # one-turn design responses name any fixture file against 151 of
+            # 159 multi-turn ones. On haiku it leaks - the fixtures are small
+            # enough that reading barely moves the token counts, and 8 of 183
+            # one-turn haiku runs quote fixture-only content - which is why
+            # the target below requires a model scope.
+            "one_turn": sum(1 for r in runs if r.get("num_turns") == 1),
             "spans": [sp for s in scored for sp in s["spans"]][:5],
         }
     return agg
@@ -1299,6 +1419,13 @@ def render(snap, judg, threshold, prefs=()):
     out.append(_by_arm_model(agg, "violations_total", arms, models, "%d", agg_fn=sum) + "\n")
     out.append("### Responses with >=1 readability violation\n")
     out.append(_by_arm_model(agg, "violations_flagged_responses", arms, models, "%d", agg_fn=sum) + "\n")
+    out.append("### Responses that called no tool at all (#46)\n")
+    out.append("A design answer written without opening a file fails its case "
+               "far more often than one that reads: pooled over the interleaved "
+               "licence experiment, 20 of 39 against 6 of 40, Fisher p = 7.6e-4. "
+               "Cases with no `fixture/` are one-turn by construction and are "
+               "excluded from the gated count, though they appear here.\n")
+    out.append(_by_arm_model(agg, "one_turn", arms, models, "%d", agg_fn=sum) + "\n")
     out.append("### Article rate\n")
     out.append(_by_arm_model(agg, "article_rate", arms, models, "%.3f") + "\n")
     out.append("### Auxiliary-verb rate\n")
@@ -1499,6 +1626,18 @@ def main():
                  % (CASES, ", ".join(unknown)))
     if target_cases and not args.against:
         sys.exit("--target-cases only scopes the accept verdict; it needs --against")
+    # Sixteen of the 22 cases have a structurally fixed one-turn rate - four
+    # have no fixture and are forced to 100%, ten are read every time and sit
+    # at 0%, and design-alerting and design-audit-log have read 0 or 1 of 10 in
+    # every stored round across three rules revisions and four CLI versions. An
+    # unscoped one_turn target is those cases diluting the six that carry all
+    # the variance, so the scope is required rather than merely advised (#46).
+    if args.target == "one_turn" and not target_cases:
+        sys.exit("--target one_turn needs --target-cases: 16 of 22 cases have a "
+                 "structurally fixed one-turn rate and would only dilute the "
+                 "count. The cases with both variance and a measured link to "
+                 "answer quality are design-cache, design-realtime and "
+                 "design-upload")
     target_models = sorted({m.strip() for m in (args.target_models or "").split(",")
                             if m.strip()})
     if target_models and not target_cases:

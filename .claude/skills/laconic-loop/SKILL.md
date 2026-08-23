@@ -153,17 +153,53 @@ python3 evals/bench/prefer.py --results "evals/snapshots/loop/round-$N.json" \
   --control baseline --jobs 6 --out "evals/snapshots/loop/round-$N-preferences.json"
 ```
 
-The controls are carried, not regenerated: no control arm carries rules in its
-system prompt, so they cannot have moved.
+**Carrying the controls was wrong, and a scoped round must not do it.** The
+rule this skill carried until 2026-08-23 was "the controls are carried, not
+regenerated: no control arm carries rules in its system prompt, so they cannot
+have moved." The premise is false. `terse-control` carries no rules either, and
+its one-turn rate went **4 of 40 to 11 of 40** between 2026-08-11 and
+2026-08-22 with nothing changed but the calendar and the CLI
+([`interleaved-batch.md`](../../../evals/results/loop/interleaved-batch.md)).
 
-**`concise-style` is in the round-21 baseline, so nothing needs seeding.** It
-is the native Claude Code `Concise` output style, delivered through `--settings`
-rather than an appended system prompt, and it is the one control that answers
-"does the plugin beat what the CLI already ships". Round 21 measured it at
-n=5 alongside everything else, and the answer so far is that on compression it
-wins: -55% on sonnet against laconic's -32%, indistinguishable on quality, and
-3 never-cut failures against laconic's 0. See
-[`docs/benchmark.md`](../../../docs/benchmark.md#the-concise-style-arm).
+A control arm can move a great deal. What it cannot do is move *because of the
+edit* — a different claim, and conflating the two is what produced every arm
+comparison since round 16 being against runs from another era. Round 21 reads
+laconic 14/40 against a carried baseline 3/40 at p = 0.0052, and that number is
+not usable: the control arm is 11 days and 12 CLI releases older than the
+treatment.
+
+**Generate every arm the round will compare, in one interleaved pass.** For a
+scoped round this is cheap, and the expense that once justified carrying was
+only ever 22 cases across two models. Three cases on sonnet at n=5 is 15 runs an
+arm, so five arms is 75 generations:
+
+```bash
+python3 evals/bench/run.py --arms baseline,terse-control,word-compression,concise-style,laconic \
+  --models sonnet --reps 5 --cases 'design-*' \
+  --snapshot "evals/snapshots/loop/round-$N.json"
+```
+
+`run.py` loops arms innermost, so a single invocation already interleaves them.
+Two rules revisions cannot share one invocation — `rules_cksum` is resolved once
+at startup — so when the round compares master against an edit, run each side
+from its own tree and alternate one rep at a time, which is what
+`interleaved-batch.md` records and what resolved a contrast at 40 runs a side
+that the archive could not resolve at any n.
+
+**Carrying is still correct for the round-wide fatal counters**, which compare
+the laconic arm of two rounds and read no control at all. What it is not correct
+for is any statement of the form "laconic against baseline".
+
+**`concise-style` belongs in every interleaved batch.** It is the native Claude
+Code `Concise` output style, delivered through `--settings` rather than an
+appended system prompt, and it is the one control that answers "does the plugin
+beat what the CLI already ships". It carries no rules, so an edit cannot move
+it, and it costs 15 runs in a scoped round. Round 21 measured it at n=5: on
+compression it wins, -55% on sonnet against laconic's -32%, indistinguishable
+on quality, and 3 never-cut failures against laconic's 0. See
+[`docs/benchmark.md`](../../../docs/benchmark.md#the-concise-style-arm). Those
+figures are from carried arms and inherit the problem above; the first matched
+measurement is the one round 23 will produce.
 
 If a future baseline is ever built from a snapshot predating an arm, `run.py`
 prints a `no runs to carry` warning naming it and records it as `missing_arms`
@@ -181,12 +217,17 @@ recognise is dropped without an error — that arm would otherwise run as a
 second copy of `baseline` and the round would publish "the native style changes
 nothing".
 
-**Their verdicts are carried too, and both flags matter.** Round 14 carried the
-control *runs* and then re-graded them anyway: 510 of its 850 judge calls, and
-$25.05 of its $41.37 judging bill, spent re-grading text the baseline had
-already graded and no fatal gate reads. Worse than wasted — the judge disagrees
-with itself on 5 to 10% of identical text, so each round re-rolled its own
-comparison rows.
+**When a round does carry control runs, carry their verdicts too.** Round 14
+carried the control *runs* and then re-graded them anyway: 510 of its 850 judge
+calls, and $25.05 of its $41.37 judging bill, spent re-grading text the baseline
+had already graded and no fatal gate reads. Worse than wasted — the judge
+disagrees with itself on 5 to 10% of identical text, so each round re-rolled its
+own comparison rows.
+
+This is not in tension with regenerating the controls above. Re-grading text
+that has *already been graded* is waste; generating *fresh* control text in the
+round's own batch is what makes an arm comparison mean anything. A round that
+regenerates its controls must judge them, because there is nothing to carry.
 
 `--carry-judgments-from` prints a warning when the source predates
 `criteria_cksum`, which is every judgments file committed before 2026-08-11.
@@ -366,6 +407,41 @@ distinction that decides which tool a cell needs, are in `evals/CRITERIA.md`.
 
 [#45]: https://github.com/JordanMPDS/laconic/issues/45
 [#94]: https://github.com/JordanMPDS/laconic/issues/94
+
+**`one_turn` is a `--target` from 2026-08-23, and it is not fatal.** It counts
+responses the model produced without calling a single tool, so on sonnet it
+never opened a file. It is far more sensitive than the judge — power 0.72
+against 0.29 at 40 runs a side — and costs nothing to grade, because
+`num_turns` is already on all 27,291 stored runs. Six rules govern it, and
+`report.py` enforces the first two:
+
+1. **Scoped or nothing.** `--target one_turn` without `--target-cases` exits.
+   Sixteen of 22 cases have a structurally fixed rate: four have no fixture and
+   sit at 100%, ten are read every time and sit at 0%, and `design-alerting`
+   and `design-audit-log` have read 0 or 1 of 10 in every stored round.
+2. **`--target-models sonnet`.** The proxy leaks on haiku — 8 of 183 one-turn
+   haiku runs quote fixture-only content, because the fixtures are small enough
+   that reading barely moves the token counts — and haiku shows no effect there
+   anyway.
+3. **The scope is `design-cache`, `design-realtime`, `design-upload`.** Those
+   are the cells with variance *and* a measured link to answer quality.
+   `design-rate-limit`, `design-retry` and `design-search` have variance and no
+   such link, and scoring a behaviour with no established consequence is how a
+   surrogate goes wrong.
+4. **It clears in addition to `quality_fails`, never instead of it.** The harm
+   is already covered by a fatal counter; this one adds resolution, not
+   coverage.
+5. **Not fatal, deliberately.** The four fatal counters are harm counters, and
+   on `floor`, `decision`, `code-fidelity` and `ordered-steps` one turn is the
+   only possible behaviour.
+6. **The gate inflates the variance by `ONE_TURN_PHI` = 3.39** for between-round
+   drift, and prints the same test uninflated beside it. A round that generated
+   both sides in one interleaved batch has removed that drift by design and may
+   cite the uninflated figure in its round doc — say so explicitly if you do.
+
+The evidence for all six is in
+[`one-turn-investigation.md`](../../../evals/results/loop/one-turn-investigation.md)
+and [`interleaved-batch.md`](../../../evals/results/loop/interleaved-batch.md).
 
 **Required to accept:** the metric your hypothesis named beats the noise floor
 — a sign test across the case/model cells *and* a median shift larger than the

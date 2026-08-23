@@ -1506,11 +1506,13 @@ import report as bench_report  # noqa: E402
 TEN_CELLS = lambda v: {(c, "sonnet"): v for c in "abcdefghij"}  # noqa: E731
 
 
-def _summary(nc=0, qf=0, sf=0, viol=0, tokens=None, flip=0.2, n_runs=110):
+def _summary(nc=0, qf=0, sf=0, viol=0, tokens=None, flip=0.2, n_runs=110,
+             one_turn=0, one_turn_n_runs=None):
     return {"never_cut_failures": nc, "quality_fails": qf, "safety_fails": sf,
             "violations_total": viol,
             "tokens": TEN_CELLS(100) if tokens is None else tokens, "flip_rate": flip,
-            "n_runs": n_runs}
+            "n_runs": n_runs, "one_turn": one_turn,
+            "one_turn_n_runs": n_runs if one_turn_n_runs is None else one_turn_n_runs}
 
 
 worse = _summary(tokens=TEN_CELLS(500))
@@ -3054,6 +3056,71 @@ if _b_v4.exists() and _r18.exists():
     check("so the headline fell while mappings rose, which is #34's whole point",
           _p18["violations_total"] < _pb["violations_total"]
           and _p18["arrow_forms"]["mapping"] > _pb["arrow_forms"]["mapping"])
+
+# --- one_turn: a target, never a fatal counter (#46) ----------------------
+#
+# The stub at tests/stubs/claude-stub.sh emits "num_turns":1 on every call, so
+# anything driven through it scores one_turn == n trivially. These assert
+# against explicit run dicts and against the committed snapshots instead.
+
+check("one_turn is a nameable count target",
+      "one_turn" in bench_report.COUNT_TARGETS)
+check("one_turn is NOT a fatal counter",
+      "one_turn" not in [f[0] for f in bench_report.FATAL])
+check("the four fatal counters are unchanged",
+      [f[0] for f in bench_report.FATAL]
+      == ["never_cut_failures", "quality_fails", "safety_fails", "violations_total"])
+
+# A rise in one_turn must not reject a round the way a fatal counter would.
+_v, _why = bench_report.accept_verdict(
+    _summary(tokens=TEN_CELLS(500)),
+    _summary(tokens=TEN_CELLS(100), one_turn=40), "output_tokens")
+check("a risen one_turn does not reject a round on its own", _v == "accept")
+
+# The inflation runs in the direction the gate asks about, and is weaker than
+# the SAME test uninflated - that is the entire point of it. Compared against
+# _count_p the ordering can flip, because that is an exact conditional binomial
+# split and this is a normal approximation on a difference of proportions; the
+# two are not nested, which is why the disclosure quotes phi = 1 and not
+# _count_p.
+_p_inf = bench_report._inflated_count_p(25, 15, 40, 40, bench_report.ONE_TURN_PHI)
+_p_flat = bench_report._inflated_count_p(25, 15, 40, 40, 1.0)
+check("a fall in one_turn gives a small p", _p_inf < 0.5)
+check("the inflated p is weaker than the same test uninflated", _p_inf > _p_flat)
+for _a, _b, _na, _nb in ((25, 15, 40, 40), (13, 7, 15, 15), (30, 10, 60, 60)):
+    check("inflation is weaker than phi=1 at %d/%d -> %d/%d" % (_a, _na, _b, _nb),
+          bench_report._inflated_count_p(_a, _b, _na, _nb, bench_report.ONE_TURN_PHI)
+          > bench_report._inflated_count_p(_a, _b, _na, _nb, 1.0))
+check("a rise in one_turn gives a large p",
+      bench_report._inflated_count_p(15, 25, 40, 40, bench_report.ONE_TURN_PHI) > 0.5)
+check("phi is the pooled between-round estimate, not 1",
+      bench_report.ONE_TURN_PHI > 1)
+check("_inflated_count_p returns None when nothing was counted",
+      bench_report._inflated_count_p(0, 0, 40, 40, bench_report.ONE_TURN_PHI) is None)
+
+# Exposure has to match the numerator, which is summed only over cases with a
+# fixture. Reusing n_runs would divide by the whole round.
+check("one_turn reads its own exposure",
+      bench_report._exposure({"n_runs": 110, "one_turn_n_runs": 40}, "one_turn") == 40)
+check("every other count target reads n_runs",
+      bench_report._exposure({"n_runs": 110, "one_turn_n_runs": 40},
+                             "quality_fails") == 110)
+
+_r21 = ROOT / "evals" / "snapshots" / "loop" / "round-21.json"
+if _r21.exists():
+    _s = bench_report.round_summary(json.loads(_r21.read_text()), [])
+    check("round-21 reports a one_turn count", _s["one_turn"] > 0)
+    # floor, decision, code-fidelity and ordered-steps have no fixture/ dir, so
+    # their responses are one-turn by construction and must not be counted.
+    _nofix = [c for c in ("floor", "decision", "code-fidelity", "ordered-steps")
+              if not (bench_report.CASES / c / "fixture").is_dir()]
+    check("the fixture-less cases are still fixture-less", len(_nofix) == 4)
+    _scoped = bench_report.round_summary(json.loads(_r21.read_text()), [],
+                                         target_cases=_nofix)
+    check("a scope of fixture-less cases contributes no one_turn",
+          _scoped["scoped"]["one_turn"] == 0)
+    check("and its one_turn exposure is 0 too, so the rate is not 0/n",
+          _scoped["scoped"]["one_turn_n_runs"] == 0)
 
 print("\n%d failure(s)" % fails)
 sys.exit(1 if fails else 0)

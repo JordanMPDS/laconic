@@ -200,3 +200,49 @@ three is not the same evidence as one that improves in three, and the sign test
 cannot see the difference.
 
 [#88]: https://github.com/JordanMPDS/laconic/issues/88
+
+### Why the scope was not narrowed
+
+Asked during step 8b, before its result existed: would it be better to score
+only the cells that behave? Dropping `design-realtime`/sonnet and
+`design-cache`/sonnet takes 7 of 9 to 7 of 7, p = 0.016. **That is
+manufacturing a pass**, and the loop's own rule is that cases are named in step
+5, not picked once the round is in.
+
+There is a real instrument finding underneath the question, and it is
+decidable from the baseline alone without reference to any round's outcome.
+Per-cell dispersion in `round-21.json`, laconic arm:
+
+| cell | baseline median | stdev | CV |
+|---|--:|--:|--:|
+| `design-alerting`/sonnet | 4364 | 448 | 0.10 |
+| `design-audit-log`/sonnet | 5167 | 895 | 0.17 |
+| `design-search`/sonnet | 2013 | 440 | 0.22 |
+| `design-upload`/sonnet | 3609 | 1017 | 0.28 |
+| `design-retry`/sonnet | 4421 | 1311 | 0.30 |
+| `design-audit-log`/haiku | 1463 | 503 | 0.34 |
+| `design-rate-limit`/sonnet | 3440 | 1208 | 0.35 |
+| **`design-realtime`/sonnet** | 1716 | 854 | **0.50** |
+| **`design-cache`/sonnet** | 2423 | 1528 | **0.63** |
+
+**The two cells that misbehaved are the two most dispersed voting cells**, CV
+0.50 and 0.63 against a voting-cell median of 0.30. `design-cache`/sonnet
+disperses 1528 tokens on a 2423 median, so a 1452-token effect sits inside one
+standard deviation of that cell's own noise: it cannot resolve what is being
+measured.
+
+**The 1200-token floor gates on level and should gate on dispersion.** That is
+`instrument-notes.md`'s complaint about `design-search` in sharper form, and the
+same class of defect as [#51].
+
+It is not applied here, for three reasons. Swapping the criterion mid-round is
+still choosing after the fact even with a principled story attached, and the
+story arrived after seeing which cells failed. The registered step 8b rule
+already answers dispersion the right way — pooling to 25 reps a cell more than
+halves `design-cache`/sonnet's standard error, so a real effect surfaces and an
+absent one is exposed. And a dispersion floor would change which cells voted in
+rounds 07 through 24, so it has to be validated by re-scoring the stored rounds
+and publishing what moves, the way [#51] and [#94] were.
+
+[#51]: https://github.com/JordanMPDS/laconic/issues/51
+[#94]: https://github.com/JordanMPDS/laconic/issues/94

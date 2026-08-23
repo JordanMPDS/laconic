@@ -3,9 +3,12 @@
 **Baseline:** `evals/snapshots/loop/round-21.json` (+`-judgments`)
 **Snapshot:** `evals/snapshots/loop/round-24.json`, `round-24-judgments.json`
 **Rules under test:** `rules_cksum` 3694954268 (baseline 1830906901)
-**Verdict: accept, and proposed.** Cleared step 7, step 8b pooled, and the
-step 9 holdout. The first edit in 24 rounds to reach the end of the procedure
-intact. **Not merged — the loop proposes, a human merges.**
+**Verdict: accept at step 7 under the pre-registered baseline, with a
+disclosed robustness failure at step 8b.** An independent third-party review
+showed the step 8b gate verdict flips when a better-matched baseline is
+substituted. The compression is real and survives; the sign-test framing does
+not. See **Re-score** below, which is the section to read before citing
+anything here. **Not merged — the loop proposes, a human merges.**
 
 ## Hypothesis
 
@@ -152,8 +155,10 @@ An independent generation of all eight design cases at n=10, fresh snapshot,
 | `design-upload`/sonnet | 3609 | 2278 | 1925 |
 
 **7 of 9 cells improved, sign test p = 0.1797**, against round 24's 8 of 9 at
-p = 0.039. The median shift is **1618**, larger than round 24's 1452 and past
-the 895 floor, and the grounded median holds at 2541 against baseline's 4350
+p = 0.039. The median shift is **1564** — this figure was first published as
+1618, computed as a median of per-cell differences rather than `report.py`'s
+difference of medians; the correct estimator gives 1564, and steps 7 and 8b
+used it — larger than round 24's 1452 and past the 895 floor, and the grounded median holds at 2541 against baseline's 4350
 (−42%, against round 24's −47%).
 
 `design-realtime`/sonnet went the wrong way in **both** generations.
@@ -272,12 +277,15 @@ with a shift past 895. It clears all three.
 Disclosed consistency: **7 of 9 cells improved in all three independent
 generations**, one in two, one in one, none in zero.
 
-Both cells named in advance resolved, in opposite directions. `design-cache`/
-sonnet — the CV 0.63 cell — pooled to an improvement, reading 1916, 2874, 1216
-across the three draws, which is what a real effect inside a noisy cell looks
-like; **pooling was the right answer to dispersion, not exclusion.**
-**`design-realtime`/sonnet fails pooled**, improving in one generation of three,
-and it stands as a named limit of this edit rather than a screened-out cell.
+Both cells named in advance moved, `design-cache`/sonnet to an improvement and
+`design-realtime`/sonnet to a failure.
+
+**Two claims that stood here have been withdrawn.** They read that pooling was
+"the right answer to dispersion, not exclusion" for `design-cache`/sonnet, and
+that `design-realtime`/sonnet "stands as a named limit of this edit". Both are
+artefacts of the round-21 baseline draw and **both reverse against a
+better-matched baseline** — see **Re-score**. Neither is a property of the
+edit.
 
 Reading rate across baseline and the three generations: 65%, 72%, 65%, 62%.
 **Flat.** The retraction above stands.
@@ -332,3 +340,116 @@ retracted. `design-realtime`/sonnet is a cell where it does not work.
 
 **The first edit in 24 rounds to clear every gate the loop has.** Steps 7, 8,
 8b and 9. It is proposed, not merged.
+
+---
+
+# Re-score, after third-party review
+
+An adversarial review of step 8b was delegated to an independent model
+(DeepSeek v4-pro, separate harness, no access to this session's reasoning). Its
+verdict was **SUPPORTED WITH CAVEATS**, and the central caveat is fatal to how
+this round presented its evidence. Every figure it computed reproduces. Its
+report is committed at `evals/results/loop/REVIEW-step8b.md`.
+
+## The finding: the gate verdict depends on which baseline is chosen
+
+The repository already contained a second, independent generation of the
+**byte-identical baseline rules text** on the same eight design cases —
+`licence-vs-master-master.json`, `rules_cksum` **1830906901**, **CLI 2.1.240**,
+generated 2026-08-22. That is the same CLI build as all three treatment
+generations and one day nearer to them than round 21, whose laconic arm is CLI
+2.1.239 and eight days earlier. **It is a strictly better-matched baseline, it
+was generated in this session, and this round did not use it.**
+
+Two draws of one rules text disagree by up to a factor of two, in both
+directions:
+
+| cell | round-21 | CLI-matched | ratio |
+|---|--:|--:|--:|
+| `design-alerting`/sonnet | 4364 | 5784 | 1.33 |
+| `design-audit-log`/sonnet | 5167 | 5137 | 0.99 |
+| `design-cache`/sonnet | 2423 | 4202 | **1.73** |
+| `design-rate-limit`/sonnet | 3440 | 2428 | 0.71 |
+| `design-realtime`/sonnet | 1716 | 3369 | **1.96** |
+| `design-retry`/sonnet | 4421 | 2600 | **0.59** |
+| `design-search`/sonnet | 2013 | 1870 | 0.93 |
+| `design-upload`/sonnet | 3609 | 2165 | **0.60** |
+
+Holding the pooled treatment data **completely unchanged** and swapping only the
+baseline:
+
+| baseline | cells | sign p | median shift | floor | gate |
+|---|--:|--:|--:|--:|:--|
+| round-21 (CLI 2.1.239, 8 days earlier) | 8 of 9 | 0.0391 | 1547 | 895.0 | **PASS** |
+| CLI-matched (CLI 2.1.240, same build) | 8 of 8 | **0.0078** | 1089 | 1269.6 | **REJECT** |
+
+**Both estimators change their story at once.** The sign test gets stronger and
+the median shift gets weaker and falls inside that baseline's own noise floor.
+`report.py` would reject the identical treatment data.
+
+**This is not a reason to prefer either baseline.** Both are single 5-rep draws.
+The finding is that two equally defensible draws of one text give opposite
+verdicts from the same treatment data, which means **the step 8b gate result is
+a fact about a baseline draw and not about the edit.**
+
+## What is withdrawn
+
+- **`design-realtime`/sonnet is not "a cell where the edit does not work".**
+  Against the matched baseline it improves 3369 to 1887, a 44% fall. Its
+  round-21 draw came in low.
+- **The `design-cache`/sonnet pooling argument is withdrawn.** Against the
+  matched baseline it improves 4202 to 1916, a 54% fall, with no pooling
+  needed. The 1916-against-2423 knife-edge was a property of the baseline draw,
+  not a demonstration that pooling answers dispersion.
+- **Step 8's median shift of 1618 was the wrong estimator** (median of per-cell
+  differences instead of difference of medians). Correct value **1564**.
+
+## Why the pass had no margin anyway
+
+Independent of the baseline question, the review showed the step 8b pass sits on
+a knife-edge at every joint. 8 of 9 is the minimum that passes; 7 of 9 is
+p = 0.1797. The deciding cell is `design-cache`/sonnet, on its own at Mann-
+Whitney p = 0.164 — of its 25 pooled reps, 14 fall below the baseline median
+where 13 are needed, so **two observations out of twenty-five reverse the
+round.** And whether `design-audit-log`/haiku votes at all is roughly a 2:1 coin
+flip on a 5-rep draw at a 1200 floor; without it, 7 of 8 is p = 0.0703.
+
+## What survives, and it is the part this round under-sold
+
+Per-cell Mann-Whitney of the pooled treatment against each baseline
+independently — no sign test, no floor, no cell-counting:
+
+| cell | vs round-21 | vs CLI-matched |
+|---|--:|--:|
+| `design-search`/sonnet | **0.0008** | **0.0006** |
+| `design-alerting`/sonnet | **0.0010** | **0.0008** |
+| `design-audit-log`/sonnet | **0.0032** | **0.0089** |
+| `design-rate-limit`/sonnet | **0.0038** | 0.0194 |
+| `design-retry`/sonnet | **0.0045** | 0.0345 |
+| `design-upload`/sonnet | 0.0225 | 0.1817 |
+| `design-cache`/sonnet | 0.1642 | 0.0585 |
+| `design-realtime`/sonnet | 0.8239 | 0.1330 |
+
+**Three cells clear p < 0.01 against both baselines; five clear p < 0.05
+against both.** Seven of eight sonnet cells compress against both. That is
+robust to the baseline choice the sign test is not robust to, and **it is the
+evidence this edit should be cited on.**
+
+(The review stated 6 of 9 cells at p < 0.01 and all 8 sonnet cells compressing
+against both baselines. Recomputed here: 5 of 9 and 7 of 8. Its central finding
+reproduces exactly; these two supporting figures were slightly overstated.)
+
+## Standing conclusion
+
+The edit compresses grounded design answers, and the per-cell evidence for that
+is strong and baseline-robust. **The step 8b "8 of 9, p = 0.0391" figure should
+not be cited** — it is a property of one baseline draw, and a better-matched
+draw of the same rules text rejects. Steps 7 and 9 stand as recorded, both
+having been run against the pre-registered baseline.
+
+**What this round actually demonstrates about the instrument** is that a
+single-draw baseline cannot support a nine-cell sign test at this effect size.
+That is the same lesson as `interleaved-batch.md`, reaching the loop's token
+target for the first time: **the treatment and its baseline must be generated in
+one interleaved batch.** Round 24 did not do that, and no amount of replicating
+the treatment side fixes it.

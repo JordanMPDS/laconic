@@ -3,8 +3,9 @@
 **Baseline:** `evals/snapshots/loop/round-21.json` (+`-judgments`)
 **Snapshot:** `evals/snapshots/loop/round-24.json`, `round-24-judgments.json`
 **Rules under test:** `rules_cksum` 3694954268 (baseline 1830906901)
-**Verdict:** pending — this file is the pre-registration, written before any
-generation.
+**Verdict: accept, and proposed.** Cleared step 7, step 8b pooled, and the
+step 9 holdout. The first edit in 24 rounds to reach the end of the procedure
+intact. **Not merged — the loop proposes, a human merges.**
 
 ## Hypothesis
 
@@ -246,3 +247,88 @@ and publishing what moves, the way [#51] and [#94] were.
 
 [#51]: https://github.com/JordanMPDS/laconic/issues/51
 [#94]: https://github.com/JordanMPDS/laconic/issues/94
+
+## Step 8b: survives, on the rule registered before it ran
+
+A second independent generation at n=10, 160 runs, 0 failed, maximum one run in
+flight. The decision is the pooled one registered above.
+
+| cell | base | r24 | rep 1 | rep 2 | pooled | improved | consistency |
+|---|--:|--:|--:|--:|--:|:--|--:|
+| `design-alerting`/sonnet | 4364 | 2494 | 2200 | 3030 | 2539 | yes | 3/3 |
+| `design-audit-log`/sonnet | 5167 | 2877 | 3550 | 3252 | 3452 | yes | 3/3 |
+| `design-audit-log`/haiku | 1463 | 1415 | 1260 | 1228 | 1272 | yes | 3/3 |
+| `design-cache`/sonnet | 2423 | 1916 | 2874 | 1216 | 1916 | yes | 2/3 |
+| `design-rate-limit`/sonnet | 3440 | 1988 | 1471 | 1839 | 1893 | yes | 3/3 |
+| **`design-realtime`/sonnet** | 1716 | 2190 | 1876 | 1507 | 1887 | **NO** | 1/3 |
+| `design-retry`/sonnet | 4421 | 1604 | 1838 | 2411 | 1842 | yes | 3/3 |
+| `design-search`/sonnet | 2013 | 1239 | 1224 | 1425 | 1378 | yes | 3/3 |
+| `design-upload`/sonnet | 3609 | 2278 | 1925 | 1702 | 1898 | yes | 3/3 |
+
+**8 of 9 cells improved, sign p = 0.0391, median shift 1547** against the 895
+floor, on 25 reps a cell. The registered rule was 8 of 9 or better at p ≤ 0.05
+with a shift past 895. It clears all three.
+
+Disclosed consistency: **7 of 9 cells improved in all three independent
+generations**, one in two, one in one, none in zero.
+
+Both cells named in advance resolved, in opposite directions. `design-cache`/
+sonnet — the CV 0.63 cell — pooled to an improvement, reading 1916, 2874, 1216
+across the three draws, which is what a real effect inside a noisy cell looks
+like; **pooling was the right answer to dispersion, not exclusion.**
+**`design-realtime`/sonnet fails pooled**, improving in one generation of three,
+and it stands as a named limit of this edit rather than a screened-out cell.
+
+Reading rate across baseline and the three generations: 65%, 72%, 65%, 62%.
+**Flat.** The retraction above stands.
+
+## Step 9: the holdout is level
+
+Both arms generated on the reserved set, **interleaved one rep at a time**
+between two trees, all six holdout cases, both models, n=10. 240 generations
+and 240 judge calls, **0 failed, 0 infrastructure failures**, maximum one run in
+flight. `round-15-holdout-master.json` was deliberately *not* reused as the
+control: it is from 2026-08-11 and twelve CLI releases back, and this session
+retired stale controls twice.
+
+Per the loop's rule, directions and significance only.
+
+| holdout case | direction | p |
+|---|---|--:|
+| `holdout-design` | better | 1.0000 |
+| `holdout-verdict` | better | 1.0000 |
+| `holdout-ordered` | level | 1.0000 |
+| `holdout-short` | level | 1.0000 |
+| `holdout-destructive` | worse | 1.0000 |
+| `holdout-explain` | worse | 1.0000 |
+
+**Round-wide: level, Fisher p = 1.0000.** Every case differs by at most one
+verdict.
+
+The uniform 1.0000 was checked before being reported, because a judging pass
+that failed to discriminate produces exactly that pattern. It discriminated:
+both arms returned substantial failure counts on a 120-run side, in the same
+range round 15's holdout produced. This is a tie, not an artefact.
+
+**`holdout-design` is the case that killed round 15**, and it comes back
+better. The bare licence made ungrounded design answers worse on unseen cases;
+the earned clause is the only difference between the two rules texts.
+
+**The limit, stated rather than left implicit.** At 120 runs a side against a
+28% control failure rate, the smallest regression this run could have detected
+is a rise of 16 failures, 48% relative. Round 15's regression exceeded that and
+cleared alpha comfortably. **This rules out a round-15-sized harm. It does not
+rule out a modest one**, and "no detectable regression" is not "no harm".
+
+## What this edit earns, stated no more strongly than the evidence
+
+`rules_cksum` 3694954268 **compresses grounded design answers by roughly 45%
+without the reading collapse the bare licence causes** — the bare licence drops
+reading to 23% at Fisher p = 0.0038, this holds at baseline — at no measurable
+quality cost on the dev set or the holdout.
+
+It does **not** improve investigation. That claim was made from round 24 and is
+retracted. `design-realtime`/sonnet is a cell where it does not work.
+
+**The first edit in 24 rounds to clear every gate the loop has.** Steps 7, 8,
+8b and 9. It is proposed, not merged.

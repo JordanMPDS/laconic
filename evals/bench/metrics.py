@@ -9,7 +9,9 @@ degraded grammar, not a parser.
 Every detector runs on code-stripped prose: `->` in Rust and `impl` in a
 command are correct usage, and counting them would make the metric worthless.
 """
+import math
 import re
+import statistics
 
 # Surrounding whitespace/newlines are swallowed along with the fence itself
 # (not just the ```...``` span) so the removal doesn't leave a lone
@@ -233,6 +235,32 @@ def score(text):
         "spans": spans,
     }
 
+
+
+def median(xs, default=0):
+    """Median, or `default` for an empty sequence.
+
+    Lived in both levels.py and report.py as a byte-identical `_median`. Two
+    copies of a two-line function is two places to keep a default in sync.
+    """
+    return statistics.median(xs) if xs else default
+
+
+def sign_test(k, n):
+    """Two-sided exact binomial p for k successes in n at p=0.5.
+
+    The per-case directions are what decide whether a level boundary does
+    anything, and 11 of 22 has to be reported as the coin flip it is rather
+    than as a direction. Exact rather than normal-approximated: n is 22.
+
+    Lives here rather than in levels.py because report.py needs only this from
+    that module, and importing a 324-line standalone CLI tool for one function
+    is a dependency the report does not otherwise have.
+    """
+    if n == 0:
+        return 1.0
+    tail = sum(math.comb(n, i) for i in range(0, min(k, n - k) + 1))
+    return min(1.0, 2 * tail / 2 ** n)
 
 def never_cut_missing(text, keywords):
     low = text.lower()

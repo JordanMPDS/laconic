@@ -19,7 +19,6 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 import metrics  # noqa: E402
 import run as bench_run  # noqa: E402
 import judge as bench_judge  # noqa: E402
-import levels as bench_levels  # noqa: E402
 
 ROOT = Path(__file__).resolve().parents[2]
 CASES = ROOT / "evals" / "cases"
@@ -82,8 +81,7 @@ def case_saturated_models(case):
     return d if isinstance(d, dict) else {}
 
 
-def _median(xs, default=0):
-    return statistics.median(xs) if xs else default
+_median = metrics.median
 
 
 # The noise floor is the published dispersion, not a fresh invention: 260 is
@@ -856,7 +854,7 @@ def accept_verdict(prev, cur, target, noise=None, target_cases=None,
                               for c in cells)
                   if f is not None]
         if len(cells) < 6:
-            p_all = bench_levels.sign_test(len(cells), len(cells)) if cells else 1.0
+            p_all = metrics.sign_test(len(cells), len(cells)) if cells else 1.0
             reasons.append("REJECT: scoped output_tokens needs at least 6 "
                            "case/model cells to reach alpha; %d cells sweep at "
                            "p = %.3f%s" % (len(cells), p_all, dropped))
@@ -871,13 +869,13 @@ def accept_verdict(prev, cur, target, noise=None, target_cases=None,
         else:
             floor = _median(floors)
             improved = sum(1 for c in cells if cur["tokens"][c] < prev["tokens"][c])
-            p = bench_levels.sign_test(improved, len(cells))
+            p = metrics.sign_test(improved, len(cells))
             shift = (_median([prev["tokens"][c] for c in cells])
                      - _median([cur["tokens"][c] for c in cells]))
             wide_cells = sorted(set(prev["tokens"]) & set(cur["tokens"]))
             wide_improved = sum(1 for c in wide_cells
                                 if cur["tokens"][c] < prev["tokens"][c])
-            wide_p = (bench_levels.sign_test(wide_improved, len(wide_cells))
+            wide_p = (metrics.sign_test(wide_improved, len(wide_cells))
                       if wide_cells else 1.0)
             where = " on %s" % ", ".join(sorted(wanted))
             wide = (" (round-wide %d of %d cells, p = %.3f)"
@@ -900,7 +898,7 @@ def accept_verdict(prev, cur, target, noise=None, target_cases=None,
     elif target == "output_tokens":
         cells = sorted(set(prev["tokens"]) & set(cur["tokens"]))
         improved = sum(1 for c in cells if cur["tokens"][c] < prev["tokens"][c])
-        p = bench_levels.sign_test(improved, len(cells)) if cells else 1.0
+        p = metrics.sign_test(improved, len(cells)) if cells else 1.0
         shift = (_median([prev["tokens"][c] for c in cells])
                  - _median([cur["tokens"][c] for c in cells])) if cells else 0
         if not cells:

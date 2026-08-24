@@ -23,7 +23,6 @@ packages.
 """
 import argparse
 import math
-import statistics
 import sys
 from collections import defaultdict
 from pathlib import Path
@@ -39,8 +38,7 @@ METRICS = (("words", "words of response text"),
            ("output_tokens", "output tokens (includes tool turns)"))
 
 
-def _median(xs, default=0):
-    return statistics.median(xs) if xs else default
+_median = metrics.median
 
 
 def ladder(values):
@@ -60,17 +58,7 @@ def ladder(values):
     return "monotonic" if all(a > b for a, b in pairs) else "broken"
 
 
-def sign_test(k, n):
-    """Two-sided exact binomial p for k successes in n at p=0.5.
-
-    The per-case directions are what decide whether a level boundary does
-    anything, and 11 of 22 has to be reported as the coin flip it is rather
-    than as a direction. Exact rather than normal-approximated: n is 22.
-    """
-    if n == 0:
-        return 1.0
-    tail = sum(math.comb(n, i) for i in range(0, min(k, n - k) + 1))
-    return min(1.0, 2 * tail / 2 ** n)
+sign_test = metrics.sign_test
 
 
 def level_view(path):

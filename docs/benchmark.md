@@ -16,14 +16,19 @@ benchmark publish. This is that publish.
 
 | vs baseline | tokens (sonnet) | tokens (haiku) | latency (sonnet) | readability violations | quality pass rate | never-cut failures |
 |---|--:|--:|--:|--:|--:|--:|
-| **laconic** | -32% | -9% | -32% | **66** | 59.7% | **0 / 50** |
-| concise-style | **-55%** | **-12%** | **-52%** | 113 | 58.4% | 3 / 50 |
+| **laconic** | -32% | -9% | -32% | **66** | 59.7% | 0 / 50 † |
+| concise-style | **-55%** | **-12%** | **-52%** | 113 | 58.4% | 3 / 50 † |
 | terse-control | -3% | -2% | 0% | 107 | **71.9%** | 1 / 50 |
 | word-compression | +7% | +5% | +6% | 176 | 70.3% | 1 / 50 |
 | baseline | 0% | 0% | 0% | 134 | 68.1% | 0 / 50 |
 
 Every column is reported as measured, on both models and all five arms. Three
 readings of it are load-bearing, and two of them are against the plugin.
+
+† **Do not read the never-cut column as a gap between laconic and
+`concise-style`.** Both figures are five-rep draws, and re-measuring the only
+two cells they differ on at n = 20 a side puts the two arms level at 4 of 40
+each — see [Compression](#compression) below.
 
 **Laconic is the cleanest arm on prose and the cheapest on Sonnet.** 66
 readability violations against baseline's 134, 31 of 220 responses carrying one
@@ -152,11 +157,47 @@ quoting on its own.
 `concise-style` is shorter than laconic on 19 of 22 Sonnet cases and 16 of 22
 on Haiku, several by large margins — `design-retry` at 1652 tokens against
 laconic's 4421, `design-upload` at 1469 against 3609. Laconic is shorter on
-exactly two Sonnet cases, and which two is the interesting part: `destructive`
-(810 against 1488) and `conditional` (644 against 671) are the two cases that
-carry never-cut keyword lists, and they are also the two cases `concise-style`
-fails the never-cut check on. The arm that keeps the protected content is the
-arm that spends tokens on it.
+exactly two Sonnet cases: `destructive` (810 against 1488) and `conditional`
+(644 against 671), the two cases that carry never-cut keyword lists.
+
+**That was published as laconic spending its tokens on the protected content,
+and the reading does not survive measurement.** Round 21's three
+`concise-style` never-cut failures were all on Haiku and all in two cells:
+`conditional` 1 of 5, and `destructive` 2 of 5. Those two cells were
+re-measured on 2026-08-24 in one matched interleaved batch — `baseline`,
+`concise-style` and `laconic`, Haiku, n = 20 a side, 120 generations, one CLI
+build (2.1.240), no carried arms — in
+`evals/snapshots/loop/never-cut-concise.json`:
+
+| arm | never-cut failures | `conditional` | `destructive` | judge pass, `conditional` | judge pass, `destructive` |
+|---|--:|--:|--:|--:|--:|
+| `baseline` | 0 / 40 | 0 / 20 | 0 / 20 | 14 / 20 | 0 / 20 |
+| `concise-style` | 4 / 40 | 2 / 20 | 2 / 20 | 11 / 20 | 0 / 20 |
+| **`laconic`** | 4 / 40 | 0 / 20 | 4 / 20 | 9 / 20 | 0 / 20 |
+
+**The two compression arms are level on the substring check**, 4 of 40 each,
+Fisher p = 1.0. On `destructive` laconic fails more often, 4 of 20 against
+2 of 20 at p = 0.66, and 4 in 20 is what laconic's own measured rate for that
+cell — 5 in 65 — predicts. Laconic's 0 in round 21 was a five-rep draw rather
+than a clean sheet.
+
+Both failure sets were read rather than counted. All six `destructive` failures
+name `invoices` as the only obstacle and never mention `sessions`, which is that
+case's documented fail condition, so they are real failures. The two
+`conditional` failures are substring artifacts: both responses diagnose the leak
+correctly, `try`/`finally` fix included, and simply never use the word.
+
+**Under the blind judge, `destructive` on Haiku separates nothing at all** —
+every arm fails 20 of 20. Whatever that cell measures on Sonnet, at this sample
+size on Haiku it has no opinion, which is worth knowing before a round is scoped
+on it. `conditional` grades adherence to laconic's own rules and so supports no
+arm comparison in either direction; its column is here for completeness, and
+laconic is the lowest arm in it.
+
+The one contrast the batch did produce is not between the compression arms:
+`baseline` failed 0 of 40 where the two of them together failed 8 of 80,
+p = 0.0508. Any compression instruction may cost never-cut fidelity. That is
+suggestive, it is not established, and the batch was not scoped to test it.
 
 On Sonnet laconic's stdev is 480.5 against baseline's 447.8 and
 `concise-style`'s 246.9. The native style is both shorter and more consistent.
@@ -280,6 +321,13 @@ Checked on the 50 responses per arm that carry a keyword list by design.
 | terse-control | 1 / 50 | `conditional`/sonnet rep3 dropped `leak` |
 | word-compression | 1 / 50 | `destructive`/haiku rep1 dropped `sessions` |
 | concise-style | 3 / 50 | `conditional`/haiku rep0 dropped `leak`; `destructive`/haiku reps 0 and 3 dropped `sessions` |
+
+**Every cell in this table is a five-rep draw, and the laconic-versus-
+`concise-style` gap in it did not survive replication.** Both of
+`concise-style`'s cells were re-run at n = 20 a side against laconic and
+baseline in one matched batch, and the two compression arms came out level at
+4 of 40 each while laconic went from 0 to 4 of 20 on `destructive`. The table
+and the reading are in [Compression](#compression).
 
 **This column contradicts the judge, and the judge is the one to believe.** On
 `destructive`, laconic has a clean never-cut sheet and passes **2 of 10** under

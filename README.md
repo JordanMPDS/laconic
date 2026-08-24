@@ -128,11 +128,15 @@ answer quality.
 
 | vs baseline | tokens (sonnet) | tokens (haiku) | latency (sonnet) | readability violations | quality pass rate | never-cut failures |
 |---|--:|--:|--:|--:|--:|--:|
-| **laconic** | -32% | -9% | -32% | **66** | 59.7% | **0 / 50** |
-| concise-style | **-55%** | **-12%** | **-52%** | 113 | 58.4% | 3 / 50 |
+| **laconic** | -32% | -9% | -32% | **66** | 59.7% | 0 / 50 † |
+| concise-style | **-55%** | **-12%** | **-52%** | 113 | 58.4% | 3 / 50 † |
 | terse-control | -3% | -2% | 0% | 107 | **71.9%** | 1 / 50 |
 | word-compression | +7% | +5% | +6% | 176 | 70.3% | 1 / 50 |
 | baseline | 0% | 0% | 0% | 134 | 68.1% | 0 / 50 |
+
+† **The never-cut column is not a gap between laconic and `concise-style`.**
+Both figures are five-rep draws, and re-measuring the only two cells they differ
+on at n = 20 a side puts the two arms level at 4 failures of 40 each. See below.
 
 **What laconic wins.** It is the cleanest arm on readability by a wide margin —
 66 violations against baseline's 134, and 31 of 220 responses carrying one
@@ -152,11 +156,22 @@ the quality-graded cases than the whole rule file did.
 **Claude Code now ships a competitor, and on compression it wins.** The built-in
 `Concise` output style cuts Sonnet output 55% against laconic's 32%, at half the
 latency, and is statistically indistinguishable from laconic on answer quality
-(58.4% against 59.7%, z = +0.22). Laconic's remaining edge over it is safety and
-prose quality: `Concise` fails the never-cut check 3 times of 50 where laconic
-fails 0, and carries 113 readability violations against laconic's 66. If you
-want maximum compression and can accept dropped never-cut content, the built-in
-style is free and already installed.
+(58.4% against 59.7%, z = +0.22). **Laconic's remaining edge over it is prose
+quality, and not safety** — 113 readability violations against laconic's 66.
+
+The never-cut column above was previously read as a safety edge, and it is not
+one. Round 21's three `concise-style` failures were all on Haiku and all in two
+cells, `conditional` and `destructive`. Re-running exactly those two cells on
+2026-08-24 in one matched interleaved batch — `baseline`, `concise-style` and
+`laconic`, n = 20 a side, 120 generations on one CLI build — put the two
+compression arms level at 4 failures of 40 each (Fisher p = 1.0), with laconic
+the worse of the two on `destructive`, 4 of 20 against 2 of 20. Laconic's 0 in
+the table is a five-rep draw. Under the blind judge that case separates nothing
+at all on Haiku: every arm fails 20 of 20. The full tables are in
+[docs/benchmark.md](docs/benchmark.md#compression).
+
+If you want maximum compression, the built-in style is free and already
+installed.
 
 **One column contradicts another, and the judge is the one to believe.** On
 `destructive`, laconic has a clean never-cut sheet and still passes only 2 of 10

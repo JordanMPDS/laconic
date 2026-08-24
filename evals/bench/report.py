@@ -160,6 +160,25 @@ ONE_TURN_PHI = 3.39
 CELL_RATE_MIN_RUNS = 30
 CELL_RATES = ROOT / "evals" / "snapshots" / "loop" / "cell-rates.json"
 
+# A cell with at least this many runs on BOTH sides is compared as a rate, with
+# a test, rather than as one count against another (#133). Below it, nothing
+# changes: the count comparison and the measured-rate screen above stand.
+#
+# The bar is where the test has enough power to be worth having. With the
+# control cell at 0, the smallest treatment count that reaches alpha = 0.05
+# one-sided is:
+#
+#     n per side   5    10    15    20    25    30    40
+#     detects     80%   40%   27%   25%   20%   17%   12%   of the cell
+#
+# At five or ten runs a side the test would clear four fifths of a cell failing
+# outright, which is not a sharper gate but a broken one - so those rounds keep
+# the rule they were scored under. At twenty it detects a quarter of a cell,
+# which is a regression worth the name. Round 25 is the first round the loop
+# has run at 25 reps a side, and it is the first round this can act on: the
+# re-score in evals/results/loop/count-vs-rate.md moves no stored verdict.
+CELL_TEST_MIN_RUNS = 20
+
 # A scoped output_tokens cell whose baseline is shorter than this does not vote
 # in the sign test. The test counts votes, so a cell that cannot express the
 # effect still casts one, and two such cells rejected rounds 11 and 14 outright
@@ -182,6 +201,56 @@ TOKEN_CELL_MIN_BASELINE = 1200
 def _binom_cdf(k, n, p):
     """P(X <= k) for X ~ Binomial(n, p). Exact; n here is a handful of events."""
     return sum(math.comb(n, i) * p ** i * (1 - p) ** (n - i) for i in range(k + 1))
+
+
+def _fisher_upper_tail(k1, n1, k2, n2):
+    """One-sided Fisher exact: P(treatment >= k1) at the observed margins.
+
+    k1 of n1 is the round's cell, k2 of n2 the side it is compared against.
+    Hypergeometric, summed from the observed count up, so it answers "could a
+    cell this size draw this many failures by chance" rather than the
+    two-sided question, which would spend half its alpha on an improvement.
+    """
+    def lf(n):
+        return math.lgamma(n + 1)
+
+    def hyp(a, b, c, d):
+        return math.exp(lf(a + b) + lf(c + d) + lf(a + c) + lf(b + d)
+                        - lf(a) - lf(b) - lf(c) - lf(d) - lf(a + b + c + d))
+    total = 0.0
+    for i in range(k1, min(n1, k1 + k2) + 1):
+        j, k = n1 - i, (k1 + k2) - i
+        l = n2 - k
+        if j < 0 or k < 0 or l < 0:
+            continue
+        total += hyp(i, j, k, l)
+    return min(1.0, total)
+
+
+def _sample_covers(cur_count, cur_runs, prev_count, prev_runs, alpha):
+    """Is this cell's rise inside the sampling noise of the two draws (#133)?
+
+    The fatal counters ask whether one count exceeds another. That question
+    has no answer when both sides are draws from the same cell: round 25 lost
+    quality on four cells whose pooled rates were 39 of 199 against 81 of 394,
+    Fisher p = 0.83, and two of the four had a control count of 0, which any
+    single failure exceeds. A count is not evidence; a rate with an interval
+    is.
+
+    So where both sides have enough runs to estimate a rate - CELL_TEST_MIN_RUNS,
+    which is about power, not about ceremony - ask whether the treatment cell
+    is higher than the control cell at the same alpha the rest of the gate
+    uses. Where either side is short, this returns False and the cell is scored
+    exactly as it was before, which is why no stored round moves.
+
+    This is the same correction _rate_covers makes against a separately
+    measured master-rules rate, applied to the case where the comparison's own
+    control side is large enough to supply the rate.
+    """
+    if cur_runs < CELL_TEST_MIN_RUNS or prev_runs < CELL_TEST_MIN_RUNS:
+        return False
+    return _fisher_upper_tail(cur_count, cur_runs,
+                              prev_count, prev_runs) >= alpha
 
 
 def _rate_covers(rate, count, runs, alpha):
@@ -743,14 +812,24 @@ def accept_verdict(prev, cur, target, noise=None, target_cases=None,
         # named. Silently dropping a cell from a fatal counter would be the
         # worst version of this change.
         covered_by_rate = []
+        cur_runs = (cur.get("cell_runs") or {})
+        prev_runs = (prev.get("cell_runs") or {})
         if risen and cell_rates:
             rates = cell_rates.get(key) or {}
-            cur_runs = (cur.get("cell_runs") or {})
             covered_by_rate = [
                 c for c in risen
                 if _rate_covers(rates.get(c), cur_cells.get(c, 0),
                                 cur_runs.get(c, 0), noise["alpha"])]
             risen = [c for c in risen if c not in covered_by_rate]
+        # Where both sides have enough runs to estimate a rate, the rise is
+        # tested rather than counted (#133). Below CELL_TEST_MIN_RUNS on either
+        # side this covers nothing and the cell keeps the count comparison.
+        covered_by_sample = [
+            c for c in risen
+            if _sample_covers(cur_cells.get(c, 0), cur_runs.get(c, 0),
+                              prev_cells.get(c, 0), prev_runs.get(c, 0),
+                              noise["alpha"])]
+        risen = [c for c in risen if c not in covered_by_sample]
         comp = ""
         if risen:
             comp = "; cells: " + ", ".join(
@@ -765,18 +844,40 @@ def accept_verdict(prev, cur, target, noise=None, target_cases=None,
                    100.0 * (cell_rates[key][c]["failures"]
                             / cell_rates[key][c]["runs"]))
                 for c in covered_by_rate))
-        if not risen and covered_by_rate:
-            reasons.append("%s rise (%d -> %d) is within the measured rate%s"
-                           % (label, prev[key], cur[key], comp))
+        if covered_by_sample:
+            comp += ("; inside the round's own sampling: " + ", ".join(
+                "%s/%s %d of %d against %d of %d, p = %.3f"
+                % (c[0], c[1], cur_cells.get(c, 0), cur_runs.get(c, 0),
+                   prev_cells.get(c, 0), prev_runs.get(c, 0),
+                   _fisher_upper_tail(cur_cells.get(c, 0), cur_runs.get(c, 0),
+                                      prev_cells.get(c, 0), prev_runs.get(c, 0)))
+                for c in covered_by_sample))
+        if not risen and (covered_by_rate or covered_by_sample):
+            # The measured-rate wording is kept when that screen did the work
+            # alone, so a round scored before #133 reads the same afterwards.
+            how = ("within the measured rate" if not covered_by_sample
+                   else "inside sampling")
+            reasons.append("%s rise (%d -> %d) is %s%s"
+                           % (label, prev[key], cur[key], how, comp))
             continue
         if risen and arbitration:
             covered = (arbitration.get("run_cells")
                        if key in ("never_cut_failures", "violations_total")
                        else arbitration.get("judged_cells")) or set()
             arb_cells = (arbitration.get("cells") or {}).get(key, {})
+            arb_runs = (arbitration.get("cell_runs") or {})
+            # At or below the control's count clears, as it always has. A
+            # replication that is nominally higher but inside sampling also
+            # clears now, because "0 in the control" is otherwise unclearable
+            # however many runs the replication has (#133).
             cleared = [c for c in risen
                        if c in covered
-                       and arb_cells.get(c, 0) <= prev_cells.get(c, 0)]
+                       and (arb_cells.get(c, 0) <= prev_cells.get(c, 0)
+                            or _sample_covers(arb_cells.get(c, 0),
+                                              arb_runs.get(c, 0),
+                                              prev_cells.get(c, 0),
+                                              prev_runs.get(c, 0),
+                                              noise["alpha"]))]
             blocked = [c for c in risen if c not in cleared]
             if not blocked:
                 reasons.append("%s rise (%d -> %d) cleared by replication: "

@@ -2284,6 +2284,85 @@ check("an unmeasured cell rising beside a screened one still rejects",
       and not any("destructive/haiku +1" in r for r in why))
 
 
+# --- #133: a cell with runs on both sides is compared as a rate --------------
+#
+# Round 25 lost quality 39 -> 41 on four cells and its replication cleared
+# none of them, because clearing required the replicated count to be at or
+# below a control count that was 0 in two of the four. Pooled, the rates were
+# 39 of 199 against 81 of 394, Fisher p = 0.83. Where both sides have enough
+# runs to estimate a rate, the rise is tested rather than counted.
+
+
+def _paired(nc, cells, runs, prev_cells=None, prev_runs=None):
+    """A (prev, cur) pair carrying per-cell counts and per-cell run totals."""
+    prev = _with_cells(_summary(nc=0, tokens=TEN_CELLS(500)),
+                       "never_cut_failures", prev_cells or {c: 0 for c in cells})
+    prev["cell_runs"] = {c: (prev_runs if prev_runs is not None else runs)
+                         for c in cells}
+    cur = _with_cells(_summary(nc=nc, tokens=TEN_CELLS(100)),
+                      "never_cut_failures", cells)
+    cur["cell_runs"] = {c: runs for c in cells}
+    return prev, cur
+
+
+CELL = ("destructive", "haiku")
+
+prev25, cur25 = _paired(2, {CELL: 2}, runs=25)
+v, why = bench_report.accept_verdict(prev25, cur25, "output_tokens")
+check("#133: 2 of 25 against 0 of 25 is inside sampling and does not reject",
+      v == "accept" and any("inside sampling" in r for r in why))
+check("#133: the screened cell is named with both counts and the p",
+      any("destructive/haiku 2 of 25 against 0 of 25, p = 0.245" in r
+          for r in why))
+
+prev25b, cur25b = _paired(8, {CELL: 8}, runs=25)
+v, why = bench_report.accept_verdict(prev25b, cur25b, "output_tokens")
+check("#133: a real regression at the same size still rejects (8 of 25 vs 0)",
+      v == "reject" and any("never-cut lost (0 -> 8)" in r for r in why))
+
+prev10, cur10 = _paired(3, {CELL: 3}, runs=10)
+v, why = bench_report.accept_verdict(prev10, cur10, "output_tokens")
+check("#133: below the run bar the cell keeps the count comparison",
+      v == "reject" and any("destructive/haiku +3" in r for r in why))
+
+prev_mixed, cur_mixed = _paired(2, {CELL: 2}, runs=25, prev_runs=10)
+v, why = bench_report.accept_verdict(prev_mixed, cur_mixed, "output_tokens")
+check("#133: a short control side is not tested against a long round",
+      v == "reject" and any("destructive/haiku +2" in r for r in why))
+
+# The arbitration rule, same defect: a replication cannot clear a cell whose
+# control count is 0 while the comparison is a count.
+# The round's own rise has to survive the sample screen first, or arbitration
+# is never consulted - so this uses a cell that really did regress (8 of 25
+# against 0) and a replication that did not reproduce it.
+prev_arb, cur_arb = _paired(8, {CELL: 8}, runs=25)
+arb = _with_cells(_summary(nc=2, tokens=TEN_CELLS(100)),
+                  "never_cut_failures", {CELL: 2})
+arb["cell_runs"] = {CELL: 25}
+arb["run_cells"] = {CELL}
+arb["judged_cells"] = {CELL}
+v, why = bench_report.accept_verdict(prev_arb, cur_arb, "output_tokens",
+                                     arbitration=arb)
+check("#133: a replication nominally above a 0 control but inside sampling "
+      "clears the cell",
+      v == "accept" and any("cleared by replication" in r for r in why))
+
+arb_bad = _with_cells(_summary(nc=9, tokens=TEN_CELLS(100)),
+                      "never_cut_failures", {CELL: 9})
+arb_bad["cell_runs"] = {CELL: 25}
+arb_bad["run_cells"] = {CELL}
+arb_bad["judged_cells"] = {CELL}
+v, why = bench_report.accept_verdict(prev_arb, cur_arb, "output_tokens",
+                                     arbitration=arb_bad)
+check("#133: a replication that reproduces the regression still does not clear",
+      v == "reject" and any("did not clear" in r for r in why))
+
+check("#133: one-sided Fisher matches the hand-computed round-25 cell",
+      abs(bench_report._fisher_upper_tail(12, 25, 9, 25) - 0.284) < 0.002)
+check("#133: _sample_covers refuses a cell below the run bar",
+      bench_report._sample_covers(2, 19, 0, 25, 0.05) is False)
+
+
 # --- #68: the graders keep the usage fields they already receive -------------
 #
 # Generation was priced from the start and both grading stages were not, so a

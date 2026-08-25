@@ -732,6 +732,10 @@ def round_summary(snap, judg=None, prefs=None, target_cases=None,
         # stratified one, and what a summary built before this carries.
         strata_tokens={(k[0], k[2]): v["tokens_by_stratum"]
                        for k, v in lac.items()},
+        # The same cells' turn counts, for the action-scope target and the
+        # gate that screens every round for a rise in it (#49).
+        strata_turns={(k[0], k[2]): v["turns_by_stratum"]
+                      for k, v in lac.items()},
         flip_rate=(len(flipped) / len(both)) if both else 0.0,
         flip_pairs=len(both),
         flip_undecided=len(paired) - len(both),
@@ -831,6 +835,46 @@ def _stratum_tokens(prev, cur):
         p_med[c], c_med[c] = _median(a[kind]), _median(b[kind])
         p_sd[c] = statistics.stdev(a[kind]) if len(a[kind]) >= 2 else None
     return p_med, c_med, p_sd, kinds, refused
+
+
+def _stratum_turns(prev, cur):
+    """Per-cell grounded turn medians, and the baseline stdev that floors them.
+
+    Returns (prev_median, cur_median, prev_stdev). Grounded only, and there is
+    no fallback stratum: an unread answer has 0 or 1 turns by construction, so
+    an unread turn median cannot move and a cell compared inside it would vote
+    a guaranteed tie. Cells without a grounded stratum on both sides are
+    absent rather than tied.
+
+    That also keeps this metric off the axis #131 protects. Turns falling
+    because answers stopped reading is the #46/#138 failure one_turn gates;
+    inside the grounded stratum the only way down is doing less once the
+    reading has already happened, which is what #49 reports.
+
+    A summary carrying no turn block predates #49 and yields nothing, so a
+    stored round is never screened on a gate it was not scored under.
+    """
+    p_strata, c_strata = prev.get("strata_turns") or {}, cur.get("strata_turns") or {}
+    p_med, c_med, p_sd = {}, {}, {}
+    for c in sorted(set(p_strata) & set(c_strata)):
+        a, b = p_strata[c].get("grounded") or [], c_strata[c].get("grounded") or []
+        if len(a) < GROUNDED_MIN_RUNS or len(b) < GROUNDED_MIN_RUNS:
+            continue
+        p_med[c], c_med[c] = _median(a), _median(b)
+        p_sd[c] = statistics.stdev(a) if len(a) >= 2 else None
+    return p_med, c_med, p_sd
+
+
+def _turn_floor(p_sd, cells):
+    """The floor a turn shift has to beat, measured rather than published.
+
+    NOISE["stdev"] is 260 tokens and says nothing about turns, and inventing a
+    turn constant would be tuning the gate to the rounds that exist. This is
+    the median per-cell grounded stdev of the baseline - the same estimator
+    the scoped token floor is built from, matched to the statistic it gates.
+    """
+    floors = [f for f in (p_sd.get(c) for c in cells) if f is not None]
+    return _median(floors) if floors else None
 
 
 def _stratum_note(kinds, refused):
@@ -1103,6 +1147,64 @@ def accept_verdict(prev, cur, target, noise=None, target_cases=None,
                        % (label, prev[key], cur[key], comp))
         fatal = True
 
+    # The fifth fatal condition, and the only one that is not a count (#49).
+    # Laconic bounds prose and nothing else, so an edit can buy shorter answers
+    # by doing more work - #49 reports a one-line factual question that spent
+    # four tool calls and a file edit. Prose gates cannot see that trade,
+    # because the prose it produced was short enough to pass every one of them.
+    #
+    # One direction only. Falling is what the target direction is for and never
+    # rejects; rising past the baseline's own dispersion is the trade, and it
+    # rejects whatever the round named. That is what FATAL holds - harm
+    # counters - and it is why one_turn is not in it: not opening a file is not
+    # harm, but spending the user's tokens on work they did not ask for is.
+    t_prev, t_cur, t_sd = _stratum_turns(prev, cur)
+    turn_cells = sorted(set(t_prev) & set(t_cur))
+    if turn_cells:
+        t_floor = _turn_floor(t_sd, turn_cells)
+        rise = (_median([t_cur[c] for c in turn_cells])
+                - _median([t_prev[c] for c in turn_cells]))
+        risen_cells = sorted(c for c in turn_cells if t_cur[c] > t_prev[c])
+        # Two estimators, the same pair the token target needs, and for a
+        # sharper reason here. num_turns is a small integer, so a cell whose
+        # grounded runs all took the same number of turns has stdev 0 and the
+        # median-of-stdevs floor collapses to 0.0 - at which point any rise at
+        # all clears it. Re-scoring the archive under a floor alone rejected
+        # rounds 07, 08 and 10 on destructive/sonnet 3.0 -> 4.0, one risen cell
+        # of eighteen: with half the cells either side of the round-wide
+        # median, moving one across it shifts that median by half a turn while
+        # nothing else moves. A gate that fires on that is not stricter, it is
+        # broken, which is the same failure CELL_TEST_MIN_RUNS documents.
+        #
+        # So a rise must be BROAD as well as larger than the floor. sign_test
+        # is two-sided, hence the majority guard: 1 of 10 reaches alpha in the
+        # falling direction and must not be read as a rise.
+        p_rise = metrics.sign_test(len(risen_cells), len(turn_cells))
+        broad = (len(risen_cells) * 2 > len(turn_cells)
+                 and p_rise < noise["alpha"])
+        spread = "%d of %d cell(s)" % (len(risen_cells), len(turn_cells))
+        where = ("; risen on " + ", ".join("%s/%s %.1f -> %.1f"
+                                           % (c[0], c[1], t_prev[c], t_cur[c])
+                                           for c in risen_cells)
+                 if risen_cells else "")
+        if broad and t_floor is not None and rise > t_floor:
+            reasons.append(
+                "REJECT: action scope lost - grounded turns rose %.1f across "
+                "%s, sign test p = %.3f, past the %.1f-turn floor measured "
+                "from the baseline's own dispersion (#49 turn gate)%s"
+                % (rise, spread, p_rise, t_floor, where))
+            fatal = True
+        else:
+            # Disclosed on every round it screens, passing or not: the gate
+            # changes what a verdict means, and rounds 01 to 26 were not
+            # scored under it. A verdict that does not say so cannot be
+            # compared with one that was.
+            reasons.append(
+                "#49 turn gate: grounded turns moved %+.1f over %s, %s rising, "
+                "against a %s-turn floor - held"
+                % (rise, "%d cell(s)" % len(turn_cells), spread,
+                   "%.1f" % t_floor if t_floor is not None else "unbuildable"))
+
     if target_cases and not (prev.get("scoped") and cur.get("scoped")):
         # Scoring a scoped hypothesis against round-wide counts would silently
         # answer a different question than the one the hypothesis asked.
@@ -1232,6 +1334,49 @@ def accept_verdict(prev, cur, target, noise=None, target_cases=None,
         else:
             reasons.append("median shift %.0f tokens, %d of %d cells improved, p = %.3f"
                            % (shift, improved, len(cells), p))
+    elif target == "turns":
+        # A hypothesis may aim at action scope directly, not only be screened
+        # for it. Same two estimators the token target uses - a sign test
+        # across cells and a shift larger than the floor - because grounded
+        # turns are a distribution with real spread (2 to 10 across rounds 24
+        # to 26), not a count of rare events.
+        #
+        # The floor is measured, never published: NOISE["stdev"] is 260 tokens
+        # and a turn constant would be tuned to the rounds that exist.
+        cells = sorted(c for c in turn_cells
+                       if not target_cases or c[0] in set(target_cases))
+        t_floor = _turn_floor(t_sd, cells)
+        if not cells:
+            reasons.append("REJECT: no case/model cell has a grounded stratum "
+                           "in both rounds, and an unread answer is 0 or 1 "
+                           "turns by construction, so there is nothing this "
+                           "target can measure")
+            fatal = True
+        elif t_floor is None:
+            reasons.append("REJECT: no baseline grounded stdev over %d cell(s), "
+                           "so the turn floor cannot be measured" % len(cells))
+            fatal = True
+        else:
+            improved = sum(1 for c in cells if t_cur[c] < t_prev[c])
+            p_turn = metrics.sign_test(improved, len(cells))
+            shift = (_median([t_prev[c] for c in cells])
+                     - _median([t_cur[c] for c in cells]))
+            where = (" on %s" % ", ".join(sorted(set(target_cases)))
+                     if target_cases else "")
+            if improved * 2 <= len(cells) or p_turn >= noise["alpha"]:
+                reasons.append("REJECT: %d of %d cells improved%s, sign test "
+                               "p = %.3f" % (improved, len(cells), where, p_turn))
+                fatal = True
+            elif shift <= t_floor:
+                reasons.append("REJECT: median shift %.1f turns%s is inside the "
+                               "%.1f-turn measured noise floor"
+                               % (shift, where, t_floor))
+                fatal = True
+            else:
+                reasons.append("median shift %.1f turns%s, %d of %d cells "
+                               "improved, p = %.3f, measured floor %.1f"
+                               % (shift, where, improved, len(cells), p_turn,
+                                  t_floor))
     elif target in COUNT_TARGETS:
         src_prev = prev["scoped"] if target_cases else prev
         src_cur = cur["scoped"] if target_cases else cur
@@ -1322,8 +1467,8 @@ def accept_verdict(prev, cur, target, noise=None, target_cases=None,
         else:
             reasons.append("%s %d -> %d%s, p = %.3f%s" % (target, a, b, where, p, wide))
     else:
-        reasons.append("REJECT: unknown target %r (expected output_tokens or one "
-                       "of %s)" % (target, ", ".join(COUNT_TARGETS)))
+        reasons.append("REJECT: unknown target %r (expected output_tokens, "
+                       "turns, or one of %s)" % (target, ", ".join(COUNT_TARGETS)))
         fatal = True
 
     # Where the token target's cells voted, and what the number it replaced
@@ -1400,6 +1545,18 @@ def aggregate(snap):
                 "grounded": [r.get("output_tokens", 0) for r in runs
                              if r.get("num_turns", 0) > 1],
                 "unread": [r.get("output_tokens", 0) for r in runs
+                           if r.get("num_turns", 0) <= 1],
+            },
+            # The turns themselves, partitioned by the same predicate (#49).
+            # Laconic bounds prose, so an edit can cut words and relocate the
+            # excess into tool calls; num_turns is the only action proxy the
+            # snapshots carry, because run.py:302 asks the CLI for
+            # --output-format json, which reports how many agentic turns a
+            # response took and nothing about which tools ran.
+            "turns_by_stratum": {
+                "grounded": [r.get("num_turns", 0) for r in runs
+                             if r.get("num_turns", 0) > 1],
+                "unread": [r.get("num_turns", 0) for r in runs
                            if r.get("num_turns", 0) <= 1],
             },
             "output_tokens_min": min(tokens) if tokens else 0,
@@ -1939,7 +2096,8 @@ def main():
                     help="previous round's snapshot: print deltas and an accept verdict")
     ap.add_argument("--target", default="output_tokens",
                     help="the metric the proposal's hypothesis named: "
-                         "output_tokens, or one of " + ", ".join(COUNT_TARGETS))
+                         "output_tokens, turns, or one of "
+                         + ", ".join(COUNT_TARGETS))
     ap.add_argument("--target-cases",
                     help="comma-separated cases the hypothesis named; scores the "
                          "count target on those cases alone. The fatal conditions "

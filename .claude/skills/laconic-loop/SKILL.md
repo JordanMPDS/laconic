@@ -509,6 +509,54 @@ The evidence for all six is in
 [`one-turn-investigation.md`](../../../evals/results/loop/one-turn-investigation.md)
 and [`interleaved-batch.md`](../../../evals/results/loop/interleaved-batch.md).
 
+**`turns` is a `--target` from 2026-08-25, and it IS fatal ([#49]).** It is the
+per-cell median of `num_turns` over the grounded stratum, and it measures action
+scope: how much work an answer did once it had already started reading. Laconic
+bounds prose and nothing else, so an edit can buy shorter answers by doing more
+— [#49] reports a one-line factual question that spent four tool calls and a
+file edit, and the prose it produced passed every prose rule in the ruleset.
+
+1. **Grounded stratum only, and there is no fallback.** An unread answer has 0
+   or 1 turns by construction, so an unread turn median cannot move; a cell
+   compared inside it would vote a guaranteed tie. Cells without a grounded
+   stratum on both sides are absent, not tied. This is also what keeps the
+   metric off the axis [#131] protects: turns falling because answers stopped
+   reading is the [#46]/[#138] failure `one_turn` already gates, and inside the
+   grounded stratum the only way down is doing less after the reading happened.
+2. **Fatal in one direction.** A rise rejects whatever the round named as its
+   target; a fall never rejects and is simply the target direction. That is
+   what `FATAL` holds — harm counters — and it is the line that separates this
+   from `one_turn`: not opening a file is not harm, spending the user's tokens
+   on work they did not ask for is.
+3. **A rise needs both estimators: broad *and* past the floor.** `num_turns` is
+   a small integer, so a cell whose grounded runs all took the same number of
+   turns has stdev 0 and the median-of-stdevs floor collapses to 0.0, at which
+   point any rise clears it. Under a floor alone the archive re-score rejected
+   rounds 07, 08 and 10 on `destructive`/sonnet, a cell that went from 3.0
+   turns to 4.0 — one risen cell of
+   eighteen, moving the round-wide median half a turn because half the cells
+   sat either side of it. A rise must also win a sign test across cells.
+4. **The floor is measured, never published.** `NOISE["stdev"]` is 260 tokens
+   and says nothing about turns, and a turn constant would be tuned to the
+   rounds that already exist. It is the median per-cell grounded stdev of the
+   baseline, the same estimator the scoped token floor is built from.
+5. **Power is thin on a small scope.** The sign test is two-sided exact, so at
+   eight cells — the scope rounds 25 and 26 used — only a clean 8-of-8 sweep
+   reaches alpha; 7 of 8 reads p = 0.070. On a round-wide scope of 18 to 31
+   cells it has room. Do not read "held" on eight cells as "no effect".
+6. **Every stored round holds under it.** Re-scoring rounds 05 through 26
+   changes no verdict: the largest movement is +0.5 turns and the most cells
+   ever rising is 3 of 31. The gate is live and has never fired on the archive,
+   so a round that trips it is reporting something new.
+
+[#49]: https://github.com/JordanMPDS/laconic/issues/49
+[#131]: https://github.com/JordanMPDS/laconic/issues/131
+[#138]: https://github.com/JordanMPDS/laconic/issues/138
+
+`num_turns` cannot tell a read from a write, so this measures the volume of
+action and not its kind. Capturing tool names needs `--output-format
+stream-json` in `run.py`, which buys nothing for any stored round.
+
 **Required to accept:** the metric your hypothesis named beats the noise floor
 — a sign test across the case/model cells *and* a median shift larger than the
 published stdev of the committed snapshot, which `report.py`'s `NOISE` tracks.

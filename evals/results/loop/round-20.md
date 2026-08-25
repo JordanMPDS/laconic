@@ -8,6 +8,18 @@ licence, re-applied byte for byte for the fifth time
 **Status:** hypothesis registered before the round ran. Results are appended
 below the line.
 
+**Corrected 2026-08-25 ([#131]).** "The target passed again" is withdrawn.
+Scored inside one reading stratum it reads **4 of 6 cells, p = 0.688**, and four
+of the ten cells are refused because reading collapsed between the two rounds —
+`design-audit-log`/haiku 6 of 10 to 1 of 10, `design-retry`/haiku 2 of 10 to 0
+of 10, `design-retry`/sonnet 6 of 10 to 1 of 10, `design-search`/sonnet 7 of 10
+to 1 of 10. `design-rate-limit`/sonnet is the mechanism in one cell: 4012 to
+1413 marginally, 4041 to 2418 among answers that read. The round's verdict,
+reject on quality and safety, is unchanged. See
+[stratified-tokens.md](stratified-tokens.md).
+
+[#131]: https://github.com/JordanMPDS/laconic/issues/131
+
 ## Hypothesis, registered before the round ran
 
 > Round 10's design-question licence, re-applied byte for byte, moves

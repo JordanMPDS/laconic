@@ -227,6 +227,23 @@ CELL_TEST_MIN_RUNS = 20
 # See evals/results/loop/token-scope.md.
 TOKEN_CELL_MIN_BASELINE = 1200
 
+# How many runs a reading stratum needs before a cell's median may be taken
+# from it (#131). Two, because that is what the floor's stdev needs, and the
+# rule this governs asks only whether a stratum EXISTS, not whether it is
+# powered: a cell votes inside the grounded stratum when both rounds have one,
+# inside the unread stratum when neither does, and not at all when the reading
+# rate crossed between the two.
+#
+# Not raised to a powered number, because raising it does not make the estimate
+# better - it refiles cells. At three, a cell that read 4 of 10 is classed
+# "unread" and its four grounded answers are dropped from a comparison of
+# unread ones, which is a worse statistic than a noisy median. Bootstrapped
+# over the round-25 and round-26 control cells, the sampling error of a median
+# taken from two grounded runs is 455 to 526 tokens against a floor of 679 to
+# 767 built from the same cells, so a two-run median sits inside the dispersion
+# the floor already tolerates. See evals/results/loop/stratified-tokens.md.
+GROUNDED_MIN_RUNS = 2
+
 
 def _binom_cdf(k, n, p):
     """P(X <= k) for X ~ Binomial(n, p). Exact; n here is a handful of events."""
@@ -709,6 +726,12 @@ def round_summary(snap, judg=None, prefs=None, target_cases=None,
         tokens={(k[0], k[2]): v["output_tokens"] for k, v in lac.items()},
         tokens_stdev={(k[0], k[2]): v["output_tokens_stdev"]
                       for k, v in lac.items()},
+        # Per-cell token lists split on whether the answer read anything, which
+        # is what the target is scored on (#131). tokens above stays exactly as
+        # it was: it is the marginal median the verdict discloses beside the
+        # stratified one, and what a summary built before this carries.
+        strata_tokens={(k[0], k[2]): v["tokens_by_stratum"]
+                       for k, v in lac.items()},
         flip_rate=(len(flipped) / len(both)) if both else 0.0,
         flip_pairs=len(both),
         flip_undecided=len(paired) - len(both),
@@ -749,6 +772,157 @@ def round_summary(snap, judg=None, prefs=None, target_cases=None,
             cases=sorted(set(target_cases)),
             models=sorted(set(target_models)) if target_models else None)
     return summary
+
+
+def _stratum_of(prev_cell, cur_cell):
+    """Which reading stratum a cell may be compared inside, or None (#131).
+
+    An answer that opened a file is several times longer than one that did not,
+    so a cell whose reading rate moved has a marginal median that mixes two
+    populations in different proportions on the two sides. Comparing those
+    medians credits an edit for suppressing reading. Every voting cell is
+    therefore compared inside ONE stratum:
+
+      both rounds have a grounded stratum   -> compare grounded medians
+      neither round has one                 -> compare unread medians
+      one round has one and the other does not -> the cell cannot vote
+
+    The third case is the defect itself, and it is refused rather than
+    approximated: there is nothing to compare a grounded median against.
+
+    A case with no fixture has no file to open, so every one of its answers is
+    unread by construction and it lands in the second branch, where its
+    marginal median is its within-stratum median and nothing changes.
+    """
+    pg, cg = len(prev_cell["grounded"]), len(cur_cell["grounded"])
+    if pg >= GROUNDED_MIN_RUNS and cg >= GROUNDED_MIN_RUNS:
+        return "grounded"
+    if pg < GROUNDED_MIN_RUNS and cg < GROUNDED_MIN_RUNS \
+            and prev_cell["unread"] and cur_cell["unread"]:
+        return "unread"
+    return None
+
+
+def _stratum_tokens(prev, cur):
+    """Per-cell token medians, each compared inside one stratum (#131).
+
+    Returns (prev_median, cur_median, prev_stdev, kinds, refused). The stdev is
+    the same statistic the floor was always built from, taken from the stratum
+    the cell votes in, so the floor gates the shift it is matched to.
+
+    A summary carrying no strata block predates this and is scored on its
+    marginal median, which is what every stored round was scored by.
+    """
+    p_strata, c_strata = prev.get("strata_tokens") or {}, cur.get("strata_tokens") or {}
+    p_med, c_med, p_sd, kinds, refused = {}, {}, {}, {}, []
+    for c in sorted(set(prev["tokens"]) & set(cur["tokens"])):
+        a, b = p_strata.get(c), c_strata.get(c)
+        if not a or not b:
+            p_med[c], c_med[c] = prev["tokens"][c], cur["tokens"][c]
+            p_sd[c] = (prev.get("tokens_stdev") or {}).get(c)
+            kinds[c] = "unstratified"
+            continue
+        kind = _stratum_of(a, b)
+        if kind is None:
+            refused.append((c, len(a["grounded"]), len(a["grounded"]) + len(a["unread"]),
+                            len(b["grounded"]), len(b["grounded"]) + len(b["unread"])))
+            continue
+        kinds[c] = kind
+        p_med[c], c_med[c] = _median(a[kind]), _median(b[kind])
+        p_sd[c] = statistics.stdev(a[kind]) if len(a[kind]) >= 2 else None
+    return p_med, c_med, p_sd, kinds, refused
+
+
+def _stratum_note(kinds, refused):
+    """The reason line naming where each cell voted, and which could not."""
+    counts = Counter(kinds.values())
+    # A round where every cell was refused still needs this line, and needs it
+    # most: without it the verdict reads "no case/model cell is present in both
+    # rounds", which blames the scope for what the reading rate did.
+    if not counts and not refused:
+        return ""
+    if set(counts) == {"unstratified"} and not refused:
+        return ""
+    parts = ["%d %s" % (counts[k], k) for k in ("grounded", "unread", "unstratified")
+             if counts.get(k)] or ["none"]
+    note = ("output_tokens cells, by the stratum they were compared inside "
+            "(#131): " + ", ".join(parts))
+    if refused:
+        note += ("; %d not voting because the reading rate crossed the floor: %s"
+                 % (len(refused),
+                    ", ".join("%s/%s %d of %d -> %d of %d" % (c[0], c[1], pg, pn, cg, cn)
+                              for c, pg, pn, cg, cn in refused)))
+    return note
+
+
+def _weighted_median(pairs):
+    """Lower weighted median of (value, weight) pairs."""
+    pairs = sorted(p for p in pairs if p[1] > 0)
+    if not pairs:
+        return None
+    half = sum(w for _, w in pairs) / 2
+    seen = 0.0
+    for v, w in pairs:
+        seen += w
+        if seen >= half:
+            return v
+    return pairs[-1][0]
+
+
+def _counterfactual_line(prev, cur, cells):
+    """The other two numbers a stratified target has to be read beside (#131).
+
+    The counterfactual: what the marginal shift - the statistic the target used
+    before this - reads with each cell's reading rate held at the baseline's.
+    The gap between the two is the part of a token win that is mix rather than
+    compression.
+
+    The unread median: what the answers that never opened a file did. The
+    target is scored inside the grounded stratum on any cell that has one, so
+    without this line a round could compress only the answers that were already
+    the cheap ones and the verdict would never mention it.
+
+    Disclosure only, both of them. Returns None when neither can be built.
+    """
+    p_strata, c_strata = prev.get("strata_tokens") or {}, cur.get("strata_tokens") or {}
+    if not cells or not p_strata or not c_strata:
+        return None
+    held = {}
+    for c in cells:
+        a, b = p_strata.get(c), c_strata.get(c)
+        if not a or not b or not b["grounded"] or not b["unread"]:
+            continue
+        n = len(a["grounded"]) + len(a["unread"])
+        if not n:
+            continue
+        rate = len(a["grounded"]) / n
+        held[c] = _weighted_median(
+            [(v, rate / len(b["grounded"])) for v in b["grounded"]]
+            + [(v, (1 - rate) / len(b["unread"])) for v in b["unread"]])
+    parts = []
+    if held:
+        # Both figures over the same cells - the ones a counterfactual can be
+        # built for. Quoting the marginal shift over the whole scope beside a
+        # counterfactual over part of it would attribute the difference between
+        # two cell sets to the mix.
+        base = _median([prev["tokens"][c] for c in held])
+        parts.append("over the %d of %d cells with both strata, the marginal "
+                     "shift is %.0f tokens and %.0f with each cell's reading "
+                     "rate held at the baseline's"
+                     % (len(held), len(cells),
+                        base - _median([cur["tokens"][c] for c in held]),
+                        base - _median([held[c] for c in held])))
+    unread = [c for c in cells
+              if (p_strata.get(c) or {}).get("unread")
+              and (c_strata.get(c) or {}).get("unread")]
+    if unread:
+        parts.append("the unread stratum reads %.0f -> %.0f over %d of %d cells"
+                     % (_median([_median(p_strata[c]["unread"]) for c in unread]),
+                        _median([_median(c_strata[c]["unread"]) for c in unread]),
+                        len(unread), len(cells)))
+    if not parts:
+        return None
+    return "token mix (disclosure, not a gate): " + "; ".join(parts)
 
 
 def accept_verdict(prev, cur, target, noise=None, target_cases=None,
@@ -936,6 +1110,22 @@ def accept_verdict(prev, cur, target, noise=None, target_cases=None,
                        "the same scope")
         return "reject", reasons
 
+    # Both token branches score the stratified medians, never the marginal ones
+    # (#131). p_tok and c_tok hold one median per cell, taken from the stratum
+    # that cell may be compared inside; a cell whose reading rate crossed
+    # between the two rounds is absent from both and named in strata_note.
+    if target == "output_tokens":
+        p_tok, c_tok, p_sd, kinds, refused = _stratum_tokens(prev, cur)
+        # Scoped to the cases the target names, because that is the set the
+        # verdict line above is about. Not scoped by model: the scoped token
+        # branch does not filter on --target-models either, and a note that
+        # narrowed further than the test would describe a different set.
+        wanted_cases = set(target_cases or [])
+        in_scope = (lambda c: not wanted_cases or c[0] in wanted_cases)
+        strata_note = _stratum_note(
+            {c: k for c, k in kinds.items() if in_scope(c)},
+            [r for r in refused if in_scope(r[0])])
+
     if target_cases and target == "output_tokens":
         # sign_test is two-sided exact, so a sweep of n cells is p = 2 * 0.5**n:
         # four cells is 0.125, five is 0.0625, and no scope under six cells can
@@ -950,8 +1140,7 @@ def accept_verdict(prev, cur, target, noise=None, target_cases=None,
         # cell with no baseline stdev leaves the floor unbuildable and the
         # scope is refused rather than handed a partial one.
         wanted = set(target_cases)
-        cells = sorted(c for c in set(prev["tokens"]) & set(cur["tokens"])
-                       if c[0] in wanted)
+        cells = sorted(c for c in set(p_tok) & set(c_tok) if c[0] in wanted)
         # A cell whose baseline answer is already short cannot express this
         # target's effect, so it votes noise into a test that counts votes.
         # See TOKEN_CELL_MIN_BASELINE and evals/results/loop/token-scope.md.
@@ -966,12 +1155,12 @@ def accept_verdict(prev, cur, target, noise=None, target_cases=None,
         # never had. Partial dropping is not offered: choosing which short cell
         # to keep would be choosing the answer.
         short = sorted(c for c in cells
-                       if prev["tokens"][c] < TOKEN_CELL_MIN_BASELINE)
+                       if p_tok[c] < TOKEN_CELL_MIN_BASELINE)
         if short and len(cells) - len(short) >= 6:
             cells = [c for c in cells if c not in set(short)]
             dropped = ("; %d cell(s) below the %d-token floor and not voting: %s"
                        % (len(short), TOKEN_CELL_MIN_BASELINE,
-                          ", ".join("%s/%s %d" % (c[0], c[1], prev["tokens"][c])
+                          ", ".join("%s/%s %d" % (c[0], c[1], p_tok[c])
                                     for c in short)))
         elif short:
             dropped = ("; %d cell(s) are below the %d-token floor and voted "
@@ -981,9 +1170,7 @@ def accept_verdict(prev, cur, target, noise=None, target_cases=None,
                                          len(cells) - len(short)))
         else:
             dropped = ""
-        floors = [f for f in (prev.get("tokens_stdev", {}).get(c)
-                              for c in cells)
-                  if f is not None]
+        floors = [f for f in (p_sd.get(c) for c in cells) if f is not None]
         if len(cells) < 6:
             p_all = metrics.sign_test(len(cells), len(cells)) if cells else 1.0
             reasons.append("REJECT: scoped output_tokens needs at least 6 "
@@ -999,13 +1186,12 @@ def accept_verdict(prev, cur, target, noise=None, target_cases=None,
             fatal = True
         else:
             floor = _median(floors)
-            improved = sum(1 for c in cells if cur["tokens"][c] < prev["tokens"][c])
+            improved = sum(1 for c in cells if c_tok[c] < p_tok[c])
             p = metrics.sign_test(improved, len(cells))
-            shift = (_median([prev["tokens"][c] for c in cells])
-                     - _median([cur["tokens"][c] for c in cells]))
-            wide_cells = sorted(set(prev["tokens"]) & set(cur["tokens"]))
-            wide_improved = sum(1 for c in wide_cells
-                                if cur["tokens"][c] < prev["tokens"][c])
+            shift = (_median([p_tok[c] for c in cells])
+                     - _median([c_tok[c] for c in cells]))
+            wide_cells = sorted(set(p_tok) & set(c_tok))
+            wide_improved = sum(1 for c in wide_cells if c_tok[c] < p_tok[c])
             wide_p = (metrics.sign_test(wide_improved, len(wide_cells))
                       if wide_cells else 1.0)
             where = " on %s" % ", ".join(sorted(wanted))
@@ -1027,11 +1213,11 @@ def accept_verdict(prev, cur, target, noise=None, target_cases=None,
                                % (shift, where, improved, len(cells), p,
                                   floor, wide))
     elif target == "output_tokens":
-        cells = sorted(set(prev["tokens"]) & set(cur["tokens"]))
-        improved = sum(1 for c in cells if cur["tokens"][c] < prev["tokens"][c])
+        cells = sorted(set(p_tok) & set(c_tok))
+        improved = sum(1 for c in cells if c_tok[c] < p_tok[c])
         p = metrics.sign_test(improved, len(cells)) if cells else 1.0
-        shift = (_median([prev["tokens"][c] for c in cells])
-                 - _median([cur["tokens"][c] for c in cells])) if cells else 0
+        shift = (_median([p_tok[c] for c in cells])
+                 - _median([c_tok[c] for c in cells])) if cells else 0
         if not cells:
             reasons.append("REJECT: no case/model cell is present in both rounds")
             fatal = True
@@ -1140,6 +1326,19 @@ def accept_verdict(prev, cur, target, noise=None, target_cases=None,
                        "of %s)" % (target, ", ".join(COUNT_TARGETS)))
         fatal = True
 
+    # Where the token target's cells voted, and what the number it replaced
+    # reads. Both print whatever the target did: a passing round needs the mix
+    # figure as much as a failing one, because the question they answer is how
+    # much of the compression is compression (#131).
+    if target == "output_tokens":
+        if strata_note:
+            reasons.append(strata_note)
+        # cells is whichever set the branch above actually scored: the scoped
+        # voting set, or every shared cell round-wide.
+        counter = _counterfactual_line(prev, cur, cells)
+        if counter:
+            reasons.append(counter)
+
     # A round with no decided both-order pair has no position-bias control at
     # all, and its flip_rate is 0.0 for want of a denominator rather than
     # because the judge was consistent. That reads as the most citable round
@@ -1188,6 +1387,21 @@ def aggregate(snap):
         agg[key] = {
             "n": len(runs),
             "output_tokens": _median(tokens),
+            # The same tokens, kept split on whether the answer opened a file
+            # (#131). An unread answer is several times shorter than a grounded
+            # one, so the marginal median above moves when the mix moves and
+            # the target cannot tell that from compression. accept_verdict
+            # takes each cell's median from one of these two lists.
+            # The two lists partition the cell: one_turn above counts exactly
+            # one turn, but a record carrying none at all called no tool
+            # either, and a run that fell into neither list would leave the
+            # cell looking like a reading collapse it never had.
+            "tokens_by_stratum": {
+                "grounded": [r.get("output_tokens", 0) for r in runs
+                             if r.get("num_turns", 0) > 1],
+                "unread": [r.get("output_tokens", 0) for r in runs
+                           if r.get("num_turns", 0) <= 1],
+            },
             "output_tokens_min": min(tokens) if tokens else 0,
             "output_tokens_max": max(tokens) if tokens else 0,
             "output_tokens_stdev": statistics.stdev(tokens) if len(tokens) >= 2 else 0.0,

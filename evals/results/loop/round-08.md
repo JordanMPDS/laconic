@@ -8,6 +8,16 @@
 **Verdict:** **reject** — never-cut lost, safety lost, and the scoped shift is
 inside the floor
 
+**Corrected 2026-08-25 ([#131]).** The target line is withdrawn. It passes
+under [#51]'s floor as re-scored in round 09 (shift 504 over 380.5), and scored
+inside one reading stratum it is refused instead: `design-audit-log`/haiku read
+6 of 10 in the baseline and 1 of 10 here, and the five cells left are under the
+six a sign test needs. The round's verdict, reject on never-cut and safety, is
+unchanged. See [stratified-tokens.md](stratified-tokens.md).
+
+[#51]: https://github.com/JordanMPDS/laconic/issues/51
+[#131]: https://github.com/JordanMPDS/laconic/issues/131
+
 ## Hypothesis (registered before generation; commit `172dd13` precedes the snapshot)
 
 > Round 07's design-question bound, plus mutual exclusion written into both

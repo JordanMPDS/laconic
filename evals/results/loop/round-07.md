@@ -8,6 +8,15 @@ n=10 regeneration
 `round-07-judgments.json`, `round-07-preferences.json`
 **Verdict:** **reject** — two fatal gates lost, both round-wide
 
+**Corrected 2026-08-25 ([#131]).** The claim below that the target passed is
+withdrawn. Scored inside one reading stratum, `design-audit-log`/haiku read 6 of
+10 in the baseline and 0 of 10 here, so it has nothing to be compared against
+and does not vote — and the five cells left are under the six a sign test needs
+to reach alpha. The round's verdict, reject on never-cut and safety, is
+unchanged. See [stratified-tokens.md](stratified-tokens.md).
+
+[#131]: https://github.com/JordanMPDS/laconic/issues/131
+
 ## Hypothesis (pre-registered 2026-08-06, before the confirming round)
 
 > Editing the never-cut requested-explanation bullet (`rules/laconic.md:25-26`)

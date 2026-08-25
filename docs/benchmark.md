@@ -92,6 +92,15 @@ brevity is laconic against `terse-control`; the comparison that matters for
 whether this plugin still has a reason to exist is laconic against
 `concise-style`.
 
+**These are marginal medians, over every answer whether or not it opened a
+file.** On the `design-*` cases that is a mixture, and part of any gap between
+two arms there is one arm reading less rather than writing less — for
+`concise-style` roughly three fifths of it. The rules loop's own token gate no
+longer scores this statistic; it compares answers inside one reading stratum
+([stratified-tokens.md](../evals/results/loop/stratified-tokens.md)). The table
+below is unchanged, and should be read with that caveat rather than requoted
+without it.
+
 **Sonnet 4.5**
 
 | case | baseline | terse-control | concise-style | laconic | laconic saved |

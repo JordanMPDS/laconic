@@ -140,7 +140,7 @@ the harnesses or switch branches while a pass is running.
 
 [#69]: https://github.com/JordanMPDS/laconic/issues/69
 
-## Steps 1-3: measure the round you have (~345 calls at n=5)
+## Steps 1-3: measure the round you have (405 calls at n=5)
 
 ```bash
 python3 evals/bench/run.py --arms laconic --reps 5 \
@@ -149,9 +149,35 @@ python3 evals/bench/run.py --arms laconic --reps 5 \
 python3 evals/bench/judge.py --results "evals/snapshots/loop/round-$N.json" \
   --carry-judgments-from "$PREV_J" --jobs 6 \
   --out "evals/snapshots/loop/round-$N-judgments.json"
-python3 evals/bench/prefer.py --results "evals/snapshots/loop/round-$N.json" \
-  --control baseline --jobs 6 --out "evals/snapshots/loop/round-$N-preferences.json"
 ```
+
+220 generations, one per case/model/rep of the laconic arm, and 185 judgments —
+37 gate-reading cells at 5 reps. Both commands print that number before they
+spend anything, so check the budget line against what you meant to buy.
+
+**Either pass stops itself after eight consecutive failures.** A usage limit
+fails every remaining key and each one costs two calls, because both harnesses
+retry once: on 2026-08-24 two limit windows ground through 152 keys on round 25
+and 152 on its arbitration, roughly 600 generation calls that produced no data,
+and round 12's judging pass returned 850 judgments of which 666 were judge-call
+failures. Neither a failed key nor a failed judgment is recorded as done, so
+re-running the identical command redoes exactly what the stop left behind — the
+resume path is what makes stopping free. In `judge.py` the run is counted over
+completions, so the `--jobs` calls already in flight still finish.
+`--max-consecutive-failures 0` restores the old behaviour in both, and nothing
+else needs it.
+
+**`judge.py` grades only what a gate can read.** `quality_fails` and
+`safety_fails` are the only counters that read verdicts, and both skip
+rule-adherence cases and saturated cells, so `conditional`, `decision`, `floor`
+and `ordered-steps`/haiku were graded every round and could reject nothing: 35
+of the 220 judge calls a round used to buy at n=5. What that gives up is
+disclosure, not scoring — those verdicts are how a round sees whether the rules
+were obeyed on the cases that grade adherence to them. **Pass `--judge-all` when
+the hypothesis names one of those cases, and when re-judging a snapshot another
+round will be compared against**, so both sides of a comparison carry the same
+coverage. A file judged either way says which it is, in its metadata and at the
+top of the rendered report.
 
 **Carrying the controls was wrong, and a scoped round must not do it.** The
 rule this skill carried until 2026-08-23 was "the controls are carried, not
@@ -178,6 +204,20 @@ python3 evals/bench/run.py --arms baseline,terse-control,word-compression,concis
   --models sonnet --reps 5 --cases 'design-*' \
   --snapshot "evals/snapshots/loop/round-$N.json"
 ```
+
+**Generate 10 reps a side, score, and extend only if the round needs it.**
+`run.py` resumes by key, so extending a snapshot from 10 reps to 25 costs only
+the 15 new ones — the staged round and the full one buy exactly the same data if
+you go all the way. Extend when a fatal counter rises, or when the target lands
+close enough to the floor that reps would settle it; otherwise stop at 10. The
+sign test that decides an `output_tokens` target counts cells, not reps, and
+round 26 read 8 of 8 at p = 0.008, which 10 reps would very likely also have
+read. The one thing that genuinely needs 20 a side is [#133]'s rate screen, and
+that only matters when a counter rises, which is exactly the case where you
+extend. Round 26 generated and judged 800 calls; staged, it would have opened
+with 320.
+
+[#133]: https://github.com/JordanMPDS/laconic/issues/133
 
 `run.py` loops arms innermost, so a single invocation already interleaves them.
 Two rules revisions cannot share one invocation — `rules_cksum` is resolved once
@@ -296,7 +336,19 @@ Regenerate the pre-sliced copies, which the test suite checks:
 bash tools/build-rules.sh
 ```
 
-## Steps 6-7: confirm and compare (~345 calls)
+## Steps 6-7: confirm and compare (405 calls)
+
+**Score the cheap target before buying the expensive arm.** A token target needs
+no judging at all, and `one_turn` is free off `num_turns`, so a scoped batch of
+those two costs generations only and can kill a bad edit before the round-wide
+arm is bought. Round 23 already worked this way and recorded it: its scoped
+batch failed, so its 220-generation round-wide arm was never generated. That was
+treated as one round's judgement call; it is the standing order now. Buy in this
+sequence, and stop at the first step that fails:
+
+1. The scoped batch the hypothesis named, scored on its own target.
+2. The round-wide laconic arm and its judgments, for the fatal counters.
+3. Step 8's replication, and only for an edit that has passed both.
 
 Repeat steps 1-3 with `N` incremented, then:
 
@@ -306,7 +358,6 @@ python3 evals/bench/report.py \
   --judgments "evals/snapshots/loop/round-$M-judgments.json" \
   --against "evals/snapshots/loop/round-$N.json" \
   --against-judgments "evals/snapshots/loop/round-$N-judgments.json" \
-  --preferences "evals/snapshots/loop/round-$M-preferences.json" \
   --target output_tokens
 ```
 
@@ -447,10 +498,22 @@ and [`interleaved-batch.md`](../../../evals/results/loop/interleaved-batch.md).
 — a sign test across the case/model cells *and* a median shift larger than the
 published stdev of the committed snapshot, which `report.py`'s `NOISE` tracks.
 
-**Preference is disclosed and never decisive.** It cannot reject an edit that
-passed every deterministic gate, and it may not be cited at all from a round
-whose flip rate reached 35%. The judge behind it favours the longer answer 63%
-of the time and laconic is the short arm by construction.
+**Preference is no longer part of a round.** It was 220 comparisons plus 20
+flipped rerolls, roughly a third of a round's calls, and `report.py` says in its
+own output that it is never decisive: it cannot reject an edit that passed every
+deterministic gate, and it may not be cited at all from a round whose flip rate
+reached 35%. The judge behind it favours the longer answer 63% of the time and
+laconic is the short arm by construction. Round 22 bought 240 comparisons and
+could cite none of them.
+
+It stays as an opt-in pass, for a publication that wants a preference column and
+is willing to pay for it. Nothing else changes — `report.py` still reads
+`--preferences` when a round has bought one:
+
+```bash
+python3 evals/bench/prefer.py --results "evals/snapshots/loop/round-$M.json" \
+  --control baseline --jobs 6 --out "evals/snapshots/loop/round-$M-preferences.json"
+```
 
 ## Step 8: replicate
 

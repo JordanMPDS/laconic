@@ -46,17 +46,31 @@ GRADINGS = ("quality", "safety", "rule-adherence")
 UNKNOWN_GRADING = "unclassified"
 
 
-def case_grading(case):
+# The two gradings whose verdicts reach a fatal counter: quality_fails and
+# safety_fails, and nothing else. A rule-adherence case is judged and displayed
+# and may not be optimized against, so its verdicts decide nothing; an
+# unclassified one has no criteria provenance to decide with.
+JUDGE_GATE_GRADINGS = ("quality", "safety")
+
+
+def _expect(case, cases_dir=None):
+    """A case's expect.json, or {} if it has none.
+
+    cases_dir exists for judge.py, which runs against evals/holdout as well as
+    evals/cases and would otherwise read every holdout case as unclassified.
+    """
+    p = (Path(cases_dir) if cases_dir else CASES) / case / "expect.json"
+    return json.loads(p.read_text()) if p.exists() else {}
+
+
+def case_grading(case, cases_dir=None):
     """A case with no grading field is reported as unclassified, never
     silently promoted to quality."""
-    p = CASES / case / "expect.json"
-    if not p.exists():
-        return UNKNOWN_GRADING
-    g = json.loads(p.read_text()).get("grading")
+    g = _expect(case, cases_dir).get("grading")
     return g if g in GRADINGS else UNKNOWN_GRADING
 
 
-def case_saturated_models(case):
+def case_saturated_models(case, cases_dir=None):
     """Models whose cell a case's expect.json marks as unable to signal a rule
     edit. Two mechanisms qualify, and each entry names which one it is:
 
@@ -74,11 +88,27 @@ def case_saturated_models(case):
     A saturated cell stays generated, judged and displayed; it leaves only the
     fatal judge-verdict counters, where at small reps a stray flip is
     indistinguishable from an edit effect (#45)."""
-    p = CASES / case / "expect.json"
-    if not p.exists():
-        return {}
-    d = json.loads(p.read_text()).get("saturated_models")
+    d = _expect(case, cases_dir).get("saturated_models")
     return d if isinstance(d, dict) else {}
+
+
+def feeds_judge_gate(case, model, cases_dir=None):
+    """Can this cell's verdict reject a round?
+
+    Only quality_fails and safety_fails read judgments at all, and both filter
+    on the case's grading and skip saturated cells - so `conditional`,
+    `decision`, `floor` and `ordered-steps`/haiku are graded every round and
+    cannot move any gate. That is 35 of the 220 judge calls a round buys at
+    n=5. judge.py skips them by default and _judge_fail_cells
+    below reads it too, so the filter and the gate cannot come apart.
+
+    What is given up by skipping them is disclosure, not scoring: those
+    verdicts are how a round sees whether the rules were obeyed on the cases
+    that grade adherence to them. A hypothesis that names one of those cases
+    must judge them - see --judge-all.
+    """
+    return (case_grading(case, cases_dir) in JUDGE_GATE_GRADINGS
+            and model not in case_saturated_models(case, cases_dir))
 
 
 _median = metrics.median
@@ -461,7 +491,7 @@ def _judge_fail_cells(judg, grading):
     for j in judg or []:
         if (j.get("arm") == "laconic" and j.get("verdict") == "fail"
                 and case_grading(j["case"]) == grading
-                and j.get("model") not in case_saturated_models(j["case"])):
+                and feeds_judge_gate(j["case"], j.get("model"))):
             out[(j["case"], j["model"])] += 1
     return out
 
@@ -1479,6 +1509,12 @@ def render(snap, judg, threshold, prefs=()):
                (meta.get("laconic_level"), meta.get("reps"), meta.get("rules_cksum")))
     out.append("**Excluded runs (call failed, never scored): %d**\n" % excluded)
 
+    if (judg.get("metadata") or {}).get("gates_only"):
+        out.append("**Judged for the gates only: responses on cases whose "
+                   "verdicts feed no fatal counter - rule-adherence cases, and "
+                   "saturated cells - were not graded. They are absent from the "
+                   "trap-verdict table below, not passing it.**\n")
+
     total_usable, missing_judgments = _judgment_gap(snap, judg)
     if judg.get("judgments") and missing_judgments:
         out.append("**WARNING: judgments cover %d/%d usable runs (%d missing) - "
@@ -1648,6 +1684,12 @@ def _judgment_gap(snap, judg):
     if not judg.get("judgments"):
         return (len(usable), 0)
     usable_keys = set((r["case"], r["arm"], r["model"], r["rep"]) for r in usable)
+    # A file judged with judge.py's default coverage is not an unfinished file.
+    # It says so in its own metadata, and the cells it left out are exactly the
+    # ones no counter here reads, so they are excluded from the denominator
+    # rather than reported as a gap every round.
+    if (judg.get("metadata") or {}).get("gates_only"):
+        usable_keys = set(k for k in usable_keys if feeds_judge_gate(k[0], k[2]))
     judged_keys = set((j["case"], j["arm"], j["model"], j["rep"])
                       for j in judg["judgments"])
     missing = usable_keys - judged_keys

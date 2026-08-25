@@ -330,6 +330,17 @@ written down in advance does not make it a gate — `turns` needed an offline
 re-score across rounds 05 to 26 before it was allowed to reject anything
 ([#49]), and this metric has had none.
 
+## Steps 8 and 9 were not bought
+
+The loop's sequence is scoped batch, then the round-wide arm and its judgments,
+then replication, then holdout, stopping at the first that fails. This round
+stopped at the second: the registered target missed at stage 2, so **stage 3's
+judging, the step 8 replication and the step 9 holdout were never generated**.
+There are therefore no `quality_fails` figures, no replication and no holdout
+number in this document, and their absence is the rule being followed rather
+than an omission. Judging 400 responses to confirm a rejection is the waste
+round 14 was called out for.
+
 ## Verdict: reject
 
 The registered target missed at p = 0.151. The edit is reverted whole, per the
@@ -356,7 +367,7 @@ generations rather than a dead end:
 **The next move is a metric, not another rule edit.** Promoting the hands-back
 count to a scoreable target needs what [#49] needed: implement it in
 `report.py`, re-score every stored round offline, establish that it does not
-fire on the archive, and only then register a round against it. Filed as the
-follow-up to [#138]. Re-running this same edit against a gate built after
+fire on the archive, and only then register a round against it. **Filed as
+[#146].** Re-running this same edit against a gate built after
 seeing this round would be scoring an edit with a rule repaired to suit it —
 [#133]'s mistake, which round 26 had to spend a whole round undoing.

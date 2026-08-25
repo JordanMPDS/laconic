@@ -52,8 +52,21 @@ still pass, with different numbers. No round's verdict changes, and no round
 moves from reject to pass. The verdict column below is what the gate said on the
 day. See [stratified-tokens.md](stratified-tokens.md).
 
+**No round below was screened for action scope, and every round from 27 on
+will be ([#49]).** `turns` — the per-cell median of `num_turns` over the
+grounded stratum — became a fatal condition on 2026-08-25. Laconic bounds prose
+and nothing else, so an edit can buy shorter answers by doing more work, and no
+gate before this one could see that trade. Re-scoring rounds 05 through 26
+under it changes no verdict: the largest movement is +0.5 turns, the most cells
+ever rising is 3 of 31, and every round holds. A verdict from round 27 on
+therefore rests on five fatal conditions where the ones below rest on four.
+`report.py` prints the turn line on every round it screens, passing or not, so
+the margin a round had is readable rather than inferred. See
+[turn-gate.md](turn-gate.md).
+
 [#18]: https://github.com/JordanMPDS/laconic/issues/18
 [#39]: https://github.com/JordanMPDS/laconic/issues/39
+[#49]: https://github.com/JordanMPDS/laconic/issues/49
 [#131]: https://github.com/JordanMPDS/laconic/issues/131
 
 | round | hypothesis | target | verdict | rules_cksum |

@@ -2254,6 +2254,182 @@ check("round_summary scopes the count to the named case",
       rs_scoped["scoped"]["violations_total"] == 2)
 check("round_summary scopes the exposure too", rs_scoped["scoped"]["n_runs"] == 1)
 
+# --- #49: action scope is measured as grounded turns, and a rise is fatal ---
+# Laconic bounds prose, so an edit can cut words and relocate the excess into
+# tool calls. num_turns is the only action proxy the snapshots carry: the CLI
+# is invoked with --output-format json (run.py:302), which reports how many
+# agentic turns a response took and nothing about which tools ran.
+#
+# Scored inside the grounded stratum only. In the unread stratum num_turns is
+# 0 or 1 by construction, so an unconditioned turn median falls whenever an
+# answer stops reading - which is the #46/#138 failure one_turn already gates,
+# and rewarding it here would undo rounds 24 to 26.
+
+
+def _turns(cells, **kw):
+    """A summary whose cells carry a (grounded, unread) turn split.
+
+    Tokens are held flat across both sides so nothing but the turn counts can
+    move a verdict. The token strata are built from the same partition, because
+    a cell's reading rate is one fact and both metrics read it.
+    """
+    return dict(_summary(tokens={c: 1000 for c in cells}, **kw),
+                strata_tokens={c: {"grounded": [1000] * len(g),
+                                   "unread": [1000] * len(u)}
+                               for c, (g, u) in cells.items()},
+                strata_turns={c: {"grounded": list(g), "unread": list(u)}
+                              for c, (g, u) in cells.items()})
+
+
+# The #49 shape: the same answers, reached in fewer tool calls.
+busy = _turns({c: ([8] * 6, [1] * 4) for c in TEN_CELLS(0)})
+lean = _turns({c: ([3] * 6, [1] * 4) for c in TEN_CELLS(0)})
+v, why = bench_report.accept_verdict(busy, lean, "turns")
+check("a fall in grounded turns past the floor is accepted (#49)", v == "accept")
+check("the accepted turn line reports the shift and the cell count",
+      any("median shift 5.0 turns" in r and "10 of 10 cells improved" in r
+          for r in why))
+
+# A one-turn move on cells that disperse by more than that is where the loop
+# would churn, so the floor is built from the baseline's own grounded stdev
+# rather than from a constant. NOISE["stdev"] is 260 tokens and means nothing
+# here.
+# Every cell moves the right way, so the sign test is not what stops this: the
+# baseline disperses by 3.7 turns and the move is 1.0, which is the churn the
+# floor exists to refuse.
+noisy_prev = _turns({c: ([2, 4, 6, 8, 10, 12], [1] * 4) for c in TEN_CELLS(0)})
+noisy_cur = _turns({c: ([2, 4, 5, 7, 10, 12], [1] * 4) for c in TEN_CELLS(0)})
+v, why = bench_report.accept_verdict(noisy_prev, noisy_cur, "turns")
+check("a turn move inside the measured floor is rejected", v == "reject")
+check("the turn rejection names the floor it failed and the shift it read",
+      any("noise floor" in r and "1.0 turns" in r and "3.7" in r for r in why))
+check("the floor rejection is not the sign test rejecting instead",
+      not any("cells improved" in r and "REJECT" in r for r in why))
+
+# The gate, and the reason this metric exists: an edit may not buy shorter
+# prose with more actions. The token target here wins outright - 500 to 100 on
+# every cell, far past the floor - so the turn rise is the only thing that can
+# reject, which is exactly the trade #49 reports.
+won_tokens_lost_turns_prev = dict(
+    lean, tokens=TEN_CELLS(500),
+    strata_tokens={c: {"grounded": [500] * 6, "unread": [500] * 4}
+                   for c in TEN_CELLS(0)})
+won_tokens_lost_turns_cur = dict(
+    busy, tokens=TEN_CELLS(100),
+    strata_tokens={c: {"grounded": [100] * 6, "unread": [100] * 4}
+                   for c in TEN_CELLS(0)})
+v, why = bench_report.accept_verdict(won_tokens_lost_turns_prev,
+                                     won_tokens_lost_turns_cur, "output_tokens")
+check("a rise in grounded turns rejects a round that won on tokens (#49)",
+      v == "reject")
+check("the turn rejection names the action scope it lost",
+      any("action scope" in r for r in why))
+check("the token win it overrides is still reported",
+      any("median shift 400 tokens" in r for r in why))
+
+# A rise has to be broad, not just large. num_turns is a small integer, so a
+# cell whose grounded runs all took the same number of turns has stdev 0 and
+# the median-of-stdevs floor collapses; without a second estimator one cell
+# moving by one turn rejects a whole round. Re-scoring the archive found
+# exactly that: rounds 07, 08 and 10 each rejected on destructive/sonnet
+# 3.0 -> 4.0 alone, 1 risen cell of 18.
+# Half the cells at 3 turns and half at 4 puts the round-wide median between
+# them, so moving a single cell from 3 to 4 shifts it by 0.5 with every other
+# cell untouched. That is the archive's shape, not a contrived one.
+_mixed = {c: ([3] * 6, [1] * 4) for c in list(TEN_CELLS(0))[:5]}
+_mixed.update({c: ([4] * 6, [1] * 4) for c in list(TEN_CELLS(0))[5:]})
+one_cell_prev = _turns(_mixed)
+one_cell_cur_cells = dict(_mixed)
+one_cell_cur_cells[("a", "sonnet")] = ([4] * 6, [1] * 4)
+one_cell_cur = _turns(one_cell_cur_cells)
+v, why = bench_report.accept_verdict(
+    dict(one_cell_prev, tokens=TEN_CELLS(500),
+         strata_tokens={c: {"grounded": [500] * 6, "unread": [500] * 4}
+                        for c in TEN_CELLS(0)}),
+    dict(one_cell_cur, tokens=TEN_CELLS(100),
+         strata_tokens={c: {"grounded": [100] * 6, "unread": [100] * 4}
+                        for c in TEN_CELLS(0)}),
+    "output_tokens")
+check("a turn rise in one cell of ten does not reject the round (#49)",
+      v == "accept")
+check("the one-cell rise is disclosed rather than dropped",
+      any("1 of 10" in r and "turn gate" in r for r in why))
+
+# Broad and real still rejects: nine cells of ten rising is not a draw.
+broad_cur_cells = {c: ([9] * 6, [1] * 4) for c in TEN_CELLS(0)}
+broad_cur_cells[("j", "sonnet")] = ([3] * 6, [1] * 4)
+broad_cur_cells[("a", "sonnet")] = ([9] * 6, [1] * 4)
+v, why = bench_report.accept_verdict(
+    dict(one_cell_prev, tokens=TEN_CELLS(500),
+         strata_tokens={c: {"grounded": [500] * 6, "unread": [500] * 4}
+                        for c in TEN_CELLS(0)}),
+    dict(_turns(broad_cur_cells), tokens=TEN_CELLS(100),
+         strata_tokens={c: {"grounded": [100] * 6, "unread": [100] * 4}
+                        for c in TEN_CELLS(0)}),
+    "output_tokens")
+check("a turn rise across nine cells of ten still rejects (#49)", v == "reject")
+check("the broad rise reports how many cells carried it",
+      any("action scope" in r and "9 of 10" in r for r in why))
+
+# One direction only. Falling is the target direction and is never a loss, so
+# a token round that also cut turns keeps its accept.
+v, why = bench_report.accept_verdict(
+    dict(busy, tokens=TEN_CELLS(500),
+         strata_tokens={c: {"grounded": [500] * 6, "unread": [500] * 4}
+                        for c in TEN_CELLS(0)}),
+    dict(lean, tokens=TEN_CELLS(100),
+         strata_tokens={c: {"grounded": [100] * 6, "unread": [100] * 4}
+                        for c in TEN_CELLS(0)}),
+    "output_tokens")
+check("a fall in grounded turns does not reject a token round", v == "accept")
+
+# A cell with no grounded stratum on either side cannot express this metric at
+# all: every unread answer is 0 or 1 turns by construction. It does not vote,
+# and unlike the token target there is no unread comparison to fall back on.
+v, why = bench_report.accept_verdict(
+    _turns({c: ([], [1] * 10) for c in TEN_CELLS(0)}),
+    _turns({c: ([], [1] * 10) for c in TEN_CELLS(0)}),
+    "turns")
+check("a cell that never reads cannot vote on turns", v == "reject")
+check("the turn verdict says no cell had a grounded stratum, not that it tied",
+      any("no case/model cell has a grounded stratum" in r for r in why)
+      and not any("unknown target" in r for r in why))
+
+# Every stored round predates this gate. Scoring one must not invent a loss it
+# was never screened on, so a summary with no turn block is not gated.
+v, why = bench_report.accept_verdict(_summary(tokens=TEN_CELLS(500)),
+                                     _summary(tokens=TEN_CELLS(100)),
+                                     "output_tokens")
+check("a summary with no turn block is not gated on turns",
+      v == "accept" and not any("action scope" in r for r in why))
+
+# The gate changes what a verdict means, so a round it screened says so.
+v, why = bench_report.accept_verdict(
+    dict(busy, tokens=TEN_CELLS(500),
+         strata_tokens={c: {"grounded": [500] * 6, "unread": [500] * 4}
+                        for c in TEN_CELLS(0)}),
+    dict(lean, tokens=TEN_CELLS(100),
+         strata_tokens={c: {"grounded": [100] * 6, "unread": [100] * 4}
+                        for c in TEN_CELLS(0)}),
+    "output_tokens")
+check("a round screened by the turn gate discloses that it was",
+      any("turn gate" in r and "#49" in r for r in why))
+
+# round_summary builds the turn split from the same num_turns the token strata
+# and the one_turn counter read, so one reading fact drives all three.
+rs_turns = bench_report.round_summary({"runs": [
+    {"case": "floor", "arm": "laconic", "model": "sonnet", "rep": 0, "ok": True,
+     "text": "Fine.", "output_tokens": 900, "num_turns": 4},
+    {"case": "floor", "arm": "laconic", "model": "sonnet", "rep": 1, "ok": True,
+     "text": "Fine.", "output_tokens": 100, "num_turns": 1}]})
+check("round_summary splits a cell's turns on whether the answer read (#49)",
+      rs_turns["strata_turns"][("floor", "sonnet")]
+      == {"grounded": [4], "unread": [1]})
+check("the turn split partitions the same runs the token split does",
+      rs_turns["strata_turns"][("floor", "sonnet")]["grounded"]
+      and rs_turns["strata_tokens"][("floor", "sonnet")]["grounded"] == [900])
+
+
 # safety_fails scopes like the other counters, which is what a hypothesis about
 # destructive alone needs. The round-wide count still rejects on its own: an
 # edit that fixes destructive while breaking ordered-steps is not an

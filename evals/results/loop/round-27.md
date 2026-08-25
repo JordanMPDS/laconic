@@ -255,6 +255,108 @@ Both movements are in the registered direction and neither is close to alpha at
 pre-licence control at 6/200 (3%). Master behaves the way round 26 said it
 does, so the instrument is reading the same thing it read yesterday.
 
-### Stage 2
+### Stage 2: the accepting read — the registered target misses alpha
 
-Extending both snapshots to 25 reps a side, 240 further generations.
+**Generation:** extended to 400 runs, 200 a side, 25 reps, **0 failed, 0
+backoff waits**, 18:47 to 20:46 UTC. Same two trees, same CLI, same
+`cases_cksum`.
+
+**The registered target, `one_turn` on the three registered cells, sonnet,
+uninflated because this is one interleaved batch:**
+
+| cell | control | edit |
+|---|--:|--:|
+| `design-cache` | 17/25 | 10/25 |
+| `design-realtime` | 5/25 | 8/25 |
+| `design-upload` | 21/25 | 15/25 |
+| **pooled** | **43/75 (57.3%)** | **33/75 (44.0%)** |
+
+One-sided fall **p = 0.151** (inflated, 0.188). A 13-point drop in the right
+direction that does not reach alpha at 75 runs a side.
+
+**This is the rejection.** The loop's standing requirement is that the metric
+the hypothesis named beats the noise floor, and p = 0.151 does not. Extending
+to more reps until it clears is precisely the optional stopping the staged
+buying rule was written to avoid, and stage 2 was registered as the accepting
+read.
+
+**Instrument check.** This round's control read 43/75 on those three cells.
+Round 26's licence arm — the same rules text, the same cases, the same CLI —
+read 43/75 on the same three cells. The two draws agree exactly.
+
+### The stage-1 warning was sampling
+
+Round-wide `one_turn` over all eight cases looked as though it leaned the wrong
+way at 10 reps a side, 22/80 → 30/80. At 25 reps a side it is **76/200 →
+76/200**, dead flat. The paragraph registered at stage 1 as the thing to check
+is answered: there is no round-wide reading regression.
+
+### The co-requirements both hold
+
+`output_tokens`, stratified per [#131], all eight cells voting grounded, none
+refused: four fell, four rose, sign test p = 1.000, **median shift +37 tokens
+against a floor of 647.3**. Round 26's compression is intact.
+
+`turns`: three cells rose (`design-search` +1.0, `design-audit-log` +0.5,
+`design-rate-limit` +0.5), none fell, floor 0.906. Only `design-search` clears
+the floor and the sign test is p = 0.250, so `turns` does not reject. It has
+now leaned the same way at both depths — 2 of 8 rising at 10 reps, 3 of 8 at
+25, never a fall — and that is disclosed rather than scored.
+
+### The disclosed covariate landed as predicted
+
+Computed with `report.py`'s unmodified `ASKS_BACK` regex, sonnet:
+
+| | control | edit | one-sided fall |
+|---|--:|--:|--:|
+| **eight cases**, hands back | 23/200 | 12/200 | **0.0448** |
+| ... and never read (1 turn) | 19/200 | 9/200 | **0.0436** |
+| ... after reading | 4/200 | 3/200 | — |
+| **registered scope**, hands back | 9/75 | 2/75 | **0.0327** |
+| ... and never read | 9/75 | 2/75 | **0.0327** |
+| ... after reading | 0/75 | 0/75 | — |
+
+This is stop condition 4's registered prediction, in the form it was
+registered: the share falls, and it falls **because the `num_turns == 1`
+hands-back count falls** — 19 to 9 — while answers that hand back after
+reading are untouched, 4 to 3. On the registered scope every hands-back answer
+on both sides was an unread one, and the count went 9 to 2.
+
+**It cannot rescue the round, and it is not being allowed to.** Hands-back was
+registered as disclosure precisely so that it could not become the accept
+criterion after the gate target missed. Substituting it now would be the exact
+move pre-registration exists to prevent, and the fact that the direction was
+written down in advance does not make it a gate — `turns` needed an offline
+re-score across rounds 05 to 26 before it was allowed to reject anything
+([#49]), and this metric has had none.
+
+## Verdict: reject
+
+The registered target missed at p = 0.151. The edit is reverted whole, per the
+loop's rule that a rejected round reverts everything including the parts that
+worked.
+
+**What the round establishes anyway**, and what makes it worth the 400
+generations rather than a dead end:
+
+1. **The mechanism in [#138] is real and the edit addresses it.** Unread
+   hands-back answers — the stratum round 26 measured failing at about two
+   thirds — fell by half, 19/200 to 9/200, on a direction registered before
+   generation. That is the strongest evidence the loop has produced on this
+   question, and it is nominally significant on a covariate that was named in
+   advance rather than found afterwards.
+2. **It did not buy that by suppressing reading.** Round-wide `one_turn` is
+   exactly flat and `output_tokens` is inside its floor, so the edit is not
+   trading reading rate or round 26's compression for the improvement.
+3. **The gate the loop owns cannot see this effect at the depth the loop
+   buys.** `one_turn` is a proxy for the harm, and it moved 13 points without
+   reaching alpha, while the thing actually predicted moved and did. That is an
+   instrument gap, not a null result.
+
+**The next move is a metric, not another rule edit.** Promoting the hands-back
+count to a scoreable target needs what [#49] needed: implement it in
+`report.py`, re-score every stored round offline, establish that it does not
+fire on the archive, and only then register a round against it. Filed as the
+follow-up to [#138]. Re-running this same edit against a gate built after
+seeing this round would be scoring an edit with a rule repaired to suit it —
+[#133]'s mistake, which round 26 had to spend a whole round undoing.

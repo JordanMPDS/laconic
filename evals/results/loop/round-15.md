@@ -9,6 +9,15 @@ byte-identical to rounds 10, 12 and 14
 **Status:** hypothesis registered here before any round call was made. Results
 are appended below the line.
 
+**Corrected 2026-08-25 ([#131]).** The target line is withdrawn. Scored inside
+one reading stratum it reads **7 of 8 cells, p = 0.070**, which does not reach
+alpha, and both `design-retry` cells are refused because their reading collapsed
+— 2 of 10 to 0 of 10 on haiku, 6 of 10 to 1 of 10 on sonnet. The round's
+verdict, reject at step 9 on the holdout, is unchanged, and so is the fact that
+steps 1 to 7 accepted it. See [stratified-tokens.md](stratified-tokens.md).
+
+[#131]: https://github.com/JordanMPDS/laconic/issues/131
+
 ## Why a fourth draw
 
 Not because the edit is new — it is the same bytes as three previous rounds —

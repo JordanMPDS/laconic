@@ -2109,6 +2109,138 @@ v, why = bench_report.accept_verdict(
 check("a sonnet-large haiku-small sweep clears the all-cells floor (#51)",
       v == "accept")
 
+# --- #131: the token target is scored inside one reading stratum ---
+# An unread answer is several times shorter than a grounded one, so a marginal
+# median falls when an edit suppresses reading and the old target could not
+# tell that from compression.
+
+
+def _strata(cells, **kw):
+    """A summary whose cells carry a (grounded, unread) token split."""
+    tokens = {c: bench_report._median(list(g) + list(u))
+              for c, (g, u) in cells.items()}
+    return dict(_summary(tokens=tokens, **kw),
+                strata_tokens={c: {"grounded": list(g), "unread": list(u)}
+                               for c, (g, u) in cells.items()})
+
+
+# Round 20's shape: every grounded answer is exactly as long as it was, and the
+# whole marginal move is answers leaving the grounded stratum.
+mix_prev = _strata({c: ([1000] * 6, [200] * 4) for c in TEN_CELLS(0)})
+mix_cur = _strata({c: ([1000] * 2, [200] * 8) for c in TEN_CELLS(0)})
+v, why = bench_report.accept_verdict(mix_prev, mix_cur, "output_tokens")
+check("a token win that is only mix-shift is rejected (#131)", v == "reject")
+check("the mix-shift rejection reports no cell improving",
+      any("0 of 10 cells improved" in r for r in why))
+check("the marginal shift the old target read is still disclosed",
+      any("the marginal shift is 800 tokens" in r for r in why))
+check("the counterfactual holds each cell at the baseline's reading rate",
+      any("and 0 with each cell's reading rate held at the baseline's" in r
+          for r in why))
+
+# The target is scored inside the grounded stratum, so an edit that shortens
+# only the answers that never opened a file has to be visible somewhere or the
+# verdict would report nothing at all about it.
+v, why = bench_report.accept_verdict(
+    _strata({c: ([1000] * 6, [800] * 4) for c in TEN_CELLS(0)}),
+    _strata({c: ([1000] * 6, [300] * 4) for c in TEN_CELLS(0)}),
+    "output_tokens")
+check("compressing only unread answers does not pass the target", v == "reject")
+check("the unread stratum is reported beside the grounded one",
+      any("the unread stratum reads 800 -> 300 over 10 of 10 cells" in r
+          for r in why))
+
+# A round whose cells all sit in one stratum still reports that stratum's
+# level, even though no counterfactual can be built for it.
+v, why = bench_report.accept_verdict(
+    _strata({c: ([], [1000] * 10) for c in TEN_CELLS(0)}),
+    _strata({c: ([], [400] * 10) for c in TEN_CELLS(0)}),
+    "output_tokens")
+check("a single-stratum round still reports the unread median",
+      any("the unread stratum reads 1000 -> 400" in r for r in why)
+      and not any("both strata" in r for r in why))
+
+# The same mix, with real compression under it, still passes.
+comp_cur = _strata({c: ([400] * 2, [200] * 8) for c in TEN_CELLS(0)})
+v, why = bench_report.accept_verdict(mix_prev, comp_cur, "output_tokens")
+check("compression inside the grounded stratum is still accepted", v == "accept")
+check("the accepted shift is the grounded one, not the marginal one",
+      any("median shift 600 tokens" in r for r in why))
+
+# A cell whose reading rate crossed the floor has no stratum to be compared
+# inside. It does not vote, and the verdict names it rather than dropping it
+# silently.
+crossed = dict({c: ([1000] * 6, [200] * 4) for c in TEN_CELLS(0)})
+crossed[("a", "sonnet")] = ([], [200] * 10)
+v, why = bench_report.accept_verdict(
+    mix_prev, _strata({c: ([400] * 6, [200] * 4) if c != ("a", "sonnet")
+                       else ([], [200] * 10) for c in TEN_CELLS(0)}),
+    "output_tokens")
+check("a cell whose reading rate crossed the floor does not vote",
+      any("9 of 9 cells improved" in r for r in why))
+check("the verdict names the cell it refused and its reading rates",
+      any("a/sonnet 6 of 10 -> 0 of 10" in r for r in why))
+
+# A case with no fixture has nothing to open, so every answer is unread by
+# construction. There is no mix to shift and the cell is compared as it always
+# was, inside the unread stratum.
+v, why = bench_report.accept_verdict(
+    _strata({c: ([], [1000] * 10) for c in TEN_CELLS(0)}),
+    _strata({c: ([], [400] * 10) for c in TEN_CELLS(0)}),
+    "output_tokens")
+check("a cell that never reads is compared inside the unread stratum",
+      v == "accept" and any("10 unread" in r for r in why))
+
+# GROUNDED_MIN_RUNS is a floor on whether a stratum exists at all: two runs on
+# both sides is a grounded comparison, one against three is a crossing.
+v, why = bench_report.accept_verdict(
+    _strata({c: ([1000] * 2, [200] * 8) for c in TEN_CELLS(0)}),
+    _strata({c: ([400] * 2, [200] * 8) for c in TEN_CELLS(0)}),
+    "output_tokens")
+check("two grounded runs a side is enough to compare grounded medians",
+      v == "accept" and any("10 grounded" in r for r in why))
+v, why = bench_report.accept_verdict(
+    _strata({c: ([1000], [200] * 9) for c in TEN_CELLS(0)}),
+    _strata({c: ([400] * 3, [200] * 7) for c in TEN_CELLS(0)}),
+    "output_tokens")
+check("one grounded run against three is refused, not compared",
+      v == "reject" and any("not voting" in r for r in why))
+
+# A summary built before #131 carries no strata block. It is scored on the
+# marginal median, which is what every stored round was scored by, and says so
+# by printing no stratum line at all.
+v, why = bench_report.accept_verdict(_summary(tokens=TEN_CELLS(500)),
+                                     _summary(tokens=TEN_CELLS(100)),
+                                     "output_tokens")
+check("a summary with no strata block is still scored on its marginal median",
+      v == "accept" and not any("#131" in r for r in why))
+
+# The scoped branch reads the same stratified medians, and builds its floor
+# from the stratum the cells voted in.
+scoped_prev = dict(_strata({(c, "sonnet"): ([1000] * 6, [200] * 4)
+                            for c in "abcdef"}),
+                   scoped=_scoped(cases=list("abcdef"))["scoped"])
+scoped_cur = dict(_strata({(c, "sonnet"): ([1000] * 2, [200] * 8)
+                           for c in "abcdef"}),
+                  scoped=_scoped(cases=list("abcdef"))["scoped"])
+v, why = bench_report.accept_verdict(scoped_prev, scoped_cur, "output_tokens",
+                                     target_cases=list("abcdef"))
+check("a scoped token target is stratified too (#131)",
+      v == "reject" and any("0 of 6 cells improved" in r for r in why))
+
+# aggregate and round_summary build the split from num_turns, which is the
+# same proxy the one_turn counter uses.
+rs_strata = bench_report.round_summary({"runs": [
+    {"case": "floor", "arm": "laconic", "model": "sonnet", "rep": 0, "ok": True,
+     "text": "Fine.", "output_tokens": 900, "num_turns": 3},
+    {"case": "floor", "arm": "laconic", "model": "sonnet", "rep": 1, "ok": True,
+     "text": "Fine.", "output_tokens": 100, "num_turns": 1}]})
+check("round_summary splits a cell's tokens on whether the answer read (#131)",
+      rs_strata["strata_tokens"][("floor", "sonnet")]
+      == {"grounded": [900], "unread": [100]})
+check("round_summary keeps the marginal median beside the split",
+      rs_strata["tokens"][("floor", "sonnet")] == 500)
+
 # round_summary's scope is an addition, never a replacement.
 rs_scoped = bench_report.round_summary(
     {"runs": [{"case": "floor", "arm": "laconic", "model": "sonnet", "rep": 0,

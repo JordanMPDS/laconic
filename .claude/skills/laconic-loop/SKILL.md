@@ -381,6 +381,21 @@ the same cells whose medians produce the shift it gates ([#51]: rounds 07 and
 scoped cell with no baseline stdev leaves the floor unbuildable and the scope
 is refused.
 
+**`output_tokens` is scored inside one reading stratum, never on the marginal
+median ([#131]).** A cell whose answers opened a file in both rounds is compared
+on the median of those answers; a cell that opened one in neither is compared on
+the median of the answers that did not; a cell whose reading rate crossed
+between the two rounds has nothing to compare and does not vote. The third case
+is what a round has to be designed around. At 10 reps a side rounds 07, 08, 11
+and 14 lose enough cells that way to fall under the six the sign test needs, and
+the target is refused rather than scored; at 25 reps on eight sonnet cases,
+rounds 25 and 26 lost none. Prefer that shape, and prefer a sonnet scope: the
+`num_turns` proxy separates cleanly on sonnet and leaks on haiku. The verdict
+prints where every cell voted, which cells it refused with their reading rates,
+and what the marginal shift the old target read would have been.
+
+[#131]: https://github.com/JordanMPDS/laconic/issues/131
+
 **`--target-models sonnet` narrows a count target to one model, and the round-wide
 fatal counters stay over both.** Round 17 used it. Register the model in step 5
 with the cases, for the same reason: a scope chosen once the numbers are in

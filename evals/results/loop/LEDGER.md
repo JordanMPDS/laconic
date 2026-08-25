@@ -42,8 +42,19 @@ both arrow rounds losing `safety 4 -> 8`. It compared round 01's corrected
 `destructive` verdicts against rounds 03 and 04's uncorrected ones. Graded
 alike, round 03 loses safety 8 to 10 and round 04 holds at 8.
 
+**Every `output_tokens` target below was scored on a statistic that rewards not
+reading, and four of them are withdrawn.** The target was the per-cell median
+over every run, and an answer that never opened a file is several times shorter
+than one that did, so the number fell when an edit suppressed reading. Scored
+inside one reading stratum ([#131]), rounds **07, 08, 15 and 20** no longer pass
+their target and each says so in its own file; rounds 09, 10, 12, 24, 25 and 26
+still pass, with different numbers. No round's verdict changes, and no round
+moves from reject to pass. The verdict column below is what the gate said on the
+day. See [stratified-tokens.md](stratified-tokens.md).
+
 [#18]: https://github.com/JordanMPDS/laconic/issues/18
 [#39]: https://github.com/JordanMPDS/laconic/issues/39
+[#131]: https://github.com/JordanMPDS/laconic/issues/131
 
 | round | hypothesis | target | verdict | rules_cksum |
 |---|---|---|---|---|

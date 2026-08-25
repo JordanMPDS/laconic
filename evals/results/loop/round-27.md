@@ -98,15 +98,27 @@ Sonnet only, eight `design-*` cases, 25 reps a side — round 26's scope exactly
 so the two rounds' numbers sit beside each other without a scope caveat. Bought
 in stages, per the loop's standing order to score the cheap target first:
 
-1. **Stage 1, the kill screen.** `design-cache`, `design-realtime`,
-   `design-upload`, sonnet, **10 reps a side, 60 generations, no judging.**
-   `one_turn` is free off `num_turns`. **This read can only kill, never
+1. **Stage 1, the kill screen.** All eight `design-*` cases, sonnet, **10 reps
+   a side, 160 generations, no judging.** `one_turn` is free off `num_turns`
+   and `output_tokens` needs no judging either, so both registered stop
+   conditions 1 and 2 are readable here. **This read can only kill, never
    accept.** Registering it that way is what keeps staged buying from becoming
    optional stopping: there is no draw at which the round stops early and
    declares success.
-2. **Stage 2, the accepting read.** Extend those three cells to 25 reps a side
-   and add the other five design cases at 25 reps a side — 340 further
-   generations, 400 in total. `one_turn` is scored here, at 25 a side.
+
+   *Amended at 16:04 UTC on 2026-08-25, before any generation, and the reason
+   is an instrument constraint rather than anything about the data.* The stage
+   was registered six minutes earlier as three cases and 60 generations.
+   `run.py` takes `--cases` as a single glob and stamps a `cases_cksum` over
+   exactly the cases the snapshot covers ([#69]), so a three-case stage 1
+   cannot be extended into an eight-case stage 2 — the guard refuses the
+   resume, and those 60 generations would have to be thrown away and bought
+   again. Widening stage 1 to the glob round 26 used makes stage 2 a pure
+   extension of reps. It costs 100 more generations and it buys the
+   `output_tokens` co-requirement a stage earlier than registered.
+2. **Stage 2, the accepting read.** Extend the same snapshot to 25 reps a side
+   — 240 further generations, 400 in total, which is round 26's exact spend.
+   `one_turn` is scored here, at 25 a side.
 3. **Stage 3, the fatal counters.** Judge the eight-case batch and score
    `quality_fails`, `never_cut_failures`, `safety_fails` and
    `violations_total`.
@@ -159,6 +171,7 @@ that fails rather than marching on, with escalating backoff scoped to the rep
 being generated.
 
 [#49]: https://github.com/JordanMPDS/laconic/issues/49
+[#69]: https://github.com/JordanMPDS/laconic/issues/69
 [#127]: https://github.com/JordanMPDS/laconic/pull/127
 [#133]: https://github.com/JordanMPDS/laconic/issues/133
 [#138]: https://github.com/JordanMPDS/laconic/issues/138

@@ -552,10 +552,20 @@ file edit, and the prose it produced passed every prose rule in the ruleset.
 [#49]: https://github.com/JordanMPDS/laconic/issues/49
 [#131]: https://github.com/JordanMPDS/laconic/issues/131
 [#138]: https://github.com/JordanMPDS/laconic/issues/138
+[#142]: https://github.com/JordanMPDS/laconic/issues/142
 
-`num_turns` cannot tell a read from a write, so this measures the volume of
-action and not its kind. Capturing tool names needs `--output-format
-stream-json` in `run.py`, which buys nothing for any stored round.
+`num_turns` cannot tell a read from a write, so `turns` measures the volume of
+action and not its kind. Since [#142] the CLI is invoked with
+`--output-format stream-json`, and every run record carries a `tools` list of
+the tool names that response actually invoked, in order.
+
+**Nothing scores that list yet, and a round you run does not gate on it.** The
+field is absent on every round below 27, so a read-versus-write metric built
+from it today could not be re-scored against a single stored round, and a gate
+with no measured null rejects on whatever its first round happens to do. `turns`
+went live only because `num_turns` re-scored rounds 05 to 26 offline first. The
+list accumulates until enough rounds carry it to say what a normal tool mix
+looks like.
 
 **Required to accept:** the metric your hypothesis named beats the noise floor
 — a sign test across the case/model cells *and* a median shift larger than the

@@ -18,10 +18,13 @@ one-line factual question — "what is the command to get gke cluster name" —
 ran a command, answered, then ran a second command. The prose was short enough
 to pass every rule in the ruleset. The turn was still a gross over-answer.
 
-`num_turns` is the only action proxy the archive carries. `run.py:302` asks the
-CLI for `--output-format json`, which reports how many agentic turns a response
-took and nothing about which tools ran, so this measures the volume of action
-and not its kind. [#142] is the other half.
+`num_turns` is the only action proxy the archive carries. Every stored round was
+generated with `--output-format json`, which reports how many agentic turns a
+response took and nothing about which tools ran, so this measures the volume of
+action and not its kind. [#142] is the other half, and it has since landed:
+`run.py` asks for `--output-format stream-json` and every run generated from
+round 27 on records the tool names it invoked. That changes nothing about this
+gate, which still reads `num_turns` and still holds on every stored round.
 
 [#142]: https://github.com/JordanMPDS/laconic/issues/142
 

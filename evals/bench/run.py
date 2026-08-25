@@ -120,6 +120,53 @@ def parse_cli_json(raw):
     }
 
 
+def parse_cli_stream(raw):
+    """Parse --output-format stream-json: the flat record, plus tool names.
+
+    num_turns counts agentic loop iterations, so a file read and a file edit
+    are the same integer (#49). The stream emits every assistant message as
+    its own event with its tool_use blocks intact, and that is the only place
+    the CLI says which tools a response actually invoked.
+
+    The stream closes with the same object --output-format json returns
+    whole, so the record shape stays defined in one place - parse_cli_json -
+    and what is added here is the single field the flat format cannot carry.
+
+    Two properties of the real stream this depends on. The result event is
+    not necessarily the last line, because Claude Code emits a task_summary
+    after it, so decoding the last line would record every run in a round as
+    failed. And a line that is not a JSON object is not a reason to throw the
+    run away; a stream with no result event at all is, because that is a run
+    killed mid-transcript and it parses as the same failure a malformed flat
+    payload does.
+
+    Tools are reported even for a failed run. usable() filters those out of
+    every statistic so this cannot reach a score, and it is what separates a
+    cell that died after four tool calls from one that never started.
+    """
+    tools, result = [], ""
+    for line in raw.splitlines():
+        line = line.strip()
+        if not line:
+            continue
+        try:
+            d = json.loads(line)
+        except ValueError:
+            continue
+        if not isinstance(d, dict):
+            continue
+        if d.get("type") == "result":
+            result = line
+        elif d.get("type") == "assistant":
+            msg = d.get("message")
+            blocks = msg.get("content") if isinstance(msg, dict) else None
+            for b in blocks if isinstance(blocks, list) else []:
+                if (isinstance(b, dict) and b.get("type") == "tool_use"
+                        and isinstance(b.get("name"), str)):
+                    tools.append(b["name"])
+    return dict(parse_cli_json(result), tools=tools)
+
+
 def run_key(case, arm, model, rep):
     return (case, arm, model, rep)
 
@@ -299,7 +346,13 @@ def save_snapshot(path, snap):
 
 
 def call(claude_bin, model, prompt, system_prompt, cwd, output_style=None):
-    cmd = [claude_bin, "-p", "--model", model, "--output-format", "json"]
+    # stream-json rather than json because only the stream carries the
+    # tool_use blocks (#142); --verbose is not optional, the CLI refuses the
+    # combination under --print without it. The terminal result event is the
+    # json payload verbatim, so nothing about the stored record changes
+    # except the tool list that is added beside it.
+    cmd = [claude_bin, "-p", "--model", model,
+           "--output-format", "stream-json", "--verbose"]
     if system_prompt:
         cmd += ["--append-system-prompt", system_prompt]
     if output_style:
@@ -313,7 +366,7 @@ def call(claude_bin, model, prompt, system_prompt, cwd, output_style=None):
         return {"ok": False}
     if out.returncode != 0:
         return {"ok": False}
-    return parse_cli_json(out.stdout)
+    return parse_cli_stream(out.stdout)
 
 
 STYLE_PROBE = (

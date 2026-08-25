@@ -48,6 +48,102 @@ check("empty is not ok", bench_run.parse_cli_json("")["ok"] is False)
 check("is_error payload is not ok",
       bench_run.parse_cli_json(json.dumps({"is_error": True, "result": "x"}))["ok"] is False)
 
+# --- #142: stream-json capture records which tools a response invoked ---
+# num_turns (#49) counts agentic loop iterations, so a file read and a file
+# edit are the same integer. The CLI's stream-json format emits every
+# assistant message as its own event, tool_use blocks included, and closes
+# with the same result object --output-format json returns whole. The record
+# shape therefore stays defined in exactly one place - parse_cli_json - and
+# the stream parser adds only the field the flat format cannot carry.
+
+
+def _sj(*events):
+    """Serialise events the way the CLI emits them: one JSON object per line."""
+    return "".join(json.dumps(e) + "\n" for e in events)
+
+
+def _sj_assistant(*blocks):
+    return {"type": "assistant", "message": {"content": list(blocks)}}
+
+
+def _sj_tool(name):
+    return {"type": "tool_use", "name": name, "input": {}}
+
+
+SJ_RESULT = {"type": "result", "subtype": "success", "is_error": False,
+             "result": "the answer", "num_turns": 3, "total_cost_usd": 0.0096,
+             "duration_ms": 2089,
+             "usage": {"input_tokens": 10, "output_tokens": 33,
+                       "cache_creation_input_tokens": 3573,
+                       "cache_read_input_tokens": 17615}}
+
+# Shaped like a real transcript, including the part that catches a naive
+# parser: the result event is not the last line. Claude Code emits a
+# task_summary after it, so "decode the last line" reads a system event and
+# records every run in the round as failed.
+SJ_GOOD = _sj(
+    {"type": "system", "subtype": "init"},
+    _sj_assistant({"type": "thinking", "thinking": "..."}),
+    _sj_assistant(_sj_tool("Write")),
+    {"type": "user", "message": {"content": [{"type": "tool_result"}]}},
+    _sj_assistant(_sj_tool("Bash")),
+    _sj_assistant({"type": "text", "text": "the answer"}),
+    SJ_RESULT,
+    {"type": "system", "subtype": "task_summary"},
+)
+
+streamed = bench_run.parse_cli_stream(SJ_GOOD)
+check("stream: a result event followed by more events is still found",
+      streamed["ok"] is True and streamed["text"] == "the answer")
+check("stream: the result event's usage is read the way the flat format's is",
+      streamed["output_tokens"] == 33 and streamed["num_turns"] == 3)
+check("stream: every other field is exactly what parse_cli_json makes of the "
+      "same result object",
+      {k: v for k, v in streamed.items() if k != "tools"}
+      == bench_run.parse_cli_json(json.dumps(SJ_RESULT)))
+check("stream: tool names are recorded in the order they were invoked",
+      streamed["tools"] == ["Write", "Bash"])
+check("stream: an answer that invoked nothing records an empty tool list",
+      bench_run.parse_cli_stream(_sj(SJ_RESULT))["tools"] == [])
+check("stream: two tool_use blocks in one assistant message both count",
+      bench_run.parse_cli_stream(
+          _sj(_sj_assistant(_sj_tool("Read"), _sj_tool("Grep")), SJ_RESULT))["tools"]
+      == ["Read", "Grep"])
+# Only the assistant's own blocks are actions it took. The transcript echoes
+# each call back inside the following user event, and counting that copy
+# would double every tool in the run.
+check("stream: a tool_use block outside an assistant event does not count",
+      bench_run.parse_cli_stream(
+          _sj({"type": "user", "message": {"content": [_sj_tool("Read")]}},
+              SJ_RESULT))["tools"] == [])
+# A stream killed by the timeout ends mid-transcript with no result event.
+# Nothing usable came back, and recording that as a very short answer is the
+# failure run.py's own docstring names.
+check("stream: a truncated stream carrying no result event is not ok",
+      bench_run.parse_cli_stream(
+          _sj({"type": "system", "subtype": "init"},
+              _sj_assistant(_sj_tool("Read"))))["ok"] is False)
+check("stream: an is_error result event is not ok",
+      bench_run.parse_cli_stream(_sj(dict(SJ_RESULT, is_error=True)))["ok"] is False)
+# usable() filters failed runs out of every statistic, so this cannot reach a
+# score. It is the diagnostic: a cell that failed after four tool calls and
+# one that failed before making any are different failures.
+check("stream: a failed run still records the tools it got through",
+      bench_run.parse_cli_stream(
+          _sj(_sj_assistant(_sj_tool("Read")), dict(SJ_RESULT, is_error=True)))["tools"]
+      == ["Read"])
+check("stream: a line that is not JSON is skipped rather than fatal",
+      bench_run.parse_cli_stream(
+          "not json\n" + _sj(_sj_assistant(_sj_tool("Read")), SJ_RESULT))["tools"]
+      == ["Read"])
+check("stream: a JSON line that is not an object is skipped rather than fatal",
+      bench_run.parse_cli_stream("[1, 2]\n" + _sj(SJ_RESULT))["ok"] is True)
+check("stream: empty output is not ok",
+      bench_run.parse_cli_stream("")["ok"] is False)
+check("stream: a failed parse still carries a tool list, so no reader has to "
+      "test for the key",
+      bench_run.parse_cli_stream("")["tools"] == [])
+
 check("arms include all five",
       sorted(bench_run.ARMS) == ["baseline", "concise-style", "laconic",
                                  "terse-control", "word-compression"])
@@ -155,6 +251,14 @@ try:
               "followed by the prompt text",
               "--append-system-prompt" in argv_tail and
               argv_tail[argv_tail.index("--append-system-prompt") + 1] == "SENTINEL_RULES")
+        # #142: the format that carries tool names. --verbose is not optional
+        # here - under --print the CLI refuses --output-format stream-json
+        # without it, verified against 2.1.241, so dropping it fails every
+        # call in the round rather than quietly falling back.
+        check("call() asks for the stream format that carries tool names",
+              argv_tail[argv_tail.index("--output-format") + 1] == "stream-json")
+        check("call() passes the --verbose the stream format requires",
+              "--verbose" in argv_tail)
 
         argv_no_prompt = Path(td_argv) / "argv-no-prompt.txt"
         os.environ["STUB_ARGV_OUT"] = str(argv_no_prompt)
@@ -886,8 +990,8 @@ with tempfile.TemporaryDirectory() as td_retry:
         'printf \'%%s\' "$n" > "%s"\n'
         '[ "$n" -eq 1 ] && exit 3\n'
         "cat <<'JSON'\n"
-        '{"is_error":false,"result":"stub answer","num_turns":1,'
-        '"total_cost_usd":0.001,"duration_ms":1,\n'
+        '{"type":"result","is_error":false,"result":"stub answer","num_turns":1,'
+        '"total_cost_usd":0.001,"duration_ms":1,'
         '"usage":{"input_tokens":1,"output_tokens":1,'
         '"cache_creation_input_tokens":0,"cache_read_input_tokens":0}}\n'
         "JSON\n" % (counter, counter)
@@ -963,8 +1067,8 @@ with tempfile.TemporaryDirectory() as td_blind:
         "#!/usr/bin/env bash\n"
         'printf \'%s\\n\' "$PWD" >> "$JUDGE_CWD_LOG"\n'
         "cat <<'JSON'\n"
-        '{"is_error":false,"result":"stub answer","num_turns":1,'
-        '"total_cost_usd":0.001,"duration_ms":1,\n'
+        '{"type":"result","is_error":false,"result":"stub answer","num_turns":1,'
+        '"total_cost_usd":0.001,"duration_ms":1,'
         '"usage":{"input_tokens":1,"output_tokens":1,'
         '"cache_creation_input_tokens":0,"cache_read_input_tokens":0}}\n'
         "JSON\n"
@@ -1059,15 +1163,22 @@ with tempfile.TemporaryDirectory() as td_corrupt_results:
           "Traceback" not in proc.stderr and str(corrupt_results) in (proc.stdout + proc.stderr))
 
 # --- G: tests/stubs/claude-stub.sh must escape STUB_TEXT for the JSON it sits in ---
-stub_env = dict(os.environ, STUB_TEXT='He said "stop".')
+# Read back through the parser run.py itself uses, so one check covers both
+# the escaping and the stub still emitting the stream shape call() asks for.
+# A stub that drifts from the real format turns every harness test into a
+# test of the stub.
+# The percent sign is deliberate: the stub interpolates STUB_TEXT into a
+# printf argument, and a bare format string would eat it.
+stub_env = dict(os.environ, STUB_TEXT='He said "stop", 100% of the time.',
+                STUB_TOOLS="Read")
 stub_out = subprocess.run(["bash", str(ROOT / "tests" / "stubs" / "claude-stub.sh")],
                           input="prompt", capture_output=True, text=True, env=stub_env)
-try:
-    stub_parsed = json.loads(stub_out.stdout)
-    stub_ok = stub_parsed.get("result") == 'He said "stop".'
-except ValueError:
-    stub_ok = False
-check("claude-stub.sh escapes a quote in STUB_TEXT so its JSON stays valid", stub_ok)
+stub_parsed = bench_run.parse_cli_stream(stub_out.stdout)
+check("claude-stub.sh escapes a quote in STUB_TEXT so its JSON stays valid",
+      stub_parsed["ok"] is True
+      and stub_parsed["text"] == 'He said "stop", 100% of the time.')
+check("claude-stub.sh emits the stream shape call() parses, tool events included",
+      stub_parsed["tools"] == ["Read"])
 
 RESULTS = ROOT / "evals" / "snapshots" / "results.json"
 
@@ -1454,6 +1565,25 @@ with tempfile.TemporaryDirectory() as td_gap:
           json.loads(gap_out.read_text())["metadata"]["carried_arms_from"]
           ["missing_arms"] == ["concise-style", "terse-control",
                                "word-compression"])
+
+# --- #142: the tool list has to reach the snapshot, not just the parser ---
+# The parser checks above run on a fixture string. This one drives main()
+# against a stub that emits a real stream, because a field call() returns and
+# run.py drops is a field no round ever carries.
+with tempfile.TemporaryDirectory() as td_tools:
+    tools_out = Path(td_tools) / "round.json"
+    proc_tools = subprocess.run(
+        [sys.executable, str(ROOT / "evals" / "bench" / "run.py"),
+         "--claude-bin", str(ROOT / "tests" / "stubs" / "claude-stub.sh"),
+         "--arms", "baseline", "--models", "haiku", "--reps", "1",
+         "--cases", "floor", "--snapshot", str(tools_out)],
+        capture_output=True, text=True,
+        env=dict(os.environ, STUB_TOOLS="Read Bash"))
+    check("subprocess: a pass against a tool-invoking stub succeeds",
+          proc_tools.returncode == 0)
+    _tool_runs = json.loads(tools_out.read_text())["runs"] if tools_out.exists() else []
+    check("subprocess: the tool names reach the stored run record",
+          [r.get("tools") for r in _tool_runs] == [["Read", "Bash"]])
 
 # --- review.py: the failure inventory ---
 import review as bench_review  # noqa: E402
@@ -2256,9 +2386,9 @@ check("round_summary scopes the exposure too", rs_scoped["scoped"]["n_runs"] == 
 
 # --- #49: action scope is measured as grounded turns, and a rise is fatal ---
 # Laconic bounds prose, so an edit can cut words and relocate the excess into
-# tool calls. num_turns is the only action proxy the snapshots carry: the CLI
-# is invoked with --output-format json (run.py:302), which reports how many
-# agentic turns a response took and nothing about which tools ran.
+# tool calls. num_turns is the action proxy every stored round carries: the CLI
+# reports how many agentic turns a response took and nothing about which tools
+# ran. The tool list #142 added is not read here and gates nothing.
 #
 # Scored inside the grounded stratum only. In the unread stratum num_turns is
 # 0 or 1 by construction, so an unconditioned turn median falls whenever an
@@ -2773,9 +2903,9 @@ with tempfile.TemporaryDirectory() as td_jobs:
         'ls "%s" | wc -l >> "%s"\n'
         'rm -f "%s/$$"\n'
         "cat <<'JSON'\n"
-        '{"is_error":false,"result":"{\\"verdict\\":\\"pass\\",\\"quote\\":\\"q\\",'
+        '{"type":"result","is_error":false,"result":"{\\"verdict\\":\\"pass\\",\\"quote\\":\\"q\\",'
         '\\"reason\\":\\"r\\"}","num_turns":1,'
-        '"total_cost_usd":0.001,"duration_ms":1,\n'
+        '"total_cost_usd":0.001,"duration_ms":1,'
         '"usage":{"input_tokens":1,"output_tokens":1,'
         '"cache_creation_input_tokens":0,"cache_read_input_tokens":0}}\n'
         "JSON\n" % (counter, counter, counter, inflight, inflight,
@@ -2886,9 +3016,9 @@ with tempfile.TemporaryDirectory() as td_cj:
         'exec 9>"%s.lock"; flock 9\n'
         'n=$(cat "%s" 2>/dev/null || echo 0); n=$((n+1)); printf \'%%s\' "$n" > "%s"\n'
         "cat <<'JSON'\n"
-        '{"is_error":false,"result":"{\\"verdict\\":\\"pass\\",\\"quote\\":\\"\\",'
+        '{"type":"result","is_error":false,"result":"{\\"verdict\\":\\"pass\\",\\"quote\\":\\"\\",'
         '\\"reason\\":\\"fresh\\"}","num_turns":1,"total_cost_usd":0.01,'
-        '"duration_ms":1,\n'
+        '"duration_ms":1,'
         '"usage":{"input_tokens":1,"output_tokens":1,'
         '"cache_creation_input_tokens":0,"cache_read_input_tokens":0}}\n'
         "JSON\n" % (calls, calls, calls)
@@ -3544,7 +3674,7 @@ done
 n=$(( $(cat "$CFILE" 2>/dev/null || echo 0) + 1 ))
 echo "$n" > "$CFILE"
 if [ "${OK_ALL:-0}" = "1" ] || [ "$n" = "$OK_CALL" ]; then
-  echo '{"is_error":false,"result":"an answer","num_turns":1,"usage":{"output_tokens":5}}'
+  echo '{"type":"result","is_error":false,"result":"an answer","num_turns":1,"usage":{"output_tokens":5}}'
   exit 0
 fi
 exit 3
@@ -3644,7 +3774,7 @@ n=$(( $(cat "$CFILE" 2>/dev/null || echo 0) + 1 ))
 echo "$n" > "$CFILE"
 flock -u 9
 if [ "$n" = "$OK_CALL" ]; then
-  echo '{"is_error":false,"result":"{\\"verdict\\":\\"pass\\",\\"quote\\":\\"\\",\\"reason\\":\\"r\\"}","num_turns":1,"usage":{"output_tokens":1}}'
+  echo '{"type":"result","is_error":false,"result":"{\\"verdict\\":\\"pass\\",\\"quote\\":\\"\\",\\"reason\\":\\"r\\"}","num_turns":1,"usage":{"output_tokens":1}}'
   exit 0
 fi
 exit 3

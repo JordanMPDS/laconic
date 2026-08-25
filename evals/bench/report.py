@@ -1549,10 +1549,12 @@ def aggregate(snap):
             },
             # The turns themselves, partitioned by the same predicate (#49).
             # Laconic bounds prose, so an edit can cut words and relocate the
-            # excess into tool calls; num_turns is the only action proxy the
-            # snapshots carry, because run.py:302 asks the CLI for
-            # --output-format json, which reports how many agentic turns a
-            # response took and nothing about which tools ran.
+            # excess into tool calls; num_turns is the action proxy every
+            # stored round carries, and it reports how many agentic turns a
+            # response took and nothing about which tools ran. Rounds
+            # generated since #142 also carry a tool list, and nothing here
+            # reads it: absent on every round below 27, it has no measured
+            # null to be gated against.
             "turns_by_stratum": {
                 "grounded": [r.get("num_turns", 0) for r in runs
                              if r.get("num_turns", 0) > 1],

@@ -406,3 +406,70 @@ not stand on its own; the lottery finding above is what carries it.
 [#69]: https://github.com/JordanMPDS/laconic/issues/69
 [#70]: https://github.com/JordanMPDS/laconic/issues/70
 [#86]: https://github.com/JordanMPDS/laconic/issues/86
+
+## What switching to stream-json cost, and what it bought
+
+[#142] moved `run.py`'s single CLI chokepoint from `--output-format json` to
+`--output-format stream-json --verbose`, so every run record now carries a
+`tools` list: the tool names that response invoked, in order. `turns` ([#49])
+counts agentic loop iterations, which makes a file read and a file edit the
+same integer; this is the field that can eventually separate them.
+
+**Nothing here changes a gate.** The field is absent on every round below 27
+and no target reads it. A read-versus-write metric built from it today could
+not be re-scored against a single stored round, and `turns` only went live
+because `num_turns` re-scored rounds 05 through 26 offline first.
+
+### The format, checked against CLI 2.1.241
+
+- `--verbose` is not optional. Under `--print`, the CLI refuses
+  `--output-format stream-json` without it: `Error: When using --print,
+  --output-format=stream-json requires --verbose`. Dropping it fails every
+  call in a round rather than falling back.
+- **The result event is not the last line.** A trivial two-tool run emitted 36
+  events, and a `system`/`task_summary` event followed the `result` one.
+  A parser that decodes the last line records every run in the round as failed.
+- The `result` event is byte-for-byte the object `--output-format json`
+  returns whole, so `parse_cli_stream` hands it to `parse_cli_json` and the
+  stored record shape stays defined in exactly one place.
+- Tool names live only in `assistant` events, as `tool_use` content blocks.
+  The transcript echoes each call back inside the following `user` event, so
+  counting blocks outside `assistant` doubles every tool in the run.
+
+### The cost is stdout volume, not time
+
+The same two-tool run: 57,810 bytes of stream against 1,944 bytes for the
+result event alone, a 30-fold increase in what `subprocess.run` buffers and
+discards. `run.py` makes one call at a time and the 300-second timeout is on
+wall clock, not output, so neither is affected. `judge.py` runs `--jobs`
+calls concurrently, but a judge call makes no tool calls and its stream is
+close to the flat payload's size.
+
+### Live check before any round ran under it
+
+`destructive`/haiku, one rep of `baseline` and one of `laconic`, into a
+scratch snapshot:
+
+| arm | `num_turns` | `tools` |
+| --- | --: | --- |
+| `baseline` | 3 | `["Read", "Read"]` |
+| `laconic` | 3 | `["Read", "Read"]` |
+
+Both arms read the fixture twice and neither wrote, which is what `num_turns`
+3 could not have told you. Re-running the identical command reported `0
+call(s) to make, 2 already in the snapshot`, so the resume path is unchanged.
+The output-style preflight probe still discriminates under the new format:
+`Concise` returns its banner and an unrecognised style name does not.
+
+### What this does not establish
+
+Two runs of one case at one model is a format check, not a distribution. It
+says the field arrives and is plausible; it says nothing about what a normal
+tool mix looks like, which is the thing a metric would need. Tool calls made
+inside a subagent are also not visible as top-level `tool_use` blocks, so a
+response that delegates would under-report — no case exercises that today, and
+it is a limit to confirm before the field is scored rather than an observed
+loss.
+
+[#142]: https://github.com/JordanMPDS/laconic/issues/142
+[#49]: https://github.com/JordanMPDS/laconic/issues/49

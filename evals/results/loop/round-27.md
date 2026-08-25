@@ -172,6 +172,7 @@ being generated.
 
 [#49]: https://github.com/JordanMPDS/laconic/issues/49
 [#69]: https://github.com/JordanMPDS/laconic/issues/69
+[#142]: https://github.com/JordanMPDS/laconic/issues/142
 [#127]: https://github.com/JordanMPDS/laconic/pull/127
 [#133]: https://github.com/JordanMPDS/laconic/issues/133
 [#138]: https://github.com/JordanMPDS/laconic/issues/138
@@ -180,4 +181,80 @@ being generated.
 
 ## Results
 
-*Pending.*
+### Stage 1: nothing kills, and nothing yet supports the edit
+
+**Generation:** 160 runs, 80 a side, 10 reps, **0 failed, 0 backoff waits**,
+16:01 to 17:24 UTC. Both sides CLI 2.1.241, `cases_cksum` 2423244529,
+treatment `rules_cksum` 136269960 at `3628cc8`, control 3694954268 at
+`5cb0f28`, neither tree dirty. **This is the first round whose runs carry
+[#142]'s `tools` list** — 160 of 160. Nothing scores it.
+
+**Registered stop condition 1 (the target) does not kill.** `one_turn` on the
+three registered cells, sonnet, uninflated because this is one interleaved
+batch:
+
+| cell | control | edit |
+|---|--:|--:|
+| `design-cache` | 6/10 | 4/10 |
+| `design-realtime` | 1/10 | 4/10 |
+| `design-upload` | 7/10 | 7/10 |
+| **pooled** | **14/30 (47%)** | **15/30 (50%)** |
+
+One-sided rise p = 0.500, fall p = 0.645. Dead flat. Per the registration a
+flat stage-1 read is not a failure, so the round proceeds — but it is worth
+saying plainly that **at this depth the registered target shows nothing at
+all**, in either direction.
+
+**Registered stop condition 2 (compression) holds.** `output_tokens`
+stratified per [#131], all eight cells voting in the grounded stratum, none
+refused:
+
+| cell | stratum | control | edit | shift |
+|---|---|--:|--:|--:|
+| `design-alerting` | grounded | 2314 | 2803 | +489 |
+| `design-audit-log` | grounded | 3194 | 3943 | +749 |
+| `design-cache` | grounded | 2532 | 2900 | +368 |
+| `design-rate-limit` | grounded | 2196 | 1879 | −317 |
+| `design-realtime` | grounded | 2176 | 2061 | −115 |
+| `design-retry` | grounded | 2324 | 2795 | +472 |
+| `design-search` | grounded | 1432 | 1316 | −116 |
+| `design-upload` | grounded | 3244 | 2319 | −925 |
+
+Four fell, four rose, sign test p = 1.000, median shift **+126 tokens against
+a scoped floor of 542.5**. The shift is well inside the floor, so round 26's
+compression is not being spent. Non-inferiority holds.
+
+**`turns` does not reject.** Two cells rose (`design-search` +1.0,
+`design-rate-limit` +0.5), none fell, against a measured turn floor of 0.813.
+A rise needs both estimators — past the floor *and* a sign test across cells —
+and 2 of 8 rising with 0 falling is p = 0.500. Only `design-search` clears the
+floor at all.
+
+### The warning sign, disclosed
+
+**Round-wide `one_turn` over all eight cases leans the wrong way: 22/80 →
+30/80, one-sided rise p = 0.166.** That is not the registered scope and it is
+not significant, but the direction is the opposite of what [#138] predicts, and
+if the edit is buying its brevity by reading *less* then it is making the
+failure worse rather than better. Stage 2 at 25 reps a side is what resolves
+it, and this paragraph is registered as the thing to look at when it lands.
+
+### The hands-back cross-tab moves as predicted, far from significance
+
+Computed with `report.py`'s unmodified `ASKS_BACK` regex. Eight cases, sonnet:
+
+| | control | edit | one-sided fall |
+|---|--:|--:|--:|
+| hands the decision back | 8/80 (10%) | 5/80 (6%) | 0.291 |
+| ... and never read (1 turn) | 7/80 | 4/80 | 0.274 |
+| ... after reading | 1/80 | 1/80 | — |
+
+Both movements are in the registered direction and neither is close to alpha at
+10 reps a side. **The control side is the useful check here**: master reads
+8/80 (10%) hands-back, against round 26's licence side at 28/200 (14%) and its
+pre-licence control at 6/200 (3%). Master behaves the way round 26 said it
+does, so the instrument is reading the same thing it read yesterday.
+
+### Stage 2
+
+Extending both snapshots to 25 reps a side, 240 further generations.

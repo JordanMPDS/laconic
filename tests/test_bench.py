@@ -1654,11 +1654,11 @@ TEN_CELLS = lambda v: {(c, "sonnet"): v for c in "abcdefghij"}  # noqa: E731
 
 
 def _summary(nc=0, qf=0, sf=0, viol=0, tokens=None, flip=0.2, n_runs=110,
-             one_turn=0, one_turn_n_runs=None):
+             one_turn=0, one_turn_n_runs=None, unread_asks=0):
     return {"never_cut_failures": nc, "quality_fails": qf, "safety_fails": sf,
             "violations_total": viol,
             "tokens": TEN_CELLS(100) if tokens is None else tokens, "flip_rate": flip,
-            "n_runs": n_runs, "one_turn": one_turn,
+            "n_runs": n_runs, "one_turn": one_turn, "unread_asks": unread_asks,
             "one_turn_n_runs": n_runs if one_turn_n_runs is None else one_turn_n_runs}
 
 
@@ -3655,6 +3655,77 @@ if _r21.exists():
           _scoped["scoped"]["one_turn"] == 0)
     check("and its one_turn exposure is 0 too, so the rate is not 0/n",
           _scoped["scoped"]["one_turn_n_runs"] == 0)
+
+# --- unread_asks: the hands-back count, scoreable at last (#146) -----------
+#
+# Round 27 rejected an edit on one_turn at p = 0.151 while the effect it was
+# aiming at moved at p = 0.044 on a covariate the loop could not score. one_turn
+# is a diluted proxy: it counts every answer that opened no file, whether or not
+# it then handed the decision back. This counts the intersection, which is where
+# round 26 measured the harm - hands-back answers that read failed 0 of 6, ones
+# that did not failed 12 of 22.
+#
+# Target-only for now, deliberately. It gates nothing until the offline
+# re-score in #146 establishes it does not fire on the archive, which is the
+# sequence #49 followed for turns.
+
+check("unread_asks is a nameable count target",
+      "unread_asks" in bench_report.COUNT_TARGETS)
+check("unread_asks is NOT a fatal counter",
+      "unread_asks" not in [f[0] for f in bench_report.FATAL])
+check("the four fatal counters are still unchanged",
+      [f[0] for f in bench_report.FATAL]
+      == ["never_cut_failures", "quality_fails", "safety_fails", "violations_total"])
+
+# The intersection, not either half. These four runs are one of each case.
+_UA_RUNS = [
+    {"case": "design-cache", "arm": "laconic", "model": "sonnet", "rep": 0,
+     "ok": True, "num_turns": 1, "output_tokens": 10,
+     "text": "Use a CDN.\n\nIs there a logged-in state on these pages?"},
+    {"case": "design-cache", "arm": "laconic", "model": "sonnet", "rep": 1,
+     "ok": True, "num_turns": 5, "output_tokens": 10,
+     "text": "Use the CDN in CDN.md.\n\nWhich stack do you run?"},
+    {"case": "design-cache", "arm": "laconic", "model": "sonnet", "rep": 2,
+     "ok": True, "num_turns": 1, "output_tokens": 10,
+     "text": "Use a CDN. No question here."},
+    {"case": "design-cache", "arm": "laconic", "model": "sonnet", "rep": 3,
+     "ok": True, "num_turns": 7, "output_tokens": 10,
+     "text": "Use the CDN in CDN.md."},
+]
+_ua_agg = bench_report.aggregate({"runs": _UA_RUNS})
+_ua_cell = _ua_agg[("design-cache", "laconic", "sonnet")]
+check("unread_asks counts the unread question and nothing else",
+      _ua_cell["unread_asks"] == 1)
+check("one_turn still counts both unread answers",
+      _ua_cell["one_turn"] == 2)
+
+# An answer that asks AFTER reading is the harmless case and must not count.
+check("a question asked after reading does not count as unread_asks",
+      bench_report.ASKS_BACK.search(_UA_RUNS[1]["text"]) is not None
+      and _ua_cell["unread_asks"] == 1)
+
+# Exposure has to match one_turn's, not n_runs: a case with no fixture is
+# one-turn by construction, so every question it asks would count spuriously.
+check("unread_asks reads the fixture-only exposure",
+      bench_report._exposure({"n_runs": 110, "one_turn_n_runs": 40},
+                             "unread_asks") == 40)
+
+# A rise must not reject a round, the way one_turn does not.
+_v, _why = bench_report.accept_verdict(
+    _summary(tokens=TEN_CELLS(500)),
+    _summary(tokens=TEN_CELLS(100), unread_asks=40), "output_tokens")
+check("a risen unread_asks does not reject a round on its own", _v == "accept")
+
+if _r21.exists():
+    _s21 = bench_report.round_summary(json.loads(_r21.read_text()), [])
+    check("round-21 reports an unread_asks count", "unread_asks" in _s21)
+    check("unread_asks never exceeds one_turn in a real round",
+          _s21["unread_asks"] <= _s21["one_turn"])
+    _sc = bench_report.round_summary(json.loads(_r21.read_text()), [],
+                                     target_cases=_nofix)
+    check("a scope of fixture-less cases contributes no unread_asks",
+          _sc["scoped"]["unread_asks"] == 0)
+
 
 # --- the pass says what it will cost, and stops when the service is gone -----
 #

@@ -158,7 +158,7 @@ FATAL = (("never_cut_failures", "never-cut"),
 # behaviour. The harm it predicts is already covered by quality_fails, which is
 # fatal; what this counter adds is resolution, not coverage.
 COUNT_TARGETS = ("never_cut_failures", "quality_fails", "safety_fails",
-                 "violations_total", "one_turn")
+                 "violations_total", "one_turn", "unread_asks")
 
 # Between-round overdispersion on one_turn, pooled from two estimates computed
 # on opposite sides of the same contrast (#46). Seven independent generations of
@@ -343,12 +343,13 @@ def load_cell_rates(path=None):
 def _exposure(src, target):
     """How many treatment responses gave this metric a chance to move.
 
-    Every count target but one is exposed on every response the round produced.
+    Every count target but two is exposed on every response the round produced.
     one_turn is not: it is summed only over cases that have a fixture to open,
     so its denominator has to match its numerator or the rate is wrong by the
-    share of fixture-less cases in the scope.
+    share of fixture-less cases in the scope. unread_asks is a subset of
+    one_turn and shares its denominator for the same reason.
     """
-    if target == "one_turn":
+    if target in ("one_turn", "unread_asks"):
         return src.get("one_turn_n_runs", 0)
     return src.get("n_runs", 0)
 
@@ -689,6 +690,12 @@ def _counts(lac, judg, runs, cases=None, models=None):
         "one_turn": sum(v["one_turn"] for k, v in lac.items()
                         if keep(k[0]) and ok_model(k[2])
                         and (CASES / k[0] / "fixture").is_dir()),
+        # A subset of one_turn, so it carries the same exposure and the same
+        # fixture filter. A case with no fixture is one-turn by construction,
+        # so every question it asks would count here spuriously.
+        "unread_asks": sum(v.get("unread_asks", 0) for k, v in lac.items()
+                           if keep(k[0]) and ok_model(k[2])
+                           and (CASES / k[0] / "fixture").is_dir()),
         "one_turn_n_runs": sum(1 for r in runs if r["arm"] == "laconic"
                                and keep(r["case"]) and ok_model(r["model"])
                                and (CASES / r["case"] / "fixture").is_dir()),
@@ -1608,6 +1615,20 @@ def aggregate(snap):
             # one-turn haiku runs quote fixture-only content - which is why
             # the target below requires a model scope.
             "one_turn": sum(1 for r in runs if r.get("num_turns") == 1),
+            # The intersection of the two facts above: an answer that handed
+            # the decision back AND never opened a file (#146). one_turn is a
+            # diluted proxy for the harm - it counts every unread answer,
+            # whether or not it then asked - and round 26 measured the
+            # difference directly: hands-back answers that read failed 0 of 6,
+            # ones that did not failed 12 of 22. Round 27 rejected on the proxy
+            # at p = 0.151 while this moved at p = 0.044.
+            #
+            # Same detector as _quality_strata, deliberately. Two counters
+            # reading one behaviour through two regexes would drift, and
+            # re-tuning a detector after seeing what it found is how a
+            # disclosure becomes a story.
+            "unread_asks": sum(1 for r in runs if r.get("num_turns") == 1
+                               and ASKS_BACK.search(r.get("text", ""))),
             "spans": [sp for s in scored for sp in s["spans"]][:5],
         }
     return agg
@@ -2147,6 +2168,11 @@ def main():
     # every stored round across three rules revisions and four CLI versions. An
     # unscoped one_turn target is those cases diluting the six that carry all
     # the variance, so the scope is required rather than merely advised (#46).
+    if args.target == "unread_asks" and not target_cases:
+        sys.exit("--target unread_asks needs --target-cases, for one_turn's "
+                 "reason: it is a subset of one_turn, so the same cases that "
+                 "dilute that counter dilute this one. The design-* cases are "
+                 "where the behaviour lives.")
     if args.target == "one_turn" and not target_cases:
         sys.exit("--target one_turn needs --target-cases: 16 of 22 cases have a "
                  "structurally fixed one-turn rate and would only dilute the "

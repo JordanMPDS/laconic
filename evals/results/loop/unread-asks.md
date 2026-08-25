@@ -110,9 +110,101 @@ Eight-case design scope, sonnet:
 - Round 20's edit sits highest of all eight texts at 18.8%, p = 0.016 against
   master. Round 20 was never scored on this behaviour.
 
+## The detector validation, and it is bad news
+
+60 one-turn design responses, drawn with a seeded sample across eight
+snapshots and three rules texts, 30 detector-positive and 30 detector-negative.
+**Labelled blind**: `blind.md` carries the response text and the case name, no
+detector verdict and no stratum marker, and the label definition was written
+before reading any of them.
+
+Everything needed to re-check it is committed under
+[`unread-asks/`](unread-asks/): `labels.json` holds the labels and the
+definition they were assigned under, `key.json` the unblinding key, and
+`resample.py` regenerates the blinded file from the committed snapshots — its
+output is byte-identical to the file that was actually labelled.
+
+| | label: asks | label: no ask |
+|---|--:|--:|
+| **detector fires** | 24 | 6 |
+| **detector silent** | 6 | 24 |
+
+**Precision 80.0%, recall 80.0%, F1 80.0%.**
+
+**Both error classes are systematic, not random.**
+
+*All six false positives are closing offers* — "Want me to sketch the actual
+schema?", "or is this enough to take to the team?". The answer resolved the
+question and then offered more work. That is the opposite of the harm being
+counted.
+
+*All six false negatives are line-position artifacts.* The hand-back is
+phrased without a terminal question mark ("What's the current stack and rough
+catalog size — that'd pin down which option actually applies.") or carries the
+question mark mid-line, so `^[^\n]*\?\s*$` never matches. `design-realtime`
+R06 hands back a fork `PLATFORM.md` answers outright, and the detector is
+silent.
+
+**The errors cancelled in this sample — 30 counted against 30 true — and that
+is luck, not a property.** The two classes are independent and nothing makes
+them offset in another draw.
+
+### The metric's premise holds even though its detector does not
+
+Among the 30 true asks, would reading the fixture have settled the question?
+
+| | | |
+|---|--:|--:|
+| yes | 27 | **90%** |
+| partial | 2 | 7% |
+| no | 1 | 3% |
+
+**An unread hands-back is almost always a question the repository answers.**
+One of thirty was a genuine product fork. That is the construct this counter
+was built on, and it survives.
+
+### A better detector makes round 27's result weaker, not stronger
+
+A candidate `v2` — a question anywhere in the closing two paragraphs, minus
+first-person offers to do more work — scores **precision 93.1%, recall 90.0%**
+on the same 60 labels. Re-running round 27 under both:
+
+| detector | control | edit | one-sided fall |
+|---|--:|--:|--:|
+| v1, shipped | 19/200 | 9/200 | **0.0436** |
+| v2, candidate | 32/200 | 21/200 | **0.0845** |
+
+**Round 27's nominally significant disclosure does not reach alpha under the
+better detector.** Both agree on direction, and neither is close to reversing
+it, but the p = 0.045 that made round 27's disclosure quotable was carried in
+part by a detector that misses a fifth of real hand-backs and counts closing
+offers as if they were forks.
+
+**Two honest limits on `v2` itself.** It was designed after seeing v1's error
+classes on these 60 responses and then scored on the same 60, so 93.1/90.0 is
+an in-sample figure and its true performance is lower. And promoting it would
+change `_quality_strata`, which means re-scoring the disclosure figures
+published in rounds 25, 26 and 27 — the repository has done that before
+([#66], [#78], [#94]) but it is a deliberate act, not a detail.
+
+### What this changes
+
+The case for gating on this counter is weaker than round 27's numbers
+suggested, and the honest order is now:
+
+1. A **fresh** validation sample for any candidate detector, labelled blind,
+   disjoint from these 60. An in-sample 93% is not an estimate.
+2. Only then a detector change, with the rounds-25-to-27 re-score published
+   alongside it.
+3. Only then a gate.
+
+Nothing here justifies re-running [#138]'s edit yet. It moved the right way
+under both detectors and reached alpha under neither once the detector is
+improved.
+
 ## Open questions before this gates anything
 
-1. **The detector is crude and this is its weakest point.** `ASKS_BACK` is
+1. **The detector is crude, now measured: 80% precision, 80% recall.** `ASKS_BACK` is
    `^[^\n]*\?\s*$` — any line that is a whole question. It cannot separate
    "which monitoring stack do you run?", a fork reading cannot settle, from
    "is there a logged-in state on these pages?", which the fixture answers.

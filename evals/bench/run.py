@@ -363,6 +363,14 @@ def main():
                          "see #69 before using it")
     ap.add_argument("--carry-arms-from",
                     help="snapshot to copy the arms this run is not regenerating from")
+    ap.add_argument("--max-consecutive-failures", type=int, default=8,
+                    help="stop the pass after this many failed cells in a row; "
+                         "0 disables it. A usage limit or an outage fails every "
+                         "remaining key, and each one costs two calls because "
+                         "call() retries: round 25 ground through 152 keys twice "
+                         "for no data. A failed key is not recorded as done, so "
+                         "re-running the same command regenerates exactly the "
+                         "keys this stop left behind")
     args = ap.parse_args()
 
     claude_bin = require_claude_bin(args.claude_bin)
@@ -379,18 +387,6 @@ def main():
                    if (d / "prompt.md").exists() and fnmatch.fnmatch(d.name, args.cases))
     if not cases:
         sys.exit("no cases matched: %s" % args.cases)
-
-    # Checked after the cheap argument validation, so a typo in --cases fails
-    # without spending an API call, and before any generation, so a style that
-    # is not landing stops the round instead of silently duplicating baseline.
-    for arm in arm_names:
-        style = ARM_OUTPUT_STYLES.get(arm)
-        if style and not output_style_reaches_model(claude_bin, models[0], style):
-            sys.exit("the %s output style is not reaching the model through "
-                     "--settings on this CLI (%s), so arm %s would be a second "
-                     "copy of baseline. Check that the style exists in this "
-                     "version before running the round."
-                     % (style, _cli_version(claude_bin), arm))
 
     # Resolved once, then stamped onto every run below. The snapshot-level
     # stamp is written when the file is created and never again, so a round
@@ -461,7 +457,36 @@ def main():
     done = completed_keys(snap)
 
     total = len(cases) * len(arm_names) * len(models) * args.reps
+    left = sum(1 for rep in range(args.reps) for d in cases
+               for m in models for a in arm_names
+               if run_key(d.name, a, m, rep) not in done)
+    probes = sum(1 for a in arm_names if a in ARM_OUTPUT_STYLES)
+    # Printed before the first call, because the number nobody had was the plan.
+    # A round is priced afterwards, in report.py, off what it spent; what a
+    # maintainer needs before committing hours of quota is what it is about to
+    # spend. Every call is one CLI session, which is the unit a subscription
+    # limit is denominated in.
+    print("budget: %d call(s) to make, of %d cell(s) in this pass (%d already "
+          "in the snapshot)%s. A failed call is retried once, so the ceiling "
+          "is %d." % (left, total, total - left,
+                      ", plus %d output-style probe(s)" % probes if probes else "",
+                      2 * left + probes))
+
+    # Checked after the cheap argument validation and after the snapshot
+    # guards, so a typo in --cases or a checksum mismatch fails without
+    # spending an API call, and before any generation, so a style that is not
+    # landing stops the round instead of silently duplicating baseline.
+    for arm in arm_names:
+        style = ARM_OUTPUT_STYLES.get(arm)
+        if style and not output_style_reaches_model(claude_bin, models[0], style):
+            sys.exit("the %s output style is not reaching the model through "
+                     "--settings on this CLI (%s), so arm %s would be a second "
+                     "copy of baseline. Check that the style exists in this "
+                     "version before running the round."
+                     % (style, _cli_version(claude_bin), arm))
+
     n = 0
+    streak = 0
     for rep in range(args.reps):
         for case_dir in cases:
             case = case_dir.name
@@ -501,6 +526,19 @@ def main():
                     print("[%d/%d] %-14s %-16s %-7s rep%d %s"
                           % (n, total, case, arm, model, rep,
                              "ok" if res.get("ok") else "FAILED"))
+                    streak = 0 if res.get("ok") else streak + 1
+                    if (args.max_consecutive_failures
+                            and streak >= args.max_consecutive_failures):
+                        sys.exit(
+                            "\nstopped after %d consecutive failed cell(s), at "
+                            "%s/%s/%s rep%d. That is what a usage limit or an "
+                            "outage looks like from inside a pass, and every "
+                            "remaining key would cost two calls to record "
+                            "another failure. The snapshot is saved and no "
+                            "failed key counts as done, so re-running this same "
+                            "command regenerates exactly what is missing. Pass "
+                            "--max-consecutive-failures 0 to grind through it "
+                            "anyway." % (streak, case, arm, model, rep))
 
     bad = len([r for r in snap["runs"] if not r.get("ok")])
     print("\nwrote %s (%d runs, %d failed)" % (args.snapshot, len(snap["runs"]), bad))

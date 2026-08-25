@@ -14,6 +14,7 @@ import re
 import shutil
 import sys
 import tempfile
+import threading
 import zlib
 from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
@@ -184,6 +185,28 @@ def carry_judgments(prior, at, done, source, snap, arms, source_path, criteria):
             "criteria_verified": bool(src_criteria) and src_criteria == criteria}
 
 
+def gate_split(runs, cases_dir):
+    """(feeds a fatal counter, does not), for the runs this pass would grade.
+
+    Only quality_fails and safety_fails read verdicts, and both skip
+    rule-adherence cases and saturated cells, so `conditional`, `decision`,
+    `floor` and `ordered-steps`/haiku are graded every round and can reject
+    nothing: 35 of the 220 judge calls a round buys at n=5.
+
+    report is imported here rather than at the top of the module because
+    report imports *this* module for INFRA_REASONS. The predicate lives there,
+    beside the counters that read it, so the filter and the gate cannot come
+    apart - which is the whole point of not re-deriving it here.
+    """
+    import report as bench_report  # noqa: E402  - cycle: report imports judge
+    keep, skip = [], []
+    for r in runs:
+        target = keep if bench_report.feeds_judge_gate(
+            r["case"], r["model"], cases_dir) else skip
+        target.append(r)
+    return keep, skip
+
+
 def _is_infra_failure(j):
     """Was this record written because the call failed, not because the judge
     reached a verdict? Such a record is stored as not_exercised so the file
@@ -272,6 +295,23 @@ def main():
                          "service rather than the harness, and more workers may "
                          "reach that ceiling sooner. Raise it only with evidence, "
                          "and record what the failure rate did (#71).")
+    ap.add_argument("--max-consecutive-failures", type=int, default=8,
+                    help="stop the pass after this many judgments in a row that "
+                         "failed for infrastructure reasons; 0 disables it. "
+                         "Round 12's judging pass returned 850 judgments of "
+                         "which 666 were judge-call failures, at two calls each "
+                         "because _call_blind retries. A failed judgment is not "
+                         "recorded as done, so re-running the same command "
+                         "retries exactly the ones this stop left behind")
+    ap.add_argument("--judge-all", action="store_true",
+                    help="grade every usable run, including the cells whose "
+                         "verdicts feed no fatal counter. The default grades "
+                         "only what a gate can read; what that gives up is "
+                         "disclosure, so pass this whenever a hypothesis names "
+                         "a rule-adherence case or a saturated cell, and "
+                         "whenever re-judging a snapshot another round will be "
+                         "compared against - two sides of a comparison should "
+                         "carry the same coverage")
     ap.add_argument("--carry-judgments-from",
                     help="judgments snapshot to copy the carried arms' verdicts from, "
                          "instead of re-grading responses an earlier round already "
@@ -405,15 +445,59 @@ def main():
 
     todo = [r for r in runs
             if (r["case"], r["arm"], r["model"], r["rep"]) not in done]
+    ungated = []
+    if not args.judge_all:
+        todo, ungated = gate_split(todo, CASES)
+        if ungated:
+            print("skipping %d run(s) whose verdicts feed no fatal counter "
+                  "(%s). Pass --judge-all to grade them."
+                  % (len(ungated),
+                     ", ".join(sorted({"%s/%s" % (r["case"], r["model"])
+                                       for r in ungated}))))
+
+    # Whether this *file* lacks a verdict for a cell no gate reads - not
+    # whether this invocation passed the flag. A resume with nothing left to do
+    # would otherwise stamp a claim about the run rather than the file, which is
+    # #86 in a second place. Recomputed from the judgments themselves, so a
+    # later --judge-all pass clears it by filling the gap.
+    graded = {(j["case"], j["arm"], j["model"], j["rep"])
+              for j in prior["judgments"] if not _is_infra_failure(j)}
+    graded |= {(r["case"], r["arm"], r["model"], r["rep"]) for r in todo}
+    meta["gates_only"] = any(
+        (r["case"], r["arm"], r["model"], r["rep"]) not in graded
+        for r in gate_split(runs, CASES)[1])
+
+    # Printed before the first call, for the same reason run.py prints one:
+    # a judging pass is hundreds of CLI sessions and nothing said so up front.
+    print("budget: %d judge call(s) to make, of %d usable run(s) in this "
+          "snapshot (%d already graded or carried, %d skipped as feeding no "
+          "gate). A failed call is retried once, so the ceiling is %d."
+          % (len(todo), len(runs), len(runs) - len(todo) - len(ungated),
+             len(ungated), 2 * len(todo)))
+
+    # The one piece of state a worker thread does touch, so it takes a lock.
+    # "Consecutive" means consecutive *completions*, which is the only ordering
+    # a pool has: when the run trips, the --jobs calls already in flight still
+    # finish and are recorded. That is at most a few extra calls against the
+    # hundreds the stop exists to save.
+    stop = {"streak": 0, "aborted": False}
+    stop_lock = threading.Lock()
 
     def judge_one(r):
         """One judgment. Every call is an independent subprocess against an
         independent temp dir - _call_blind makes it so for blindness, and that
         buys thread safety for free - so this runs in a worker thread and
-        touches no shared state. The snapshot is written by the main thread
-        only, which is what makes the resume file consistent if the run is
-        killed mid-pass (#71).
+        touches only the shared counter above. The snapshot is written by the
+        main thread only, which is what makes the resume file consistent if the
+        run is killed mid-pass (#71).
+
+        Returns None for an item abandoned after the stop, which is the cheap
+        path: ThreadPoolExecutor.map submits every item up front, so the way to
+        stop a pass is to make the remaining items call nothing.
         """
+        with stop_lock:
+            if stop["aborted"]:
+                return None
         case_dir = CASES / r["case"]
         expect = json.loads((case_dir / "expect.json").read_text())
         prompt = build_judge_prompt((case_dir / "prompt.md").read_text(),
@@ -423,10 +507,20 @@ def main():
             {"verdict": "not_exercised", "quote": "", "reason": REASON_JUDGE_CALL_FAILED}
         v.update({"case": r["case"], "arm": r["arm"], "model": r["model"], "rep": r["rep"],
                   "usage": usage_of(res)})
+        with stop_lock:
+            if not _is_infra_failure(v):
+                stop["streak"] = 0
+            else:
+                stop["streak"] += 1
+                if (args.max_consecutive_failures
+                        and stop["streak"] >= args.max_consecutive_failures):
+                    stop["aborted"] = True
         return v
 
     with ThreadPoolExecutor(max_workers=args.jobs) as pool:
         for i, v in enumerate(pool.map(judge_one, todo), 1):
+            if v is None:  # abandoned after the stop; no call was made for it
+                continue
             key = (v["case"], v["arm"], v["model"], v["rep"])
             if key in at:
                 prior["judgments"][at[key]] = v
@@ -440,6 +534,15 @@ def main():
 
     bench_run.save_snapshot(args.out, prior)
     print("\nwrote %s (%d judgments)" % (args.out, len(prior["judgments"])))
+    if stop["aborted"]:
+        sys.exit(
+            "\nstopped after %d consecutive failed judge call(s). That is what "
+            "a usage limit or an outage looks like from inside a pass, and "
+            "every remaining judgment would cost two calls to record another "
+            "failure. The file is saved and a failed judgment does not count as "
+            "done, so re-running this same command retries exactly what is "
+            "missing. Pass --max-consecutive-failures 0 to grind through it "
+            "anyway." % stop["streak"])
 
 
 if __name__ == "__main__":

@@ -902,9 +902,12 @@ with tempfile.TemporaryDirectory() as td_retry:
     bench_run.save_snapshot(snap_path, snap_retry)
     out_path = Path(td_retry) / "judgments.json"
 
+    # --judge-all because floor is a rule-adherence case, which the default
+    # coverage skips. This test is about the retry, not about what gets graded.
     proc = subprocess.run(
         [sys.executable, str(ROOT / "evals" / "bench" / "judge.py"),
-         "--claude-bin", str(flaky), "--results", str(snap_path), "--out", str(out_path)],
+         "--claude-bin", str(flaky), "--results", str(snap_path),
+         "--out", str(out_path), "--judge-all"],
         capture_output=True, text=True,
     )
     check("judge subprocess ran cleanly against the flaky stub", proc.returncode == 0)
@@ -979,7 +982,8 @@ with tempfile.TemporaryDirectory() as td_blind:
     env = dict(os.environ, JUDGE_CWD_LOG=str(cwd_log))
     proc = subprocess.run(
         [sys.executable, str(ROOT / "evals" / "bench" / "judge.py"),
-         "--claude-bin", str(cwd_stub), "--results", str(snap_path), "--out", str(out_path)],
+         "--claude-bin", str(cwd_stub), "--results", str(snap_path),
+         "--out", str(out_path), "--judge-all"],  # floor is rule-adherence
         capture_output=True, text=True, env=env,
     )
     check("judge subprocess ran cleanly for the blindness test", proc.returncode == 0)
@@ -2482,7 +2486,7 @@ with tempfile.TemporaryDirectory() as td_jobs:
 
     proc = subprocess.run(
         [sys.executable, str(ROOT / "evals" / "bench" / "judge.py"),
-         "--claude-bin", str(stub), "--jobs", "4",
+         "--claude-bin", str(stub), "--jobs", "4", "--judge-all",
          "--results", str(snap_path), "--out", str(out_path)],
         capture_output=True, text=True,
     )
@@ -2507,7 +2511,7 @@ with tempfile.TemporaryDirectory() as td_jobs:
     # Resuming a complete file must call nothing and add nothing.
     proc2 = subprocess.run(
         [sys.executable, str(ROOT / "evals" / "bench" / "judge.py"),
-         "--claude-bin", str(stub), "--jobs", "4",
+         "--claude-bin", str(stub), "--jobs", "4", "--judge-all",
          "--results", str(snap_path), "--out", str(out_path)],
         capture_output=True, text=True,
     )
@@ -2613,7 +2617,7 @@ with tempfile.TemporaryDirectory() as td_cj:
     out_path = Path(td_cj) / "judgments.json"
     proc = subprocess.run(
         [sys.executable, str(ROOT / "evals" / "bench" / "judge.py"),
-         "--claude-bin", str(stub), "--jobs", "2",
+         "--claude-bin", str(stub), "--jobs", "2", "--judge-all",
          "--results", str(snap_path), "--out", str(out_path),
          "--carry-judgments-from", str(src_path)],
         capture_output=True, text=True,
@@ -2653,7 +2657,7 @@ with tempfile.TemporaryDirectory() as td_cj:
     # are decided, and a carry may not overwrite a verdict this round bought.
     proc2 = subprocess.run(
         [sys.executable, str(ROOT / "evals" / "bench" / "judge.py"),
-         "--claude-bin", str(stub), "--jobs", "2",
+         "--claude-bin", str(stub), "--jobs", "2", "--judge-all",
          "--results", str(snap_path), "--out", str(out_path),
          "--carry-judgments-from", str(src_path)],
         capture_output=True, text=True,
@@ -3213,6 +3217,267 @@ if _r21.exists():
           _scoped["scoped"]["one_turn"] == 0)
     check("and its one_turn exposure is 0 too, so the rate is not 0/n",
           _scoped["scoped"]["one_turn_n_runs"] == 0)
+
+# --- the pass says what it will cost, and stops when the service is gone -----
+#
+# Two things nothing told anyone before: what a pass was about to spend, and
+# that it was spending it on nothing. On 2026-08-24 two usage-limit windows
+# failed 152 keys on round 25 and 152 on its arbitration, each one retried, so
+# roughly 600 calls produced no data at all - and the plan that consumed a
+# quarter of a weekly quota was never printed anywhere before it ran.
+
+# A stub whose failures are scripted by an invocation counter, so a test can
+# assert on the *streak* rather than on failure alone. --version is answered
+# without counting: run.py resolves the CLI version twice before generating.
+_SEQ_STUB = """#!/usr/bin/env bash
+for a in "$@"; do
+  if [ "$a" = "--version" ]; then echo "0.0.0 (stub)"; exit 0; fi
+done
+n=$(( $(cat "$CFILE" 2>/dev/null || echo 0) + 1 ))
+echo "$n" > "$CFILE"
+if [ "${OK_ALL:-0}" = "1" ] || [ "$n" = "$OK_CALL" ]; then
+  echo '{"is_error":false,"result":"an answer","num_turns":1,"usage":{"output_tokens":5}}'
+  exit 0
+fi
+exit 3
+"""
+
+
+def _run_py(td, *extra, **env):
+    stub = Path(td) / "claude"
+    stub.write_text(_SEQ_STUB)
+    stub.chmod(0o755)
+    e = dict(os.environ, CFILE=str(Path(td) / "calls"), OK_CALL="0")
+    e.update(env)
+    return subprocess.run(
+        [sys.executable, str(ROOT / "evals" / "bench" / "run.py"),
+         "--claude-bin", str(stub), "--arms", "laconic", "--models", "haiku",
+         "--reps", "1", "--cases", "design-*",
+         "--snapshot", str(Path(td) / "gen.json")] + list(extra),
+        capture_output=True, text=True, env=e)
+
+
+with tempfile.TemporaryDirectory() as td_stop:
+    # OK_CALL=0 never matches, so every call fails: 8 cells, stop after 3.
+    _r = _run_py(td_stop, "--max-consecutive-failures", "3")
+    _snap = json.loads((Path(td_stop) / "gen.json").read_text())
+    check("run.py stops after the configured run of consecutive failures",
+          len(_snap["runs"]) == 3)
+    check("and exits non-zero, so a driver script can tell it stopped early",
+          _r.returncode != 0)
+    check("and says which cell it stopped on",
+          "stopped after 3 consecutive failed cell(s)" in _r.stderr
+          and "design-cache/laconic/haiku" in _r.stderr)
+    # The whole point: a failed key is not done, so nothing has to be undone.
+    check("a stopped pass leaves no key marked done",
+          bench_run.completed_keys(_snap) == set())
+
+with tempfile.TemporaryDirectory() as td_reset:
+    # Call 1 and its retry fail (cell 1 FAILED), call 3 succeeds (cell 2 ok),
+    # everything after fails. With the streak reset the stop lands on cell 5;
+    # without it, on cell 4 - so this fails if the counter never resets.
+    _r = _run_py(td_reset, "--max-consecutive-failures", "3", OK_CALL="3")
+    _snap = json.loads((Path(td_reset) / "gen.json").read_text())
+    check("one success resets the failure streak",
+          len(_snap["runs"]) == 5 and _r.returncode != 0)
+
+with tempfile.TemporaryDirectory() as td_off:
+    _r = _run_py(td_off, "--max-consecutive-failures", "0")
+    _snap = json.loads((Path(td_off) / "gen.json").read_text())
+    check("--max-consecutive-failures 0 grinds through the pass as before",
+          len(_snap["runs"]) == 8 and _r.returncode == 0)
+
+with tempfile.TemporaryDirectory() as td_budget:
+    _r = _run_py(td_budget, OK_ALL="1")
+    check("run.py prints the call budget",
+          "budget: 8 call(s) to make, of 8 cell(s) in this pass (0 already in "
+          "the snapshot)" in _r.stdout)
+    check("the budget names the retry ceiling, which is what a bad window costs",
+          "the ceiling is 16." in _r.stdout)
+    check("and prints it before the first call, not after the pass",
+          _r.stdout.index("budget:") < _r.stdout.index("[1/8]"))
+    # Re-running with the snapshot in place: the budget is the work left, not
+    # the size of the grid.
+    _r2 = _run_py(td_budget, OK_ALL="1")
+    check("the budget counts what a resume will actually buy",
+          "budget: 0 call(s) to make, of 8 cell(s) in this pass (8 already in "
+          "the snapshot)" in _r2.stdout)
+
+with tempfile.TemporaryDirectory() as td_probe:
+    # The output-style probe is a real call, and it used to be spent before the
+    # snapshot's rules checksum was checked - so a mismatched snapshot cost a
+    # call to find that out. Nothing may be called before that guard.
+    (Path(td_probe) / "gen.json").write_text(json.dumps(
+        {"metadata": {"rules_cksum": "not-the-live-one"}, "runs": []}))
+    _stub = Path(td_probe) / "claude"
+    _stub.write_text(_SEQ_STUB)
+    _stub.chmod(0o755)
+    _r = subprocess.run(
+        [sys.executable, str(ROOT / "evals" / "bench" / "run.py"),
+         "--claude-bin", str(_stub), "--arms", "concise-style",
+         "--models", "haiku", "--reps", "1", "--cases", "design-cache",
+         "--snapshot", str(Path(td_probe) / "gen.json")],
+        capture_output=True, text=True,
+        env=dict(os.environ, CFILE=str(Path(td_probe) / "calls"), OK_CALL="0"))
+    check("a snapshot from different rules still stops the pass",
+          _r.returncode != 0 and "different rules" in _r.stderr)
+    check("and it stops before the output-style probe spends a call",
+          not (Path(td_probe) / "calls").exists())
+
+
+# --- and the judging pass stops too. Round 12 returned 850 judgments of which
+# 666 were judge-call failures, and re-running changed nothing because every
+# failure counted as done (#67 fixed the second half of that; this is the
+# first). ThreadPoolExecutor.map submits every item up front, so stopping means
+# making the remaining items call nothing.
+_JUDGE_SEQ_STUB = """#!/usr/bin/env bash
+exec 9>"$CFILE.lock"; flock 9
+n=$(( $(cat "$CFILE" 2>/dev/null || echo 0) + 1 ))
+echo "$n" > "$CFILE"
+flock -u 9
+if [ "$n" = "$OK_CALL" ]; then
+  echo '{"is_error":false,"result":"{\\"verdict\\":\\"pass\\",\\"quote\\":\\"\\",\\"reason\\":\\"r\\"}","num_turns":1,"usage":{"output_tokens":1}}'
+  exit 0
+fi
+exit 3
+"""
+
+with tempfile.TemporaryDirectory() as td_jstop:
+    _res = Path(td_jstop) / "res.json"
+    # design-cache/sonnet feeds a gate, so the default coverage keeps all eight.
+    _res.write_text(json.dumps({
+        "metadata": {"rules_cksum": "1", "reps": 8, "models": ["sonnet"]},
+        "runs": [{"case": "design-cache", "arm": "laconic", "model": "sonnet",
+                  "rep": rep, "ok": True, "text": "an answer"}
+                 for rep in range(8)]}))
+    _stub = Path(td_jstop) / "claude"
+    _stub.write_text(_JUDGE_SEQ_STUB)
+    _stub.chmod(0o755)
+
+    def _judge_stop(out, calls, ok_call="0", *extra):
+        return subprocess.run(
+            [sys.executable, str(ROOT / "evals" / "bench" / "judge.py"),
+             "--claude-bin", str(_stub), "--results", str(_res),
+             "--out", str(Path(td_jstop) / out),
+             # One worker, so "consecutive completions" is exactly "consecutive
+             # items" and the count in the assertions is not a race.
+             "--jobs", "1"] + list(extra),
+            capture_output=True, text=True,
+            env=dict(os.environ, CFILE=str(Path(td_jstop) / calls),
+                     OK_CALL=ok_call))
+
+    _r = _judge_stop("stop.json", "c1", "0", "--max-consecutive-failures", "3")
+    _w = json.loads((Path(td_jstop) / "stop.json").read_text())
+    check("judge.py stops after the configured run of failed calls",
+          len(_w["judgments"]) == 3 and _r.returncode != 0)
+    check("and says so rather than reporting a finished pass",
+          "stopped after 3 consecutive failed judge call(s)" in _r.stderr)
+    # Three cells at two calls each - the retry - and nothing for the five
+    # abandoned items. This is the assertion that the stop actually saves calls.
+    check("and the abandoned judgments call nothing at all",
+          (Path(td_jstop) / "c1").read_text().strip() == "6")
+    check("a stopped judging pass leaves nothing marked done",
+          not bench_judge.resume_index(_w["judgments"])[1])
+
+    # Call 3 succeeds, so item 2 breaks the run: the stop lands on item 5.
+    _r = _judge_stop("reset.json", "c2", "3", "--max-consecutive-failures", "3")
+    _w = json.loads((Path(td_jstop) / "reset.json").read_text())
+    check("one decided judgment resets the failure streak",
+          len(_w["judgments"]) == 5 and _r.returncode != 0)
+
+    _r = _judge_stop("off.json", "c3", "0", "--max-consecutive-failures", "0")
+    _w = json.loads((Path(td_jstop) / "off.json").read_text())
+    check("--max-consecutive-failures 0 grades the whole pass as before",
+          len(_w["judgments"]) == 8 and _r.returncode == 0)
+
+# --- judge only what a gate can read -----------------------------------------
+#
+# quality_fails and safety_fails are the only counters that read verdicts, and
+# both skip rule-adherence cases and saturated cells. conditional, decision,
+# floor and ordered-steps/haiku are therefore graded every round and can reject
+# nothing: 35 of the 220 judge calls a round buys at n=5.
+check("a quality case feeds a gate",
+      bench_report.feeds_judge_gate("design-cache", "sonnet"))
+check("a rule-adherence case does not - it may not be optimized against",
+      not bench_report.feeds_judge_gate("floor", "sonnet")
+      and not bench_report.feeds_judge_gate("decision", "haiku")
+      and not bench_report.feeds_judge_gate("conditional", "sonnet"))
+check("a saturated cell does not, but its unsaturated twin does",
+      not bench_report.feeds_judge_gate("ordered-steps", "haiku")
+      and bench_report.feeds_judge_gate("ordered-steps", "sonnet"))
+check("an unclassified case does not, rather than being promoted to quality",
+      not bench_report.feeds_judge_gate("no-such-case", "sonnet"))
+# judge.py runs against evals/holdout too, and no holdout case exists under
+# evals/cases - without the directory the predicate would skip every one.
+check("the predicate reads the case directory it was given",
+      bench_report.feeds_judge_gate("holdout-design", "sonnet",
+                                    ROOT / "evals" / "holdout")
+      and not bench_report.feeds_judge_gate("holdout-design", "sonnet"))
+# The gate itself must keep using the same predicate, or the filter starts
+# skipping calls the counters were still reading.
+_gate_j = [{"arm": "laconic", "verdict": "fail", "case": "ordered-steps",
+            "model": "haiku", "rep": 0},
+           {"arm": "laconic", "verdict": "fail", "case": "ordered-steps",
+            "model": "sonnet", "rep": 0},
+           {"arm": "laconic", "verdict": "fail", "case": "floor",
+            "model": "sonnet", "rep": 0}]
+check("_judge_fail_cells counts exactly the cells the filter keeps",
+      dict(bench_report._judge_fail_cells(_gate_j, "safety"))
+      == {("ordered-steps", "sonnet"): 1})
+
+with tempfile.TemporaryDirectory() as td_gates:
+    _res = Path(td_gates) / "res.json"
+    _res.write_text(json.dumps({
+        "metadata": {"rules_cksum": "1", "reps": 1, "models": ["sonnet"]},
+        "runs": [{"case": c, "arm": "laconic", "model": m, "rep": 0,
+                  "ok": True, "text": "an answer", "output_tokens": 10}
+                 for c, m in (("design-cache", "sonnet"), ("floor", "sonnet"),
+                              ("ordered-steps", "haiku"),
+                              ("ordered-steps", "sonnet"))]}))
+
+    def _judge(out, *extra):
+        return subprocess.run(
+            [sys.executable, str(ROOT / "evals" / "bench" / "judge.py"),
+             "--claude-bin", str(ROOT / "tests" / "stubs" / "claude-stub.sh"),
+             "--results", str(_res), "--out", str(Path(td_gates) / out),
+             "--jobs", "2"] + list(extra),
+            capture_output=True, text=True,
+            env=dict(os.environ,
+                     STUB_TEXT='{"verdict": "pass", "quote": "", "reason": "ok"}'))
+
+    _r = _judge("gates.json")
+    _gj = json.loads((Path(td_gates) / "gates.json").read_text())
+    check("judge.py grades only the cells a gate reads, by default",
+          sorted((j["case"], j["model"]) for j in _gj["judgments"])
+          == [("design-cache", "sonnet"), ("ordered-steps", "sonnet")])
+    check("and prints the judge budget before spending it",
+          "budget: 2 judge call(s) to make" in _r.stdout
+          and _r.stdout.index("budget:") < _r.stdout.index("[1/2]"))
+    check("and names what it skipped, rather than skipping it silently",
+          "floor/sonnet" in _r.stdout and "ordered-steps/haiku" in _r.stdout)
+    check("and records the reduced coverage in the file itself",
+          _gj["metadata"]["gates_only"] is True)
+
+    _r = _judge("all.json", "--judge-all")
+    _aj = json.loads((Path(td_gates) / "all.json").read_text())
+    check("--judge-all buys the disclosure back",
+          len(_aj["judgments"]) == 4 and _aj["metadata"]["gates_only"] is False)
+
+    # A gates-only file is not an unfinished one, and report.py must not read it
+    # as a judge pass that died halfway - that warning would fire every round.
+    _snap = json.loads(_res.read_text())
+    _snap["metadata"].update({"laconic_level": "full", "generated_at": "x",
+                              "git_commit": "y", "claude_cli_version": "z"})
+    _md_gates = bench_report.render(_snap, _gj, 0.70)
+    check("a gates-only judgments file reports no coverage gap",
+          "judgments cover" not in _md_gates)
+    check("but the report says so, so a missing verdict is not read as a pass",
+          "Judged for the gates only" in _md_gates)
+    _md_partial = bench_report.render(
+        _snap, {"judgments": _gj["judgments"]}, 0.70)
+    check("a genuinely partial judgments file still warns",
+          "judgments cover 2/4 usable runs (2 missing)" in _md_partial)
+
 
 print("\n%d failure(s)" % fails)
 sys.exit(1 if fails else 0)

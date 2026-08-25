@@ -66,10 +66,20 @@ For the project flag, in a repository you do not mind writing a file into:
 ## Reproducing the benchmark
 
 ```bash
-python3 evals/bench/run.py      # generate (~440 calls, 2-3 hr)
-python3 evals/bench/judge.py    # blind trap grading
-python3 evals/bench/report.py   # offline tables; exits 1 if a gate fails
+python3 evals/bench/run.py                 # generate (~440 calls, 2-3 hr)
+python3 evals/bench/judge.py --judge-all   # blind trap grading, every case
+python3 evals/bench/report.py              # offline tables; exits 1 if a gate fails
 ```
+
+`run.py` and `judge.py` both print what the pass will cost before making a call,
+and both stop themselves after eight consecutive failures — a usage limit or an
+outage otherwise fails every remaining key at two calls each. Re-run the same
+command to resume; neither a failed key nor a failed judgment is recorded as
+done.
+
+`--judge-all` because the published tables report every case, including the
+three graded `rule-adherence`. The default grades only the cells a fatal counter
+can read, which is what a loop round wants and 35 fewer calls at n=5.
 
 ## Improving the rules
 

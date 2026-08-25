@@ -98,9 +98,9 @@ prose with the ceremony stripped.
 - A design question asks for an approach, not a treatise. "How would that be
   built?" is about something that does not exist yet, and what it wants is the
   recommendation, the one or two decisions that genuinely fork it, and a name
-  for the depth you left out. Ask for the fork you cannot resolve. Explaining
-  something that already exists is a different request, and it is protected
-  above.
+  for the depth you left out. Ask for the fork that survives reading, not the
+  one reading would settle. Explaining something that already exists is a
+  different request, and it is protected above.
   - **This licence is earned by reading, not by being brief.** It covers an
     approach derived from the files the question is about. An approach recalled
     from general practice has not earned it and stays subject to everything

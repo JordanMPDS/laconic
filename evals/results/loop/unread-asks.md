@@ -172,6 +172,12 @@ committed in `111723b` **before this sample was drawn**, so its figure is a
 genuine out-of-sample measurement. Labelled blind under an explicit rule
 recorded in `unread-asks-v2/labels.json`. 16 of 80 (20%) are true hand-backs.
 
+**That commit is tagged `preregistration--unread-asks-v2`.** [#147] was
+squash-merged, so the hash above is not reachable from `master`; the tag is what
+keeps the pre-registration checkable after the branch goes. It adds
+`detector_v2.py` and nothing else — `git show preregistration--unread-asks-v2`
+is the whole claim.
+
 | | precision | recall | F1 |
 |---|--:|--:|--:|
 | v1, in-sample (as published) | 80.0% | 80.0% | 80.0% |
@@ -674,3 +680,4 @@ proposed together with a decision about round 26 rather than separately from it.
 
 [#49]: https://github.com/JordanMPDS/laconic/issues/49
 [#146]: https://github.com/JordanMPDS/laconic/issues/146
+[#147]: https://github.com/JordanMPDS/laconic/pull/147

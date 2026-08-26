@@ -115,6 +115,81 @@ Eight-case design scope, sonnet:
 - licence to round 27's edit: **p = 0.012**, on 290 unread answers against 76
   rather than round 27's own 76 against 76.
 
+## CORRECTION: the first validation's recall figure was biased
+
+**The 80% recall published above and in [#146] is wrong. The true figure is
+about 48%.**
+
+The first sample was stratified 30 detector-positive against 30
+detector-negative, drawn from a pool of 82 positives and 400 negatives.
+Precision is a ratio computed *within* the positive stratum, so 1:1 sampling
+leaves it unbiased. **Recall is not**: it takes TP from the positive stratum
+and FN from the negative stratum, and sampling those 1:1 against a true ratio
+of roughly 1:5 undercounts FN by that factor.
+
+Reweighting the first batch to the population it was drawn from:
+
+| | precision | recall |
+|---|--:|--:|
+| batch 1, as published | 80.0% | **80.0%** |
+| batch 1, reweighted | 80.0% | **45.1%** |
+| batch 2, fresh and unstratified | 100.0% | **50.0%** |
+
+**The corrected first estimate and the independent fresh estimate agree.** v1
+misses about half of all hand-backs, not a fifth.
+
+That does not change the conclusions the first validation reached — both error
+classes are still systematic, the construct still holds at 90%, and a better
+detector still weakens round 27 — but it makes v1 a substantially worse
+instrument than reported, and the correction is the reason the fresh sample was
+worth drawing.
+
+## The fresh out-of-sample validation
+
+80 one-turn design responses, **unstratified simple random draw** so the
+estimate is unbiased for both detectors at once, disjoint from the first 60,
+seed and pool recorded in `unread-asks-v2/resample.py`. `detector_v2.py` was
+committed in `111723b` **before this sample was drawn**, so its figure is a
+genuine out-of-sample measurement. Labelled blind under an explicit rule
+recorded in `unread-asks-v2/labels.json`. 16 of 80 (20%) are true hand-backs.
+
+| | precision | recall | F1 |
+|---|--:|--:|--:|
+| v1, in-sample (as published) | 80.0% | 80.0% | 80.0% |
+| v1, batch 1 reweighted | 80.0% | 45.1% | 57.7% |
+| **v1, fresh** | **100.0%** | **50.0%** | **66.7%** |
+| v2, in-sample | 93.1% | 90.0% | 91.5% |
+| **v2, fresh** | **73.7%** | **87.5%** | **80.0%** |
+
+**v2's in-sample figure overstated its precision by 19 points** — 93.1% against
+a fresh 73.7% — which is exactly what designing a detector on the errors of the
+sample you then score it on produces. Its recall held, 90.0% against 87.5%.
+
+**v2 is the better instrument on the fresh sample** (F1 80.0% against 66.7%),
+and it buys that by trading precision for recall: it catches 14 of 16
+hand-backs where v1 catches 8, at the cost of 5 false positives where v1 has 0.
+
+Pooled across both batches, v1's precision is 32 of 38 = **84.2%**.
+
+### The remaining error classes
+
+v2's five false positives are all the same shape: a fork **posed as a question
+and then resolved for both branches in the same breath**. F27 asks "do you need
+that pixel data, or just a listing-quality image?" and immediately answers it.
+The reader is not blocked, so nothing was handed back.
+
+v2's two false negatives are hand-backs carrying **no question mark at all**.
+F78 says "The fork I can't resolve without knowing your setup:" and then
+branches; F06 ends "What's the current stack and rough catalog size — that'd
+pin down which option actually applies." with a period.
+
+A v3 would need to drop self-resolved forks and catch question-less
+declarations of ignorance. Both are harder than what separates v1 from v2, and
+neither should be attempted against these 140 labelled responses — a third
+sample would be needed to score it.
+
+## The first validation, as originally written
+
 ## The detector validation, and it is bad news
 
 60 one-turn design responses, drawn with a seeded sample across eight

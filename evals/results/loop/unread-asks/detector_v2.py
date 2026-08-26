@@ -1,4 +1,4 @@
-"""Candidate hands-back detector `v2`, frozen before its validation sample.
+r"""Candidate hands-back detector `v2`, frozen before its validation sample.
 
 v1 is `report.ASKS_BACK`, `^[^\n]*\?\s*$` — any line that is a whole question.
 The first blind validation (60 responses, labels.json) measured it at 80%

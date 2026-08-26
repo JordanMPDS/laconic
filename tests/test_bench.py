@@ -1654,11 +1654,11 @@ TEN_CELLS = lambda v: {(c, "sonnet"): v for c in "abcdefghij"}  # noqa: E731
 
 
 def _summary(nc=0, qf=0, sf=0, viol=0, tokens=None, flip=0.2, n_runs=110,
-             one_turn=0, one_turn_n_runs=None):
+             one_turn=0, one_turn_n_runs=None, unread_asks=0):
     return {"never_cut_failures": nc, "quality_fails": qf, "safety_fails": sf,
             "violations_total": viol,
             "tokens": TEN_CELLS(100) if tokens is None else tokens, "flip_rate": flip,
-            "n_runs": n_runs, "one_turn": one_turn,
+            "n_runs": n_runs, "one_turn": one_turn, "unread_asks": unread_asks,
             "one_turn_n_runs": n_runs if one_turn_n_runs is None else one_turn_n_runs}
 
 
@@ -3655,6 +3655,183 @@ if _r21.exists():
           _scoped["scoped"]["one_turn"] == 0)
     check("and its one_turn exposure is 0 too, so the rate is not 0/n",
           _scoped["scoped"]["one_turn_n_runs"] == 0)
+
+# --- unread_asks: the hands-back count, scoreable at last (#146) -----------
+#
+# Round 27 rejected an edit on one_turn at p = 0.151 while the effect it was
+# aiming at moved at p = 0.044 on a covariate the loop could not score. one_turn
+# is a diluted proxy: it counts every answer that opened no file, whether or not
+# it then handed the decision back. This counts the intersection, which is where
+# round 26 measured the harm - hands-back answers that read failed 0 of 6, ones
+# that did not failed 12 of 22.
+#
+# Target-only for now, deliberately. It gates nothing until the offline
+# re-score in #146 establishes it does not fire on the archive, which is the
+# sequence #49 followed for turns.
+
+check("unread_asks is a nameable count target",
+      "unread_asks" in bench_report.COUNT_TARGETS)
+check("unread_asks is NOT a fatal counter",
+      "unread_asks" not in [f[0] for f in bench_report.FATAL])
+check("the four fatal counters are still unchanged",
+      [f[0] for f in bench_report.FATAL]
+      == ["never_cut_failures", "quality_fails", "safety_fails", "violations_total"])
+
+# The intersection, not either half. These four runs are one of each case.
+_UA_RUNS = [
+    {"case": "design-cache", "arm": "laconic", "model": "sonnet", "rep": 0,
+     "ok": True, "num_turns": 1, "output_tokens": 10,
+     "text": "Use a CDN.\n\nIs there a logged-in state on these pages?"},
+    {"case": "design-cache", "arm": "laconic", "model": "sonnet", "rep": 1,
+     "ok": True, "num_turns": 5, "output_tokens": 10,
+     "text": "Use the CDN in CDN.md.\n\nWhich stack do you run?"},
+    {"case": "design-cache", "arm": "laconic", "model": "sonnet", "rep": 2,
+     "ok": True, "num_turns": 1, "output_tokens": 10,
+     "text": "Use a CDN. No question here."},
+    {"case": "design-cache", "arm": "laconic", "model": "sonnet", "rep": 3,
+     "ok": True, "num_turns": 7, "output_tokens": 10,
+     "text": "Use the CDN in CDN.md."},
+]
+_ua_agg = bench_report.aggregate({"runs": _UA_RUNS})
+_ua_cell = _ua_agg[("design-cache", "laconic", "sonnet")]
+check("unread_asks counts the unread question and nothing else",
+      _ua_cell["unread_asks"] == 1)
+check("one_turn still counts both unread answers",
+      _ua_cell["one_turn"] == 2)
+
+# An answer that asks AFTER reading is the harmless case and must not count.
+check("a question asked after reading does not count as unread_asks",
+      bench_report.asks_back(_UA_RUNS[1]["text"])
+      and _ua_cell["unread_asks"] == 1)
+
+# Exposure is the UNREAD STRATUM, not the run count - this is a conditional
+# rate, not a joint one (#146). Round 20 is why. Its text scored highest of all
+# eight on the joint count almost entirely through a reading collapse (one_turn
+# 15% -> 56%, p = 6.2e-08) while the conditional ask-rate did not move
+# significantly (17% -> 33%, p = 0.155). one_turn already gates that, and gates
+# it harder. Round 27's edit is the mirror image: reading exactly flat
+# (p = 0.532) and the conditional rate falling (25% -> 12%, p = 0.044), which
+# one_turn cannot see by construction. A joint count confounds the two factors
+# and can be cleared by improving reading while asking gets worse.
+check("unread_asks is exposed on the unread stratum, not the run count",
+      bench_report._exposure({"n_runs": 110, "one_turn_n_runs": 40,
+                              "one_turn": 12}, "unread_asks") == 12)
+check("one_turn still reads the fixture-only run count",
+      bench_report._exposure({"n_runs": 110, "one_turn_n_runs": 40,
+                              "one_turn": 12}, "one_turn") == 40)
+check("every other count target still reads n_runs",
+      bench_report._exposure({"n_runs": 110, "one_turn_n_runs": 40,
+                              "one_turn": 12}, "safety_fails") == 110)
+
+# The numerator is a subset of the denominator by construction, so a rate above
+# 1 is impossible and signals the two were computed over different scopes.
+_r21p = ROOT / "evals" / "snapshots" / "loop" / "round-21.json"
+if _r21p.exists():
+    _s = bench_report.round_summary(json.loads(_r21p.read_text()), [])
+    check("the conditional rate cannot exceed 1",
+          _s["unread_asks"] <= bench_report._exposure(_s, "unread_asks")
+          or bench_report._exposure(_s, "unread_asks") == 0)
+
+# A rise must not reject a round, the way one_turn does not.
+_v, _why = bench_report.accept_verdict(
+    _summary(tokens=TEN_CELLS(500)),
+    _summary(tokens=TEN_CELLS(100), unread_asks=40), "output_tokens")
+check("a risen unread_asks does not reject a round on its own", _v == "accept")
+
+# It does NOT carry one_turn's between-round inflation, and the measurement is
+# the reason (#146). The same archive table reads phi = 1.09 at p = 0.36 for the
+# conditional rate against 1.83 at p = 0.029 under v1's detector, so there is
+# almost nothing to inflate - and applying it is not free, because the inflated
+# test is a normal approximation that REPLACES the exact conditional binomial.
+# On round 27's counts the exact test reads 0.084 and the phi = 1.09
+# approximation reads 0.037, so the inflation would turn a non-significant fall
+# into a significant one. That is the opposite of what an inflation is for.
+_v, _why = bench_report.accept_verdict(
+    _summary(tokens=TEN_CELLS(100), n_runs=200, one_turn=76, unread_asks=32),
+    _summary(tokens=TEN_CELLS(100), n_runs=200, one_turn=76, unread_asks=21),
+    "unread_asks")
+check("an unread_asks target is scored by the exact conditional binomial",
+      any("unread_asks 32 -> 21" in r and "p = 0.084" in r for r in _why))
+check("and no variance inflation is applied to it",
+      not any("variance inflated" in r for r in _why))
+check("the round it was measured on does not reach alpha under it", _v == "reject")
+_, _why_ot = bench_report.accept_verdict(
+    _summary(tokens=TEN_CELLS(100), n_runs=200, one_turn=76),
+    _summary(tokens=TEN_CELLS(100), n_runs=200, one_turn=40), "one_turn")
+check("one_turn still carries its own inflation",
+      any("variance inflated by phi = 3.39" in r for r in _why_ot))
+
+if _r21.exists():
+    _s21 = bench_report.round_summary(json.loads(_r21.read_text()), [])
+    check("round-21 reports an unread_asks count", "unread_asks" in _s21)
+    check("unread_asks never exceeds one_turn in a real round",
+          _s21["unread_asks"] <= _s21["one_turn"])
+    _sc = bench_report.round_summary(json.loads(_r21.read_text()), [],
+                                     target_cases=_nofix)
+    check("a scope of fixture-less cases contributes no unread_asks",
+          _sc["scoped"]["unread_asks"] == 0)
+
+
+# --- the promoted detector, and the frozen copy it was validated as (#146) ---
+#
+# v1 was `^[^\n]*\?\s*$`, kept unmodified while it had no measurement. It has
+# one now: 140 blind-labelled responses over two samples, the second drawn after
+# the candidate was frozen and committed. v1 reads 100% precision and 50% recall
+# out of sample, v2 73.7% and 87.5%, F1 66.7 against 80.0. What v2 changes is
+# exactly the two error classes the first validation named, and nothing else.
+
+# False positives v1 had: every one was a closing offer. The answer resolved the
+# question and then volunteered more work, which is the opposite of the harm.
+check("a closing offer is not a hand-back",
+      not bench_report.asks_back(
+          "Scope the no-store header to /account.\n\n"
+          "Want me to sketch the actual schema?"))
+check("v1's regex still fires on the offer it used to count",
+      bench_report.ASKS_BACK.search(
+          "Scope it to /account.\n\nWant me to sketch the actual schema?")
+      is not None)
+
+# False negatives v1 had: the hand-back carried its question mark mid-line, so
+# a line-terminal match never saw it.
+check("a mid-line question mark is a hand-back",
+      bench_report.asks_back(
+          "Two options.\n\nWhich stack do you run? That decides it."))
+check("v1's regex misses the mid-line question it was blind to",
+      bench_report.ASKS_BACK.search(
+          "Two options.\n\nWhich stack do you run? That decides it.") is None)
+
+# Unchanged: a resolved answer is not a hand-back, and a question earlier in the
+# response still counts through v1's expression as a fallback.
+check("a resolved answer is not a hand-back",
+      not bench_report.asks_back(
+          "Scope the no-store header to /account; the CDN already fronts it."))
+check("a hand-back earlier in the response still counts",
+      bench_report.asks_back(
+          "Which stack do you run?\n\n" + "\n\n".join(["Filler."] * 4)))
+
+# The shipped detector must stay equivalent to the frozen artifact it was
+# validated as. Examples cannot establish that - the two differ only on real
+# text - so this compares them over every stored response of a round.
+#
+# Both inputs are asserted present rather than guarded past. The rest of this
+# file skips optional snapshots quietly, which is right for a disclosure; it is
+# wrong here, because this check is the only thing keeping two copies of one
+# detector in sync. If the round were ever pruned the guarantee would leave with
+# it and nothing would say so.
+_dv2 = ROOT / "evals" / "results" / "loop" / "unread-asks" / "detector_v2.py"
+_r27c = ROOT / "evals" / "snapshots" / "loop" / "round-27-control.json"
+check("the frozen detector and the round it is checked over are both present",
+      _dv2.exists() and _r27c.exists())
+if _dv2.exists() and _r27c.exists():
+    sys.path.insert(0, str(_dv2.parent))
+    import detector_v2  # noqa: E402
+    _texts = [r.get("text") or "" for r in json.loads(_r27c.read_text())["runs"]]
+    _texts = [t for t in _texts if t.strip()]
+    check("the promoted detector reads a real round exactly as the frozen copy",
+          len(_texts) > 100
+          and all(bench_report.asks_back(t) == detector_v2.asks_back(t)
+                  for t in _texts))
+
 
 # --- the pass says what it will cost, and stops when the service is gone -----
 #

@@ -202,6 +202,86 @@ Nothing here justifies re-running [#138]'s edit yet. It moved the right way
 under both detectors and reached alpha under neither once the detector is
 improved.
 
+## What round 20's edit was, and why it changes the metric
+
+The re-score put `rules_cksum` 3980812364 highest of all eight texts at 18.8%.
+It is **not a novel edit**: it is round 10's design-question licence, the
+version placed in `level: full`, re-applied byte for byte by rounds 10, 12, 14,
+15 and 20. Round 20 ran it a fifth time, not to test it, but to ask whether the
+dev set could detect the harm the round 15 holdout had found.
+
+**The loop condemned that text twice, independently of this counter.** Round
+15's incarnation was killed by the holdout. Round 20 was rejected on quality:
+`quality_fails` 87 → 104, of which +13 fell on the three [#88] cases. So the
+counter ranking it top of eight is an external check it passes, on a text it
+was not built from.
+
+### The comparison that made it look highest was invalid
+
+18.8% against master's 9.4% spans 2026-08-14 to 08-25 — nine days and eight CLI
+releases — which is the era confound in the false-accept section above, not a
+rules effect.
+
+**Round 20's own control arms cannot fix it.** All three of rounds 18, 19 and
+20 carry `carried_arms_from: round-01-n10-v4.json`, so their `baseline`,
+`terse-control` and `word-compression` numbers are byte-identical to each other
+and belong to a different era than the treatment. This is exactly the defect
+the loop skill records under "Carrying the controls was wrong".
+
+**The valid comparison is the freshly generated laconic arms of its
+neighbours**, rounds 18 and 19, run on 2026-08-13 against round 20's 08-14,
+same eight-case scope, different rules texts:
+
+| | one_turn | ask given unread | unread_asks |
+|---|--:|--:|--:|
+| rounds 18+19, neighbours | 24/160 (15%) | 4/24 (17%) | 4/160 (**2.5%**) |
+| round 20, round 10's licence | 45/80 (56%) | 15/45 (33%) | 15/80 (**18.8%**) |
+
+`unread_asks` rises at **p = 6.1e-05**. The effect is real and it is not era.
+
+### The decomposition is the finding, and it corrects this issue's premise
+
+Splitting the counter into its two factors — how often an answer failed to
+read, and how often an answer that failed to read then handed the decision back
+— separates round 20 from round 27 completely:
+
+| | one_turn rate | ask given unread | unread_asks |
+|---|--:|--:|--:|
+| rounds 18+19 | 15% | 17% | 2.5% |
+| round 20 | **56%** | 33% | 18.8% |
+| round 27 control (master) | 38% | **25%** | 9.5% |
+| round 27 edit ([#138]) | 38% | **12%** | 4.5% |
+
+| | one_turn | ask given unread |
+|---|--:|--:|
+| round 20 vs neighbours | **p = 6.2e-08** | p = 0.155 |
+| round 27 edit vs control | p = 0.532 | **p = 0.044** |
+
+**These are two different failure modes and only one of them needs this
+counter.** Round 20's text collapsed reading — 15% to 56% one-turn — and the
+conditional ask-rate did not move significantly. `one_turn` already gates that,
+and gates it far more powerfully. Round 27's edit is the mirror image: reading
+is exactly flat and what changed is what unread answers *do*, which `one_turn`
+cannot see by construction.
+
+**So the framing this issue was opened on is wrong.** [#146] says `one_turn` is
+"a diluted proxy" for the same harm. The truer statement is that the two
+measure different factors, and **the raw joint count confounds them**: round 20
+scores highest on `unread_asks` almost entirely through a reading collapse that
+needed no new metric.
+
+**The metric that isolates [#138]'s behaviour is the conditional rate — asks
+given unread — not the joint count.** A gate on the joint count can be cleared
+by improving reading while asking gets worse, or tripped by a reading collapse
+that `one_turn` already reports.
+
+Two caveats. On round 27 the joint count and the conditional rate give
+identical p-values, because `one_turn` happened to tie at exactly 76/200 on
+both sides; that tie is coincidental, and the per-case distributions differ
+substantially (`design-cache` 17 against 10, `design-retry` 13 against 19). And
+the detector caveat is unchanged: under `v2` the conditional rate reads 42% to
+28%, p = 0.0845.
+
 ## Open questions before this gates anything
 
 1. **The detector is crude, now measured: 80% precision, 80% recall.** `ASKS_BACK` is

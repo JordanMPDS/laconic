@@ -7,7 +7,7 @@ stored round **before** it is allowed to gate anything, which is the sequence
 ## What it counts
 
 An answer that handed the decision back **and** never opened a file: the
-intersection of `ASKS_BACK` and `num_turns == 1`. Both facts are already on
+intersection of `report.asks_back()` and `num_turns == 1`. Both facts are already on
 every stored run, so the whole re-score below is offline and cost no
 generations.
 
@@ -20,23 +20,32 @@ a conditional rate** — of the answers that never opened a file, how many hande
 the decision back. It was a joint count until the round 20 analysis below
 showed that form confounds two factors; see there for why.
 
-**The detector is `_quality_strata`'s, unmodified.** Two counters reading one
-behaviour through two regexes would drift, and re-tuning a detector after
-seeing what it found is how a disclosure becomes a story. Its known limits are
-in the open questions below.
+**The detector is `_quality_strata`'s, and both counters read the same one.**
+Two counters reading one behaviour through two expressions would drift, and
+re-tuning a detector after seeing what it found is how a disclosure becomes a
+story.
+
+**That detector is no longer v1.** Everything from here to the fresh validation
+was computed with `^[^\n]*\?\s*$`, which is what shipped while it had no
+measurement. It has one now, and `report.py` reads `asks_back()` — v2 — since
+[the promotion](#the-promotion-and-what-the-archive-reads-under-it). Each
+section below carries what it reads under the detector that actually ships.
 
 ## Why not just use `one_turn`
 
 `one_turn` counts every answer that opened no file, whether or not it then
 handed the decision back. Round 26 measured the difference directly:
 
-| round 26, licence arm | failed |
-|---|--:|
-| hands back, read the repository | **0/6 (0%)** |
-| hands back, did not read | **12/22 (55%)** |
+| round 26, licence arm | v1 | shipped detector |
+|---|--:|--:|
+| hands back, read the repository | **0/6 (0%)** | **0/18 (0%)** |
+| hands back, did not read | **12/22 (55%)** | **19/32 (59%)** |
 
 Round 27 rejected an edit on the proxy at p = 0.151 while the effect it was
-aiming at moved at p = 0.044 on this intersection.
+aiming at moved at p = 0.044 on this intersection — p = 0.084 under the
+detector that shipped, which is the one number the promotion cost. **The split
+this counter exists for is sharper under it, not softer**: not one of the 18
+hands-back answers that read the repository failed.
 
 ## Independence rules, applied before any statistic
 
@@ -68,6 +77,11 @@ Scored as the conditional rate the metric now is:
 Chi-square 25.62 on 14 df is **p = 0.029, so unlike the joint count this form
 is significantly overdispersed** and the inflation is not optional.
 
+**Under the detector that shipped it reads 15.29 on 14 df, phi = 1.09 at
+p = 0.359, and no inflation is applied.** Most of the dispersion below was v1
+missing a class of hand-back at different rates in different rounds. See
+[the promotion](#1-the-between-round-dispersion-halves-and-the-inflation-is-dropped).
+
 **That is the price of conditioning and it should be stated plainly.** The same
 data as a joint count reads phi = 1.47 at p = 0.113. Conditioning shrinks the
 denominator roughly fourfold — 15, 26, 65 and 66 in the pre-licence group where
@@ -86,7 +100,8 @@ noise. Every ordered pair of rounds at identical rules text and identical
 scope, scored one-sided at alpha 0.05:
 
 **3 of 56 pairs reach alpha (5.4%), against a nominal 5%** — the same three
-pairs, and the same rate, as the joint count gave.
+pairs, and the same rate, as the joint count gave. **Under the shipped detector
+it is 1 of 56 (1.8%)**, and none of these three survive.
 
 All three involve `round-26-control` reading **0/200**, and that zero is real
 rather than an artifact: every one of its 200 runs carries text, 66 of them are
@@ -114,6 +129,10 @@ Eight-case design scope, sonnet:
   composition effect, read directly instead of inferred from a stratum split.
 - licence to round 27's edit: **p = 0.012**, on 290 unread answers against 76
   rather than round 27's own 76 against 76.
+
+Under the shipped detector the same four texts read 60.0%, 45.2%, 27.6% and
+7.0%, in the same order, at p = 2.5e-15 and p = 0.019. **The separation the
+counter was built for is stronger, not weaker, under the better detector.**
 
 ## CORRECTION: the first validation's recall figure was biased
 
@@ -187,6 +206,136 @@ A v3 would need to drop self-resolved forks and catch question-less
 declarations of ignorance. Both are harder than what separates v1 from v2, and
 neither should be attempted against these 140 labelled responses — a third
 sample would be needed to score it.
+
+## The promotion, and what the archive reads under it
+
+`report.py` reads the behaviour through `asks_back()` now, and that function is
+`v2`. Both counters call it — `_quality_strata`'s disclosure and `unread_asks` —
+so the two still cannot drift apart, which is the property v1 was kept
+unmodified to protect. The frozen copy the fresh sample scored is untouched at
+[`unread-asks/detector_v2.py`](unread-asks/detector_v2.py), and
+`tests/test_bench.py` compares the shipped detector against it over every stored
+response of a real round rather than over examples, because the two differ only
+on real text.
+
+Every table below is regenerated by
+[`unread-asks/archive_rescore.py`](unread-asks/archive_rescore.py), which reads
+stored snapshots only and prints both detectors side by side.
+
+**No stored verdict moves.** The detector has exactly two readers: a
+disclosure line, and a target that is not fatal. Round 26 re-scored under it
+still returns `accept`, with the same opposite-direction signature in its strata
+line. What moves is what the archive *says*, and four of the statements above
+change.
+
+### 1. The between-round dispersion halves, and the inflation is dropped
+
+The same table, the same 21 rounds in seven groups at identical rules text and
+identical case-scope size:
+
+| rules text | scope | rounds | pooled | chi2 | df |
+|---|--:|--:|--:|--:|--:|
+| 1497646142 | 8 | 2 | 2/17 | 0.01 | 1 |
+| 1823644123 | 3 | 2 | 9/9 | — | 1 |
+| 1830906901 | 3 | 2 | 6/48 | 0.25 | 1 |
+| 1830906901 | 8 | 4 | 12/172 | 0.99 | 3 |
+| 3694954268 | 8 | 6 | 131/290 | 9.79 | 5 |
+| 3980812364 | 3 | 3 | 16/26 | 3.40 | 2 |
+| 3980812364 | 5 | 2 | 26/39 | 0.85 | 1 |
+| **pooled** | | **21** | | **15.29** | **14** |
+
+| detector | chi2 | df | p | phi |
+|---|--:|--:|--:|--:|
+| v1 | 25.61 | 14 | **0.029** | **1.83** |
+| v2 | 15.29 | 14 | **0.359** | **1.09** |
+
+**Most of what looked like between-round drift was the detector.** The group
+that carried the v1 dispersion — 1830906901 at scope 8, chi-square 15.52 on 3 df
+— falls to 0.99. Its spread was `round-26-control` reading 0 of 66 against
+siblings at 4 of 15, 4 of 26 and 5 of 65; v2 reads the same four rounds as 1 of
+15, 3 of 26, 4 of 65 and 4 of 66. The 1823644123 group contributes nothing
+either way: v2 fires on all 9 of its unread answers, and a group at a rate of 1
+has no dispersion left to measure.
+
+**The inflation this measurement was going to buy is not applied, and the
+reason is the direction it would move.** `_inflated_count_p` is a normal
+approximation on a difference of proportions, and it *replaces* the exact
+conditional binomial `_count_p` computes rather than adjusting it. On round 27's
+counts — 32 of 76 against 21 of 76 — the exact test reads **0.084** and the same
+test inflated by phi = 1.09 reads **0.037**. An inflation that turns a
+non-significant fall into a significant one is not an inflation. `ONE_TURN_PHI`
+is 3.39 and swamps that effect; 1.09 does not, so `unread_asks` keeps the exact
+test and the measured phi is published here instead of applied there.
+
+### 2. The false-accept rate falls, and stops being one cell's story
+
+| detector | pairs reaching alpha | |
+|---|--:|---|
+| v1 | **3 of 56 (5.4%)** | all three against `round-26-control` reading 0 of 200 |
+| v2 | **1 of 56 (1.8%)** | `round-24-replication-2` (20 of 30) against `round-24` (2 of 11), p = 0.042 |
+
+Both are consistent with a nominal 5% on 56 non-independent pairs. What changed
+is the shape: under v1 every false accept was the same zero, which is the
+signature of a detector missing a class of hand-back rather than of sampling.
+
+### 3. Round 20 does not stay silent, and the earlier reading of it does not survive
+
+| | one_turn | ask given unread, v1 | ask given unread, v2 |
+|---|--:|--:|--:|
+| rounds 18+19, neighbours | 24/160 (15%) | 4/24 (17%) | **1/24 (4%)** |
+| round 20, round 10's licence | 45/80 (56%) | 15/45 (33%) | **27/45 (60%)** |
+| | **p = 6.2e-08** | p = 0.155 | **p = 0.0001** |
+
+**This costs the reading published above.** Under v1 the conditional rate was
+correctly silent on round 20: a reading collapse that `one_turn` already gates
+far harder. Under v2 round 20's text did *both* — it collapsed reading and it
+raised the rate at which the answers that read nothing hand the decision back.
+
+The decomposition still separates the two rounds, which was the point of making
+the metric conditional: round 20 moves on both factors and round 27's edit moves
+on only the second. What does not survive is the stronger claim that the
+conditional rate reports nothing about round 20.
+
+**v2 is the more plausible reading of that contrast, not just the newer one.**
+Round 10's licence is a text that explicitly permits asking a design question,
+and the neighbours' 4 of 24 under v1 are the closing-offer class the fresh
+validation measured at 0 false positives for v2. A detector that finds a licence
+to ask produced more asking is more credible than one that does not.
+
+### 4. Round 27's disclosure moves further below alpha
+
+| round 27, sonnet, eight cases | v1 | v2 |
+|---|--:|--:|
+| share handing back | 23/200 to 12/200, **p = 0.045** | 44/200 to 32/200, **p = 0.103** |
+| conditional, given unread | 19/76 to 9/76, **p = 0.044** | 32/76 to 21/76, **p = 0.084** |
+
+This was already disclosed above and it is unchanged by promotion: [#138]'s edit
+moved the right way under both detectors and reaches alpha under neither once
+the detector is the validated one.
+
+### And rounds 25 and 26 read the same signature, larger
+
+| | hands-back fails | resolves fails | share handing back |
+|---|--:|--:|--:|
+| round 25 control | 1/11 | 38/189 | 11/200 |
+| round 25 licence | **15/43** | 26/156 | **43/200** |
+| round 25 replication (`round-25-arbitration`) | 8/44 | 32/156 | 44/200 |
+| round 26 control | 1/12 | 45/188 | 12/200 |
+| round 26 licence | **19/50** | 24/150 | **50/200** |
+
+Round 26's cancelling pair is unchanged in shape and larger in both halves: the
+hands-back stratum fails 19 of 50 against the control's 1 of 12 while the
+resolving stratum improves, 45 of 188 to 24 of 150. The share moves 12/200 to
+50/200, **p = 6.1e-07**, against v1's 6/200 to 28/200 at p = 9.8e-05.
+
+**Round 25's withdrawal needs splitting in two.** It withdrew a failure-rate
+spike, and that withdrawal stands: pooled over the round and its replication the
+hands-back stratum fails 23 of 87 against the control's 1 of 11, p = 0.23, which
+establishes nothing on a control stratum of eleven. But round 25 also reported
+its *share* shift as not significant — 16/200 to 44/400, p = 0.17 — and under
+v2 the same comparison is **11/200 to 87/400, p = 4.0e-07**. The share shift
+round 26 was credited with replicating was already there in round 25, under a
+detector that could not see half of it.
 
 ## The first validation, as originally written
 
@@ -363,7 +512,7 @@ was made for:
 
 | | | | |
 |---|--:|--:|---|
-| round 20 vs same-week neighbours | 15/45 vs 4/24 | rise **p = 0.155** | correctly silent — this was a reading collapse, and `one_turn` reports it at p = 6.2e-08 |
+| round 20 vs same-week neighbours | 15/45 vs 4/24 | rise **p = 0.155** | correctly silent — this was a reading collapse, and `one_turn` reports it at p = 6.2e-08. **Not silent under the shipped detector: 27/45 against 1/24, p = 0.0001. See [the promotion](#3-round-20-does-not-stay-silent-and-the-earlier-reading-of-it-does-not-survive).** |
 | round 27's edit vs control | 9/76 vs 19/76 | fall **p = 0.044** | still fires — `one_turn` is flat at p = 0.532 and cannot see it |
 
 Under the joint count round 20 was the highest-scoring text in the archive.
@@ -384,13 +533,16 @@ the detector caveat is unchanged: under `v2` the conditional rate reads 42% to
 
 ## Open questions before this gates anything
 
-1. **The detector is crude, now measured: 80% precision, 80% recall.** `ASKS_BACK` is
-   `^[^\n]*\?\s*$` — any line that is a whole question. It cannot separate
-   "which monitoring stack do you run?", a fork reading cannot settle, from
-   "is there a logged-in state on these pages?", which the fixture answers.
-   That distinction is the entire point of the metric. Validating it needs
-   hand-labelled responses, and the labels must be assigned blind to the
-   detector's verdict and never against round outcomes.
+1. **The detector is measured and promoted, and its remaining errors are
+   named.** v2 reads 73.7% precision and 87.5% recall out of sample, against
+   v1's 100% and 50%. Its false positives are forks posed as a question and
+   resolved in the same breath; its false negatives are hand-backs carrying no
+   question mark at all. **A v3 addressing either needs a third labelled sample
+   — not the 140 responses these two were scored on.** No detector yet separates
+   "which monitoring stack do you run?", a fork reading cannot settle, from "is
+   there a logged-in state on these pages?", which the fixture answers, and that
+   distinction is the entire point of the metric. The construct survives it: 27
+   of 30 true hand-backs in batch 1 were questions the repository answers.
 2. **Target-only, and it stays that way for now.** The archive null above is
    about false *accepts*. Making it fatal asks a different question — the false
    *rejection* rate — and that has not been measured.

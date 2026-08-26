@@ -182,6 +182,23 @@ COUNT_TARGETS = ("never_cut_failures", "quality_fails", "safety_fails",
 # say so in its round doc and may cite that uninflated figure.
 ONE_TURN_PHI = 3.39
 
+# unread_asks gets NO such constant, and the measurement is why (#146). The
+# same table over the archive - every round at identical rules text AND
+# identical case-scope size, 21 rounds in seven groups - reads chi-square 15.29
+# on 14 df for the conditional rate, phi = 1.09 at p = 0.36. Under v1's
+# detector it read 1.83 at p = 0.029, so most of that dispersion was the
+# detector's line-position artifact moving between rounds rather than the
+# behaviour moving, and v2 removed it.
+#
+# A 1.09 inflation would be worth applying anyway if applying it were free. It
+# is not: _inflated_count_p is a normal approximation on a difference of
+# proportions and it REPLACES the exact conditional binomial _count_p computes.
+# On round 27's counts, 32 of 76 against 21 of 76, the exact test reads 0.0845
+# and the phi = 1.09 approximation reads 0.0365. An inflation that turns a
+# non-significant fall into a significant one is not an inflation, so the exact
+# test stands and the measured phi is published in
+# evals/results/loop/unread-asks.md instead of being applied here.
+
 
 # A measured rate below this many runs does not clear anything. At n = 10 the
 # interval is wide enough to cover almost any count, which would turn the screen
@@ -353,13 +370,18 @@ def _exposure(src, target):
     many handed the decision back - rather than a joint count (#146).
 
     Round 20 is why. Its rules text scored highest of all eight on the joint
-    count, 18.8% against its same-week neighbours' 2.5%, and the decomposition
-    shows that was almost entirely a reading collapse: one_turn 15% to 56% at
-    p = 6.2e-08, while the conditional ask-rate moved 17% to 33% at p = 0.155.
-    one_turn already gates that and gates it far harder, so the joint count
-    added nothing there. Round 27's edit is the mirror image - one_turn exactly
-    flat at p = 0.532, conditional rate 25% to 12% at p = 0.044 - and that is
-    the case one_turn cannot see by construction.
+    count, and the decomposition shows how much of that was a reading collapse:
+    one_turn 15% to 56% at p = 6.2e-08 against its same-week neighbours, which
+    one_turn already gates and gates far harder. Round 27's edit is the mirror
+    image - one_turn exactly flat at p = 0.532, conditional rate 42% to 28% at
+    p = 0.084 - and that is the case one_turn cannot see by construction.
+
+    Both figures are the detector's, so both moved when it was promoted: under
+    v1 round 20's conditional rate read 17% to 33% at p = 0.155 and round 27's
+    read 25% to 12% at p = 0.044. Under v2 round 20 moves on BOTH factors
+    (4% to 60%, p = 0.0001) rather than on reading alone. What that changes is
+    the illustration, not the argument: the joint count still cannot say which
+    factor moved, and round 27 is still a round where only the second did.
 
     A joint count confounds the two factors, so it can be cleared by improving
     reading while asking gets worse, or tripped by a reading collapse that
@@ -539,11 +561,56 @@ def _judge_fails(judg, grading, keep, ok_model=None):
                if keep(c[0]) and ok_model(c[1]))
 
 
-# Whether an answer hands a decision back to the user instead of resolving it:
-# any line that is a question. Deliberately the same expression the covariate
-# was measured with, in design-quality-covariate.md - re-tuning a detector
-# after seeing what it found is how a disclosure becomes a story.
+# Whether an answer hands a decision back to the user instead of resolving it.
+#
+# v1 was `^[^\n]*\?\s*$`, any line that is a whole question, and it was kept
+# unmodified for as long as it had no measurement: re-tuning a detector after
+# seeing what it found is how a disclosure becomes a story. It has a
+# measurement now (#146). Two blind validations, 140 hand-labelled responses,
+# the second of them drawn AFTER the candidate was frozen and committed:
+#
+#             precision   recall     F1
+#   v1            100.0%    50.0%  66.7%
+#   v2             73.7%    87.5%  80.0%
+#
+# v1 misses half of every hand-back, because one written without a terminal
+# question mark never matched it, and it counted closing offers as forks.
+#
+# v2 is v1 plus exactly the two corrections those error classes named - a
+# question anywhere in the closing two paragraphs rather than alone on a line,
+# minus first-person offers to do more work - and nothing else. It was designed
+# against the first sample's errors and scored on a second, disjoint one, so
+# 73.7/87.5 is out of sample; its in-sample figure was 93.1/90.0 and the 19
+# points of precision between those two are what designing on the sample you
+# score on buys.
+#
+# The frozen copy it was validated as is
+# evals/results/loop/unread-asks/detector_v2.py. This must stay equivalent to
+# it, and tests/test_bench.py checks that over every stored response of a round
+# rather than over examples. Write a v3 against a third sample rather than
+# editing either copy.
 ASKS_BACK = re.compile(r"^[^\n]*\?\s*$", re.M)
+
+# First-person offers to do more work. "Want me to sketch the actual schema?"
+# resolved the question and then volunteered further effort, which is the
+# opposite of the harm being counted: the reader is not blocked by it.
+ASKS_BACK_OFFER = re.compile(r"\b(want me to|shall i|should i (sketch|write|"
+                             r"draft|map)|would you like me to|"
+                             r"do you want me to)\b", re.I)
+
+
+def asks_back(text):
+    """True when the answer hands a decision back to the user.
+
+    A question anywhere in the closing two paragraphs, minus offers; falling
+    back to v1's line-terminal match (also minus offers) for answers whose
+    hand-back sits earlier in the response.
+    """
+    paras = [p for p in text.strip().split("\n\n") if p.strip()]
+    for para in paras[-2:]:
+        if "?" in para and not ASKS_BACK_OFFER.search(para):
+            return True
+    return bool(ASKS_BACK.search(text)) and not ASKS_BACK_OFFER.search(text)
 
 
 def _quality_strata(judg, runs):
@@ -576,7 +643,7 @@ def _quality_strata(judg, runs):
         body = text.get((j["case"], j["arm"], j["model"], j["rep"]))
         if body is None:
             continue
-        s = out["asks"] if ASKS_BACK.search(body) else out["resolves"]
+        s = out["asks"] if asks_back(body) else out["resolves"]
         s["n"] += 1
         s["fails"] += (j.get("verdict") == "fail")
     return out
@@ -1466,6 +1533,8 @@ def accept_verdict(prev, cur, target, noise=None, target_cases=None,
         # between rounds, so the standard error is scaled instead. A round that
         # generated both sides in one interleaved batch has removed that
         # variance by design and may cite the binomial figure printed here.
+        #
+        # unread_asks is deliberately not in this branch; see ONE_TURN_PHI.
         if target == "one_turn":
             e_prev, e_cur = _exposure(src_prev, target), _exposure(src_cur, target)
             p_inf = _inflated_count_p(a, b, e_prev, e_cur, ONE_TURN_PHI)
@@ -1639,16 +1708,18 @@ def aggregate(snap):
             # the decision back AND never opened a file (#146). one_turn is a
             # diluted proxy for the harm - it counts every unread answer,
             # whether or not it then asked - and round 26 measured the
-            # difference directly: hands-back answers that read failed 0 of 6,
-            # ones that did not failed 12 of 22. Round 27 rejected on the proxy
-            # at p = 0.151 while this moved at p = 0.044.
+            # difference directly: in its licence arm, hands-back answers
+            # that read the repository failed 0 of 18 while ones that did not
+            # failed 19 of 32. Round 27 rejected on the proxy at p = 0.151
+            # while this moved at p = 0.084.
             #
             # Same detector as _quality_strata, deliberately. Two counters
-            # reading one behaviour through two regexes would drift, and
-            # re-tuning a detector after seeing what it found is how a
-            # disclosure becomes a story.
+            # reading one behaviour through two expressions would drift. Both
+            # read `asks_back`, which is #146's validated v2 since the fresh
+            # out-of-sample validation; see the comment above it for what the
+            # promotion moved and what it cost.
             "unread_asks": sum(1 for r in runs if r.get("num_turns") == 1
-                               and ASKS_BACK.search(r.get("text", ""))),
+                               and asks_back(r.get("text", ""))),
             "spans": [sp for s in scored for sp in s["spans"]][:5],
         }
     return agg

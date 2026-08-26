@@ -3701,7 +3701,7 @@ check("one_turn still counts both unread answers",
 
 # An answer that asks AFTER reading is the harmless case and must not count.
 check("a question asked after reading does not count as unread_asks",
-      bench_report.ASKS_BACK.search(_UA_RUNS[1]["text"]) is not None
+      bench_report.asks_back(_UA_RUNS[1]["text"])
       and _ua_cell["unread_asks"] == 1)
 
 # Exposure is the UNREAD STRATUM, not the run count - this is a conditional
@@ -3738,6 +3738,29 @@ _v, _why = bench_report.accept_verdict(
     _summary(tokens=TEN_CELLS(100), unread_asks=40), "output_tokens")
 check("a risen unread_asks does not reject a round on its own", _v == "accept")
 
+# It does NOT carry one_turn's between-round inflation, and the measurement is
+# the reason (#146). The same archive table reads phi = 1.09 at p = 0.36 for the
+# conditional rate against 1.83 at p = 0.029 under v1's detector, so there is
+# almost nothing to inflate - and applying it is not free, because the inflated
+# test is a normal approximation that REPLACES the exact conditional binomial.
+# On round 27's counts the exact test reads 0.084 and the phi = 1.09
+# approximation reads 0.037, so the inflation would turn a non-significant fall
+# into a significant one. That is the opposite of what an inflation is for.
+_v, _why = bench_report.accept_verdict(
+    _summary(tokens=TEN_CELLS(100), n_runs=200, one_turn=76, unread_asks=32),
+    _summary(tokens=TEN_CELLS(100), n_runs=200, one_turn=76, unread_asks=21),
+    "unread_asks")
+check("an unread_asks target is scored by the exact conditional binomial",
+      any("unread_asks 32 -> 21" in r and "p = 0.084" in r for r in _why))
+check("and no variance inflation is applied to it",
+      not any("variance inflated" in r for r in _why))
+check("the round it was measured on does not reach alpha under it", _v == "reject")
+_, _why_ot = bench_report.accept_verdict(
+    _summary(tokens=TEN_CELLS(100), n_runs=200, one_turn=76),
+    _summary(tokens=TEN_CELLS(100), n_runs=200, one_turn=40), "one_turn")
+check("one_turn still carries its own inflation",
+      any("variance inflated by phi = 3.39" in r for r in _why_ot))
+
 if _r21.exists():
     _s21 = bench_report.round_summary(json.loads(_r21.read_text()), [])
     check("round-21 reports an unread_asks count", "unread_asks" in _s21)
@@ -3747,6 +3770,59 @@ if _r21.exists():
                                      target_cases=_nofix)
     check("a scope of fixture-less cases contributes no unread_asks",
           _sc["scoped"]["unread_asks"] == 0)
+
+
+# --- the promoted detector, and the frozen copy it was validated as (#146) ---
+#
+# v1 was `^[^\n]*\?\s*$`, kept unmodified while it had no measurement. It has
+# one now: 140 blind-labelled responses over two samples, the second drawn after
+# the candidate was frozen and committed. v1 reads 100% precision and 50% recall
+# out of sample, v2 73.7% and 87.5%, F1 66.7 against 80.0. What v2 changes is
+# exactly the two error classes the first validation named, and nothing else.
+
+# False positives v1 had: every one was a closing offer. The answer resolved the
+# question and then volunteered more work, which is the opposite of the harm.
+check("a closing offer is not a hand-back",
+      not bench_report.asks_back(
+          "Scope the no-store header to /account.\n\n"
+          "Want me to sketch the actual schema?"))
+check("v1's regex still fires on the offer it used to count",
+      bench_report.ASKS_BACK.search(
+          "Scope it to /account.\n\nWant me to sketch the actual schema?")
+      is not None)
+
+# False negatives v1 had: the hand-back carried its question mark mid-line, so
+# a line-terminal match never saw it.
+check("a mid-line question mark is a hand-back",
+      bench_report.asks_back(
+          "Two options.\n\nWhich stack do you run? That decides it."))
+check("v1's regex misses the mid-line question it was blind to",
+      bench_report.ASKS_BACK.search(
+          "Two options.\n\nWhich stack do you run? That decides it.") is None)
+
+# Unchanged: a resolved answer is not a hand-back, and a question earlier in the
+# response still counts through v1's expression as a fallback.
+check("a resolved answer is not a hand-back",
+      not bench_report.asks_back(
+          "Scope the no-store header to /account; the CDN already fronts it."))
+check("a hand-back earlier in the response still counts",
+      bench_report.asks_back(
+          "Which stack do you run?\n\n" + "\n\n".join(["Filler."] * 4)))
+
+# The shipped detector must stay equivalent to the frozen artifact it was
+# validated as. Examples cannot establish that - the two differ only on real
+# text - so this compares them over every stored response of a round.
+_dv2 = ROOT / "evals" / "results" / "loop" / "unread-asks" / "detector_v2.py"
+_r27c = ROOT / "evals" / "snapshots" / "loop" / "round-27-control.json"
+if _dv2.exists() and _r27c.exists():
+    sys.path.insert(0, str(_dv2.parent))
+    import detector_v2  # noqa: E402
+    _texts = [r.get("text") or "" for r in json.loads(_r27c.read_text())["runs"]]
+    _texts = [t for t in _texts if t.strip()]
+    check("the promoted detector reads a real round exactly as the frozen copy",
+          len(_texts) > 100
+          and all(bench_report.asks_back(t) == detector_v2.asks_back(t)
+                  for t in _texts))
 
 
 # --- the pass says what it will cost, and stops when the service is gone -----

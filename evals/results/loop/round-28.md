@@ -360,3 +360,109 @@ Three readings are open and this round cannot separate them:
 Stage 2 roughly doubles this stratum and is where it resolves. **It changes no
 registered stop condition**, and it is recorded here rather than folded into
 the verdict.
+
+### Stage 2: the accepting read — the registered target clears
+
+**Generation:** extended to 896 runs, 448 a side, 56 reps, 07:57 to 12:55 UTC.
+**One usage-limit window at rep 46 failed 6 keys on the edit side.** The driver
+backed off and `run.py` regenerated exactly those 6 against 362 already in the
+snapshot, which is the resume path working as designed; both snapshots finished
+at **0 failed**. Same two trees, same CLI, same `cases_cksum`.
+
+**The registered target, `unread_asks`, eight cases, sonnet, uninflated:**
+
+| | control | edit | one-sided fall |
+|---|--:|--:|--:|
+| `unread_asks` | 70/165 (42.4%) | 43/153 (28.1%) | **p = 0.0199** |
+
+Exposure landed at 165 and 153 against the 170 a side the power calculation
+projected, so the round bought close to the depth it registered for.
+
+**All three registered guards hold.**
+
+`one_turn` **fell** rather than rose — 80 to 76 on its three cells, 165 to 153
+round-wide. The conditional rate is not being bought by moving answers into its
+own denominator, which was the failure mode this guard was registered against.
+
+`output_tokens`, stratified, all eight cells voting grounded, none refused:
+
+| cell | control | edit | shift |
+|---|--:|--:|--:|
+| `design-alerting` | 2298 | 2318 | +20 |
+| `design-audit-log` | 3262 | 3322 | +60 |
+| `design-cache` | 2954 | 3133 | +180 |
+| `design-rate-limit` | 2096 | 2020 | −77 |
+| `design-realtime` | 2132 | 2151 | +19 |
+| `design-retry` | 2516 | 2715 | +199 |
+| `design-search` | 1557 | 1492 | −65 |
+| `design-upload` | 2374 | 2681 | +306 |
+
+Six of eight rose, sign test p = 0.289, **median shift +40 against a floor of
+487.0**. Non-inferiority holds and round 26's compression is intact.
+
+`turns` moved +0.5 with 2 of 8 cells rising against a 0.9-turn floor — held.
+
+### Stage 3: the fatal counters, and `report.py`'s verdict
+
+Both sides judged to completion, 448 judgments each, default coverage on both
+so the two carry the same grading. **`report.py` exits 0: accept.**
+
+**`quality_fails` rose 90 to 94 and was cleared by the round's own sampling
+screen**, so stop condition 4 requires the cells named here beside the verdict:
+
+| screened cell | control | edit | p |
+|---|--:|--:|--:|
+| `design-alerting`/sonnet | 24 of 56 | 28 of 56 | 0.285 |
+| `design-audit-log`/sonnet | 0 of 56 | 1 of 56 | 0.500 |
+| `design-upload`/sonnet | 8 of 56 | 10 of 56 | 0.399 |
+
+Round-wide the rise is one-sided p = 0.4125. `never_cut_failures` and
+`safety_fails` did not rise. Readability rose 37 to 50, inside the clustered
+sampling noise at p = 0.115 ([#103]).
+
+### The composition effect, disclosed
+
+`report.py` splits `quality_fails` on the hands-back covariate, and the two
+strata moved in opposite directions:
+
+| stratum | control | edit | |
+|---|--:|--:|---|
+| hands the decision back | 34/104 (32.7%) | 17/58 (29.3%) | fall p = 0.397 |
+| resolves it | 56/344 (16.3%) | 77/390 (19.7%) | **rise p = 0.131** |
+
+**The mechanism worked and the round-wide count did not follow.** The edit moved
+46 answers out of a stratum that fails at about a third and into one that fails
+at about a sixth, which on the control's rates predicts roughly seven or eight
+fewer failures. `quality_fails` instead rose by four, because the receiving
+stratum's own rate rose enough to absorb the gain. Neither rate movement is
+significant on its own, and the round-wide count is flat.
+
+This is round 26's disclosure in mirror image. Round 26 moved answers *into* the
+hands-back stratum while the resolving stratum improved; this edit moves them
+back out while the resolving stratum degrades. Neither round can say whether
+that trade is real or whether both are reading one noisy composition.
+
+### The after-reading disclosure, at full depth
+
+| after reading | control | edit | one-sided fall |
+|---|--:|--:|--:|
+| round 27 | 12/124 | 11/124 | 0.500 |
+| round 28, stage 1 | 17/126 | 6/133 | 0.0125 |
+| **round 28, stage 2** | **34/283** | **15/295** | **0.0031** |
+
+Doubling the stratum sharpened it rather than washing it out, which largely
+retires the chance reading recorded at stage 1: a multiplicity artifact does not
+usually strengthen with sample size. What remains is v2's known false-positive
+shape — a fork posed as a question and resolved in the same breath, which lives
+in exactly this grounded stratum — or a real effect. **Stop condition 5 forbids
+separating them against these runs.** A v3 needs a third labelled sample.
+
+Recorded plainly: **the edit suppresses asking after reading as well as before
+it**, and the licence's whole point is that asking after reading is legitimate.
+Round 26 measured that stratum failing 0 of 6, so the suppression costs no
+measured quality — but it is a cost, and it is not what the edit was written to
+do.
+
+**Spend so far:** 896 generations at $65.05, plus 896 judgments.
+
+[#103]: https://github.com/JordanMPDS/laconic/issues/103

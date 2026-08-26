@@ -11,10 +11,14 @@ intersection of `ASKS_BACK` and `num_turns == 1`. Both facts are already on
 every stored run, so the whole re-score below is offline and cost no
 generations.
 
-It is a **subset of `one_turn`**, and it carries `one_turn`'s exposure and its
-fixture-only filter for that reason. A case with no `fixture/` directory is
-one-turn by construction, so every question it asks would count here
-spuriously.
+It is a **subset of `one_turn`**, and carries `one_turn`'s fixture-only filter
+for that reason: a case with no `fixture/` directory is one-turn by
+construction, so every question it asked would count here spuriously.
+
+**Its exposure is `one_turn` itself, not the run count, which makes the target
+a conditional rate** — of the answers that never opened a file, how many handed
+the decision back. It was a joint count until the round 20 analysis below
+showed that form confounds two factors; see there for why.
 
 **The detector is `_quality_strata`'s, unmodified.** Two counters reading one
 behaviour through two regexes would drift, and re-tuning a detector after
@@ -47,25 +51,33 @@ aiming at moved at p = 0.044 on this intersection.
 
 Comparing only rounds that share a `rules_cksum` **and** a case-scope size:
 
+Scored as the conditional rate the metric now is:
+
 | rules text | scope | rounds | pooled | chi2 | df | phi |
 |---|--:|--:|--:|--:|--:|--:|
-| 1497646142 | 8 | 2 | 2/160 | 2.03 | 1 | 2.03 |
-| 1823644123 | 3 | 2 | 3/60 | 0.35 | 1 | 0.35 |
-| 1830906901 | 3 | 2 | 6/105 | 0.44 | 1 | 0.44 |
-| 1830906901 | 8 | 4 | 13/560 | 9.84 | 3 | 3.28 |
-| 3694954268 | 8 | 6 | 75/800 | 4.25 | 5 | **0.85** |
-| 3980812364 | 3 | 3 | 8/90 | 3.57 | 2 | 1.78 |
-| 3980812364 | 5 | 2 | 11/100 | 0.10 | 1 | 0.10 |
-| **pooled** | | **19** | | **20.58** | **14** | **1.47** |
+| 1497646142 | 8 | 2 | 2/17 | 2.55 | 1 | 2.55 |
+| 1823644123 | 3 | 2 | 3/9 | 0.00 | 1 | 0.00 |
+| 1830906901 | 3 | 2 | 6/48 | 0.25 | 1 | 0.25 |
+| 1830906901 | 8 | 4 | 13/172 | 15.52 | 3 | **5.17** |
+| 3694954268 | 8 | 6 | 75/290 | 3.02 | 5 | **0.60** |
+| 3980812364 | 3 | 3 | 8/26 | 3.11 | 2 | 1.56 |
+| 3980812364 | 5 | 2 | 11/39 | 1.16 | 1 | 1.16 |
+| **pooled** | | **19** | | **25.62** | **14** | **1.83** |
 
-**phi = 1.47**, against `ONE_TURN_PHI` = 3.39 for the counter it is a subset
-of. Chi-square 20.58 on 14 df is p ≈ 0.11, so the archive does not show
-significant overdispersion at all — the point estimate is the honest number to
-carry, not evidence of a problem.
+**phi = 1.83**, against `ONE_TURN_PHI` = 3.39 for the counter it conditions on.
+Chi-square 25.62 on 14 df is **p = 0.029, so unlike the joint count this form
+is significantly overdispersed** and the inflation is not optional.
 
-The best-populated group is the most reassuring: six independent rounds of the
-current master text, 800 runs, **phi = 0.85** — no overdispersion above
-binomial.
+**That is the price of conditioning and it should be stated plainly.** The same
+data as a joint count reads phi = 1.47 at p = 0.113. Conditioning shrinks the
+denominator roughly fourfold — 15, 26, 65 and 66 in the pre-licence group where
+the joint form had 80, 80, 200 and 200 — so the rate is inherently noisier. The
+metric is better targeted and less precise at the same number of runs.
+
+The best-populated group is still the reassuring one: six independent rounds of
+the current master text, 290 unread answers, **phi = 0.60**. Most of the pooled
+dispersion is the 1830906901 group at 5.17, which is also the group spanning
+the widest era.
 
 ## The false-accept rate matches nominal alpha
 
@@ -73,8 +85,8 @@ A target must *improve* to clear, so the failure mode is a gate that passes on
 noise. Every ordered pair of rounds at identical rules text and identical
 scope, scored one-sided at alpha 0.05:
 
-**3 of 56 pairs reach alpha (5.4%), against a nominal 5%.** Inflating at
-phi = 1.47 leaves it at 3 of 56.
+**3 of 56 pairs reach alpha (5.4%), against a nominal 5%** — the same three
+pairs, and the same rate, as the joint count gave.
 
 All three involve `round-26-control` reading **0/200**, and that zero is real
 rather than an artifact: every one of its 200 runs carries text, 66 of them are
@@ -91,24 +103,17 @@ over-estimate of the sampling component.
 
 Eight-case design scope, sonnet:
 
-| rules text | | rate |
+| rules text | | conditional rate |
 |---|--:|--:|
-| round 20's edit (3980812364) | 15/80 | **18.8%** |
-| the licence, current master (3694954268) | 75/800 | **9.4%** |
-| round 27's edit (136269960) | 9/200 | **4.5%** |
-| round 18's edit (4146642931) | 2/80 | 2.5% |
-| round 19's edit (2970727293) | 2/80 | 2.5% |
-| pre-licence (1830906901) | 13/560 | **2.3%** |
-| round 16/17's edit (1497646142) | 2/160 | 1.2% |
-| round 22's edit (2192107416) | 0/80 | 0.0% |
+| round 10's licence, via round 20 (3980812364) | 15/45 | **33.3%** |
+| the licence, current master (3694954268) | 75/290 | **25.9%** |
+| round 27's edit (136269960) | 9/76 | **11.8%** |
+| pre-licence (1830906901) | 13/172 | **7.6%** |
 
-- pre-licence to licence: **p = 8.0e-08**. This is round 26's disclosed
-  composition effect, read directly by a counter instead of inferred from a
-  stratum split.
-- licence to round 27's edit: **p = 0.018**, on 800 runs against 200 rather
-  than round 27's own 200 against 200.
-- Round 20's edit sits highest of all eight texts at 18.8%, p = 0.016 against
-  master. Round 20 was never scored on this behaviour.
+- pre-licence to licence: **p = 3.0e-06**. This is round 26's disclosed
+  composition effect, read directly instead of inferred from a stratum split.
+- licence to round 27's edit: **p = 0.012**, on 290 unread answers against 76
+  rather than round 27's own 76 against 76.
 
 ## The detector validation, and it is bad news
 
@@ -274,6 +279,26 @@ needed no new metric.
 given unread — not the joint count.** A gate on the joint count can be cleared
 by improving reading while asking gets worse, or tripped by a reading collapse
 that `one_turn` already reports.
+
+### The counter was switched to the conditional rate, and it discriminates
+
+`_exposure` now returns `one_turn` for this target rather than the run count.
+The check that matters is whether the change separates the two failure modes it
+was made for:
+
+| | | | |
+|---|--:|--:|---|
+| round 20 vs same-week neighbours | 15/45 vs 4/24 | rise **p = 0.155** | correctly silent — this was a reading collapse, and `one_turn` reports it at p = 6.2e-08 |
+| round 27's edit vs control | 9/76 vs 19/76 | fall **p = 0.044** | still fires — `one_turn` is flat at p = 0.532 and cannot see it |
+
+Under the joint count round 20 was the highest-scoring text in the archive.
+Under the conditional rate it is not significant against its own neighbours,
+which is the correct reading: nothing about its asking behaviour was
+established, only that it stopped reading.
+
+Separation across rules texts survives the change — pre-licence 7.6% to master
+25.9% at p = 3.0e-06 — so conditioning did not cost the signal that motivated
+the counter.
 
 Two caveats. On round 27 the joint count and the conditional rate give
 identical p-values, because `one_turn` happened to tie at exactly 76/200 on

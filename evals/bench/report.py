@@ -346,10 +346,28 @@ def _exposure(src, target):
     Every count target but two is exposed on every response the round produced.
     one_turn is not: it is summed only over cases that have a fixture to open,
     so its denominator has to match its numerator or the rate is wrong by the
-    share of fixture-less cases in the scope. unread_asks is a subset of
-    one_turn and shares its denominator for the same reason.
+    share of fixture-less cases in the scope.
+
+    unread_asks goes further and is exposed on the UNREAD STRATUM itself, which
+    makes it a conditional rate - of the answers that never opened a file, how
+    many handed the decision back - rather than a joint count (#146).
+
+    Round 20 is why. Its rules text scored highest of all eight on the joint
+    count, 18.8% against its same-week neighbours' 2.5%, and the decomposition
+    shows that was almost entirely a reading collapse: one_turn 15% to 56% at
+    p = 6.2e-08, while the conditional ask-rate moved 17% to 33% at p = 0.155.
+    one_turn already gates that and gates it far harder, so the joint count
+    added nothing there. Round 27's edit is the mirror image - one_turn exactly
+    flat at p = 0.532, conditional rate 25% to 12% at p = 0.044 - and that is
+    the case one_turn cannot see by construction.
+
+    A joint count confounds the two factors, so it can be cleared by improving
+    reading while asking gets worse, or tripped by a reading collapse that
+    needed no new metric. The conditional rate isolates the behaviour.
     """
-    if target in ("one_turn", "unread_asks"):
+    if target == "unread_asks":
+        return src.get("one_turn", 0)
+    if target == "one_turn":
         return src.get("one_turn_n_runs", 0)
     return src.get("n_runs", 0)
 
@@ -690,9 +708,11 @@ def _counts(lac, judg, runs, cases=None, models=None):
         "one_turn": sum(v["one_turn"] for k, v in lac.items()
                         if keep(k[0]) and ok_model(k[2])
                         and (CASES / k[0] / "fixture").is_dir()),
-        # A subset of one_turn, so it carries the same exposure and the same
-        # fixture filter. A case with no fixture is one-turn by construction,
-        # so every question it asks would count here spuriously.
+        # A subset of one_turn, so it carries the same fixture filter: a case
+        # with no fixture is one-turn by construction, and every question it
+        # asked would count here spuriously. Its EXPOSURE is one_turn itself
+        # rather than the run count, which makes the target a conditional rate
+        # - see _exposure for why the joint count was the wrong instrument.
         "unread_asks": sum(v.get("unread_asks", 0) for k, v in lac.items()
                            if keep(k[0]) and ok_model(k[2])
                            and (CASES / k[0] / "fixture").is_dir()),

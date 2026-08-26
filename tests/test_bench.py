@@ -3704,11 +3704,33 @@ check("a question asked after reading does not count as unread_asks",
       bench_report.ASKS_BACK.search(_UA_RUNS[1]["text"]) is not None
       and _ua_cell["unread_asks"] == 1)
 
-# Exposure has to match one_turn's, not n_runs: a case with no fixture is
-# one-turn by construction, so every question it asks would count spuriously.
-check("unread_asks reads the fixture-only exposure",
-      bench_report._exposure({"n_runs": 110, "one_turn_n_runs": 40},
-                             "unread_asks") == 40)
+# Exposure is the UNREAD STRATUM, not the run count - this is a conditional
+# rate, not a joint one (#146). Round 20 is why. Its text scored highest of all
+# eight on the joint count almost entirely through a reading collapse (one_turn
+# 15% -> 56%, p = 6.2e-08) while the conditional ask-rate did not move
+# significantly (17% -> 33%, p = 0.155). one_turn already gates that, and gates
+# it harder. Round 27's edit is the mirror image: reading exactly flat
+# (p = 0.532) and the conditional rate falling (25% -> 12%, p = 0.044), which
+# one_turn cannot see by construction. A joint count confounds the two factors
+# and can be cleared by improving reading while asking gets worse.
+check("unread_asks is exposed on the unread stratum, not the run count",
+      bench_report._exposure({"n_runs": 110, "one_turn_n_runs": 40,
+                              "one_turn": 12}, "unread_asks") == 12)
+check("one_turn still reads the fixture-only run count",
+      bench_report._exposure({"n_runs": 110, "one_turn_n_runs": 40,
+                              "one_turn": 12}, "one_turn") == 40)
+check("every other count target still reads n_runs",
+      bench_report._exposure({"n_runs": 110, "one_turn_n_runs": 40,
+                              "one_turn": 12}, "safety_fails") == 110)
+
+# The numerator is a subset of the denominator by construction, so a rate above
+# 1 is impossible and signals the two were computed over different scopes.
+_r21p = ROOT / "evals" / "snapshots" / "loop" / "round-21.json"
+if _r21p.exists():
+    _s = bench_report.round_summary(json.loads(_r21p.read_text()), [])
+    check("the conditional rate cannot exceed 1",
+          _s["unread_asks"] <= bench_report._exposure(_s, "unread_asks")
+          or bench_report._exposure(_s, "unread_asks") == 0)
 
 # A rise must not reject a round, the way one_turn does not.
 _v, _why = bench_report.accept_verdict(

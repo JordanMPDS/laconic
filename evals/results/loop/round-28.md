@@ -249,3 +249,114 @@ either invalidates the round.
 ## Results
 
 *Nothing below this line was written before generation began.*
+
+### Stage 1: nothing kills, and one registered disclosure lands the wrong way
+
+**Generation:** 400 runs, 200 a side, 25 reps, **0 failed, 0 retries, 0 backoff
+waits**, 04:16 to 07:55 UTC. Both sides CLI 2.1.241, `cases_cksum` 2423244529,
+treatment `rules_cksum` 136269960, control 3694954268, neither tree dirty.
+**Every one of those four provenance values is identical to round 27's**, so
+the two rounds are comparable without a caveat.
+
+Scored through `report.py`'s own `round_summary` and `accept_verdict` with
+`judg=None`. The fatal counters read verdicts and are unscored here by
+construction; stage 3 is the run whose verdict counts.
+
+**Registered stop condition 1 (the target) does not kill — it falls.**
+`unread_asks`, the conditional rate over the unread stratum, eight cases,
+sonnet, uninflated:
+
+| | control | edit | one-sided fall |
+|---|--:|--:|--:|
+| `unread_asks` | 31/74 (41.9%) | 16/67 (23.9%) | **p = 0.0432** |
+
+Per the registration a stage-1 read may only kill. **This one clears alpha and
+is not being allowed to accept anything** — stage 2 at 56 reps a side is the
+accepting read, and stopping here would be the optional stopping stop condition
+3 refuses in advance.
+
+**Registered stop condition 2 (both guards) holds.**
+
+`one_turn` over its three registered cells reads 34 → 36, and round-wide over
+the eight it reads **74 → 67**: the edit opened a file slightly *more* often,
+not less. Nothing approaches a significant rise, so the conditional rate is not
+being bought by moving answers into its own denominator.
+
+`output_tokens`, stratified per [#131], all eight cells voting grounded, none
+refused:
+
+| cell | stratum | control | edit | shift |
+|---|---|--:|--:|--:|
+| `design-alerting` | grounded | 2605 | 2725 | +120 |
+| `design-audit-log` | grounded | 3508 | 3552 | +44 |
+| `design-cache` | grounded | 2797 | 2998 | +201 |
+| `design-rate-limit` | grounded | 2298 | 2020 | −278 |
+| `design-realtime` | grounded | 2222 | 2134 | −88 |
+| `design-retry` | grounded | 2360 | 2770 | +410 |
+| `design-search` | grounded | 1498 | 1557 | +58 |
+| `design-upload` | grounded | 2324 | 3104 | +780 |
+
+Six of eight rose, sign test p = 0.289, **median shift +89 tokens against a
+scoped floor of 548.1**. The shift is well inside the floor and the sign test
+does not reach alpha, so round 26's compression is not being spent.
+Non-inferiority holds.
+
+`turns` moved +0.5 over the eight cells with 1 of 8 rising against a 0.5-turn
+floor, and does not reject.
+
+### The instrument check: both control sides agree to within a fifth of a point
+
+Round 28's control is master rules, and so was round 27's, generated a day
+apart on the same CLI over the same cases. Read with the same v2 detector:
+
+| | round 27 | round 28 |
+|---|--:|--:|
+| control conditional rate | 32/76 (42.1%) | 31/74 (**41.9%**) |
+| edit conditional rate | 21/76 (27.6%) | 16/67 (**23.9%**) |
+
+Two independent interleaved batches put both sides of the contrast within two
+points of each other. The metric is measuring something stable.
+
+### The disclosure that did not go as registered
+
+Stop condition 4's second registered disclosure was the hands-back-after-reading
+count, and the registration said what a movement there would mean:
+
+> A fall here would mean the edit is suppressing asking generally rather than
+> the unread asking specifically, which is not what it was written to do.
+
+**It fell, and it fell harder than the target did.** Both rounds under the same
+v2 detector, sonnet, eight cases:
+
+| after reading | control | edit | one-sided fall |
+|---|--:|--:|--:|
+| round 27 | 12/124 | 11/124 | 0.500 — flat, as registered |
+| **round 28** | **17/126** | **6/133** | **0.0125** |
+
+Round 27 read this stratum exactly flat. Round 28 reads it at p = 0.0125,
+against a target that reads 0.0432. Same two rules texts, same eight cases,
+same CLI, same detector, one day apart.
+
+Three readings are open and this round cannot separate them:
+
+1. **Chance.** This is one of several disclosures computed on this data and
+   carries a multiplicity burden the pre-registered target does not. The two
+   rounds' edit sides, 11/124 and 6/133, are not significantly different from
+   each other; the rounds disagree because each substratum is small.
+2. **A detector artifact.** v2 bought its recall by accepting false positives
+   of exactly one shape — a fork posed as a question and resolved in the same
+   breath. That shape lives in *grounded* answers, which is precisely this
+   stratum, so an edit that discourages the rhetorical fork without
+   discouraging any real hand-back would produce this reading. **Stop condition
+   5 forbids testing that against these runs**: separating the two needs a
+   third labelled sample, and scoring a v3 on responses whose behaviour is
+   already known is what the freeze-before-draw rule exists to prevent.
+3. **Real.** The edit says to ask for the fork that survives reading, and an
+   answer that has read may genuinely have fewer such forks left. Round 26
+   measured this stratum failing 0 of 6, so a fall here costs no measured
+   quality — but it is not what the edit was written to do, and the licence's
+   whole purpose is that asking after reading is legitimate.
+
+Stage 2 roughly doubles this stratum and is where it resolves. **It changes no
+registered stop condition**, and it is recorded here rather than folded into
+the verdict.

@@ -466,3 +466,41 @@ do.
 **Spend so far:** 896 generations at $65.05, plus 896 judgments.
 
 [#103]: https://github.com/JordanMPDS/laconic/issues/103
+
+## Stage 4, step 8: the replication, registered before it was generated
+
+*Registered at 16:47 UTC on 2026-08-26, after stage 3's verdict and before any
+replication generation. **This is weaker than the round's own registration**,
+which predated all generation. It is recorded as such: the size and the decision
+rule below were chosen knowing what stages 1 to 3 read.*
+
+**Snapshots:** `evals/snapshots/loop/round-28-repl-edit.json` and
+`round-28-repl-control.json`.
+
+**Design.** The same eight `design-*` cases on sonnet, both sides regenerated
+fresh and interleaved one rep at a time, **25 reps a side, 400 generations**.
+A carried control would come from another batch and is refused for the reason
+`interleaved-batch.md` records.
+
+**The power, stated before the read rather than after it.** At the round's
+observed rates and its measured exposure, 25 reps a side buys roughly 70 exposed
+runs per side and **about 40% power**. A replication at 80% power would cost
+what the round cost. That is the honest constraint, and it is why the decision
+rule cannot be "the replication reaches alpha":
+
+1. **Direction must hold.** The conditional rate must fall. A flat or risen
+   replication fails the step, whatever its p-value.
+2. **The pooled round-plus-replication contrast must stay significant** at
+   alpha 0.05, one-sided, exact conditional binomial — the same test, over the
+   two batches' summed counts and summed exposure.
+3. **The replication's own p is published whatever it says**, and a
+   non-significant p in the right direction is reported as what it is: the
+   expected reading at 40% power, not a confirmation.
+
+Registered as a **rate** comparison rather than a per-cell count sweep,
+deliberately. [#133] is the defect that rejected round 25 by comparing counts
+where rates were the question, and this metric is a rate by construction.
+
+**The after-reading disclosure is carried into the replication** on the same
+terms as before: computed, published, and not a gate. Its detector-artifact
+reading stays untestable here under stop condition 5.

@@ -207,6 +207,30 @@ declarations of ignorance. Both are harder than what separates v1 from v2, and
 neither should be attempted against these 140 labelled responses — a third
 sample would be needed to score it.
 
+**A third class exists in the code rather than in the labels, and a cross-model
+review of the promotion found it.** The closing-two-paragraph loop excludes
+offers *per paragraph*, but the fallback to v1's line-terminal match excludes
+them over the **whole response**. So a hand-back that sits earlier than the last
+two paragraphs is dropped whenever an offer appears anywhere after it:
+
+```
+Which stack do you run?
+
+[two or more paragraphs]
+
+Want me to sketch the schema?
+```
+
+**It is measurably inert, and that is why it was left alone.** The shape occurs
+2,911 times in the 26,990 stored responses, and **0 times in the 1,887 the
+counters actually read** — laconic arm, design case with a fixture, one turn.
+Every response in that population carrying an early line-terminal question also
+carries a qualifying question in its closing two paragraphs, so the primary loop
+returns first and the fallback is never reached. Correcting it would move the
+shipped detector away from the artifact it was validated against for no measured
+gain, which is what the "write a v3" note exists to prevent. **It belongs in the
+v3 list, not in a patch to v2.**
+
 ## The promotion, and what the archive reads under it
 
 `report.py` reads the behaviour through `asks_back()` now, and that function is
@@ -256,6 +280,14 @@ siblings at 4 of 15, 4 of 26 and 5 of 65; v2 reads the same four rounds as 1 of
 15, 3 of 26, 4 of 65 and 4 of 66. The 1823644123 group contributes nothing
 either way: v2 fires on all 9 of its unread answers, and a group at a rate of 1
 has no dispersion left to measure.
+
+**Its degree of freedom is still counted, and that biases phi down.** A group
+that can contribute no chi-square still contributes its df, so the pooled figure
+divides 15.29 by 14 rather than by 13. **Dropping it reads phi = 1.18 rather
+than 1.09**, chi-square 15.29 on 13 df at p = 0.29. Neither value is anywhere
+near significance and nothing downstream reads either one, since no inflation
+constant ships; the higher figure is quoted here so the choice is visible rather
+than buried in the estimator.
 
 **The inflation this measurement was going to buy is not applied, and the
 reason is the direction it would move.** `_inflated_count_p` is a normal

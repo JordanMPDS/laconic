@@ -3812,8 +3812,16 @@ check("a hand-back earlier in the response still counts",
 # The shipped detector must stay equivalent to the frozen artifact it was
 # validated as. Examples cannot establish that - the two differ only on real
 # text - so this compares them over every stored response of a round.
+#
+# Both inputs are asserted present rather than guarded past. The rest of this
+# file skips optional snapshots quietly, which is right for a disclosure; it is
+# wrong here, because this check is the only thing keeping two copies of one
+# detector in sync. If the round were ever pruned the guarantee would leave with
+# it and nothing would say so.
 _dv2 = ROOT / "evals" / "results" / "loop" / "unread-asks" / "detector_v2.py"
 _r27c = ROOT / "evals" / "snapshots" / "loop" / "round-27-control.json"
+check("the frozen detector and the round it is checked over are both present",
+      _dv2.exists() and _r27c.exists())
 if _dv2.exists() and _r27c.exists():
     sys.path.insert(0, str(_dv2.parent))
     import detector_v2  # noqa: E402

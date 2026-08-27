@@ -504,3 +504,66 @@ where rates were the question, and this metric is a rate by construction.
 **The after-reading disclosure is carried into the replication** on the same
 terms as before: computed, published, and not a gate. Its detector-artifact
 reading stays untestable here under stop condition 5.
+
+### Step 8 results: the replication passes the registered rule
+
+**Generation:** 400 runs, 200 a side, 25 reps, 0 failed, 16:46 to 22:55 UTC.
+A second usage-limit window exhausted all six backoff attempts on rep 11 and the
+driver exited `FATAL`, which is the stop working as designed. **The resume then
+stalled on a driver bug of our own**: `failed_runs()` counted failures across the
+whole snapshot rather than the reps each invocation covered, so rep 11's stale
+failures made rep 1 look dirty and the driver backed off on reps with nothing to
+do while never reaching the rep that had actually failed. That is the failure
+mode this repository already documents. The check is now scoped to `rep < reps`.
+No data was lost either time.
+
+| batch | control | edit | one-sided fall |
+|---|--:|--:|--:|
+| round, 56 reps a side | 70/165 (42.4%) | 43/153 (28.1%) | 0.0199 |
+| **replication, 25 a side** | **28/66 (42.4%)** | **26/78 (33.3%)** | **0.2260** |
+| **pooled** | **98/231 (42.4%)** | **69/231 (29.9%)** | **0.0150** |
+
+**Registered rule 1, direction:** holds. The conditional rate falls, 42.4% to
+33.3%.
+**Registered rule 2, pooled contrast:** holds, p = 0.0150.
+**Registered rule 3, the replication's own p:** 0.2260. Published as registered,
+and it is **the expected reading at about 40% power, not a confirmation**.
+
+**Step 8 passes.**
+
+The control side is now the most reproducible number in the round: **42.1%,
+42.4% and 42.4%** across round 27, round 28 and this replication. Heterogeneity
+between the two round-28 batches is p = 1.000 on the control side and p = 0.501
+on the edit side, so the target itself is behaving as one population.
+
+### Correction: the after-reading disclosure does not replicate
+
+**Stage 2 recorded that doubling the stratum sharpened the after-reading fall to
+p = 0.0031 and that this "largely retires the chance reading". That inference
+was wrong, and this section supersedes it.** Stage 2's sample *contains* stage
+1's — 34/283 against 15/295 includes the 17/126 against 6/133 already reported —
+so the sharpening was a nested re-read of the same responses, not independent
+confirmation. Treating it as new evidence was the error.
+
+The replication is a genuinely independent batch, and it reads flat:
+
+| batch | control | edit | one-sided fall |
+|---|--:|--:|--:|
+| round 27 | 12/124 (9.7%) | 11/124 (8.9%) | 0.500 |
+| round 28, main | 34/283 (12.0%) | 15/295 (5.1%) | **0.0021** |
+| round 28, replication | 14/134 (10.4%) | 13/122 (10.7%) | 0.602 |
+
+**Two of three independent batches read this contrast flat.** The control sides
+are homogeneous (9.7%, 12.0%, 10.4%; heterogeneity p = 0.772), while the edit
+sides are not (8.9%, 5.1%, 10.7%; the two round-28 batches differ at p = 0.071).
+The main round's 5.1% is the outlier among three draws, which is what a chance
+low draw looks like.
+
+The pooled after-reading figure is p = 0.0143, and **it should not be read as
+establishing the effect** — it is one strong batch pooled with two flat ones, and
+the heterogeneity is the finding rather than the pooled number.
+
+**So the cost I recorded at stage 2 is not established.** The edit is not shown
+to suppress asking after reading. That also removes the need to adjudicate the
+v2 detector-artifact reading, which stop condition 5 forbade testing here
+anyway: there is no longer a robust effect for an artifact to explain.

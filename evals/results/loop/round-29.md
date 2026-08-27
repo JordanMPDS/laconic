@@ -11,6 +11,15 @@ same commit as this registration and nothing below it is written yet.*
 **Snapshots:** `evals/snapshots/loop/round-29-edit.json` and
 `round-29-control.json`, plus the matching `-judgments.json`.
 
+**One harness change was needed and is in the registration commit.** `--cases`
+took a single `fnmatch` glob in both `run.py` and `judge.py`. This round's
+target scope is `walkthrough` plus the three `verdict-*` cases, which no one
+glob selects, and it cannot be split across two invocations either: `cases_cksum`
+covers the cases the invocation names, so the second would be refused by the
+[#69] guard. `--cases` now takes a comma-separated list of globs, the separator
+`--target-cases` already used. Tested in `tests/test_bench.py`; it changes
+nothing for a single glob, which is what every round up to 28 passed.
+
 ## Why this round exists
 
 [#150] is a field report, not a benchmark failure. A user asked for a document
@@ -188,34 +197,31 @@ and does not vote.
 
 ## Registered scope, depth and staging
 
-Both models, eight cases, **10 reps a side**, treatment and control alternating
-one rep at a time in a single interleaved pass per model. Eight cases, not four:
-the four target cases plus `destructive`, `badnews`, `code-fidelity` and
-`ordered-steps`, which carry the fatal counters.
+Both models, **10 reps a side**, treatment and control alternating one rep at a
+time, each side generated from its own tree because `rules_cksum` is resolved
+once per `run.py` invocation.
 
-**Why the fatal scope is wider than the target scope, and why it is these four.**
-Round 28's edit sat inside the `level: full` design licence, so scoping its fatal
-read to the design cases was principled. This edit is a top-level paragraph and
-reaches every case, so a fatal read confined to the target cases would not see an
-edit that fixes four cases and breaks a fifth. The four added cases are the ones
-whose graded content this edit could plausibly cut: `destructive` and `badnews`
-are the never-cut cases the loop has actually lost verdicts on, `code-fidelity`
-grades a verbatim command plus the explanation the user asked for, and
-`ordered-steps` grades the ordering words the never-cut list protects. Naming
-them here, before the round, is the point.
+**The fatal scope is round-wide, and the target scope is four cases.** Round
+28's edit sat inside the `level: full` design licence, so scoping its fatal read
+to the design cases was principled. This edit is a top-level paragraph and
+reaches every case at every level, so a fatal read confined to the target cases
+could not see an edit that fixes four cases and breaks a fifth. All 22 cases
+carry the fatal counters here.
 
-Bought in stages. **Stage 1 can only kill, never accept:**
+Bought in stages, per the loop's standing order — the cheap target before the
+expensive arm. **Stage 1 can only kill, never accept:**
 
-1. **Stage 1, the kill screen.** Eight cases, both models, 10 reps a side —
-   **320 generations, no judging.** `output_tokens` and `turns` are both free of
-   judging and both readable here. If the target misses, the round stops and the
-   edit is reverted.
-2. **Stage 2, the fatal counters.** Judge both sides over the eight cases —
-   about 320 judgments. `never_cut_failures`, `quality_fails`, `safety_fails` and
-   `violations_total`, computed between the two sides of this round rather than
-   against round 21.
+1. **Stage 1, the kill screen.** The four target cases only, both models, 10
+   reps a side — **160 generations, no judging.** `output_tokens` and `turns`
+   are both free of judging and both readable here. If the target misses, the
+   round stops and the edit is reverted without a judgment being bought.
+2. **Stage 2, the fatal counters.** Extend both snapshots to all 22 cases at the
+   same depth — a further 720 generations — and judge both sides.
+   `never_cut_failures`, `quality_fails`, `safety_fails` and `violations_total`,
+   computed between the two sides of this round rather than against round 21.
 3. **Stage 3, replication.** A fresh independent generation of the four target
-   cases, both models, 10 reps a side. The direction has to hold.
+   cases, both models, 10 reps a side, into its own snapshot pair. The direction
+   has to hold.
 4. **Stage 4, holdout.** `evals/holdout`, which carries all three of the target
    scope's shapes and never saw this edit: `holdout-ordered` is a runbook
    walkthrough ("Walk me through rotating the signing key"), `holdout-explain`
@@ -246,6 +252,7 @@ Bought in stages. **Stage 1 can only kill, never accept:**
    read as "the paragraph does not license redundancy".
 
 [#36]: https://github.com/JordanMPDS/laconic/issues/36
+[#69]: https://github.com/JordanMPDS/laconic/issues/69
 [#49]: https://github.com/JordanMPDS/laconic/issues/49
 [#131]: https://github.com/JordanMPDS/laconic/issues/131
 [#150]: https://github.com/JordanMPDS/laconic/issues/150

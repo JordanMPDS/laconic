@@ -8,7 +8,6 @@ not_exercised is a first-class verdict. v0.1.0 recorded three traps that never
 fired; without this category they would have been read as passes.
 """
 import argparse
-import fnmatch
 import json
 import re
 import shutil
@@ -370,7 +369,7 @@ def main():
     # Resolved here rather than beside `todo` because the #69 guard below reads
     # it: a guard that runs after the work it guards is not a guard.
     runs = [r for r in bench_run.usable(snap["runs"])
-            if fnmatch.fnmatch(r["case"], args.cases)]
+            if bench_run.match_case(r["case"], args.cases)]
 
     # #69: the snapshot records the case material it was generated from. If the
     # tree has moved since, judging grades responses against criteria that did

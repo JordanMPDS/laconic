@@ -4094,5 +4094,34 @@ with tempfile.TemporaryDirectory() as td_gates:
           "judgments cover 2/4 usable runs (2 missing)" in _md_partial)
 
 
+# --cases takes a comma-separated list of globs, not one glob. Round 29 needs
+# `walkthrough,verdict-*`, which no single glob selects, and which cannot be
+# split into two invocations because cases_cksum covers the cases the
+# invocation names and the #69 guard refuses the resume.
+check("a single glob still selects the way every round up to 28 used it",
+      bench_run.match_case("design-cache", "design-*")
+      and not bench_run.match_case("walkthrough", "design-*"))
+check("a comma-separated list selects the union",
+      bench_run.match_case("walkthrough", "walkthrough,verdict-*")
+      and bench_run.match_case("verdict-schema", "walkthrough,verdict-*")
+      and not bench_run.match_case("design-cache", "walkthrough,verdict-*"))
+check("whitespace around a separator does not break a name",
+      bench_run.match_case("verdict-rollout", "walkthrough, verdict-*"))
+check("the default still selects everything",
+      bench_run.match_case("anything-at-all", "*"))
+
+with tempfile.TemporaryDirectory() as td_multi:
+    _r_multi = _run_py(td_multi, "--cases", "design-cache,design-upload",
+                       OK_CALL="1")
+    _snap_multi = json.loads((Path(td_multi) / "gen.json").read_text())
+    check("run.py generates both halves of a comma-separated scope",
+          sorted({r["case"] for r in _snap_multi["runs"]})
+          == ["design-cache", "design-upload"])
+    check("and stamps one cases_cksum over the scope it actually named",
+          _snap_multi["metadata"]["cases_cksum"]
+          == bench_run.cases_cksum(ROOT / "evals" / "cases",
+                                   ["design-cache", "design-upload"]))
+
+
 print("\n%d failure(s)" % fails)
 sys.exit(1 if fails else 0)

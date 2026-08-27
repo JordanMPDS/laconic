@@ -110,25 +110,106 @@ detector costs about $0.039 a call at the judge's measured rate, so re-scoring
 even this four-case frame of 1,780 responses is roughly $69 — affordable, but not
 free, and worth knowing before it is designed rather than after.
 
+## Detector v1, measured out of sample
+
+Frozen at `1e116ac` before batch 2 was drawn. 120 calls, $7.81.
+
+| | precision | recall | F1 | n |
+|---|--:|--:|--:|--:|
+| batch 1 | 74.2% | 88.5% | 80.7% | 60 |
+| **batch 2, out of sample** | **55.3%** | **84.0%** | **66.7%** | 58 |
+| pooled | 63.8% | 86.3% | 73.3% | 118 |
+
+Deduplicated; batch 2's two duplicate pairs are collapsed, which moves its
+precision by 1.5 points and changes nothing.
+
+**55.3% precision is not good enough to gate on, and it is not close.**
+`unread_asks` v2 reads 73.7% out of sample, and
+[`round-28.md`](round-28.md) already registers 73.7% as *"not obviously good
+enough to gate on"*. This is eighteen points below that. The base rate is 43.1%,
+so a detector that simply said "restates" every time would read 43.1% precision:
+v1 buys twelve points over answering at random.
+
+Recall holds up at 84.0%, and the batch-to-batch precision gap (74.2% to 55.3%)
+is one-sided Fisher **p = 0.066** — suggestive, not established. Nothing was
+tuned on batch 1, so this is composition and sampling rather than overfitting.
+
+## Where the errors are, and they are not spread evenly
+
+| case | n | FP | FN | precision |
+|---|--:|--:|--:|--:|
+| `verdict-rollout` | 32 | **12** | **0** | **33.3%** |
+| `verdict-schema` | 18 | 3 | 1 | 40.0% |
+| `walkthrough` | 43 | 8 | 3 | 75.8% |
+| `verdict-experiment` | 27 | 3 | 3 | 78.6% |
+
+| model | n | FP | FN | precision |
+|---|--:|--:|--:|--:|
+| sonnet | 64 | 16 | 4 | **42.9%** |
+| haiku | 56 | 10 | 3 | 76.2% |
+
+**The detector over-fires exactly where the true rate is low.** Restatement is a
+haiku behaviour, so sonnet is where the false positives cost most, and sonnet is
+where precision collapses to 42.9%.
+
+**One shape dominates, and `criterion.md` already excludes it.**
+`verdict-rollout` answers share a structure: state that the migration drops the
+column while old code still reads it, then state that rollback is broken *by the
+same cause*, then propose expand/contract. The rollback section re-invokes the
+dropped column, so it looks like a repetition, but it is a distinct claim about
+a distinct failure. The criterion names this exclusion in as many words — *"a
+cross-reference that names an earlier point without re-arguing it"* — and v1 is
+not honouring it. Twelve false positives and zero false negatives on that case
+is a detector applying the rule it was given too loosely in one specific place.
+
+## What it can still do, and the hazard in relying on it
+
+A biased detector can still detect a *change*, which is what a loop target
+actually needs. Against the strongest effect these labels contain — the model
+split — v1 reproduces it:
+
+| group | hand label | detector |
+|---|--:|--:|
+| haiku | 35/56, 62.5% | 42/56, 75.0% |
+| sonnet | 16/64, 25.0% | 28/64, 43.8% |
+| | Fisher **p = 3.2e-05** | Fisher **p = 4.6e-04** |
+
+So the contrast survives the noise. **The hazard is that the bias is not
+constant**: +12.5 points on haiku against +18.8 on sonnet. A between-arm
+comparison is safe under a constant bias and is not safe under one that varies
+with the stratum, because an arm that shifts composition shifts the bias with
+it. That is the same confound `_exposure` was rewritten to remove from
+`unread_asks`, and it would have to be measured, not assumed, before this
+detector scored a round.
+
+## Verdict: v1 is not usable as a target
+
+Not because the construct is unmeasurable — the hand labels are stable across
+two independent draws (43.3% and 41.7%) and carry a large, highly significant
+effect. Because *this* detector reads it at 55.3% precision, concentrated in a
+failure mode the criterion already tells it to avoid.
+
 ## What happens next, in order
 
-1. **Write the judged detector against `criterion.md`**, and commit it *before*
-   drawing anything to validate it on. `draw.py --exclude` takes batch 1's
-   `key.json` so batch 2 cannot overlap it.
-2. **Draw batch 2, disjoint, and label it blind.** Measure precision and recall
-   out of sample. In-sample numbers are not evidence; that is the whole lesson of
-   `unread_asks` v2.
-3. **Decide the metric's shape from the measured base rate**, not before it.
-   43.3% leaves room for the binary; whether a count of restated passages
-   discriminates better is an open question this sample cannot answer, because it
-   was labelled binary.
-4. **Re-score the archive and publish the null.** How much does this move round to
-   round at fixed rules text, and does it ever fire where the archive's verdict
-   says it should not?
-5. **Only then register a round against it.**
+1. ~~Write the judged detector and freeze it before drawing its sample.~~
+   **Done**, `1e116ac`.
+2. ~~Draw batch 2 disjoint and label it blind.~~ **Done**, and it says v1 is not
+   good enough.
+3. **A v2 aimed at the cross-reference exclusion**, and specifically at
+   `verdict-rollout`'s "broken by the same cause" shape. Because v2 would be
+   designed on batch 1 and batch 2's errors, **it may not be scored against
+   either** — it needs a third labelled batch, drawn after v2 is frozen. That is
+   the same sequence v1 followed and the same one `unread_asks` needed; there is
+   no shortcut, and `draw.py --exclude` takes both key files.
+4. **Decide the metric's shape from the measured base rate**, not before it.
+   Roughly 43% leaves room for the binary. Whether a count of restated passages
+   discriminates better is still open — these 120 responses were labelled binary
+   and cannot answer it.
+5. **Only then** re-score the archive, publish the null, and register a round.
 
-Nothing here is a gate, a target, or a disclosure yet. It is a base rate and two
-measured negative results about the cheap ways of getting one.
+Nothing here is a gate, a target, or a disclosure. It is a stable base rate, a
+large measured model effect, and a detector that is not yet accurate enough to
+carry either.
 
 [#49]: https://github.com/JordanMPDS/laconic/issues/49
 [#146]: https://github.com/JordanMPDS/laconic/issues/146

@@ -640,6 +640,15 @@ that behaviour predicts is not measurably lower.**
    rather than a statistical decision. **An accept on this target is not an
    argument for making it a gate.**
 
+**Followed up offline, no generation bought:**
+[`round-28-composition.md`](round-28-composition.md) asks whether the answers
+that moved into the resolving stratum fail less than the ones already there. The
+key-level decomposition that appears to say yes is refuted by a within-case
+permutation — every group delta is reproduced by shuffling — and the only
+usable, unconditional reading finds **no evidence that moving an answer out of
+hands-back makes it less likely to fail**. The case for this edit rests on the
+behaviour, not on a measured quality gain.
+
 **Total spend:** 1,536 generations and 1,136 judgments across the round, the
 replication and the holdout.
 

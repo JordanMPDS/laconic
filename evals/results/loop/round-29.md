@@ -361,6 +361,42 @@ interleaved design exists to remove, and it is why both sides were generated
 fresh. It does not rescue the verdict: the sign test failed outright at 3 of 7,
 before any floor was consulted.
 
+## The scope was chosen badly, and this is the round's most useful finding
+
+Computed after the fact, from this round's own control arm rather than round 21:
+
+| | |
+|---|--:|
+| scoped floor, the median per-cell stdev | **298 tokens** |
+| median of the per-cell medians | **1684 tokens** |
+| so the compression this round had to buy | **17.7%** |
+| the harm [#150] measured, 230 of 1,335 prose words | **17.2%** |
+
+**An edit that removed every restated word in the shape [#150] documented would
+move the median about 290 tokens and land 8 short of the floor.** The round was
+scored against a bar that a total success could not clear.
+
+That is a defect in this registration, not a rescue of the edit — the sign test
+failed at 3 of 7 with five cells moving the wrong way, so there is no hidden
+effect being masked here. What it means is narrower and more useful: **this
+instrument cannot answer [#150] however the edit is worded.**
+
+**More reps do not fix it.** The floor is a per-cell standard deviation, not a
+standard error, so more runs estimate the same spread more precisely rather than
+shrinking it. The coefficient of variation on these cells is about 18%, which is
+the whole problem: the run-to-run variation in how long an answer happens to be
+is the same size as the harm being hunted.
+
+**So the next move on [#150] is a metric, not another rule edit** — the same
+conclusion round 27 reached about `one_turn`, for the same reason. The harm is
+semantic, a claim made twice, and the syntactic probe run before this round
+fired on 1 of 40 stored responses, so a regex detector is not available. The
+credible form is a judged redundancy verdict on the requested-content cases,
+frozen before its validation sample is drawn and re-scored across the archive
+before it scores anything, which is the route [#146] established and [#49] took
+before it. Buying another round before that instrument exists buys a round that
+cannot detect its own success.
+
 ## What is kept
 
 The rules edit is reverted. The `--cases` comma-separated scope in `run.py` and

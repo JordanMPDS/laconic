@@ -9,6 +9,12 @@ not follow.
 This asks the obvious next question. **Do the answers that moved fail more than
 the ones already there?** If they do, the composition win is cosmetic.
 
+**The answer is that this data cannot say.** The analysis that appears to settle
+it is an artifact, and the one that replaces it reverses in sign depending on an
+untestable modelling choice. What the document is good for is the artifact: it
+shows a decomposition every future round will be tempted to read, and the test
+that kills it.
+
 Nothing here is a gate or a re-score. It is computed on the 896 judged runs
 already committed with round 28; **no generation was bought**. Sonnet, the eight
 `design-*` cases, the shipped v2 detector.
@@ -59,12 +65,16 @@ shuffles, seed 28:
 | switched into hands-back | +5 | +5.6 | [+1, +10] | inside |
 | always handed back | +2 | +0.0 | [−2, +3] | inside |
 
-**Every group is reproduced by the shuffle, the −11 most exactly of all.** There
-is no key-level signal in round 28's data. The decomposition is arithmetically
-true and causally empty, and any future round tempted to read strata this way
-should run this shuffle first.
+**Every group is reproduced by the shuffle, the −11 most exactly of all.** The
+observed deltas are indistinguishable from the null, so the decomposition is
+arithmetically true and causally empty, and any future round tempted to read
+strata this way should run this shuffle first.
 
-## What survives, and it does not favour the edit
+That is a null, not a proof of absence: the band on the −11 is [−16, −4], so a
+real effect of a few failures would sit inside it and this test could not see
+it.
+
+## What survives, and it settles nothing either way
 
 Only the unconditional comparison is usable, and it is the one `report.py`
 already prints:
@@ -74,24 +84,41 @@ already prints:
 | resolves | 56/344 (16.3%) | 77/390 (19.7%) | rise p = 0.131 |
 | hands back | 34/104 (32.7%) | 17/58 (29.3%) | fall p = 0.397 |
 
-Take the 344 answers that were always going to resolve as unchanged at 16.3%,
-and the 46 incoming answers must carry the remaining 21 failures — an implied
-**45.7%**, worse than the 32.7% stratum they came from. Take the other extreme,
-that the incoming answers keep their old 32.7%, and the stratum should hold 71
-failures against the **77 observed**.
+**An earlier version of this section put an arithmetic bound here and drew a
+conclusion from it. The bound was wrong and the conclusion is withdrawn** —
+found by an external reviewer, recorded rather than quietly edited out. It read
+the 344 control resolvers as "the answers that were always going to resolve",
+which is really 302, and charged the whole 21-failure change to a net inflow of
+46. That change decomposes as +8 on the answers that resolved in both arms and
++13 across the flows, so attributing all of it to the incoming answers produced
+a spurious implied rate of 45.7%.
 
-**Both bounds land on the same conclusion: there is no evidence in this round
-that moving an answer out of hands-back makes it any less likely to fail.** The
-observed resolving rate is at or above what you would predict if the incoming
-answers simply carried their old failure rate with them.
+The repair does not rescue the conclusion, because **the answer depends on which
+flow model you pick, and the two disagree in sign**:
+
+| model | predicted edit resolving failures | observed |
+|---|--:|--:|
+| net transfer: 344 at 16.3% plus 46 at 32.7% | 71.0 | 77 — above |
+| gross flow: 302 at 16.6% plus 88 at 32.7% | 78.8 | 77 — below |
+
+Neither is clean. The net-transfer model pretends a bidirectional flow is a
+one-way transfer. The gross-flow model uses the 302/88/42 key-level groups,
+which the permutation above has just shown are noise-contaminated. **So this
+section cannot say whether the answers that moved failed more or less than the
+ones already there, and it should not be read as saying so.**
 
 ## The answer
 
-**The composition win is not shown to convert into fewer failures**, which is
-exactly what the flat round-wide count was already saying. Round 28 buys a
-behaviour — answers that never opened a file stop handing the decision back —
-and this analysis finds nothing to suggest the behaviour is worth buying on
-quality grounds.
+**Not established, in either direction.** The key-level decomposition that
+appeared to show the movers improving is an artifact, and the unconditional
+bounds reverse depending on how the flow is modelled. Round 28 buys a behaviour
+— answers that never opened a file stop handing the decision back — and **this
+analysis produces no evidence either way about whether that behaviour is worth
+buying on quality grounds.**
+
+What did not change is the round-wide count, which stayed flat. That remains the
+strongest statement available: whatever the composition did, it did not show up
+in `quality_fails`.
 
 Two limits on that, both real:
 

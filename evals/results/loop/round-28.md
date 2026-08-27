@@ -164,6 +164,30 @@ round 27's point estimate, this round has about 48% power and a null read is
 uninformative.** That is the winner's-curse risk, quantified in advance rather
 than discovered in the verdict.
 
+> *Annotation added 2026-08-27, after an external review, to the registered text
+> above rather than replacing it — the registration is a record and is not
+> rewritten.*
+>
+> **The power table was simulated on the wrong scope's rates, and the round is
+> less powered than it registered.** "42.5% control against 27.0% edit" are round
+> 27's **six-case** figures (31/73 and 20/74), left over from sizing work done
+> while choosing the scope. The eight-case scope this round actually registered
+> reads **42.1% and 27.6%** (32/76 and 21/76) — a smaller effect, so less power
+> at every depth:
+>
+> | exposed per side | as registered (six-case rates) | corrected (eight-case rates) |
+> |--:|--:|--:|
+> | 76 — round 27's depth | 0.42 | **0.36** |
+> | 120 | 0.63 | 0.58 |
+> | 170 — this round's target | **0.80** | **0.75** |
+> | 200 | 0.87 | 0.81 |
+>
+> So the round bought about **75% power, not the 80% it registered**, and 80%
+> would have needed roughly 200 exposed a side rather than 170. This does not
+> change the verdict — the target cleared at p = 0.0199 — but it makes the
+> registered null-read caveat *stronger*, not weaker: at three quarters of the
+> effect the corrected power is 0.47, not 0.53.
+
 Bought in stages, per the loop's standing order. **Stage 1 can only kill, never
 accept** — there is no draw at which the round stops early and declares
 success:
@@ -444,6 +468,15 @@ that trade is real or whether both are reading one noisy composition.
 
 ### The after-reading disclosure, at full depth
 
+> **⚠ WITHDRAWN. Everything in this section is superseded by
+> [Correction: the after-reading disclosure does not replicate](#correction-the-after-reading-disclosure-does-not-replicate)
+> below.** The reasoning here treats stage 2 as independent confirmation of
+> stage 1 when stage 2's sample *contains* stage 1's, and the replication reads
+> the contrast flat. **The conclusion below — that the edit suppresses asking
+> after reading — is not established.** The section is kept unedited because the
+> loop does not delete a claim it got wrong; read it as a record of the mistake,
+> not as a finding.
+
 | after reading | control | edit | one-sided fall |
 |---|--:|--:|--:|
 | round 27 | 12/124 | 11/124 | 0.500 |
@@ -553,15 +586,27 @@ The replication is a genuinely independent batch, and it reads flat:
 | round 28, main | 34/283 (12.0%) | 15/295 (5.1%) | **0.0021** |
 | round 28, replication | 14/134 (10.4%) | 13/122 (10.7%) | 0.602 |
 
+**A note on the two p-values for the main round's counts.** The withdrawn
+section above reads 34/283 against 15/295 as **0.0031** and this table reads the
+same counts as **0.0021**. Neither is a miscalculation: 0.0031 is `report.py`'s
+`_count_p`, the exact conditional binomial the gate scores count targets with,
+and 0.0021 is `_fisher_upper_tail`. Both are valid one-sided tests of the same
+hypothesis and they condition differently. Presenting them as one quantity was
+sloppy; **`_count_p` is the loop's test and 0.0031 is the figure to cite.** The
+table keeps 0.0021 with this label rather than being silently restated, and
+nothing downstream turns on which is used — the correction rests on the
+replication reading flat, not on the main batch's exact p.
+
 **Two of three independent batches read this contrast flat.** The control sides
 are homogeneous (9.7%, 12.0%, 10.4%; heterogeneity p = 0.772), while the edit
 sides are not (8.9%, 5.1%, 10.7%; the two round-28 batches differ at p = 0.071).
 The main round's 5.1% is the outlier among three draws, which is what a chance
 low draw looks like.
 
-The pooled after-reading figure is p = 0.0143, and **it should not be read as
-establishing the effect** — it is one strong batch pooled with two flat ones, and
-the heterogeneity is the finding rather than the pooled number.
+Pooling does not rescue it, at either scope: **the two round-28 batches pool to
+p = 0.0143 and all three batches pool to p = 0.0219.** Neither **should be read
+as establishing the effect** — it is one strong batch pooled with two flat ones,
+and the heterogeneity is the finding rather than the pooled number.
 
 **So the cost I recorded at stage 2 is not established.** The edit is not shown
 to suppress asking after reading. That also removes the need to adjudicate the
@@ -616,9 +661,10 @@ registered step 8 rule, and the holdout shows no regression.
 | step 9, holdout | no regression |
 
 **What this round establishes.** [#138]'s edit reduces the rate at which answers
-that never opened a file hand the decision back, from 42.4% to 29.9% pooled over
-631 runs a side. It does so without reading less, without spending round 26's
-compression, and without a measured quality cost.
+that never opened a file hand the decision back, from 42.4% to 29.9% pooled
+across the round and its replication — **231 exposed runs a side, drawn from 648
+generated runs a side**. It does so without reading less, without spending round
+26's compression, and without a measured quality cost.
 
 **What it does not establish.** The round-wide `quality_fails` count did not
 improve — it rose by four, screened as sampling. The composition moved the right
@@ -644,10 +690,11 @@ that behaviour predicts is not measurably lower.**
 [`round-28-composition.md`](round-28-composition.md) asks whether the answers
 that moved into the resolving stratum fail less than the ones already there. The
 key-level decomposition that appears to say yes is refuted by a within-case
-permutation — every group delta is reproduced by shuffling — and the only
-usable, unconditional reading finds **no evidence that moving an answer out of
-hands-back makes it less likely to fail**. The case for this edit rests on the
-behaviour, not on a measured quality gain.
+permutation — every group delta is reproduced by shuffling — and the
+unconditional reading that replaces it **reverses in sign depending on how the
+flow is modelled**, so it settles nothing either way. **That question is open.**
+What is not open is that the round-wide count stayed flat: the case for this
+edit rests on the behaviour, not on a measured quality gain.
 
 **Total spend:** 1,536 generations and 1,136 judgments across the round, the
 replication and the holdout.

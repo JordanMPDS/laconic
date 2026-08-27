@@ -264,4 +264,107 @@ expensive arm. **Stage 1 can only kill, never accept:**
 
 ---
 
-*Nothing below this line is written. The round has not been generated.*
+# Result: reject at stage 1
+
+**Status: complete. Verdict reject — the edit is reverted.**
+
+Stage 1 ran on 2026-08-27, 14:19 to 15:55 UTC. 160 generations, **0 failed**,
+$8.07. Both sides interleaved one rep at a time from their own trees, CLI
+2.1.247 on both, `cases_cksum` 150959279 on both.
+
+## The target
+
+```
+REJECT: 3 of 7 cells improved on verdict-experiment, verdict-rollout,
+verdict-schema, walkthrough, sign test p = 1.000 (round-wide 3 of 8 cells,
+p = 0.727); 1 cell(s) below the 1200-token floor and not voting:
+walkthrough/haiku 997
+```
+
+The registered contingency fired: `walkthrough`/haiku came in at 997 tokens on
+the control side, below `TOKEN_CELL_MIN_BASELINE`, so it was dropped and seven
+cells voted. It changes nothing — 3 of 8 reads p = 0.727 and 3 of 7 reads
+p = 1.000, and both are as far from alpha as a null gets.
+
+| cell | control median | edit median | delta | read |
+|---|--:|--:|--:|---|
+| `verdict-experiment`/haiku | 1597 | 1677 | **+80 (+5.0%)** | 10/10 both sides |
+| `verdict-experiment`/sonnet | 2152 | 2226 | **+74 (+3.5%)** | 10/10 both sides |
+| `verdict-rollout`/haiku | 1344 | 1321 | −22 (−1.7%) | 10/10 both sides |
+| `verdict-rollout`/sonnet | 2008 | 1790 | −218 (−10.9%) | 10/10 both sides |
+| `verdict-schema`/haiku | 1238 | 1268 | **+31 (+2.5%)** | 10/10 both sides |
+| `verdict-schema`/sonnet | 2276 | 2274 | −2 (−0.1%) | 10/10 both sides |
+| `walkthrough`/haiku | 997 | 1032 | **+35 (+3.5%)** | 10/10 both sides |
+| `walkthrough`/sonnet | 1770 | 1798 | **+28 (+1.6%)** | 10/10 both sides |
+
+**This is a flat null, not an underpowered one.** Five of eight cells moved the
+wrong way, the largest move in the registered direction is one cell at −10.9%,
+and the bar was more than about 18%. The registered limitation 3 said a real but
+uneven effect would land around 6 of 8 and reject at p = 0.289; that is not what
+happened. The edit did not compress these cells at all.
+
+**The null is not a reading artifact.** Every cell read the fixture in 10 of 10
+runs on both sides, which is what the scope was chosen for. No cell was refused
+for a stratum crossing, and no cell's compression could have been bought by not
+reading.
+
+**The `turns` co-requirement held**, 0 of 8 cells rising against a 0.2-turn
+floor, so the edit did not buy anything by doing more work either.
+
+Per the registered staging, **no judgments were bought**. Stage 2 was not
+reached.
+
+## One thing that moved, and it moved the wrong way
+
+Readability violations rose 13 to 28 on the target scope, which `report.py`
+screens as inside the sampling noise of a clustered count at p = 0.071 ([#103]).
+Arrow forms rose with it: chains of three or more 2 to 13, two-term mappings 9
+to 14. It is concentrated in one cell:
+
+| cell | control arrows | edit arrows | responses carrying |
+|---|--:|--:|---|
+| `walkthrough`/sonnet | 5 | 17 | 2 of 10 → 4 of 10 |
+| `walkthrough`/haiku | 2 | 4 | 1 of 10 → 1 of 10 |
+| `verdict-rollout`/haiku | 3 | 5 | 2 of 10 → 2 of 10 |
+| `verdict-schema`/sonnet | 1 | 1 | 1 of 10 → 1 of 10 |
+
+**This is disclosure and is not a finding.** Two responses against four is
+nowhere near separating, `walkthrough` is [#36]'s arrow-concentrated case and
+produces them under every rules text the loop has tried, and the screen already
+called the rise noise. It is recorded because "each made once" is exactly the
+kind of instruction that could push an answer toward compressed notation, and if
+a later round revisits this wording that hypothesis should be registered rather
+than rediscovered.
+
+## What this round establishes
+
+**A fourth failure for bounding a licence in prose.** The registration named this
+risk in advance: rounds 07, 08 and 09 each tried to bound a licence with
+limiting prose and each failed, and round 10 succeeded by moving the licence
+instead. This round argued the remedy did not apply because the paragraph is
+already in the section it belongs in. That argument is now worth less. Whatever
+[#150]'s next attempt is, it should be structural rather than another sentence
+added to the same paragraph.
+
+**What it does not establish.** [#150]'s report stands: a model did cite this
+paragraph to justify 1,335 words with 17% restatement, and the archive check
+before this round found the same shape in `verdict-experiment`. Nothing here
+says the exemption reading is not available. What it says is that closing the
+reading with a sentence in the same paragraph does not change what the model
+writes.
+
+**A note on the bar this round registered.** The pre-registered floor and the
+18% figure were computed from round 21, and this round's own control medians are
+much lower — `verdict-experiment`/sonnet 2152 against round 21's 3887,
+`walkthrough`/sonnet 1770 against 2376. That is the between-era drift the
+interleaved design exists to remove, and it is why both sides were generated
+fresh. It does not rescue the verdict: the sign test failed outright at 3 of 7,
+before any floor was consulted.
+
+## What is kept
+
+The rules edit is reverted. The `--cases` comma-separated scope in `run.py` and
+`judge.py` is kept — it is not part of the edit, it is tested, and it is what any
+future round with a non-glob scope will need.
+
+[#103]: https://github.com/JordanMPDS/laconic/issues/103

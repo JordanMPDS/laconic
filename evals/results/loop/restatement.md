@@ -1,6 +1,6 @@
 # `restates`: building the instrument #150 needs
 
-**Status: batch 1 labelled. No detector exists yet.**
+**Status: parked. Detector v1 measured at 55.3% precision out of sample, which is not good enough, and the ceiling after fixing its dominant error class is about 72%. Picked up again, if at all, under [#155].**
 
 Round 29 rejected [#150]'s rules edit and, more usefully, established that
 `output_tokens` cannot answer [#150] at all. The scoped floor computed from that
@@ -246,3 +246,4 @@ carry either.
 [#49]: https://github.com/JordanMPDS/laconic/issues/49
 [#146]: https://github.com/JordanMPDS/laconic/issues/146
 [#150]: https://github.com/JordanMPDS/laconic/issues/150
+[#155]: https://github.com/JordanMPDS/laconic/issues/155

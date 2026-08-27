@@ -274,6 +274,20 @@ def _cli_version(claude_bin):
     return out.stdout.strip() if out.returncode == 0 else "unknown"
 
 
+def match_case(name, patterns):
+    """True when `name` matches any of a comma-separated list of globs.
+
+    A single glob covers a scope like `design-*`, and every round up to 28 had
+    one. A scope that is not a prefix family does not: round 29 targets
+    `walkthrough` and the three `verdict-*` cases, which no one glob selects and
+    which cannot be split across two invocations either - cases_cksum covers the
+    cases the invocation names, so a second invocation into the same snapshot is
+    refused by the #69 guard. Comma is the separator --target-cases already
+    uses, so the two flags read alike.
+    """
+    return any(fnmatch.fnmatch(name, p.strip()) for p in patterns.split(","))
+
+
 def cases_cksum(cases_dir, names):
     """A checksum over the case material a round was actually produced from.
 
@@ -437,7 +451,8 @@ def main():
     if not cases_dir.is_dir():
         sys.exit("no such case directory: %s" % args.cases_dir)
     cases = sorted(d for d in cases_dir.iterdir()
-                   if (d / "prompt.md").exists() and fnmatch.fnmatch(d.name, args.cases))
+                   if (d / "prompt.md").exists()
+                   and match_case(d.name, args.cases))
     if not cases:
         sys.exit("no cases matched: %s" % args.cases)
 

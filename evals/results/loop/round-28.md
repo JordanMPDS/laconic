@@ -567,3 +567,80 @@ the heterogeneity is the finding rather than the pooled number.
 to suppress asking after reading. That also removes the need to adjudicate the
 v2 detector-artifact reading, which stop condition 5 forbade testing here
 anyway: there is no longer a robust effect for an artifact to explain.
+
+## Stage 4, step 9: the holdout
+
+**Generation and judging:** 120 runs and 120 judgments a side, 6 holdout cases,
+both models, 10 reps, **0 failed, 0 retries**, 00:28 to 01:39 UTC. Both sides
+generated fresh and interleaved rather than carrying `round-26-holdout.json`,
+which is master rules at this same CLI and would have saved 120 generations — a
+control arm can move between batches at byte-identical rules, and the holdout is
+the check a regression is fatal on.
+
+| counter | control | edit | |
+|---|--:|--:|---|
+| `never_cut_failures` | 14 | 12 | improvement |
+| `quality_fails` | 30 | 22 | improvement, fall p = 0.166 |
+| `safety_fails` | 6 | 5 | improvement |
+| `violations_total` | 23 | 25 | rise of 2, inside clustered sampling noise at p = 0.475 ([#103]) |
+
+`turns` held, 0 of 9 cells rising against a 0.4-turn floor. Per-cell quality
+moved on six cells, two up (`holdout-design`/haiku 4 to 6,
+`holdout-explain`/sonnet 1 to 2) and four down.
+
+**No regression. The holdout passes.** All three judge-verdict counters fell and
+the only rise is two readability violations, screened as noise.
+
+Per the loop's rule these numbers stay in this document and **do not enter
+`docs/benchmark.md` or the README**.
+
+*A note on `report.py`'s exit code here: run with `--target quality_fails` it
+prints `REJECT: quality_fails 30 -> 22, p = 0.166` and exits 1. That is the
+target gate asking whether the counter improved **significantly**, which is the
+wrong question for a holdout — the holdout is a non-inferiority check and a
+non-significant improvement passes it. The counters above are what decides it.*
+
+## Verdict: accept, and the recommendation is still not to make the gate fatal
+
+The registered target cleared at 56 reps a side, all three registered guards
+held, `report.py` accepted on the fatal counters, the replication passed the
+registered step 8 rule, and the holdout shows no regression.
+
+| stage | result |
+|---|---|
+| stage 1, kill screen | nothing killed |
+| stage 2, accepting read | `unread_asks` 70/165 to 43/153, **p = 0.0199** |
+| guards | `one_turn` 165 to 153, `output_tokens` +40 against a 487.0 floor, `turns` held |
+| stage 3, fatal counters | `report.py` exit 0; `quality_fails` 90 to 94, screened |
+| step 8, replication | direction holds, pooled **p = 0.0150**, own p = 0.2260 |
+| step 9, holdout | no regression |
+
+**What this round establishes.** [#138]'s edit reduces the rate at which answers
+that never opened a file hand the decision back, from 42.4% to 29.9% pooled over
+631 runs a side. It does so without reading less, without spending round 26's
+compression, and without a measured quality cost.
+
+**What it does not establish.** The round-wide `quality_fails` count did not
+improve — it rose by four, screened as sampling. The composition moved the right
+way, out of a stratum failing at about a third and into one failing at about a
+sixth, and the count did not follow. **This round buys a behaviour, and the harm
+that behaviour predicts is not measurably lower.**
+
+**Three limitations, carried from the registration rather than discovered:**
+
+1. **This round is confirmatory of round 27's disclosure and is not independent
+   of it.** The edit was selected because round 27 showed it moving this metric.
+2. **The detector is 73.7% precision out of sample.** Every figure here is read
+   through it, and its two known error shapes are unaddressed. A v3 needs a
+   third labelled sample.
+3. **`unread_asks` stays target-only**, per stop condition 6 and
+   [`unread-asks.md`](unread-asks.md). Nothing here changes the reason: the
+   screened fatal form would have rejected round 26, the licence in
+   `rules/laconic.md` today, and switching it on is a judgement about that trade
+   rather than a statistical decision. **An accept on this target is not an
+   argument for making it a gate.**
+
+**Total spend:** 1,536 generations and 1,136 judgments across the round, the
+replication and the holdout.
+
+**The loop proposes; a human merges.** This edit is proposed, not merged.

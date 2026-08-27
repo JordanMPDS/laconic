@@ -7,7 +7,12 @@
 same commit as this registration and nothing below it is written yet.*
 
 **Rules under test:** the [#150] edit (scope is not licence) against master,
-`rules/` at `1b88c47`.
+`rules/` at `1b88c47`. Edit `rules_cksum` **3990961107**, control `rules_cksum`
+**136269960** — the latter is round 28's shipped text, unchanged since `1b88c47`,
+so the control side is master and not a reconstruction of it. Both sides run
+from their own tree, the control from a worktree that is this branch with
+`rules/` restored to `1b88c47`, so the harness is identical on both sides and
+only the rules text differs.
 **Snapshots:** `evals/snapshots/loop/round-29-edit.json` and
 `round-29-control.json`, plus the matching `-judgments.json`.
 

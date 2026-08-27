@@ -15,6 +15,17 @@ Round 29 established that these are the cells where the harm #150 reports would
 live: the user asks in the prompt for an explanation or an evaluation, and the
 answers are long enough to carry a restated claim.
 
+THE FRAME CONTAINS DUPLICATE TEXTS AND THEY ARE COLLAPSED BY DEFAULT. The
+-v2/-v3/-v4 baselines are supersets built by copying round-01-n10.json, so one
+generated run appears under several snapshot names: 1,780 rows hold only 1,430
+distinct responses, 19.7% duplication. Drawing from the raw rows treats one
+observation as several, which inflates the effective sample and correlates the
+draws. Batch 1 drew no duplicates by luck; batch 2 drew two pairs.
+
+--allow-duplicate-texts restores the raw frame, and it exists for exactly one
+reason: batches 1 and 2 were drawn before this was noticed, and their committed
+key.json files have to stay reproducible. Do not use it for a new draw.
+
 usage: python3 draw.py [--n 60] [--seed 150] [--exclude <key.json> ...]
 """
 import argparse
@@ -55,6 +66,35 @@ def frame():
     return out
 
 
+def distinct(pool, seen_text):
+    """One row per distinct response text, keeping the first in sort order.
+
+    Deterministic because the pool is already sorted, so which copy survives is
+    a function of the frame rather than of dict iteration order.
+    """
+    out, seen = [], set()
+    for k in pool:
+        t = seen_text(k)
+        if t is None or t in seen:
+            continue
+        seen.add(t)
+        out.append(k)
+    return out
+
+
+def text_of(k):
+    for sub in ("evals/snapshots/loop", "evals/snapshots"):
+        p = ROOT / sub / ("%s.json" % k["snap"])
+        if p.exists():
+            d = json.loads(p.read_text())
+            hit = [r for r in d["runs"]
+                   if r["case"] == k["case"] and r["rep"] == k["rep"]
+                   and r["arm"] == "laconic" and r["model"] == k["model"]]
+            if hit:
+                return (hit[0].get("text") or "").strip()
+    return None
+
+
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--n", type=int, default=60)
@@ -63,9 +103,16 @@ def main():
     ap.add_argument("--exclude", action="append", default=[],
                     help="a key.json whose draws must not be redrawn")
     ap.add_argument("--out", default=str(Path(__file__).parent))
+    ap.add_argument("--allow-duplicate-texts", action="store_true",
+                    help="draw from the raw rows, duplicates and all. Only for "
+                         "reproducing batches 1 and 2, which were drawn before "
+                         "the duplication was noticed")
     args = ap.parse_args()
 
     pool = frame()
+    raw = len(pool)
+    if not args.allow_duplicate_texts:
+        pool = distinct(pool, text_of)
     seen = set()
     for path in args.exclude:
         for k in json.loads(Path(path).read_text()):
@@ -95,7 +142,10 @@ def main():
         blind.append("\n\n===== %s | case: %s =====\n%s\n"
                      % (k["id"], k["case"], hit[0]["text"].strip()))
     (out / "blind.md").write_text("".join(blind))
-    print("frame %d responses; drew %d at seed %d" % (len(pool), args.n, args.seed))
+    print("frame %d rows -> %d after excludes%s; drew %d at seed %d"
+          % (raw, len(pool),
+             "" if args.allow_duplicate_texts else " and text-deduplication",
+             args.n, args.seed))
     print("wrote %s/key.json and %s/blind.md" % (out, out))
 
 

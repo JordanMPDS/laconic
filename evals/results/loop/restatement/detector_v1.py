@@ -98,8 +98,20 @@ def parse(text):
             "reason": d.get("reason") or ""}
 
 
+# The two ways a call can produce no verdict. They are NOT the same thing and
+# judge.py already says so in prose - "the call itself failed, or it succeeded
+# but the model's reply couldn't be parsed as a verdict". The first run of this
+# detector printed one string for both, and the log could not distinguish a
+# usage limit from a model answering in prose. It was a usage limit: 32 of 60
+# succeeded, then every remaining call in both batches failed, and R33 - the
+# first failure - succeeded on the next attempt an hour later with a verdict
+# that matches its hand label.
+REASON_CALL_FAILED = "call failed"
+REASON_UNPARSEABLE = "unparseable"
+
+
 def label_one(claude_bin, model, response):
-    """One detector call, retried once, in a fresh temp dir.
+    """(verdict, None) on success, or (None, reason) - retried once.
 
     The temp dir is not decoration. This repository contains rules/laconic.md,
     the snapshots labelled by arm, and criterion.md's own worked examples; a
@@ -107,22 +119,27 @@ def label_one(claude_bin, model, response):
     precaution for the same reason.
     """
     prompt = build_prompt(response)
+    reason = REASON_CALL_FAILED
     for _ in range(2):
         scratch = tempfile.mkdtemp()
         try:
             res = bench_run.call(claude_bin, model, prompt, None, scratch)
         finally:
             shutil.rmtree(scratch, ignore_errors=True)
-        if res.get("ok"):
-            v = parse(res.get("text"))
-            if v is not None:
-                v["usage"] = {k: res.get(k, 0) for k in
-                              ("input_tokens", "output_tokens",
-                               "cache_creation_input_tokens",
-                               "cache_read_input_tokens", "total_cost_usd",
-                               "duration_ms")}
-                return v
-    return None
+        if not res.get("ok"):
+            reason = REASON_CALL_FAILED
+            continue
+        v = parse(res.get("text"))
+        if v is None:
+            reason = REASON_UNPARSEABLE
+            continue
+        v["usage"] = {k: res.get(k, 0) for k in
+                      ("input_tokens", "output_tokens",
+                       "cache_creation_input_tokens",
+                       "cache_read_input_tokens", "total_cost_usd",
+                       "duration_ms")}
+        return v, None
+    return None, reason
 
 
 def response_text(k):
@@ -144,6 +161,11 @@ def main():
     ap.add_argument("--out", default=str(HERE / "verdicts.json"))
     ap.add_argument("--model", default="sonnet")
     ap.add_argument("--claude-bin", default="claude")
+    ap.add_argument("--max-consecutive-failures", type=int, default=8,
+                    help="stop after this many failures in a row; 0 disables. "
+                         "run.py and judge.py both have this and this script "
+                         "did not: a usage limit at R33 ground through 88 "
+                         "further keys at two calls each for no data")
     args = ap.parse_args()
 
     claude_bin = bench_run.require_claude_bin(args.claude_bin)
@@ -155,11 +177,21 @@ def main():
 
     todo = [k for k in key if k["id"] not in done]
     print("%d response(s) to label, %d already done" % (len(todo), len(done)))
+    run_of_failures = 0
+    stopped = None
     for n, k in enumerate(todo, 1):
-        v = label_one(claude_bin, args.model, response_text(k))
+        v, reason = label_one(claude_bin, args.model, response_text(k))
         if v is None:
-            print("  [%d/%d] %s UNPARSEABLE" % (n, len(todo), k["id"]))
+            run_of_failures += 1
+            print("  [%d/%d] %s FAILED (%s)" % (n, len(todo), k["id"], reason))
+            if (args.max_consecutive_failures
+                    and run_of_failures >= args.max_consecutive_failures):
+                stopped = ("stopped after %d consecutive failure(s), last %s on %s"
+                           % (run_of_failures, reason, k["id"]))
+                print(stopped, file=sys.stderr)
+                break
             continue
+        run_of_failures = 0
         done[k["id"]] = v
         print("  [%d/%d] %s %s" % (n, len(todo), k["id"],
                                    "restates" if v["restates"] else "clean"))
@@ -168,7 +200,9 @@ def main():
                           "criterion_cksum": criterion_cksum()},
              "verdicts": done}, indent=1) + "\n")
     cost = sum(v.get("usage", {}).get("total_cost_usd", 0) for v in done.values())
-    print("wrote %s (%d verdicts, $%.2f)" % (out_path, len(done), cost))
+    print("wrote %s (%d of %d, $%.2f)" % (out_path, len(done), len(key), cost))
+    if stopped:
+        sys.exit(1)
 
 
 if __name__ == "__main__":

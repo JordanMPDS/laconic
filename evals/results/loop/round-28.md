@@ -1,6 +1,6 @@
 # Round 28
 
-**Status: registered, not yet run.**
+**Status: complete. Verdict accept — proposed, not merged.**
 
 *Everything above the horizontal rule below was registered at 04:13 UTC on
 2026-08-26, before any generation.*

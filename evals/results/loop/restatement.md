@@ -152,15 +152,47 @@ tuned on batch 1, so this is composition and sampling rather than overfitting.
 haiku behaviour, so sonnet is where the false positives cost most, and sonnet is
 where precision collapses to 42.9%.
 
-**One shape dominates, and `criterion.md` already excludes it.**
-`verdict-rollout` answers share a structure: state that the migration drops the
-column while old code still reads it, then state that rollback is broken *by the
-same cause*, then propose expand/contract. The rollback section re-invokes the
-dropped column, so it looks like a repetition, but it is a distinct claim about
-a distinct failure. The criterion names this exclusion in as many words — *"a
-cross-reference that names an earlier point without re-arguing it"* — and v1 is
-not honouring it. Twelve false positives and zero false negatives on that case
-is a detector applying the rule it was given too loosely in one specific place.
+**Classifying all 26 false positives by the passage v1 quoted.** The `quote`
+field makes this measurable rather than a reading of a few, and the answer is
+not the case-specific over-fire it first looked like:
+
+| shape | n | cases |
+|---|--:|---|
+| **mixed closing clause** | **14** | `verdict-rollout` 9, `verdict-schema` 3, `verdict-experiment` 2 |
+| walkthrough concurrency elaboration | 8 | `walkthrough` 8 |
+| "rollback is broken too" | 3 | `verdict-rollout` 3 |
+| other | 1 | `verdict-experiment` 1 |
+
+**The dominant shape is a closing sentence that mixes a restating clause with a
+new one**, and it appears in every case except `walkthrough`: *"The
+sequencing/rollback interaction is the thing to fix."*, *"Just fix the data type
+before you go further."*, *"Fix the multiple-comparisons issue first — it's the
+clearest threat to validity."* Each names a point already made and attaches a
+priority, a reason or a scope judgement that was not made before.
+
+**That is exactly the boundary this project's own labelling had to arbitrate,
+and it is the one place the labels are internally inconsistent.** `criterion.md`
+says to label a borderline case false, and batch 2 applies that to every mixed
+closing; batch 1's R53 does not, which is the single inconsistency already
+recorded in
+[`restatement-b2/labels.json`](restatement-b2/labels.json). So the detector's
+largest error class sits on the same seam where the human labeller slipped once
+in 120.
+
+**This changes what a v2 is.** It is not a detector that needs to apply a clear
+rule more carefully. The rule itself is under-specified for the mixed closing:
+the criterion says "some passage ... adds nothing that was not already there"
+and does not say how to score a *sentence* whose first clause restates and whose
+second does not. Sharpening it is a change to `criterion.md`, and every label in
+both batches was written under the looser version — so a sharpened criterion
+does not just need a new detector, it needs new labels.
+
+The other two shapes are narrower and genuinely are detector errors. The
+`walkthrough` elaboration (8) is a dedicated concurrency section that develops
+what an enumeration above already stated, where the labels turn on whether the
+section adds a mechanism. The "rollback is broken too" shape (3) is the one the
+criterion already excludes in as many words as *"a cross-reference that names an
+earlier point without re-arguing it"*.
 
 ## What it can still do, and the hazard in relying on it
 

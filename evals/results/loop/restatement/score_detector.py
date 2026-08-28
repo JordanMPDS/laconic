@@ -12,8 +12,15 @@ supersets of round-01-n10.json, so the same run appears under several snapshot
 names. Batch 2 drew two such pairs; counting both would treat one observation
 as two.
 
-usage: python3 score_detector.py
+`--verdicts` scores a different detector's file over the same keys and labels:
+`--verdicts verdicts-deletable.json --kinds redundant` is how [#155]'s
+direction B pilot is read. Passing `--kinds` counts a verdict as positive only
+when its `kind` is one of the named ones, which is what scores a construct that
+records why a passage costs nothing to delete.
+
+usage: python3 score_detector.py [--verdicts NAME] [--kinds redundant,claimless]
 """
+import argparse
 import json
 import sys
 from pathlib import Path
@@ -27,12 +34,12 @@ BATCHES = [("batch 1 (frozen after)", HERE),
            ("batch 2 (OUT OF SAMPLE)", HERE.parent / "restatement-b2")]
 
 
-def load(d):
+def load(d, name="verdicts.json"):
     key = {k["id"]: k for k in json.loads((d / "key.json").read_text())}
     lab = json.loads((d / "labels.json").read_text())["labels"]
-    vpath = d / "verdicts.json"
-    ver = (json.loads(vpath.read_text())["verdicts"] if vpath.exists() else {})
-    return key, lab, ver
+    vpath = d / name
+    doc = json.loads(vpath.read_text()) if vpath.exists() else {}
+    return key, lab, doc.get("verdicts", {}), doc.get("metadata", {})
 
 
 def texts(key):
@@ -52,10 +59,12 @@ def texts(key):
     return out
 
 
-def confusion(ids, lab, ver):
+def confusion(ids, lab, ver, kinds=None):
     tp = fp = fn = tn = 0
     for i in ids:
         p = ver[i]["restates"]
+        if kinds and ver[i].get("kind") not in kinds:
+            p = False
         t = lab[i]
         tp += p and t
         fp += p and not t
@@ -77,9 +86,17 @@ def report(name, tp, fp, fn, tn):
 
 
 def main():
+    ap = argparse.ArgumentParser()
+    ap.add_argument("--verdicts", default="verdicts.json",
+                    help="verdicts file name inside each batch directory")
+    ap.add_argument("--kinds", default="",
+                    help="comma-separated `kind` values to count as positive; "
+                         "empty counts every positive verdict")
+    args = ap.parse_args()
+    kinds = [k for k in args.kinds.split(",") if k]
     pooled = [0, 0, 0, 0]
     for name, d in BATCHES:
-        key, lab, ver = load(d)
+        key, lab, ver, meta = load(d, args.verdicts)
         scored = [i for i in key if i in ver]
         if not scored:
             print("%s: no verdicts yet" % name)
@@ -94,16 +111,25 @@ def main():
             uniq.append(i)
         print("%s  (%d of %d labelled scored; %d after collapsing duplicates)"
               % (name, len(scored), len(key), len(uniq)))
-        c = confusion(uniq, lab, ver)
+        print("    detector %s, criterion %s%s"
+              % (meta.get("detector", "?"), meta.get("criterion_cksum", "?"),
+                 (", counting kind in %s" % ",".join(kinds)) if kinds else ""))
+        c = confusion(uniq, lab, ver, kinds)
         report("deduplicated", *c)
         if len(uniq) != len(scored):
-            report("all draws", *confusion(scored, lab, ver))
+            report("all draws", *confusion(scored, lab, ver, kinds))
         base = sum(lab[i] for i in uniq)
         print("    hand-label base rate in the scored set: %d/%d (%.1f%%)"
               % (base, len(uniq), 100.0 * base / len(uniq)))
         # Does the detector beat "call everything restating"?
         print("    a detector that always said true would read precision %.1f%%, recall 100.0%%"
               % (100.0 * base / len(uniq)))
+        if kinds or any("kind" in v for v in ver.values()):
+            tally = {}
+            for i in uniq:
+                tally[ver[i].get("kind", "")] = tally.get(ver[i].get("kind", ""), 0) + 1
+            print("    kinds: %s" % ", ".join(
+                "%s %d" % (k or "clean", n) for k, n in sorted(tally.items())))
         pooled = [a + b for a, b in zip(pooled, c)]
         cost = sum(v.get("usage", {}).get("total_cost_usd", 0)
                    for k, v in ver.items() if k in scored)

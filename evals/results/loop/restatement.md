@@ -2,6 +2,14 @@
 
 **Status: parked. Detector v1 measured at 55.3% precision out of sample, which is not good enough, and the ceiling after fixing its dominant error class is about 72%. Picked up again, if at all, under [#155].**
 
+**[#155]'s direction B was piloted and failed** — see
+[`deletability.md`](deletability.md). Asking "could this passage be deleted with
+no claim lost?" instead of "does this restate?" reads 51.2% precision on batch 2
+against v1's 55.3%, fires on 70% of responses, and admits the lead-ins this
+criterion deliberately excludes. One piece of it is worth importing into
+direction A: defining the deletion unit as one complete sentence or more cleared
+8 of the 14 mixed-closing false positives on its own.
+
 Round 29 rejected [#150]'s rules edit and, more usefully, established that
 `output_tokens` cannot answer [#150] at all. The scoped floor computed from that
 round's own control is 298 tokens on a 1684-token median — a **17.7% bar** —

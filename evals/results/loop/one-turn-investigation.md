@@ -327,6 +327,17 @@ so there is no measured association and this is not a claim of causation. But
 batch bound above should be read as bounding their combination rather than
 either alone.
 
+**Resolved 2026-08-28, in favour of batch.** [`concurrency-audit.md`](concurrency-audit.md)
+tests the regime on both sides of the contrast at byte-identical rules and finds
+it moves them in opposite directions: concurrent batches read 56.2% against
+sequential 37.7% on the licence side (Fisher p = 0.0102) and 15.8% against 40.0%
+on the master side (p = 0.0058). One mechanism cannot do both, so the regime is a
+passenger on the overdispersion measured here rather than its cause. On
+`output_tokens` it does nothing at all: sequential-to-6-way and
+sequential-to-sequential shifts are both about 5% per cell. The phi values above
+stand, and they still bound batch and regime together, but nothing now suggests
+the regime is the larger part.
+
 **`round-21.json` is a strict subset of `round-21-n10.json`.** All 40 shared
 laconic sonnet design cells have byte-identical `text`. They are one experiment
 at two sample sizes and must never be treated as two measurements.

@@ -219,6 +219,20 @@ with 320.
 
 [#133]: https://github.com/JordanMPDS/laconic/issues/133
 
+**If you shard a round across processes, declare it.** One `run.py` is
+sequential, so a merged snapshot from five of them describes a regime no single
+process could produce, and until [#120] nothing in the file recorded it - ten
+committed snapshots had to have it reconstructed from timestamps. Sharding is
+still the right call for a 440-run pass; pass `--concurrency N` to every
+process, which stamps `metadata.concurrency_declared`, and each pass warns if
+its own timestamps reconstruct to more invocations than it declared. Check the
+whole archive with `python3 evals/bench/concurrency.py`. What the regime does to
+a measurement is bounded in `evals/results/loop/concurrency-audit.md`: nothing
+detectable on `output_tokens`, and the one-turn rate moves in opposite
+directions on the two sides of the contrast, so it is batch rather than regime.
+
+[#120]: https://github.com/JordanMPDS/laconic/issues/120
+
 `run.py` loops arms innermost, so a single invocation already interleaves them.
 Two rules revisions cannot share one invocation — `rules_cksum` is resolved once
 at startup — so when the round compares master against an edit, run each side

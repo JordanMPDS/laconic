@@ -3851,7 +3851,7 @@ done
 n=$(( $(cat "$CFILE" 2>/dev/null || echo 0) + 1 ))
 echo "$n" > "$CFILE"
 if [ "${OK_ALL:-0}" = "1" ] || [ "$n" = "$OK_CALL" ]; then
-  echo '{"type":"result","is_error":false,"result":"an answer","num_turns":1,"usage":{"output_tokens":5}}'
+  echo '{"type":"result","is_error":false,"result":"an answer","num_turns":1,"duration_ms":40,"usage":{"output_tokens":5}}'
   exit 0
 fi
 exit 3
@@ -4121,6 +4121,173 @@ with tempfile.TemporaryDirectory() as td_multi:
           _snap_multi["metadata"]["cases_cksum"]
           == bench_run.cases_cksum(ROOT / "evals" / "cases",
                                    ["design-cache", "design-upload"]))
+
+
+# --- #120: a snapshot records how many CLI invocations produced it ----------
+#
+# run.py is sequential, so a reader would reasonably assume one call at a time.
+# Rounds 16 to 20 were generated one case per process at 5-way concurrency and
+# the shard files merged, and nothing in the merged file said so - it had to be
+# reconstructed from `generated_at` minus `duration_ms` years later. The sweep
+# below is that reconstruction, now a checker; the `generator` stamp is what
+# makes it unnecessary next time.
+import concurrency as bench_conc  # noqa: E402
+
+
+def _w(day, arm, at, dur_s):
+    return {"arm": arm, "case": "c", "model": "haiku", "rep": 0,
+            "generated_at": "%sT%s" % (day, at), "duration_ms": dur_s * 1000}
+
+
+_seq = [_w("2026-08-20", "laconic", "10:00:10Z", 10),
+        _w("2026-08-20", "laconic", "10:00:20Z", 10),
+        _w("2026-08-20", "laconic", "10:00:30Z", 10)]
+check("three back-to-back calls sweep to one in flight",
+      bench_conc.max_in_flight(bench_conc.windows(_seq)) == 1)
+check("and a call ending exactly when the next begins is still sequential",
+      bench_conc.snapshot_max_in_flight(_seq) == 1)
+
+_over = _seq + [_w("2026-08-20", "laconic", "10:00:25Z", 20)]
+check("a fourth call spanning two of them reads as two in flight",
+      bench_conc.snapshot_max_in_flight(_over) == 2)
+
+# One process cannot overlap itself, and `generated_at` has one-second
+# resolution, so eight fast calls inside one second must not read as eight
+# processes. The stamp is what tells them apart.
+_same_second = [dict(_w("2026-08-20", "laconic", "10:00:10Z", 0.04),
+                     generator="A", rep=i) for i in range(8)]
+check("one invocation's calls inside a single second are one source",
+      bench_conc.snapshot_max_in_flight(_same_second) == 1)
+check("two invocations in that same second are two",
+      bench_conc.snapshot_max_in_flight(
+          _same_second + [dict(_same_second[0], generator="B", rep=99)]) == 2)
+
+check("an empty snapshot sweeps to zero rather than raising",
+      bench_conc.snapshot_max_in_flight([]) == 0)
+check("a failed run, which records no duration, cannot evidence overlap",
+      bench_conc.windows([_w("2026-08-20", "laconic", "10:00:10Z", 0)]) == [])
+
+# Grouping is what keeps a carried arm from inventing overlap: these two runs
+# sit on top of each other in wall-clock and belong to different batches.
+_split = [_w("2026-08-20", "laconic", "10:00:20Z", 30),
+          _w("2026-08-20", "baseline", "10:00:20Z", 30)]
+check("two arms overlapping in wall-clock are not two invocations of one arm",
+      bench_conc.snapshot_max_in_flight(_split) == 1)
+_days = [_w("2026-08-20", "laconic", "10:00:20Z", 30),
+         _w("2026-08-21", "laconic", "10:00:20Z", 30)]
+check("nor are the same arm's runs on two different days",
+      bench_conc.snapshot_max_in_flight(_days) == 1)
+
+# An arm can be carried and extended in the same file - baseline-arm-n10.json
+# carries 30 baseline runs and then generates 190 more into the same arm - so
+# carried runs are matched by cell key against the named source, not by arm.
+with tempfile.TemporaryDirectory() as td_carry:
+    _src = Path(td_carry) / "source.json"
+    _src.write_text(json.dumps({"metadata": {}, "arms": {}, "runs": _over[:3]}))
+    _carried = {"metadata": {"carried_arms_from":
+                             {"path": str(_src), "arms": ["laconic"]}},
+                "arms": {}, "runs": _over}
+    _keys = bench_conc.carried_runs(_carried)
+    check("the runs the source already held are identified as carried",
+          len(_keys) == 3)
+    check("an arm-day mixing carried and fresh runs is still checked",
+          bench_conc.snapshot_max_in_flight(_over, _keys) == 2)
+    _all_carried = {"metadata": {"carried_arms_from":
+                                 {"path": str(_src), "arms": ["laconic"]}},
+                    "arms": {}, "runs": _over[:3]}
+    check("an entirely carried arm-day is charged to the snapshot that made it",
+          bench_conc.snapshot_max_in_flight(
+              _over[:3], bench_conc.carried_runs(_all_carried)) == 0)
+    _missing = {"metadata": {"carried_arms_from": {"path": str(Path(td_carry) / "gone.json")}},
+                "arms": {}, "runs": _over}
+    check("an unreadable carry source excuses nothing",
+          bench_conc.carried_runs(_missing) == set())
+
+# The known-affected set, pinned. These ten snapshots are the finding of #120;
+# a fix that stopped reproducing them would mean the sweep had drifted, and a
+# new name appearing here means a round was generated concurrently and the
+# audit needs re-reading.
+_expected_concurrent = {
+    "baseline-arm-n10.json", "design-discrimination.json",
+    "quality-rates-design.json", "round-01-n10-v4.json", "round-16.json",
+    "round-17.json", "round-18.json", "round-18-arbitration.json",
+    "round-19.json", "round-20.json",
+}
+_found = set()
+for _p in sorted((ROOT / "evals" / "snapshots").rglob("*.json")):
+    try:
+        _s = json.loads(_p.read_text())
+    except ValueError:
+        continue
+    if not isinstance(_s, dict) or not isinstance(_s.get("runs"), list):
+        continue
+    if bench_conc.snapshot_max_in_flight(
+            _s["runs"], bench_conc.carried_runs(_s)) > 1:
+        _found.add(_p.name)
+    # Self-maintaining guard for every round generated from now on: a snapshot
+    # that carries the stamp must not exceed what it declares. Historical files
+    # have no stamp and are covered by the pinned set above.
+    _meta = _s.get("metadata") or {}
+    if "max_runs_in_flight" in _meta:
+        check("%s does not exceed its declared concurrency" % _p.name,
+              _meta["max_runs_in_flight"] <= bench_conc.declared(_s))
+check("the sweep still finds exactly the snapshots #120 identified",
+      _found == _expected_concurrent)
+
+check("a report discloses a concurrent round's regime",
+      bench_report.run_regime(
+          {"metadata": {}, "runs": _over}).startswith("2 CLI invocations"))
+check("and says sequential when it was",
+      bench_report.run_regime({"metadata": {}, "runs": _seq}) == "sequential")
+check("a declared regime is not reported as a mismatch",
+      bench_report.run_regime(
+          {"metadata": {"concurrency_declared": 2}, "runs": _over})
+      == "2 CLI invocations in flight (declared)")
+
+with tempfile.TemporaryDirectory() as td_gen:
+    _r_gen = _run_py(td_gen, OK_ALL="1")
+    _snap_gen = json.loads((Path(td_gen) / "gen.json").read_text())
+    _gens = {r.get("generator") for r in _snap_gen["runs"]}
+    check("every run records which invocation produced it",
+          len(_snap_gen["runs"]) == 8 and None not in _gens)
+    check("and one invocation stamps one id",
+          len(_gens) == 1)
+    check("a sequential pass declares and reconstructs to one",
+          _snap_gen["metadata"]["concurrency_declared"] == 1
+          and _snap_gen["metadata"]["max_runs_in_flight"] == 1)
+    check("so it prints no undeclared-concurrency warning",
+          "warning: this snapshot's timestamps" not in _r_gen.stdout)
+
+with tempfile.TemporaryDirectory() as td_conc:
+    _run_py(td_conc, "--concurrency", "5", OK_ALL="1")
+    _snap_conc = json.loads((Path(td_conc) / "gen.json").read_text())
+    check("--concurrency records the regime the operator chose",
+          _snap_conc["metadata"]["concurrency_declared"] == 5)
+    # A resume is a second pass over one file, and the default must not relabel
+    # a 5-way round sequential just because the resume ran alone.
+    _run_py(td_conc, OK_ALL="1")
+    _snap_conc = json.loads((Path(td_conc) / "gen.json").read_text())
+    check("and a resume keeps the widest declaration the file has carried",
+          _snap_conc["metadata"]["concurrency_declared"] == 5)
+    # A file written before #120 has neither key. Resuming it must stamp both
+    # rather than reading a key that is not there.
+    _pre = json.loads((Path(td_conc) / "gen.json").read_text())
+    for _k in ("concurrency_declared", "max_runs_in_flight"):
+        _pre["metadata"].pop(_k)
+    for _r in _pre["runs"]:
+        _r.pop("generator", None)
+    (Path(td_conc) / "gen.json").write_text(json.dumps(_pre))
+    _r_pre = _run_py(td_conc, OK_ALL="1")
+    _snap_pre = json.loads((Path(td_conc) / "gen.json").read_text())
+    check("resuming a snapshot written before #120 stamps it rather than failing",
+          _r_pre.returncode == 0
+          and _snap_pre["metadata"]["concurrency_declared"] == 1
+          and _snap_pre["metadata"]["max_runs_in_flight"] >= 1)
+
+    _bad = _run_py(td_conc, "--concurrency", "0", OK_ALL="1")
+    check("a concurrency below one is refused",
+          _bad.returncode != 0 and "--concurrency must be at least 1" in _bad.stderr)
+
 
 
 print("\n%d failure(s)" % fails)

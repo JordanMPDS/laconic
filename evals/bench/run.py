@@ -18,9 +18,24 @@ import zlib
 from datetime import datetime, timezone
 from pathlib import Path
 
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+import concurrency  # noqa: E402
+
 ROOT = Path(__file__).resolve().parents[2]
 CASES = ROOT / "evals" / "cases"
 SNAPSHOT = ROOT / "evals" / "snapshots" / "results.json"
+
+# Identifies this invocation, stamped onto every run it writes (#120). Rounds
+# 16 and 17 were generated one case per process at 5-way concurrency and the
+# shard files were merged, so the merged snapshot describes a regime no single
+# process could produce - and nothing in it said so, leaving the fact to be
+# reconstructed from timestamps years later. Two ids inside one arm and day is
+# two processes, stated rather than inferred. Per-run rather than per-snapshot
+# for the same reason claude_cli_version is (#80): a snapshot-level stamp is
+# written once at creation and is then inherited by every later pass that
+# appends to the file, including passes a different process made.
+GENERATOR = "%s-%d" % (
+    datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ"), os.getpid())
 
 WORD_COMPRESSION = (
     "Answer concisely. Drop articles and filler words, abbreviate common "
@@ -238,7 +253,7 @@ def _now():
 
 
 def new_snapshot(reps, models, level, rules_cksum, arms, claude_bin="claude",
-                 cases_ck=None, cases_dir=None):
+                 cases_ck=None, cases_dir=None, concurrency_declared=1):
     arms_dict = {}
     for k, v in arms.items():
         entry = {"system_prompt": v}
@@ -255,7 +270,9 @@ def new_snapshot(reps, models, level, rules_cksum, arms, claude_bin="claude",
             "git_dirty": _git_dirty(),
             "cases_cksum": cases_ck,
             "cases_dir": cases_dir,
+            "concurrency_declared": concurrency_declared,
             "laconic_level": level,
+            "max_runs_in_flight": 0,
             "rules_cksum": rules_cksum,
             "reps": reps,
             "models": models,
@@ -430,6 +447,18 @@ def main():
                          "see #69 before using it")
     ap.add_argument("--carry-arms-from",
                     help="snapshot to copy the arms this run is not regenerating from")
+    ap.add_argument("--concurrency", type=int, default=1,
+                    help="how many run.py processes are being launched over this "
+                         "round, including this one. Purely a declaration - one "
+                         "invocation is sequential either way - and it is recorded "
+                         "as metadata.concurrency_declared so a snapshot says how "
+                         "it was produced instead of leaving it to be "
+                         "reconstructed from timestamps (#120). Concurrency is "
+                         "allowed: it is roughly 4x faster and each process owns "
+                         "its own shard file, so nothing races on a write. What is "
+                         "not allowed is an undeclared one, because a concurrent "
+                         "snapshot and a sequential one then get compared with "
+                         "nothing recording the difference")
     ap.add_argument("--max-consecutive-failures", type=int, default=8,
                     help="stop the pass after this many failed cells in a row; "
                          "0 disables it. A usage limit or an outage fails every "
@@ -439,6 +468,9 @@ def main():
                          "re-running the same command regenerates exactly the "
                          "keys this stop left behind")
     args = ap.parse_args()
+
+    if args.concurrency < 1:
+        sys.exit("--concurrency must be at least 1")
 
     claude_bin = require_claude_bin(args.claude_bin)
 
@@ -474,7 +506,8 @@ def main():
     snap = load_snapshot(args.snapshot)
     if snap is None:
         snap = new_snapshot(args.reps, models, args.level, cksum, arms, claude_bin,
-                            cases_ck=case_ck, cases_dir=str(cases_dir))
+                            cases_ck=case_ck, cases_dir=str(cases_dir),
+                            concurrency_declared=args.concurrency)
         if args.carry_arms_from:
             source = load_snapshot(args.carry_arms_from)
             if source is None:
@@ -512,6 +545,17 @@ def main():
                   "(%s vs %s), continuing because --allow-case-change was given"
                   % (stored, case_ck))
             snap["metadata"]["cases_cksum_overridden"] = [stored, case_ck]
+    # A declaration describes the file, not the invocation, so a resume records
+    # the widest regime any pass over this snapshot ran under. Resuming a 5-way
+    # round with the default would otherwise relabel it sequential.
+    meta = snap["metadata"]
+    meta["concurrency_declared"] = max(meta.get("concurrency_declared") or 1,
+                                       args.concurrency)
+    # Resolved once: carry_arms has already run by here, so the carried set
+    # cannot change during the pass, and reading the carry source on each of
+    # 440 writes would re-parse a multi-megabyte snapshot every time.
+    carried = concurrency.carried_runs(snap)
+
     # Collapse duplicates a pre-#61 resume appended, so a file written by the
     # old code repairs itself the first time it is touched.
     dropped = len(snap["runs"]) - len(dedupe(snap["runs"]))
@@ -580,7 +624,8 @@ def main():
                         shutil.rmtree(scratch, ignore_errors=True)
                     res.update({"case": case, "arm": arm, "model": model, "rep": rep,
                                 "generated_at": _now(),
-                                "claude_cli_version": cli_version})
+                                "claude_cli_version": cli_version,
+                                "generator": GENERATOR})
                     # Replace the failed record for this cell rather than
                     # appending beside it (#61): a resume is a second attempt
                     # at one cell, not a second cell.
@@ -590,6 +635,11 @@ def main():
                     else:
                         at[key] = len(snap["runs"])
                         snap["runs"].append(res)
+                    # Recomputed rather than counted, so the number survives a
+                    # merge of shard files this process never saw. Cheap: one
+                    # sort of a few hundred intervals per write.
+                    meta["max_runs_in_flight"] = (
+                        concurrency.snapshot_max_in_flight(snap["runs"], carried))
                     save_snapshot(args.snapshot, snap)
                     print("[%d/%d] %-14s %-16s %-7s rep%d %s"
                           % (n, total, case, arm, model, rep,
@@ -608,8 +658,27 @@ def main():
                             "--max-consecutive-failures 0 to grind through it "
                             "anyway." % (streak, case, arm, model, rep))
 
+    # A resume that finds every cell done never enters the loop's save, and the
+    # declaration it was given would be lost with it. Recomputing here also
+    # gives a snapshot written before #120 the stamp the first time it is
+    # touched, instead of leaving the key absent.
+    meta["max_runs_in_flight"] = concurrency.snapshot_max_in_flight(
+        snap["runs"], carried)
+    save_snapshot(args.snapshot, snap)
+
     bad = len([r for r in snap["runs"] if not r.get("ok")])
     print("\nwrote %s (%d runs, %d failed)" % (args.snapshot, len(snap["runs"]), bad))
+
+    # Said here rather than left for evals/bench/concurrency.py to find months
+    # later. The reconstruction is a floor - a retried cell records only the
+    # second attempt's duration - so an excess is real even when it is small.
+    flight = meta["max_runs_in_flight"]
+    if flight > meta["concurrency_declared"]:
+        print("warning: this snapshot's timestamps reconstruct to %d CLI "
+              "invocation(s) in flight at once, against a declared %d. If the "
+              "round was generated in parallel shards, pass --concurrency %d so "
+              "the file records it (#120)."
+              % (flight, meta["concurrency_declared"], flight))
 
 
 if __name__ == "__main__":

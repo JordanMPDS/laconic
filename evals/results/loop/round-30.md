@@ -43,6 +43,17 @@ that closing that reading is a different mechanism from naming another position.
 One clause, appended to the existing `Right:` line. No new bullet, no new
 section, nothing added to the enumeration.
 
+```diff
+ - Right: Rotate the key, wait out the old TTL, then remove it. Use a numbered
+-  list instead when the user will follow the steps one at a time.
++  list instead when the user will follow the steps one at a time, and write each
++  step as a sentence — a bullet is prose, so moving a chain into one relocates
++  the arrow rather than removing it.
+```
+
+Generated at `rules_cksum` 3191525351. The edit is reverted and exists nowhere
+in the repository; this block is the record of it.
+
 ## Target, scope and depth, all registered here
 
 - **Target:** `violations_total`, `--target-cases walkthrough`, both models.

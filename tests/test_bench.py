@@ -4203,6 +4203,30 @@ with tempfile.TemporaryDirectory() as td_carry:
     check("an unreadable carry source excuses nothing",
           bench_conc.carried_runs(_missing) == set())
 
+# round-24.json records its carry source as an absolute path from the machine
+# that generated it, so on any other checkout the source does not exist and the
+# file reads as uncarried - which is exactly the difference between what CI sees
+# and what the author sees. Every recorded source must resolve here.
+check("an absolute source path from another machine is re-rooted onto this checkout",
+      bench_conc._resolve_source(
+          "/not/this/machine/evals/snapshots/loop/round-21.json")
+      == ROOT / "evals" / "snapshots" / "loop" / "round-21.json")
+check("and a path that names no snapshot still resolves to nothing",
+      bench_conc._resolve_source("/not/this/machine/evals/snapshots/nope.json")
+      is None)
+_unresolved = []
+for _p in sorted((ROOT / "evals" / "snapshots").rglob("*.json")):
+    try:
+        _s = json.loads(_p.read_text())
+    except ValueError:
+        continue
+    _src = ((_s.get("metadata") or {}).get("carried_arms_from") or {}).get("path")
+    if _src and bench_conc._resolve_source(_src) is None:
+        _unresolved.append("%s -> %s" % (_p.name, _src))
+check("every carry source in the archive resolves in a fresh checkout%s"
+      % ("" if not _unresolved else " (%s)" % "; ".join(_unresolved)),
+      not _unresolved)
+
 # The known-affected set, pinned. These ten snapshots are the finding of #120;
 # a fix that stopped reproducing them would mean the sweep had drifted, and a
 # new name appearing here means a round was generated concurrently and the

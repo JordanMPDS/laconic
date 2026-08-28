@@ -137,22 +137,43 @@ def carried_runs(snap, root=ROOT):
     arm-level rule hides the 08-14 batch, which is the one running six
     invocations at once.
 
-    An unreadable or absent source yields the empty set, so a run is charged to
-    the snapshot holding it rather than quietly excused.
+    One snapshot records the source as an absolute path from the machine that
+    generated it, so the path is re-rooted onto this checkout when it does not
+    resolve. Without that the file reads as uncarried in every clone but the
+    maintainer's, which is a difference between what CI sees and what the
+    author sees.
+
+    An unresolvable source yields the empty set, so a run is charged to the
+    snapshot holding it rather than quietly excused.
     """
     c = (snap.get("metadata") or {}).get("carried_arms_from") or {}
     path = c.get("path")
     if not path:
         return set()
-    src = Path(path)
-    if not src.is_absolute():
-        src = Path(root) / path
+    src = _resolve_source(path, root)
+    if src is None:
+        return set()
     try:
         source = json.loads(src.read_text())
     except (OSError, ValueError):
         return set()
     return {_cell(r) for r in source.get("runs", [])
             if isinstance(r, dict)}
+
+
+def _resolve_source(path, root=ROOT):
+    """The carry source as it exists in this checkout, or None."""
+    src = Path(path)
+    if not src.is_absolute():
+        src = Path(root) / path
+    if src.is_file():
+        return src
+    parts = Path(path).parts
+    if "evals" in parts:
+        src = Path(root).joinpath(*parts[parts.index("evals"):])
+        if src.is_file():
+            return src
+    return None
 
 
 def _cell(run):

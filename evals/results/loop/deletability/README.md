@@ -1,5 +1,9 @@
 # `deletable`: piloting [#155]'s direction B
 
+**Outcome: all four predictions below failed and B does not advance.** The
+report is [`../deletability.md`](../deletability.md). Nothing in this file was
+edited after the verdicts were read — a registration that moves is not one.
+
 **Registration. Committed before a single verdict was read.** Everything below —
 the predictions, the bar, and what the pilot is not allowed to claim — is fixed
 in advance, because the criterion it tests was written after reading both

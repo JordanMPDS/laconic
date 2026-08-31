@@ -190,12 +190,24 @@ ships the no-arrows rule is breaking it, most heavily on the design cases
 response).
 
 Every figure is a `full`-level figure over all 22 cases, from
-`evals/snapshots/loop/round-21.json` at `rules_cksum` 1830906901, the rules this
-repository ships. The three control arms were generated eleven days before the
-two new ones and on an older CLI, so read the comparison against baseline with
-that confound in mind; laconic against `concise-style` is the clean one.
-Per-case tables, cost, and what each number does and does not support are in
+`evals/snapshots/loop/round-21.json` at `rules_cksum` 1830906901. The three
+control arms were generated eleven days before the two new ones and on an older
+CLI, so read the comparison against baseline with that confound in mind;
+laconic against `concise-style` is the clean one. Per-case tables, cost, and
+what each number does and does not support are in
 [`docs/benchmark.md`](docs/benchmark.md).
+
+**That is no longer the revision this repository ships, and the gap runs in
+laconic's favour.** Master is at `rules_cksum` 136269960 for `full`, two
+accepted edits later — the design-question licence from rounds 24 and 26, and
+round 28's asking-permission edit. No round-wide 22-case benchmark has been
+generated at that revision, so the table above is the most recent complete one
+and it is stale rather than wrong. The column that has been re-measured across
+the gap is readability, and it moved a long way: on `walkthrough`, chains fell
+from 125.4 per 100 responses to 37.5 and mappings from 61.7 to 35.0, and on the
+design cases arrows fell roughly fivefold. Read the 66 as a ceiling on the
+shipped rules rather than a description of them —
+[`arrows-scope-36.md`](evals/results/loop/arrows-scope-36.md).
 
 **These numbers do not say a reader prefers the result.** A blind judge asked
 exactly that, over 130 comparisons of an archived arm, did not prefer laconic to

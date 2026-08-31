@@ -81,6 +81,31 @@ done.
 three graded `rule-adherence`. The default grades only the cells a fatal counter
 can read, which is what a loop round wants and 35 fewer calls at n=5.
 
+**Sharding the pass across processes is allowed, and must be declared.** One
+`run.py` is sequential, so a snapshot merged from five of them describes a
+regime no single process could produce. Running several is roughly 4x faster
+and each process owns its own shard file, but every one of them needs
+`--concurrency N`, where N is how many processes are being launched over the
+round including this one. That stamps `metadata.concurrency_declared`, and each
+pass warns when its own timestamps reconstruct to more invocations than it
+declared. `--concurrency` defaults to 1, which is correct for the single
+sequential command above and needs no flag.
+
+Audit the whole archive at any time — it reads committed snapshots and calls
+nothing:
+
+```bash
+python3 evals/bench/concurrency.py   # exits non-zero on an undeclared snapshot
+```
+
+**It exits 1 on the archive as it stands**, because snapshots generated before
+the flag existed have their regime reconstructed from timestamps rather than
+declared. Those are documented in
+[`evals/results/loop/concurrency-audit.md`](../evals/results/loop/concurrency-audit.md),
+which also bounds what the regime does to a measurement: nothing detectable on
+`output_tokens`. Read the command as a diff against that known set — a snapshot
+you generated appearing in the list is the signal, not the exit code alone.
+
 ## Improving the rules
 
 `.claude/skills/laconic-loop/SKILL.md` holds the procedure: benchmark, review
@@ -120,8 +145,10 @@ over those cells alone, with the round-wide number printed beside it. The fatal
 conditions stay round-wide, so an edit that fixes the cases it aimed at while
 breaking another still rejects.
 
-`evals/holdout/` holds four cases the loop never sees, scored once before a
-rule change ships. Reach them with `--cases-dir evals/holdout`, which `run.py`,
+`evals/holdout/` holds six cases the loop never sees, scored once before a
+rule change ships: two never-cut items, a requested explanation, a short
+question whose correct answer is brief, a bare design question and an
+evaluative one. Reach them with `--cases-dir evals/holdout`, which `run.py`,
 `judge.py`, `report.py` and `review.py` all accept. Their numbers never enter a
 published table.
 

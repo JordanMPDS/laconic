@@ -8,7 +8,17 @@ criteria.
 
 Snapshot: `evals/snapshots/loop/round-21.json`, judged into
 `evals/snapshots/loop/round-21-judgments.json`. The laconic arm is `rules_cksum`
-1830906901, the rules this repository ships.
+1830906901.
+
+**1830906901 is no longer the revision this repository ships.** Master is at
+136269960 for `full`, two accepted edits later: the design-question licence
+from rounds 24 and 26, and round 28's asking-permission edit. This is still the
+most recent round-wide 22-case benchmark — none has been generated at
+136269960 — so every figure on this page describes 1830906901 and should be
+read as dated rather than as current. Where the two revisions have been put on
+one instrument the shipped rules win: arrow rates fell by roughly two thirds
+overall, and on `walkthrough` chains fell 125.4 per 100 responses to 37.5. See
+[`arrows-scope-36.md`](../evals/results/loop/arrows-scope-36.md).
 
 **This table covers all 22 cases.** Earlier publications of this page measured
 only the eleven original ones and said they would refresh at the next full
@@ -481,7 +491,8 @@ benchmark is read. The figures in them are not the figures above.
 ### The 2026-08-04 regeneration
 
 The laconic arm in that superseded table was generated on 2026-08-03 under
-`rules_cksum` 1830906901, still the rules this repository ships. Before it, the
+`rules_cksum` 1830906901 — the same revision as the current table above, and
+two accepted edits behind what ships today. Before it, the
 published table scored text generated on 2026-07-30, under rules two revisions
 old — so the readability gate was judging prose that no rule change could reach.
 Regenerating fixed that and nothing else about the gate: it still exits 1, on the
@@ -558,9 +569,11 @@ the left: [`evals/results/loop/round-01.md`](../evals/results/loop/round-01.md).
 A numeric progression like `7 -> 11 -> 14` is still exempt. It quotes a series
 rather than standing in for a conjunction.
 
-**This is a `full`-level result.** The three-level snapshots checksum to the
-rules this repository ships today (`lite` 1146585023, `full` 1830906901, `ultra`
-823082683), so that run did not go stale with this regeneration. Across it,
+**This is a `full`-level result.** The three-level snapshots checksum to
+`lite` 1146585023, `full` 1830906901 and `ultra` 823082683. Of those only
+`lite` is still what ships: master is at `full` 136269960 and `ultra`
+97814819, because both accepted edits since landed in the `Level: full`
+section, which the `lite` slice does not carry. Across it,
 laconic's arrow violations are 25 at `lite`, 23 at `full` and 16 at `ultra` —
 no level is clean, and the gap between levels is smaller than the earlier
 "12 at `lite` against 0 at `full`" suggested. See

@@ -103,6 +103,45 @@ generated as a **simultaneous** two-tree comparison rather than a sequential one
 That design is the round's reusable part: it costs nothing extra, halves wall
 time, and removes the era confound round 37 found in the sequential version.
 
-180 generations, 0 failed, no judging — the metric is syntactic.
+180 generations, 0 failed. The target needed no judging, but the control side was
+judged afterwards for the reason below.
+
+## What the control side says about drift, and it is reassuring
+
+Round 37 left a hedge the skill still carries: one syntactic behaviour moved 4.7x
+in five days at byte-identical rules and another did not, with nothing to say in
+advance which would be which. The counters a gate actually reads are *judged*,
+and that case was untested.
+
+This round's control makes the test available. `round-30-control.json` is 80
+`walkthrough` runs from 2026-08-28 at `rules_cksum` 136269960, judged **80 of
+80**. This round's control is 30 `walkthrough` runs from 2026-09-01 at the same
+checksum. `evals/cases/walkthrough/` has not been touched since 2026-08-27, so
+the criterion is identical — today's `criteria_cksum` differs only because
+eighteen *other* `expect.json` files changed in between.
+
+| | 2026-08-28 | 2026-09-01 |
+|---|--:|--:|
+| `walkthrough` judged quality | 80/80 — **100%** | 30/30 — **100%** |
+| `walkthrough` preamble openings (syntactic) | 31/80 — **38.8%** | 4/40 — **10.0%** |
+
+**On the same case, across the same four days, at byte-identical rules, a
+syntactic style metric moved about 4x while judged correctness did not move at
+all.**
+
+That is the sharpest statement this archive can currently make about what drifts.
+Style drifted; correctness held. The fatal counters read correctness, so they are
+less exposed than round 37 alone implied.
+
+**Read with the ceiling in mind.** Both quality readings are 100%, and a cell
+drawn at ceiling can only fall — per [#94] this detects a fall and not a rise, so
+it is evidence of no *degradation* rather than evidence of stability in both
+directions. It is one case. It does not license carrying a baseline across eras;
+it narrows what the risk of doing so appears to be.
+
+Judged with `--judge-all`, 90 calls: `walkthrough` 30/30, `ordered-steps` 26/30,
+`destructive` 22/30.
+
+[#94]: https://github.com/JordanMPDS/laconic/issues/94
 
 [#164]: https://github.com/JordanMPDS/laconic/issues/164

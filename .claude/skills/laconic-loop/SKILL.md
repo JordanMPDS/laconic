@@ -236,9 +236,37 @@ directions on the two sides of the contrast, so it is batch rather than regime.
 `run.py` loops arms innermost, so a single invocation already interleaves them.
 Two rules revisions cannot share one invocation — `rules_cksum` is resolved once
 at startup — so when the round compares master against an edit, run each side
-from its own tree and alternate one rep at a time, which is what
-`interleaved-batch.md` records and what resolved a contrast at 40 runs a side
-that the archive could not resolve at any n.
+from its own tree, which is what `interleaved-batch.md` records and what resolved
+a contrast at 40 runs a side that the archive could not resolve at any n.
+
+**Run the two sides simultaneously, not one after the other.** Rounds 30, 31 and
+29 ran their control and edit passes sequentially, which puts hours between the
+two halves of the comparison. Round 37 then measured a *syntactic* behaviour
+moving **4.7x in five days** at byte-identical rules
+([`round-37.md`](../../../evals/results/loop/round-37.md)), so a sequential
+window is exactly the exposure to avoid.
+
+Round 38 is the first round run the other way and the pattern is cheap to copy:
+
+```bash
+git worktree add /tmp/laconic-control master
+# edit side, from the branch:
+python3 evals/bench/run.py --arms laconic --models sonnet --reps 30 \
+  --cases '<scope>' --concurrency 2 \
+  --snapshot evals/snapshots/loop/round-$N-edit.json &
+# control side, from the worktree, writing back to the main tree:
+cd /tmp/laconic-control && python3 evals/bench/run.py --arms laconic \
+  --models sonnet --reps 30 --cases '<scope>' --concurrency 2 \
+  --snapshot <abs path>/evals/snapshots/loop/round-$N-control.json &
+```
+
+Declare `--concurrency 2` on **both**, because two CLI invocations really are in
+flight. Each snapshot still reconstructs to one generator of its own, so the
+[#120] audit is satisfied and the declaration is conservative rather than false.
+Round 38's two sides tracked within two runs of each other for 90 runs a side.
+
+It costs nothing extra, halves wall time, and makes era and regime cancel between
+the sides instead of confounding them.
 
 **Carrying is still correct for the round-wide fatal counters**, which compare
 the laconic arm of two rounds and read no control at all. What it is not correct
@@ -321,6 +349,22 @@ regenerates its controls must judge them, because there is nothing to carry.
 That warning is the rule below restated by the tool, and it is not decoration:
 **if any case criterion has changed since the source was written, do not
 carry — re-judge.**
+
+**A `Wrong:`/`Right:` edit pre-registers the cells that carry the demonstrated
+form**, whether or not the hypothesis names them. That is [#164] item 2, and it
+exists because round 31's propagation into `destructive`/sonnet was found only
+because the safety screen happened to cover that cell — the hypothesis was about
+`walkthrough`.
+
+Half of such a pair is a rendered instance of the form it prohibits, so the file
+gains a specimen of the thing it bans. Round 38 tested whether that specimen is
+the carrier by replacing both rendered arrow examples with prose, and **it is
+not**: arrows did not fall (control 36, edit 62, p = 0.341) and the point estimate
+moved the wrong way. What survives both rounds is the narrower reading that the
+*recency of a newly added example* matters rather than the standing presence of
+one — untested, and the reason the pre-registration is worth keeping.
+
+[#164]: https://github.com/JordanMPDS/laconic/issues/164
 
 ## Step 4: review, no calls
 

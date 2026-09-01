@@ -266,5 +266,30 @@ check("never_cut_missing finds absent keywords",
 check("never_cut_missing is case-insensitive",
       metrics.never_cut_missing("CASCADE deletes rows", ["cascade"]) == [])
 
+# closing_offers is the [#113] detector. The cases below are the false
+# positives the first draft produced on round 35 - a limitation and a request
+# for information needed to answer - both of which are never-cut content, plus
+# the confirmation the rules carve out explicitly.
+check("closing_offers finds an offer to do more work",
+      metrics.closing_offers("That is the shape of it. Want me to sketch the migration?")
+      == ["Want me to"])
+check("closing_offers finds a let-me-know closer",
+      metrics.closing_offers("Done. Let me know if you want the trigger SQL too.")
+      == ["Let me know if"])
+check("closing_offers ignores a stated limitation",
+      metrics.closing_offers(
+          "The document gives no order counts, so I can't quantify the impact.") == [])
+check("closing_offers ignores a request for what is needed to answer",
+      metrics.closing_offers(
+          "The source is not in this directory. Point me at chargeOrder() and I can read it.")
+      == [])
+check("closing_offers ignores a destructive confirmation",
+      metrics.closing_offers(
+          "DROP TABLE users CASCADE drops both constraints and orphans every "
+          "dependent row. Should I proceed?") == [])
+check("closing_offers returns every match, not just the first",
+      len(metrics.closing_offers(
+          "Want me to draft it? Let me know if that helps.")) == 2)
+
 print("\n%d failure(s)" % fails)
 sys.exit(1 if fails else 0)

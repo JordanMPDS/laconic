@@ -89,6 +89,16 @@ arms do not separate.
 
 ## The one result worth following up
 
+> **Withdrawn 2026-09-01 by round 37.** A matched interleaved batch at 40 a side
+> reads baseline 17.5% against laconic 10.0%, p = 0.518 — laconic *lower*, not
+> higher, and not significant. The archive figure was not wrong about its own
+> data; it was wrong about now. At byte-identical rules the laconic rate fell
+> from 46.7% across August to 10.0% today, Fisher p = 1.0e-05, over five CLI
+> patch releases. See [`round-37.md`](round-37.md). The section below is left
+> standing because it is what prompted the round, and because its own caveat —
+> that a baseline cell of ten cannot settle it — was right.
+
+
 `walkthrough` alone, where the shape actually lives:
 
 | | preamble | rate |

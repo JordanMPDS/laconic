@@ -10,6 +10,7 @@ import argparse
 import fnmatch
 import json
 import os
+import re
 import shutil
 import subprocess
 import sys
@@ -111,7 +112,8 @@ def require_claude_bin(arg):
 def parse_cli_json(raw):
     blank = {"ok": False, "text": "", "output_tokens": 0, "input_tokens": 0,
              "cache_creation_input_tokens": 0, "cache_read_input_tokens": 0,
-             "total_cost_usd": 0.0, "duration_ms": 0, "num_turns": 0}
+             "total_cost_usd": 0.0, "duration_ms": 0, "num_turns": 0,
+             "session_id": None}
     try:
         d = json.loads(raw)
     except (ValueError, TypeError):
@@ -132,7 +134,60 @@ def parse_cli_json(raw):
         "total_cost_usd": d.get("total_cost_usd", 0.0),
         "duration_ms": d.get("duration_ms", 0),
         "num_turns": d.get("num_turns", 0),
+        # Lifted for #166: a second turn resumes this session by id. Also
+        # provenance - a record now says which CLI session produced it.
+        "session_id": d.get("session_id"),
     }
+
+
+# A case may ask more than one question in sequence. #136 and #60's drift half
+# both describe a failure that only exists across turns - the model defending a
+# claim it made itself - and a fixture read cold cannot construct that, because
+# a document is evidence to cite rather than a position to defend. Round 32
+# measured the single-turn approximation and it does not reproduce the shape.
+#
+# An HTML comment, so prompt.md still renders as prose on GitHub and the marker
+# is invisible in the rendered case. cases_cksum already hashes prompt.md whole,
+# so adding a delimiter to an existing case invalidates its resumes correctly
+# with no extra work.
+TURN_DELIMITER = re.compile(r"^[ \t]*<!--[ \t]*turn[ \t]*-->[ \t]*$", re.M)
+
+
+def split_turns(prompt):
+    """prompt.md as a list of turns. No delimiter is one turn, unchanged.
+
+    Empty segments are dropped rather than sent, so a trailing delimiter or a
+    doubled one is a formatting slip and not a wasted CLI call.
+    """
+    parts = [s.strip() for s in TURN_DELIMITER.split(prompt)]
+    return [s for s in parts if s] or [""]
+
+
+def merge_turns(records):
+    """One run record from a turn sequence.
+
+    Top-level fields describe the **graded** turn, which is the last one, so
+    judge.py, report.py and metrics.py all read the final answer without
+    knowing this function exists. `total_cost_usd` and `duration_ms` sum
+    instead, because those are resource accounting and undercounting them
+    would misreport what a round spent; the summed duration is also the right
+    window for concurrency.py, whose turns run back to back.
+
+    A one-turn sequence returns the record untouched - no `turns`, no
+    `turn_count` - so single-turn rounds stay byte-identical to every round
+    generated before #166 and no stored comparison shifts. Absence of the
+    field means one turn.
+    """
+    if not records or not all(r.get("ok") for r in records):
+        return {"ok": False}
+    merged = dict(records[-1])
+    if len(records) == 1:
+        return merged
+    merged["total_cost_usd"] = sum(r.get("total_cost_usd") or 0.0 for r in records)
+    merged["duration_ms"] = sum(r.get("duration_ms") or 0 for r in records)
+    merged["turn_count"] = len(records)
+    merged["turns"] = records
+    return merged
 
 
 def parse_cli_stream(raw):
@@ -180,6 +235,28 @@ def parse_cli_stream(raw):
                         and isinstance(b.get("name"), str)):
                     tools.append(b["name"])
     return dict(parse_cli_json(result), tools=tools)
+
+
+def call_turns(claude_bin, model, turns, system_prompt, cwd, output_style=None):
+    """Run a turn sequence in one CLI session and return one merged record.
+
+    Turn 1 opens the session; each later turn resumes it by the id the previous
+    turn reported. A turn that fails, or that comes back without a session id
+    while turns remain, abandons the sequence - a half-finished conversation is
+    not a shorter conversation, and the caller's retry starts a fresh one.
+    """
+    records = []
+    session = None
+    for i, text in enumerate(turns):
+        if i and not session:
+            return {"ok": False}
+        res = call(claude_bin, model, text, system_prompt, cwd, output_style,
+                   resume=session)
+        records.append(res)
+        if not res.get("ok"):
+            return {"ok": False}
+        session = res.get("session_id")
+    return merge_turns(records)
 
 
 def run_key(case, arm, model, rep):
@@ -376,7 +453,8 @@ def save_snapshot(path, snap):
     os.replace(str(tmp), str(p))
 
 
-def call(claude_bin, model, prompt, system_prompt, cwd, output_style=None):
+def call(claude_bin, model, prompt, system_prompt, cwd, output_style=None,
+         resume=None):
     # stream-json rather than json because only the stream carries the
     # tool_use blocks (#142); --verbose is not optional, the CLI refuses the
     # combination under --print without it. The terminal result event is the
@@ -384,6 +462,12 @@ def call(claude_bin, model, prompt, system_prompt, cwd, output_style=None):
     # except the tool list that is added beside it.
     cmd = [claude_bin, "-p", "--model", model,
            "--output-format", "stream-json", "--verbose"]
+    # #166: a later turn continues the session the previous one opened, which
+    # is what puts the model's own prior answer in its context rather than a
+    # transcript of it. Resume by id rather than --continue, so the turn is
+    # bound to the session it names and not to whatever ran last in this cwd.
+    if resume:
+        cmd += ["--resume", resume]
     if system_prompt:
         cmd += ["--append-system-prompt", system_prompt]
     if output_style:
@@ -569,20 +653,32 @@ def main():
     done = completed_keys(snap)
 
     total = len(cases) * len(arm_names) * len(models) * args.reps
-    left = sum(1 for rep in range(args.reps) for d in cases
-               for m in models for a in arm_names
-               if run_key(d.name, a, m, rep) not in done)
+    # A multi-turn case (#166) is one cell and several CLI calls, so the two
+    # numbers come apart and the call count is the one a subscription limit is
+    # denominated in. Priced per case rather than per cell.
+    turns_per_case = {d.name: len(split_turns((d / "prompt.md").read_text()))
+                      for d in cases}
+    left_cells = [(d.name, a, m, rep) for rep in range(args.reps) for d in cases
+                  for m in models for a in arm_names
+                  if run_key(d.name, a, m, rep) not in done]
+    left = len(left_cells)
+    left_calls = sum(turns_per_case[c] for c, _, _, _ in left_cells)
     probes = sum(1 for a in arm_names if a in ARM_OUTPUT_STYLES)
     # Printed before the first call, because the number nobody had was the plan.
     # A round is priced afterwards, in report.py, off what it spent; what a
     # maintainer needs before committing hours of quota is what it is about to
     # spend. Every call is one CLI session, which is the unit a subscription
     # limit is denominated in.
+    multi = sorted(c for c, n in turns_per_case.items() if n > 1)
     print("budget: %d call(s) to make, of %d cell(s) in this pass (%d already "
           "in the snapshot)%s. A failed call is retried once, so the ceiling "
-          "is %d." % (left, total, total - left,
-                      ", plus %d output-style probe(s)" % probes if probes else "",
-                      2 * left + probes))
+          "is %d.%s" % (left_calls, total, total - left,
+                        ", plus %d output-style probe(s)" % probes if probes else "",
+                        2 * left_calls + probes,
+                        (" Multi-turn: %s - one cell each, %s call(s) each."
+                         % (", ".join(multi),
+                            ", ".join(str(turns_per_case[c]) for c in multi)))
+                        if multi else ""))
 
     # Checked after the cheap argument validation and after the snapshot
     # guards, so a typo in --cases or a checksum mismatch fails without
@@ -602,7 +698,7 @@ def main():
     for rep in range(args.reps):
         for case_dir in cases:
             case = case_dir.name
-            prompt = (case_dir / "prompt.md").read_text()
+            turns = split_turns((case_dir / "prompt.md").read_text())
             for model in models:
                 for arm in arm_names:  # innermost: arms sampled at adjacent moments
                     n += 1
@@ -612,15 +708,15 @@ def main():
                     fixture = case_dir / "fixture"
                     if fixture.is_dir():
                         shutil.copytree(fixture, scratch, dirs_exist_ok=True)
-                    res = call(claude_bin, model, prompt, arms[arm], scratch,
-                               ARM_OUTPUT_STYLES.get(arm))
+                    res = call_turns(claude_bin, model, turns, arms[arm],
+                                     scratch, ARM_OUTPUT_STYLES.get(arm))
                     shutil.rmtree(scratch, ignore_errors=True)
                     if not res.get("ok"):  # one retry before recording a failure
                         scratch = tempfile.mkdtemp()
                         if fixture.is_dir():
                             shutil.copytree(fixture, scratch, dirs_exist_ok=True)
-                        res = call(claude_bin, model, prompt, arms[arm], scratch,
-                                   ARM_OUTPUT_STYLES.get(arm))
+                        res = call_turns(claude_bin, model, turns, arms[arm],
+                                         scratch, ARM_OUTPUT_STYLES.get(arm))
                         shutil.rmtree(scratch, ignore_errors=True)
                     res.update({"case": case, "arm": arm, "model": model, "rep": rep,
                                 "generated_at": _now(),

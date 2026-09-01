@@ -144,6 +144,124 @@ check("stream: a failed parse still carries a tool list, so no reader has to "
       "test for the key",
       bench_run.parse_cli_stream("")["tools"] == [])
 
+# --- #166: multi-turn generation -------------------------------------------
+# A case may ask more than one question in sequence, because #136's failure only
+# exists across turns: the model defending a claim it made itself. Round 32
+# measured the single-turn approximation against an interleaved control and the
+# shape did not reproduce, so the approximation is not a substitute.
+
+check("session id is lifted off the result event, so a later turn can resume it",
+      bench_run.parse_cli_json(json.dumps(
+          dict(json.loads(GOOD_JSON), session_id="abc-123")))["session_id"]
+      == "abc-123")
+check("a result event without a session id parses, with the id absent",
+      bench_run.parse_cli_json(GOOD_JSON)["session_id"] is None)
+check("a failed parse still carries the session key, so no reader tests for it",
+      "session_id" in bench_run.parse_cli_json("not json"))
+
+check("no delimiter is one turn, which is every case written before #166",
+      bench_run.split_turns("just the one question") == ["just the one question"])
+check("a delimiter splits into two turns",
+      bench_run.split_turns("first\n<!-- turn -->\nsecond") == ["first", "second"])
+check("two delimiters split into three",
+      bench_run.split_turns("a\n<!-- turn -->\nb\n<!-- turn -->\nc")
+      == ["a", "b", "c"])
+check("the delimiter tolerates internal whitespace",
+      bench_run.split_turns("a\n  <!--   turn   -->  \nb") == ["a", "b"])
+# A trailing or doubled delimiter is a formatting slip in a hand-written case,
+# and sending the empty segment would spend a CLI call on nothing.
+check("a trailing delimiter does not buy an empty turn",
+      bench_run.split_turns("a\n<!-- turn -->\n") == ["a"])
+check("a doubled delimiter does not buy an empty turn",
+      bench_run.split_turns("a\n<!-- turn -->\n<!-- turn -->\nb") == ["a", "b"])
+check("an empty prompt is still one turn rather than none",
+      bench_run.split_turns("") == [""])
+# The marker has to be its own line: a case that discusses turns in prose must
+# not be silently cut in half.
+check("the delimiter is not matched inside a line of prose",
+      bench_run.split_turns("say <!-- turn --> inline")
+      == ["say <!-- turn --> inline"])
+
+_T1 = {"ok": True, "text": "first", "total_cost_usd": 1.5, "duration_ms": 10,
+       "num_turns": 2, "output_tokens": 100, "session_id": "s1"}
+_T2 = {"ok": True, "text": "second", "total_cost_usd": 2.5, "duration_ms": 30,
+       "num_turns": 3, "output_tokens": 40, "session_id": "s1"}
+
+# The whole point of merging this way: every existing consumer reads the final
+# answer without knowing multi-turn exists.
+check("merge grades the last turn, which is the one the judge reads",
+      bench_run.merge_turns([_T1, _T2])["text"] == "second")
+check("merge takes output_tokens from the graded turn, not the sum",
+      bench_run.merge_turns([_T1, _T2])["output_tokens"] == 40)
+check("merge takes num_turns from the graded turn, so turns and one_turn keep "
+      "measuring the action scope of the answer that was graded",
+      bench_run.merge_turns([_T1, _T2])["num_turns"] == 3)
+# Cost and duration are resource accounting, so they must be complete or a
+# round misreports what it spent.
+check("merge sums cost across turns",
+      bench_run.merge_turns([_T1, _T2])["total_cost_usd"] == 4.0)
+check("merge sums duration across turns, which is also the window "
+      "concurrency.py reconstructs",
+      bench_run.merge_turns([_T1, _T2])["duration_ms"] == 40)
+check("merge records the turn count", bench_run.merge_turns([_T1, _T2])["turn_count"] == 2)
+check("merge keeps every turn, so a round can be re-read per turn",
+      [r["text"] for r in bench_run.merge_turns([_T1, _T2])["turns"]]
+      == ["first", "second"])
+# Byte-identical single-turn records are what keep every stored comparison
+# valid across this change.
+check("a one-turn sequence is returned untouched, with no turns key",
+      bench_run.merge_turns([_T1]) == _T1)
+check("a one-turn sequence carries no turn_count either, so absence means one",
+      "turn_count" not in bench_run.merge_turns([_T1]))
+check("a failed turn fails the record", bench_run.merge_turns([_T1, {"ok": False}])["ok"] is False)
+check("an empty sequence is not ok", bench_run.merge_turns([])["ok"] is False)
+
+
+def _stub_calls(results):
+    """Record every call() the driver makes and hand back canned results."""
+    seen = []
+    it = iter(results)
+
+    def fake(claude_bin, model, prompt, system_prompt, cwd, output_style=None,
+             resume=None):
+        seen.append({"prompt": prompt, "resume": resume})
+        return next(it)
+    return seen, fake
+
+
+_orig_call = bench_run.call
+try:
+    seen, bench_run.call = _stub_calls([_T1, _T2])
+    merged = bench_run.call_turns("claude", "sonnet", ["q1", "q2"], None, "/tmp")
+    check("turn 1 opens a session and turn 2 resumes it by id",
+          [c["resume"] for c in seen] == [None, "s1"])
+    check("each turn sends its own text", [c["prompt"] for c in seen] == ["q1", "q2"])
+    check("the driver returns the merged record", merged["text"] == "second")
+
+    # A half-finished conversation is not a shorter conversation. The caller
+    # retries the whole sequence in a fresh scratch directory.
+    seen, bench_run.call = _stub_calls([{"ok": False}])
+    check("a failed first turn abandons the sequence",
+          bench_run.call_turns("claude", "sonnet", ["q1", "q2"], None, "/tmp")["ok"]
+          is False)
+    check("a failed first turn does not send the second",
+          len(seen) == 1)
+
+    seen, bench_run.call = _stub_calls([dict(_T1, session_id=None), _T2])
+    check("a first turn with no session id abandons the sequence rather than "
+          "starting the second in a fresh session",
+          bench_run.call_turns("claude", "sonnet", ["q1", "q2"], None, "/tmp")["ok"]
+          is False)
+    check("and it does not spend the second call", len(seen) == 1)
+
+    seen, bench_run.call = _stub_calls([_T1])
+    single = bench_run.call_turns("claude", "sonnet", ["only"], None, "/tmp")
+    check("a single-turn case never passes --resume", seen[0]["resume"] is None)
+    check("a single-turn case is byte-identical to the pre-#166 record",
+          single == _T1)
+finally:
+    bench_run.call = _orig_call
+
 check("arms include all five",
       sorted(bench_run.ARMS) == ["baseline", "concise-style", "laconic",
                                  "terse-control", "word-compression"])

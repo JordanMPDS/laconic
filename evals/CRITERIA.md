@@ -183,6 +183,43 @@ diagnosis was in the diff rather than the response. Those three prompts therefor
 "Don't edit anything." The clause is identical in all four arms, so it favours none of
 them, but a new case needs it or its verdicts measure whether the model chose to act.
 
+### A case may ask more than one turn
+
+A `prompt.md` split by a line containing only `<!-- turn -->` is sent as a
+sequence: turn 1 opens a CLI session, and each later turn resumes it by id, so
+the model answers the second question with its own first answer in context
+rather than a transcript of it. A file with no delimiter is one turn and behaves
+exactly as it did before [#166], byte for byte.
+
+**This exists because one reported failure only lives across turns.** [#136]
+describes the model re-deriving an argument *it had made* for someone quoting it
+back, and locates the mechanism itself: the pull is strongest "when the model has
+a lot of recent context it is proud of". Round 32 built the single-turn
+approximation — a fixture stating the conclusion, then a closed question about it
+— and measured it at 5 reps a side against an interleaved control. It does not
+reproduce: 80 to 106 median words against a reported ~400, with the widest of 15
+responses at 124. A document read cold is evidence to cite, not a position to
+defend, and no fixture can make it one.
+
+Two things to know when writing one:
+
+- **The last turn is the graded turn.** `judge.py` sees the final response and
+  the trap, so the trap must describe what the final answer has to contain. The
+  earlier turns exist to put the model in a state, not to be scored. Per-turn
+  detail is kept on the record under `turns`, and `turn_count` says how many
+  there were; a record with neither field is a single-turn case.
+- **Every turn costs a CLI call, and the budget line says so.** `run.py` prints
+  calls and cells separately once they come apart, and names the multi-turn
+  cases with their turn counts. A two-turn case at 5 reps across 2 arms is 20
+  calls, not 10.
+
+The marker has to be alone on its line, so a case that mentions turns in prose
+is not silently cut in half. A trailing or doubled delimiter is dropped rather
+than sent as an empty turn.
+
+[#166]: https://github.com/JordanMPDS/laconic/issues/166
+[#136]: https://github.com/JordanMPDS/laconic/issues/136
+
 ### Reading the results honestly
 
 These runs are single-sample and use the cheapest available model, and they deliver the

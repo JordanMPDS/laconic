@@ -242,7 +242,9 @@ that the archive could not resolve at any n.
 
 **Carrying is still correct for the round-wide fatal counters**, which compare
 the laconic arm of two rounds and read no control at all. What it is not correct
-for is any statement of the form "laconic against baseline".
+for is any statement of the form "laconic against baseline". Nor for the baseline a
+scoped count target is registered against, which step 5 requires the round to
+generate for itself.
 
 **`concise-style` belongs in every interleaved batch.** It is the native Claude
 Code `Concise` output style, delivered through `--settings` rather than an
@@ -322,6 +324,19 @@ Write the hypothesis **before** running the confirming round, in this form:
 The `<cases>` in that sentence are what you pass to `--target-cases` in step 7.
 Name them here, before the round runs, or the scope is chosen after the numbers
 are in and scores whatever moved.
+
+**A count target takes its registered baseline from the round's own control,
+never from a prior round's snapshot.** Round 31 registered `walkthrough`/sonnet
+at 46 arrows off `round-30-control.json`, three days old and generated at
+byte-identical master rules. Its own interleaved control read 31 over the same
+40 runs, and at equal reps the cell fell from 2.00 arrows per run to 0.60 with
+nothing changed but the calendar and the CLI. A prior control is fine for
+choosing a scope and sizing a round; the number the hypothesis is scored
+against has to come from the control generated beside the edit. This holds for
+every count target, not only [#36]'s arrows — the same drift that made carried
+arm comparisons unusable from round 16 reaches a registered baseline too.
+
+[#36]: https://github.com/JordanMPDS/laconic/issues/36
 
 Then edit `rules/laconic.md`. One edit per round. A hypothesis written
 afterwards is indistinguishable from a story about whatever happened to move,

@@ -201,8 +201,24 @@ reproduce: 80 to 106 median words against a reported ~400, with the widest of 15
 responses at 124. A document read cold is evidence to cite, not a position to
 defend, and no fixture can make it one.
 
-Two things to know when writing one:
+Round 33 then built the multi-turn twins the machinery allows and measured the
+mechanism directly: `recall-*` shares its fixture, its `expect.json` and its
+turn-2 question with the `confirm-*` case of the same stem, so the two differ
+only in whether the model is confirming a conclusion it read or one it wrote.
+Ownership lengthens the answer in 6 of 6 cells and 29 of 30 rep-paired runs, but
+laconic's median moves only 93 to 127 words. **The mechanism is real and worth
+about a third more words, not the quadrupling [#136] reports.**
 
+Three things to know when writing one:
+
+- **`output_tokens` is not comparable between a single-turn case and a
+  multi-turn one.** In round 33 all 30 `confirm-*` graded turns carried a
+  tool-use block, because the fixture was opened on the turn that was scored,
+  and no `recall-*` graded turn carried one, because the reading happened on
+  turn 1. `output_tokens` counts those blocks, so it read backwards on two of
+  six pairs while words rose on all six. Do not register a scoped
+  `output_tokens` target across that boundary; compare words, or compare
+  multi-turn against multi-turn.
 - **The last turn is the graded turn.** `judge.py` sees the final response and
   the trap, so the trap must describe what the final answer has to contain. The
   earlier turns exist to put the model in a state, not to be scored. Per-turn

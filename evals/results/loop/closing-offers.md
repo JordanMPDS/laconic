@@ -98,20 +98,44 @@ multi-turn runs, and the only multi-turn corpus is `recall-*`, `wide-*` and
 | round-34 | 0 / 60 | 0 / 60 |
 | round-35 | 0 / 105 | 0 / 105 |
 
-**Zero, in both arms, across 315 turn-responses.** The reason is structural and
-is in the prompts: every one of those cases ends `Don't edit anything.` There is
-no work to offer, so the shape cannot appear.
+**Zero, in both arms, across 315 turn-responses.**
 
-This corrects a recommendation made in
-[`over-length-cluster.md`](over-length-cluster.md) before the data was checked —
-that the detector could run over `deep-*` at no generation cost. It can run
-there, and it finds nothing, because those cases were built to suppress exactly
-the behaviour it looks for.
+### Why, corrected
 
-**Measuring drift needs multi-turn cases whose task admits work.** That is a new
-family, not a re-reading of an existing one: five turns on a codebase where each
-turn could reasonably be followed by an offer, with the last turn a short
-question. The detector is ready for it and costs nothing to apply.
+The first version of this document attributed that to the prompts: every one of
+those cases ends `Don't edit anything.`, so there is no work to offer. **That
+explanation is wrong**, and the archive says so plainly. `design-audit-log`
+carries the identical clause and reads 9.3%:
+
+| Case | edit clause | rate |
+|---|:--|--:|
+| `badnews` | no | 22.8% |
+| `design-audit-log` | **yes** | 9.3% |
+| `walkthrough` | no | **0.1%** |
+| `deep-metric` | yes | 0.0% |
+
+Pooled, the clause moves the rate from 6.4% to 3.2% — a real effect, and far too
+small to explain a floor of zero across 315 responses. A case with the clause
+reaches 9.3% and a case without it sits at 0.1%.
+
+**The driver is task shape, not the clause.** Offers appear where the answer
+names something that could be built and the model has not built it — a design
+(`design-*`), a bug to chase (`badnews`), a fix to apply
+(`destructive`, `conditional`). They vanish where the deliverable *is* the
+answer: `walkthrough`, `floor`, `code-fidelity`, `verdict-*`, and the whole
+`confirm`/`recall`/`wide`/`deep` family, which asks analytical questions about a
+document and gets analysis back. There is nothing to offer because the answer is
+the artifact.
+
+### What measuring drift actually needs
+
+A five-turn family whose **turns are design-shaped** — each answer naming
+something buildable — rather than a five-turn family that merely permits
+editing. `Don't edit anything.` can and should stay: CRITERIA.md requires it so
+the diagnosis lands in the response rather than the diff, and `design-audit-log`
+shows it costs the signal little.
+
+The detector is ready and costs nothing to apply to such a family.
 
 [#113]: https://github.com/JordanMPDS/laconic/issues/113
 [#155]: https://github.com/JordanMPDS/laconic/issues/155

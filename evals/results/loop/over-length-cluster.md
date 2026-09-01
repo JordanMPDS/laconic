@@ -91,9 +91,12 @@ the rule does.
 
 **The correction is to this document's own first recommendation.** Running it
 over `deep-*` costs no generation, and it finds nothing: zero hits in both arms
-across all 315 turn-responses of rounds 33 to 35. Every one of those prompts ends
-`Don't edit anything.`, so there is no work to offer and the shape cannot appear.
-Measuring [#113]'s drift needs a new multi-turn family whose task admits work.
+across all 315 turn-responses of rounds 33 to 35. The reason is task shape rather
+than the `Don't edit anything.` clause those prompts carry — `design-audit-log`
+carries the same clause and reads 9.3%, while `walkthrough` lacks it and reads
+0.1%. Offers appear where the answer names something buildable that the model has
+not built; they vanish where the deliverable is the answer. Measuring [#113]'s
+drift needs a five-turn family whose **turns are design-shaped**.
 
 ### Group B — cold-read design answers: [#46]
 
@@ -162,7 +165,7 @@ Nothing measured in rounds 29 to 35 bears on either.
 |---|---|---|
 | [#46] | mechanism found (reading rate), edit shipped in round 26 | nothing; closest thing to resolved |
 | [#60] | mechanism measured, not yet acted on | wait for a structural edit; its drift half is Group A |
-| [#113] | detector built and validated; arm rates measured | **a multi-turn family whose task admits work** — `deep-*` reads 0/315 because its prompts forbid editing |
+| [#113] | detector built and validated; arm rates measured | **a five-turn family with design-shaped turns** — `deep-*` reads 0/315 because its deliverable is the answer, not because it forbids editing |
 | [#116] | uninstrumented, wrong category | needs an action rule and a way to score behaviour, not prose |
 | [#136] | all three candidates measured; two real, one null | remaining gap is degree; more turns would test it |
 | [#150] | instrument proven incapable | redundancy metric on the [#146] route, before any further round |

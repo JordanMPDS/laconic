@@ -77,8 +77,19 @@ fi
 # open question first, so the model is confirming a conclusion it wrote rather
 # than one it read. That makes confirm-* the exact control for recall-*, which
 # is the contrast #136 describes and the one round 32 could not construct.
+#
+# 31 since 2026-09-01: wide-metric, wide-index and wide-rollback, for round 34.
+# Round 33 measured ownership - a model confirming a conclusion it wrote rather
+# than one it read - at 6 of 6 cells and 29 of 30 paired runs, and found it
+# worth only about a third more words, far short of what #136 reports. These
+# three hold ownership constant and vary the one thing left: they share their
+# prompt byte for byte with the recall-* case of the same stem, and differ only
+# in that the fixture is 2.3x to 3.8x larger. The extra material is available to
+# the answer but not required by the closed question, so a correct answer is the
+# same length as recall-*'s. If it is not, subject size is what the over-length
+# cluster is actually about.
 count=$(ls -d "$ROOT"/evals/cases/*/ 2>/dev/null | wc -l | tr -d ' ')
-if [ "$count" = "28" ]; then ok "28 cases present"; else fail "28 cases present (found $count)"; fi
+if [ "$count" = "31" ]; then ok "31 cases present"; else fail "31 cases present (found $count)"; fi
 
 design=$(ls -d "$ROOT"/evals/cases/design-*/ 2>/dev/null | wc -l | tr -d ' ')
 if [ "$design" -ge 5 ]; then

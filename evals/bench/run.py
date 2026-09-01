@@ -237,26 +237,64 @@ def parse_cli_stream(raw):
     return dict(parse_cli_json(result), tools=tools)
 
 
-def call_turns(claude_bin, model, turns, system_prompt, cwd, output_style=None):
+# What the shipped plugin actually sends on a later turn. hooks/hooks.json wires
+# SessionStart to `laconic.sh start`, which emits the full slice once, and
+# UserPromptSubmit to `laconic.sh remind`, which emits this one line before every
+# prompt. Kept in step with the string in hooks/laconic.sh.
+REMINDER = ("LACONIC MODE ACTIVE (%s). Make fewer claims and keep normal "
+            "grammar. Cut content, not words.")
+
+
+def call_turns(claude_bin, model, turns, system_prompt, cwd, output_style=None,
+               delivery="repeat", level=None):
     """Run a turn sequence in one CLI session and return one merged record.
 
     Turn 1 opens the session; each later turn resumes it by the id the previous
     turn reported. A turn that fails, or that comes back without a session id
     while turns remain, abandons the sequence - a half-finished conversation is
     not a shorter conversation, and the caller's retry starts a fresh one.
+
+    `delivery` decides what a later turn carries, and the two modes are not the
+    same treatment:
+
+    - `repeat`, the default and what rounds 33 to 38 used, re-appends the whole
+      rule slice as a system prompt on every turn.
+    - `plugin` reproduces what a real session gets: the slice once on turn 1,
+      then only the one-line reminder, prepended to the prompt the way
+      UserPromptSubmit's additionalContext reaches the model.
+
+    The default is `repeat` so no stored snapshot shifts, but it is the less
+    faithful of the two. The plugin sends the full text once; the harness has
+    been sending it five times. That matters for any multi-turn finding about
+    persistence: rounds 33, 35 and 36 measured accumulated own output inflating
+    an answer by about 35% *despite* the rules being re-asserted every turn, so
+    that figure bounds the effect from below rather than estimating it. And a
+    persistence clause of the kind [#60] asks for cannot be tested under
+    `repeat` at all, because `repeat` already over-delivers persistence.
+
+    [#60]: https://github.com/JordanMPDS/laconic/issues/60
     """
     records = []
     session = None
     for i, text in enumerate(turns):
         if i and not session:
             return {"ok": False}
-        res = call(claude_bin, model, text, system_prompt, cwd, output_style,
+        if delivery == "plugin" and i:
+            sp = None
+            if system_prompt and level:
+                text = (REMINDER % level) + "\n\n" + text
+        else:
+            sp = system_prompt
+        res = call(claude_bin, model, text, sp, cwd, output_style,
                    resume=session)
         records.append(res)
         if not res.get("ok"):
             return {"ok": False}
         session = res.get("session_id")
-    return merge_turns(records)
+    merged = merge_turns(records)
+    if merged.get("ok") and len(records) > 1:
+        merged["turn_delivery"] = delivery
+    return merged
 
 
 def run_key(case, arm, model, rep):
@@ -517,6 +555,17 @@ def output_style_reaches_model(claude_bin, model, style):
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--level", default="full")
+    ap.add_argument("--turn-delivery", choices=("repeat", "plugin"),
+                    default="repeat",
+                    help="what a later turn of a multi-turn case carries. "
+                         "'repeat' (default) re-appends the whole rule slice "
+                         "every turn, which is what rounds 33 to 38 used and "
+                         "is what every stored snapshot holds. 'plugin' "
+                         "reproduces the shipped hook wiring instead: the slice "
+                         "once on turn 1, then only the one-line reminder, "
+                         "which is what a real session gets. 'repeat' is the "
+                         "default so no stored comparison shifts, not because "
+                         "it is the faithful one")
     ap.add_argument("--models", default="haiku,sonnet")
     ap.add_argument("--reps", type=int, default=5)
     ap.add_argument("--cases", default="*")
@@ -709,14 +758,18 @@ def main():
                     if fixture.is_dir():
                         shutil.copytree(fixture, scratch, dirs_exist_ok=True)
                     res = call_turns(claude_bin, model, turns, arms[arm],
-                                     scratch, ARM_OUTPUT_STYLES.get(arm))
+                                     scratch, ARM_OUTPUT_STYLES.get(arm),
+                                     delivery=args.turn_delivery,
+                                     level=args.level)
                     shutil.rmtree(scratch, ignore_errors=True)
                     if not res.get("ok"):  # one retry before recording a failure
                         scratch = tempfile.mkdtemp()
                         if fixture.is_dir():
                             shutil.copytree(fixture, scratch, dirs_exist_ok=True)
                         res = call_turns(claude_bin, model, turns, arms[arm],
-                                         scratch, ARM_OUTPUT_STYLES.get(arm))
+                                         scratch, ARM_OUTPUT_STYLES.get(arm),
+                                         delivery=args.turn_delivery,
+                                         level=args.level)
                         shutil.rmtree(scratch, ignore_errors=True)
                     res.update({"case": case, "arm": arm, "model": model, "rep": rep,
                                 "generated_at": _now(),

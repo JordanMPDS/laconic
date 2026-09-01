@@ -288,10 +288,21 @@ violation went 15.0%, 36.2%, 26.2%, 27.5% over those same four dates, and the
 widest pair is **p = 0.11** - not significant. Its per-response *mean* swung 0.35
 to 1.35, which is the clustering [#103] already documents rather than drift.
 
+Round 38's control then tested the case that actually matters, because the
+counters a gate reads are judged rather than syntactic. `round-30-control.json`
+is 80 `walkthrough` runs from 2026-08-28 judged 80 of 80; round 38's control is
+30 `walkthrough` runs from 09-01 at the same `rules_cksum`, judged **30 of 30**.
+The case has not been edited since 08-27, so the criterion is identical. Over the
+same four days the *syntactic* preamble rate on that case went 38.8% to 10.0%.
+
+**Style drifted about 4x and judged correctness did not move at all.** Read with
+the ceiling in mind: both quality readings are 100%, so per [#94] this detects a
+fall and not a rise.
+
 So the position is not "fatal counters drift" and it is not "carrying is safe".
-It is that **one syntactic behaviour moved 4.7x and another did not, at the same
-rules text on the same case, and nothing told us in advance which would be
-which.** Practical consequences:
+It is that **style drifts and correctness so far has not, on the one case where
+both were measured across the same window** — and that nothing told us in advance
+which syntactic behaviour would move. Practical consequences:
 
 - Generate both sides when the round can afford it. A scoped round always can.
 - When a counter moves in a carried comparison, **movement is not evidence the

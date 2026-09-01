@@ -99,8 +99,18 @@ fi
 # question and its trap. The three added turns are deliberately kept off what
 # the trap grades, so the closed question stays fresh and the accumulated
 # output is the only thing that varies.
+#
+# 36 since 2026-09-01: drift-service and cold-service, for #113. That issue
+# reports a lite rule - no closing offers - breaking on one turn and holding on
+# the next, and argues the binary signal is worth more than the length one it
+# accompanies. The closing-offer rate is now measurable, but the existing
+# multi-turn family reads 0 of 315 because its deliverable is the answer itself
+# and there is nothing to offer. These two ask design questions about a service,
+# which is the shape that produces offers, and they share a fixture and a
+# byte-identical final question: cold-service asks it at turn 1 and
+# drift-service asks it at turn 5. That pair is what makes drift readable.
 count=$(ls -d "$ROOT"/evals/cases/*/ 2>/dev/null | wc -l | tr -d ' ')
-if [ "$count" = "34" ]; then ok "34 cases present"; else fail "34 cases present (found $count)"; fi
+if [ "$count" = "36" ]; then ok "36 cases present"; else fail "36 cases present (found $count)"; fi
 
 design=$(ls -d "$ROOT"/evals/cases/design-*/ 2>/dev/null | wc -l | tr -d ' ')
 if [ "$design" -ge 5 ]; then

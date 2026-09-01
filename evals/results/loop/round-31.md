@@ -214,17 +214,21 @@ about extending before believing a scoped batch is for.
 
 ### The finding: the `Wrong:` line is itself an instance of the form
 
-`destructive`/sonnet carried **no arrows at all** in 40 control responses and 7
-across 4 responses under the edit. They are the shape the edit added:
+`destructive`/sonnet carried **no scored arrows at all** in 40 control
+responses and **6, across 3 of 40**, under the edit. The cell's `violations`
+went 0 to 7 over 4 responses; the fourth is a lowercase sentence start and has
+nothing to do with arrows. Two of the three arrow responses carry the shape the
+edit added:
 
 ```
-- `DROP TABLE users` → `DROP TABLE users CASCADE` **with**
-- `DROP TABLE users` → with no cascade option (defaults to `RESTRICT`)
+- `sessions.user_id` → `users(id)` **with** `ON DELETE CASCADE`
+- `invoices.user_id` → `users(id)` with no cascade option (defaults to `RESTRICT`)
 ```
 
-A bold-or-code label, one arrow, a mapping — the exact form of the added
-`Wrong: **Personalized** → cache at the app layer.` line, appearing on a case
-that did not previously produce it.
+A code label, one arrow, a mapping — the form of the added
+`Wrong: **Personalized** → cache at the app layer.` line, on a case that had
+never produced it in prose. The third response is a different mapping,
+`ada@example.com` → 1 within a sentence about reseeded ids.
 
 **This is a cost the file's teaching device carries and the loop had not
 priced.** Rounds 01, 03 and 04 added positions to the enumeration, which is
@@ -232,11 +236,15 @@ prose the model can only obey. A `Wrong:`/`Right:` pair is different: half of
 it is a rendered example of the prohibited form, and on this cell the negative
 half propagated rather than the positive half. It is a fifth mechanism for
 [#34] and the first one that makes an arrow edit actively harmful on a cell it
-never named.
+never named. Filed as [#164].
 
-Read with care: 4 responses of 40 is small, and it is one cell. What is not
-small is the control's 0 of 40 — the form was absent, and after the edit it
-was not.
+Read with care: 3 responses of 40 is small, and it is one cell. Nor was the
+mapping wholly absent from the control — one response writes
+`` `sessions.user_id` → `users` `` inside a code span, where the rule permits it
+and `_symbol_hits` correctly skips it. The honest statement is narrower than
+"the edit introduced a form that was not there": the shape was already
+available to the model, and after the edit it appeared **in prose**, where it
+counts, three times against zero.
 
 ### What survives
 
@@ -282,3 +290,8 @@ finding, and it generalises past [#36] to every count target.
 
 The edit is reverted and exists nowhere in the repository outside the diff
 recorded above.
+
+[#34]: https://github.com/JordanMPDS/laconic/issues/34
+[#36]: https://github.com/JordanMPDS/laconic/issues/36
+[#103]: https://github.com/JordanMPDS/laconic/issues/103
+[#164]: https://github.com/JordanMPDS/laconic/issues/164

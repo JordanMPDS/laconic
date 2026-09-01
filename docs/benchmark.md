@@ -80,6 +80,27 @@ interchangeably:
 - **Anything against baseline carries eleven days and eleven patch releases**
   of possible model and harness drift, landing entirely on the treatment arms.
 
+**Every figure in this document describes the moment it was generated.** That is
+not a formality. On 2026-09-01 a matched batch re-measured a *syntactic* metric —
+preamble openings on `walkthrough`, no judge involved — against archive runs
+carrying a byte-identical `rules_cksum` and the same level, and read **46.7%
+across late August against 10.0% that day**, Fisher p = 1.0e-05, over five CLI
+patch releases. Nothing about the plugin changed; the model did. See
+[`round-37.md`](../evals/results/loop/round-37.md).
+
+So a rate quoted from this document needs its date read with it, and a rate
+pooled across the archive is worse than stale — it is a mixture over eras. The
+`rules_cksum` guard cannot catch this, because it certifies that two sets of runs
+used the same rules text, which is exactly what made that measurement clean.
+
+What survives is what has been re-measured in a matched batch. The
+[closing-offer](#closing-offers) ordering has now reproduced three times — the
+round-21 snapshot, round 36 and round 37 — and its levels show no significant
+drift between 2026-08-21 and 2026-09-01 on the two cases present in both
+(`ordered-steps` baseline 80% to 55%, p = 0.38; laconic 20% to 12.5%, p = 0.53,
+on round-21 cells of five). The compression and readability tables have not been
+re-measured since 2026-08-22 and should be read as describing that week.
+
 **The argument that used to justify carrying controls has been retired.** It
 read: no control takes rules in its system prompt, so a rule change cannot move
 one. The premise is true and the conclusion does not follow. Regenerated on
@@ -294,6 +315,14 @@ responses an arm as the readability table above:
 instructed to compress sit within four points of baseline, and `concise-style` —
 which installs a near-clause-for-clause restatement of laconic's own never-cut
 list — sits at two and a half times laconic's rate.
+
+Two later matched batches agree. Round 37 (2026-09-01) measured `ordered-steps`
+at baseline 22/40 (55.0%) against laconic 5/40 (12.5%), Fisher **p = 0.0001**,
+and round 36 measured a design question asked cold at baseline 17/25 (68.0%)
+against laconic 1/25 (4.0%), **p < 0.0001**. **This is the only axis in this
+document whose ordering has been reproduced in a matched batch after the era
+warning above was written**, which is why it is quoted with more confidence than
+the compression tables.
 
 The matched interleaved batch of 2026-08-23 agrees, on a smaller and cleaner
 sample. All five arms generated in one alternating pass on one CLI, three design

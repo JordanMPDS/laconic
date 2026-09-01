@@ -271,6 +271,78 @@ claim in either direction. Reported in full, including the comparison withheld
 for a 50% flip rate:
 [`evals/results/2026-08-01-preference.md`](../evals/results/2026-08-01-preference.md).
 
+## Closing offers
+
+`lite` prohibits closing offers and offers to do more work, and `full` inherits
+the rule. Unlike compression this is **binary**: whether the answer offered to
+go and do something is not a judgement two readers can disagree about, which is
+the property [#113] asked for when it reported the rule breaking on one turn and
+holding on the next.
+
+Counted with `metrics.closing_offers()`, over the same snapshot and the same 220
+responses an arm as the readability table above:
+
+| arm | closing offers (of 220) | rate |
+|---|--:|--:|
+| baseline | 47 | 21.4% |
+| word-compression | 46 | 20.9% |
+| terse-control | 43 | 19.5% |
+| concise-style | 30 | 13.6% |
+| **laconic** | **12** | **5.5%** |
+
+**Being told to be brief does not suppress the shape; the rule does.** Two arms
+instructed to compress sit within two points of baseline, and `concise-style` —
+which installs a near-clause-for-clause restatement of laconic's own never-cut
+list — sits at two and a half times laconic's rate.
+
+The matched interleaved batch of 2026-08-23 agrees, on a smaller and cleaner
+sample. All five arms generated in one alternating pass on one CLI, three design
+cases, sonnet, 30 responses an arm:
+
+| arm | rate |
+|---|--:|
+| baseline | 50.0% |
+| concise-style | 40.0% |
+| word-compression | 30.0% |
+| terse-control | 20.0% |
+| **laconic** | **6.7%** |
+
+The rates are higher throughout because design questions invite an offer to
+build the thing, and the ordering is identical. **This is the one axis in this
+document where the matched batch and the carried one agree**, which matters
+given the provenance warning above: the carried-control confound moves rates,
+and it does not move this ordering.
+
+### What this measurement does and does not support
+
+**Precision was measured before the rate was used.** 30 hits drawn at random
+from the archive and hand-read: 30 of 30 are genuine offers to do more work.
+That is the bar the restatement metric of [#155] could not clear at 55.3%, and
+the reason is that a closing offer is syntactically formulaic where a restated
+claim is semantic.
+
+The first version of the detector had **zero** precision. Keyed on `i can`,
+`should i` and `if you want` it fired 13 times across 210 responses and every
+one was a stated limitation ("the document gives no order counts, so I can't
+quantify the impact") or a request for what was needed to answer at all. Both
+are never-cut content. The rules also carve out confirmation explicitly, so
+"DROP TABLE users CASCADE orphans every dependent row — should I proceed?" is
+not a closing offer. All three shapes are regression tests in
+`tests/test_metrics.py`.
+
+**Recall is not measured, so every rate above is a floor rather than an
+estimate.** Comparing arms on a floor is sound only if the misses are
+arm-independent, which is assumed here and not established.
+
+**It says nothing about drift within a session,** which is what [#113] actually
+reported. That needs per-turn rates inside multi-turn runs, and the only
+multi-turn cases in the suite read 0 of 315 in both arms — their deliverable is
+the answer itself, so there is nothing to offer. See
+[`closing-offers.md`](../evals/results/loop/closing-offers.md).
+
+[#113]: https://github.com/JordanMPDS/laconic/issues/113
+[#155]: https://github.com/JordanMPDS/laconic/issues/155
+
 ## Answer quality
 
 Every case declares in a `grading` field where its criteria came from, and that
@@ -385,6 +457,12 @@ not reaching the model.
 
 This arm exists because it is the closest thing to a native competitor this
 plugin has, and the result is that on compression it wins.
+
+It does not win everywhere. On [closing offers](#closing-offers) it sits at
+13.6% against laconic's 5.5%, and at 40.0% against 6.7% in the matched batch —
+despite installing a near-clause-for-clause restatement of laconic's own
+never-cut list. That is the clearest axis on which this plugin beats what the
+CLI already ships.
 
 ### What the style installs, and what it actually does
 

@@ -70,8 +70,15 @@ fi
 # target carries the claim about how much was said. With the three verdict-*
 # cases they give a six-cell sonnet scope, which is the minimum the two-sided
 # sign test can reach alpha on.
+#
+# 28 since 2026-09-01: recall-metric, recall-index and recall-rollback, the
+# multi-turn twins of the three confirm-* cases that #166 made possible. Same
+# fixture and same closed question; the only difference is that turn 1 asks the
+# open question first, so the model is confirming a conclusion it wrote rather
+# than one it read. That makes confirm-* the exact control for recall-*, which
+# is the contrast #136 describes and the one round 32 could not construct.
 count=$(ls -d "$ROOT"/evals/cases/*/ 2>/dev/null | wc -l | tr -d ' ')
-if [ "$count" = "25" ]; then ok "25 cases present"; else fail "25 cases present (found $count)"; fi
+if [ "$count" = "28" ]; then ok "28 cases present"; else fail "28 cases present (found $count)"; fi
 
 design=$(ls -d "$ROOT"/evals/cases/design-*/ 2>/dev/null | wc -l | tr -d ' ')
 if [ "$design" -ge 5 ]; then

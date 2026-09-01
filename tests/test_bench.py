@@ -4432,5 +4432,23 @@ with tempfile.TemporaryDirectory() as td_conc:
 
 
 
+# _closing_offer_line is disclosure, so it must print whatever the counter did
+# and stay silent when there is nothing to disclose - a gate that fired only on
+# a fall would be a way of lowering the number rather than reporting it.
+check("closing-offer line reports a fall",
+      "12 -> 5" in bench_report._closing_offer_line({"closing_offers": 12},
+                                              {"closing_offers": 5}))
+check("closing-offer line reports a rise",
+      "5 -> 12" in bench_report._closing_offer_line({"closing_offers": 5},
+                                              {"closing_offers": 12}))
+check("closing-offer line is silent when both rounds are zero",
+      bench_report._closing_offer_line({"closing_offers": 0},
+                                 {"closing_offers": 0}) is None)
+check("closing-offer line is silent when a round lacks the field",
+      bench_report._closing_offer_line({}, {"closing_offers": 3}) is None)
+check("closing-offer line says it is not a gate",
+      "not a gate" in bench_report._closing_offer_line({"closing_offers": 1},
+                                                 {"closing_offers": 2}))
+
 print("\n%d failure(s)" % fails)
 sys.exit(1 if fails else 0)

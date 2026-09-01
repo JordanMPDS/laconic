@@ -1,0 +1,688 @@
+{
+  "arms": {
+    "baseline": {
+      "system_prompt": null
+    },
+    "concise-style": {
+      "output_style": "Concise",
+      "system_prompt": null
+    },
+    "laconic": {
+      "source": "hooks/laconic.sh start @ full",
+      "system_prompt": "# Laconic mode\n\nTerse means fewer claims, not fewer words per claim. Write ordinary English \u2014\ncomplete sentences, real articles, real conjunctions. Delete content, never\ngrammar.\n\nTwo checks before sending:\n\n1. What is the smallest set of claims that fully answers this?\n2. Is anything here something the user did not ask for?\n\n**Length scales to the request, at every level.** A yes/no question gets a word\nor a line. A report, walkthrough, comparison, or explanation the user asked for\ngets full detail. Laconic governs volunteered content; it never truncates\nrequested content.\n\n## Never cut (every level, including ultra)\n\n- Code, config, commands, and error strings \u2014 verbatim and complete. Never\n  abbreviate an identifier, never elide lines with `...`.\n- Security warnings, and the reasoning that makes them actionable.\n- Confirmation before destructive or irreversible actions, naming exactly what\n  will be affected \u2014 read what you were pointed at and name the objects from\n  it. Telling the user to go check for themselves is not a confirmation.\n- Anything the user asked to have explained: \"why\", \"how\", \"walk me through\",\n  \"explain\".\n- Ordered instructions: every step, and the words that fix their order\n  (\"before\", \"after\", \"first\").\n- Bad news: a failure, a broken test, a limit hit, a thing not done. Omitting\n  it is not terseness.\n- Uncertainty that changes what the user should do.\n\nQuestion: *\"Our deploy failed with an OOM kill on the worker. Should I bump the memory limit?\"*\n\n| Level | Response |\n| --- | --- |\n| `lite` | \"Bump it, but check the trend first. An OOM kill at a steady memory ceiling means the limit is too low; a climbing curve means a leak, and a bigger limit only delays the next kill. `kubectl top pod` over a few minutes tells you which one you have.\" |\n| `full` | \"Check the trend first. If memory sits at a steady ceiling, raise the limit; if it is climbing, you have a leak and a bigger limit only delays the next kill. Watch `kubectl top pod` for a few minutes.\" |\n| `ultra` | \"Only if memory is flat, not climbing. Check `kubectl top pod` first.\" |\n\nUltra kept the conditional because dropping it would give wrong advice half the time.\n\n## Never do this\n\nNo dropped articles. No telegraphic fragments. Do not shorten words in running\nprose: write `configuration`, not `config`; `implementation`, not `impl`.\nShorter is not the goal; fewer claims is.\n\n**No arrows inside a sentence.** Never use `\u2192` or `->` in prose: not to chain\nsteps, stages, states or causes, not to show that one thing maps to or becomes\nanother, not after a bold label, not in a \"quick runbook\" line, not inside a\nquoted flow. Sequencing is where an arrow is most tempting and least\nacceptable: an ordered process is exactly the content whose connecting words\nare never cut.\n\n- Wrong: **Request A**: calls `currentToken()` \u2192 token expired \u2192 calls `refresh()`\n- Right: Request A calls `currentToken()`, finds the token expired, and calls `refresh()`.\n- Wrong: Rough runbook: rotate the key \u2192 wait out the old TTL \u2192 remove it.\n- Right: Rotate the key, wait out the old TTL, then remove it. Use a numbered\n  list instead when the user will follow the steps one at a time.\n\nArrows belong in a fenced code block or a verbatim error string, where they\nare the material being quoted rather than your own prose.\n\n\n## Level: lite \u2014 cut ceremony\n\nNo preamble. Do not restate the question, announce what is about to happen, or\nnarrate tool calls the user can already see.\n\n- No pleasantries or performative agreement: no \"Great question\", \"Sure!\",\n  \"You're absolutely right\".\n- No closing offers and no offers to do more work: no \"Let me know if...\",\n  \"Hope this helps\", \"Want me to...?\". Asking the user to confirm a destructive\n  action is never a closing offer; offering to go read something for them is.\n- No stacked hedging. One qualifier or none: \"Probably X\", not \"It might\n  possibly be that X\".\n- No recap of work visible in the diff. Name the file and what changed.\n  Reporting a failure, a skipped step, or a surprise is not a recap \u2014 that is\n  never-cut content and stays.\n\nKeeps full reasoning, context, and trade-offs. Lite is normal professional\nprose with the ceremony stripped.\n\n\n## Level: full \u2014 also cut unrequested substance\n\n- Lead with the answer or the action taken. Reasoning only if the user needs it\n  to act on the answer.\n- One recommendation, not a survey. A real trade-off gets one line per side,\n  then a pick.\n- No unrequested alternatives, no \"you could also\".\n- No teaching a concept the question already shows the user knows.\n- No next-steps list unless they asked what is next.\n- A design question asks for an approach, not a treatise. \"How would that be\n  built?\" is about something that does not exist yet, and what it wants is the\n  recommendation, the one or two decisions that genuinely fork it, and a name\n  for the depth you left out. Ask for the fork that survives reading, not the\n  one reading would settle. Explaining something that already exists is a\n  different request, and it is protected above.\n  - **This licence is earned by reading, not by being brief.** It covers an\n    approach derived from the files the question is about. An approach recalled\n    from general practice has not earned it and stays subject to everything\n    above. Read what the question is about, then be brief about it.\n  - Wrong: \"how would alerting be built?\" answered in eight sections \u2014 a\n    schema, a routing table, dedup rules, a rollout plan.\n  - Right: \"Derive alerts from the log row the loop already writes, in\n    whatever monitoring you already run \u2014 which stack is that? The schema\n    and the dedup rules are the next level down.\"\n\nTypical shape: one to three sentences, or a short list. One sentence is a\ncomplete answer.\n\n"
+    },
+    "terse-control": {
+      "system_prompt": "Answer concisely."
+    },
+    "word-compression": {
+      "system_prompt": "Answer concisely. Drop articles and filler words, abbreviate common terms, and use arrows instead of conjunctions."
+    }
+  },
+  "metadata": {
+    "cases_cksum": "4054735429",
+    "cases_dir": "/home/jordan/projects/laconic/evals/cases",
+    "claude_cli_version": "2.1.252 (Claude Code)",
+    "concurrency_declared": 1,
+    "generated_at": "2026-09-01T01:57:45Z",
+    "git_commit": "75bfa1f",
+    "git_dirty": true,
+    "laconic_level": "full",
+    "max_runs_in_flight": 1,
+    "models": [
+      "sonnet"
+    ],
+    "reps": 5,
+    "rules_cksum": "136269960",
+    "reps_note": "created at --reps 1 and extended to 5; new_snapshot sets metadata.reps once at creation, so the field was corrected by hand to match the runs the file actually holds."
+  },
+  "runs": [
+    {
+      "arm": "baseline",
+      "cache_creation_input_tokens": 7194,
+      "cache_read_input_tokens": 42546,
+      "case": "confirm-index",
+      "claude_cli_version": "2.1.252 (Claude Code)",
+      "duration_ms": 5979,
+      "generated_at": "2026-09-01T01:57:53Z",
+      "generator": "20260901T015745Z-2284087",
+      "input_tokens": 4,
+      "model": "sonnet",
+      "num_turns": 2,
+      "ok": true,
+      "output_tokens": 398,
+      "rep": 0,
+      "text": "No \u2014 the ticket's plain `CREATE INDEX ... ON events (created_at)` won't work, because the query filters on `date_trunc('day', created_at) = $1`, not on `created_at` itself. A btree on the bare column can't be used for that wrapped expression, so it wouldn't change the plan at all.\n\nThe doc lays out two fixes that do work, and recommends the second as smaller/safer:\n\n1. Index the expression itself: `(date_trunc('day', created_at, 'UTC'), tenant_id)` \u2014 but requires rewriting the query to include the `'UTC'` argument (needed for `IMMUTABLE`).\n2. Rewrite the query to a half-open range (`created_at >= $1 AND created_at < $1 + interval '1 day'`) and add a composite index on `(tenant_id, created_at)`.\n\nSo the actual fix is query rewrite + composite index \u2014 not just \"add an index on created_at.\"",
+      "tools": [
+        "Read"
+      ],
+      "total_cost_usd": 0.04225620000000001
+    },
+    {
+      "arm": "laconic",
+      "cache_creation_input_tokens": 9343,
+      "cache_read_input_tokens": 70612,
+      "case": "confirm-index",
+      "claude_cli_version": "2.1.252 (Claude Code)",
+      "duration_ms": 7620,
+      "generated_at": "2026-09-01T01:58:02Z",
+      "generator": "20260901T015745Z-2284087",
+      "input_tokens": 6,
+      "model": "sonnet",
+      "num_turns": 3,
+      "ok": true,
+      "output_tokens": 509,
+      "rep": 0,
+      "text": "No \u2014 a plain index on `created_at` won't work, per FINDINGS.md itself.\n\nThe predicate is `date_trunc('day', created_at) = $1`, which a btree on the bare column can't serve \u2014 Postgres can't infer that the wrapped expression is monotonic in the column, so the planner won't use it. FINDINGS.md rejects the ticket's proposed `events_created_at_idx` and instead recommends one of two fixes:\n\n1. Index the expression itself: `(date_trunc('day', created_at, 'UTC'), tenant_id)` \u2014 note `'UTC'` must be explicit or the function isn't `IMMUTABLE` and Postgres refuses the index.\n2. Rewrite the query to a half-open range (`created_at >= $1 AND created_at < $1 + interval '1 day'`) plus a composite index on `(tenant_id, created_at)` \u2014 flagged as the smaller change, with no immutability pitfall.",
+      "tools": [
+        "Bash",
+        "Read"
+      ],
+      "total_cost_usd": 0.0575794
+    },
+    {
+      "arm": "baseline",
+      "cache_creation_input_tokens": 5324,
+      "cache_read_input_tokens": 68026,
+      "case": "confirm-metric",
+      "claude_cli_version": "2.1.252 (Claude Code)",
+      "duration_ms": 9281,
+      "generated_at": "2026-09-01T01:58:12Z",
+      "generator": "20260901T015745Z-2284087",
+      "input_tokens": 6,
+      "model": "sonnet",
+      "num_turns": 3,
+      "ok": true,
+      "output_tokens": 700,
+      "rep": 0,
+      "text": "Not quite \u2014 the conclusion is more specific than \"lift is the wrong metric.\"\n\nThe doc does say lift (+70%) is unusable: it's a ratio built on 4 purchases in control, so a single purchase swing moves it from +36% to +125%.\n\nBut it explicitly rejects the fix of just switching to absolute difference (+0.31pp) as \"the substitute does not rescue it\" \u2014 that estimator is better-behaved but detecting a 0.3pp difference at these conversion rates needs ~34,000 sessions/arm, and this experiment has ~920 per arm. So **neither metric supports a ship decision**; the real problem is the experiment is underpowered for the outcome measured, not just a bad choice of metric.\n\nThe recommendation is to either run longer to reach the needed sample size, or switch to a higher-frequency proxy metric (e.g., reaching the payment step) that this traffic volume can actually resolve.",
+      "tools": [
+        "Bash",
+        "Read"
+      ],
+      "total_cost_usd": 0.0428952
+    },
+    {
+      "arm": "laconic",
+      "cache_creation_input_tokens": 5313,
+      "cache_read_input_tokens": 73972,
+      "case": "confirm-metric",
+      "claude_cli_version": "2.1.252 (Claude Code)",
+      "duration_ms": 6591,
+      "generated_at": "2026-09-01T01:58:20Z",
+      "generator": "20260901T015745Z-2284087",
+      "input_tokens": 6,
+      "model": "sonnet",
+      "num_turns": 3,
+      "ok": true,
+      "output_tokens": 368,
+      "rep": 0,
+      "text": "Close, but the finding is broader than \"lift is the wrong metric.\" The doc's conclusion: lift is unstable here because it's a ratio over only 4 control purchases \u2014 but the absolute-difference alternative is also inadequate, since detecting a 0.3pp effect needs ~34,000 sessions/arm against the 912/934 actually collected. Neither metric supports a ship decision; the real problem is sample size, not metric choice. Recommendation: rerun to the needed N or switch to a higher-frequency proxy (e.g., reaching payment step).",
+      "tools": [
+        "Bash",
+        "Read"
+      ],
+      "total_cost_usd": 0.0407254
+    },
+    {
+      "arm": "baseline",
+      "cache_creation_input_tokens": 5593,
+      "cache_read_input_tokens": 43926,
+      "case": "confirm-rollback",
+      "claude_cli_version": "2.1.252 (Claude Code)",
+      "duration_ms": 6392,
+      "generated_at": "2026-09-01T01:58:28Z",
+      "generator": "20260901T015745Z-2284087",
+      "input_tokens": 4,
+      "model": "sonnet",
+      "num_turns": 2,
+      "ok": true,
+      "output_tokens": 428,
+      "rep": 0,
+      "text": "Not quite \u2014 the document is explicit that it's two causes with distinct roles, not one:\n\n- **The config change** (`PAYMENTS_SETTLEMENT_MODE: legacy \u2192 split`) was the **trigger** \u2014 it caused the initial 500s at 14:02 because `v411` instances didn't recognize `split` and threw.\n- **The migration** (`0042_add_settlement_currency`, `NOT NULL` with no default) is what made the incident **unrecoverable by rollback**. Once it ran at 14:05, both the config revert (14:21) and the release rollback to `v411` (14:33) failed, because the old insert path couldn't satisfy the new `NOT NULL` constraint.\n\nAs the doc states directly: \"The config change is the trigger. The migration is what made it unrecoverable by rollback. Either alone would have been a short incident.\" So calling the config change \"the cause\" understates it \u2014 the prolonged, unrecoverable outage was a compound failure of both the config change *and* the migration's lack of expand/contract sequencing.",
+      "tools": [
+        "Read"
+      ],
+      "total_cost_usd": 0.0364232
+    },
+    {
+      "arm": "laconic",
+      "cache_creation_input_tokens": 5572,
+      "cache_read_input_tokens": 47896,
+      "case": "confirm-rollback",
+      "claude_cli_version": "2.1.252 (Claude Code)",
+      "duration_ms": 4062,
+      "generated_at": "2026-09-01T01:58:33Z",
+      "generator": "20260901T015745Z-2284087",
+      "input_tokens": 4,
+      "model": "sonnet",
+      "num_turns": 2,
+      "ok": true,
+      "output_tokens": 213,
+      "rep": 0,
+      "text": "Partly \u2014 the config change was the trigger (mixed-version instances 500ing at 14:02), but the document is explicit that it's not the whole cause: the migration at 14:05 (`NOT NULL` column, no default) is what made the outage unrecoverable by either config revert or release rollback. The doc's own framing: \"The config change is the trigger. The migration is what made it unrecoverable by rollback. Either alone would have been a short incident.\"",
+      "tools": [
+        "Read"
+      ],
+      "total_cost_usd": 0.0349932
+    },
+    {
+      "arm": "baseline",
+      "cache_creation_input_tokens": 5981,
+      "cache_read_input_tokens": 68021,
+      "case": "confirm-index",
+      "claude_cli_version": "2.1.252 (Claude Code)",
+      "duration_ms": 8979,
+      "generated_at": "2026-09-01T01:59:25Z",
+      "generator": "20260901T015914Z-2286073",
+      "input_tokens": 6,
+      "model": "sonnet",
+      "num_turns": 3,
+      "ok": true,
+      "output_tokens": 501,
+      "rep": 1,
+      "text": "No \u2014 the plain `CREATE INDEX ... ON events (created_at)` proposed on the ticket won't work. The query filters on `date_trunc('day', created_at) = $1`, and a btree index on the raw `created_at` column can't serve that expression, so the planner would still fall back to a sequential scan.\n\nThe doc lays out two fixes that actually work:\n\n1. Index the expression itself: `date_trunc('day', created_at, 'UTC')` (must specify the timezone explicitly for immutability) combined with `tenant_id`, and update the query to match.\n2. Rewrite the query to use a half-open range (`created_at >= $1 AND created_at < $1 + interval '1 day'`) instead of `date_trunc`, then a composite index on `(tenant_id, created_at)` serves it directly.\n\nThe doc recommends option 2 as the smaller change since it avoids the `date_trunc` immutability trap.",
+      "tools": [
+        "Bash",
+        "Read"
+      ],
+      "total_cost_usd": 0.0435332
+    },
+    {
+      "arm": "laconic",
+      "cache_creation_input_tokens": 5958,
+      "cache_read_input_tokens": 73955,
+      "case": "confirm-index",
+      "claude_cli_version": "2.1.252 (Claude Code)",
+      "duration_ms": 6634,
+      "generated_at": "2026-09-01T01:59:33Z",
+      "generator": "20260901T015914Z-2286073",
+      "input_tokens": 6,
+      "model": "sonnet",
+      "num_turns": 3,
+      "ok": true,
+      "output_tokens": 429,
+      "rep": 1,
+      "text": "No \u2014 a plain index on `created_at` won't help. The predicate wraps it in `date_trunc('day', created_at)`, so a btree on the bare column can't be used for this filter.\n\nThe doc lays out two working fixes instead:\n\n1. Index the actual expression: `(date_trunc('day', created_at, 'UTC'), tenant_id)` \u2014 but the query must also be rewritten to use `date_trunc('day', created_at, 'UTC')` (explicit timezone) for the index to even be creatable.\n2. Rewrite the query to a half-open range (`created_at >= $1 AND created_at < $1 + interval '1 day'`) and pair it with a composite index on `(tenant_id, created_at)`.\n\nThe doc recommends option 2 as the smaller change.",
+      "tools": [
+        "Bash",
+        "Read"
+      ],
+      "total_cost_usd": 0.043903000000000005
+    },
+    {
+      "arm": "baseline",
+      "cache_creation_input_tokens": 5344,
+      "cache_read_input_tokens": 68046,
+      "case": "confirm-metric",
+      "claude_cli_version": "2.1.252 (Claude Code)",
+      "duration_ms": 9334,
+      "generated_at": "2026-09-01T01:59:43Z",
+      "generator": "20260901T015914Z-2286073",
+      "input_tokens": 6,
+      "model": "sonnet",
+      "num_turns": 3,
+      "ok": true,
+      "output_tokens": 684,
+      "rep": 1,
+      "text": "Not quite \u2014 that's an oversimplification of the conclusion. The doc's actual argument:\n\n- Lift (+70%) is specifically bad here because it's a ratio built on only 4 control purchases \u2014 tiny count changes swing it wildly (+36% to +125%).\n- But it explicitly says the \"obvious\" fix \u2014 reporting absolute difference (+0.31pp) instead \u2014 **doesn't rescue it either**. That estimator is better-behaved, but detecting a 0.3pp effect at these conversion rates needs ~34,000 sessions/arm, and the experiment only has ~920/arm.\n\nSo the conclusion isn't \"lift is the wrong metric, use something else.\" It's that **the sample size is too small for this experiment to resolve an effect at this outcome's base rate, regardless of which metric (lift or absolute difference) you use**. The recommendation is to either run longer to hit the needed sample size or switch to a higher-frequency proxy metric (e.g., reaching the payment step) that current traffic volume *can* actually power \u2014 not just to swap lift for a different metric on the same purchase outcome.",
+      "tools": [
+        "Bash",
+        "Read"
+      ],
+      "total_cost_usd": 0.04282419999999999
+    },
+    {
+      "arm": "laconic",
+      "cache_creation_input_tokens": 5307,
+      "cache_read_input_tokens": 73966,
+      "case": "confirm-metric",
+      "claude_cli_version": "2.1.252 (Claude Code)",
+      "duration_ms": 6650,
+      "generated_at": "2026-09-01T01:59:51Z",
+      "generator": "20260901T015914Z-2286073",
+      "input_tokens": 6,
+      "model": "sonnet",
+      "num_turns": 3,
+      "ok": true,
+      "output_tokens": 342,
+      "rep": 1,
+      "text": "Not quite. Lift isn't singled out as \"wrong\" \u2014 the doc's actual conclusion is that **neither lift nor absolute difference can support a ship decision here**: lift is unstable because the denominator is 4 purchases, and absolute difference, while better-behaved, is too small to detect with only ~900 sessions/arm (would need ~34k/arm). The recommendation is to run longer or switch to a higher-frequency proxy metric like reaching the payment step, not simply to swap metrics.",
+      "tools": [
+        "Bash",
+        "Read"
+      ],
+      "total_cost_usd": 0.040435200000000004
+    },
+    {
+      "arm": "baseline",
+      "cache_creation_input_tokens": 5837,
+      "cache_read_input_tokens": 68074,
+      "case": "confirm-rollback",
+      "claude_cli_version": "2.1.252 (Claude Code)",
+      "duration_ms": 8039,
+      "generated_at": "2026-09-01T02:00:00Z",
+      "generator": "20260901T015914Z-2286073",
+      "input_tokens": 6,
+      "model": "sonnet",
+      "num_turns": 3,
+      "ok": true,
+      "output_tokens": 531,
+      "rep": 1,
+      "text": "Not quite \u2014 the document itself draws a finer distinction than \"the config change caused it.\"\n\n- **The config change (`PAYMENTS_SETTLEMENT_MODE` \u2192 `split`) was the trigger**: it caused the initial 500s at 14:02 because instances still on `v411` code didn't recognize `split` and threw.\n- **The migration (`0042`, adding a `NOT NULL` column with no default) is what made the incident unrecoverable**: once it ran at 14:05, reverting the config back to `legacy` no longer helped, because `v411`'s insert path didn't write the new required column \u2014 so checkouts kept failing (now on a not-null violation) even after the \"fix.\" It's also why rolling back to `v411` at 14:33 also failed.\n\nSo the config change alone would have been a brief, easily-reverted blip. It's the combination with the migration running mid-rollout that turned it into a 45-minute Sev1 \u2014 the doc says this explicitly: *\"The config change is the trigger. The migration is what made it unrecoverable by rollback. Either alone would have been a short incident.\"*",
+      "tools": [
+        "Bash",
+        "Read"
+      ],
+      "total_cost_usd": 0.0432628
+    },
+    {
+      "arm": "laconic",
+      "cache_creation_input_tokens": 5586,
+      "cache_read_input_tokens": 47896,
+      "case": "confirm-rollback",
+      "claude_cli_version": "2.1.252 (Claude Code)",
+      "duration_ms": 6737,
+      "generated_at": "2026-09-01T02:00:09Z",
+      "generator": "20260901T015914Z-2286073",
+      "input_tokens": 4,
+      "model": "sonnet",
+      "num_turns": 2,
+      "ok": true,
+      "output_tokens": 266,
+      "rep": 1,
+      "text": "Partially. The config change (`PAYMENTS_SETTLEMENT_MODE` to `split`) triggered the initial 500s at 14:02. But the migration (`0042`, adding a `NOT NULL` column with no default) is what made the incident unrecoverable by rollback \u2014 reverting the config at 14:21 and rolling back the release at 14:33 both failed because of the migration, not the config. The doc's own conclusion: \"The config change is the trigger. The migration is what made it unrecoverable by rollback. Either alone would have been a short incident.\"",
+      "tools": [
+        "Read"
+      ],
+      "total_cost_usd": 0.0355692
+    },
+    {
+      "arm": "baseline",
+      "cache_creation_input_tokens": 5987,
+      "cache_read_input_tokens": 68027,
+      "case": "confirm-index",
+      "claude_cli_version": "2.1.252 (Claude Code)",
+      "duration_ms": 7639,
+      "generated_at": "2026-09-01T02:00:18Z",
+      "generator": "20260901T015914Z-2286073",
+      "input_tokens": 6,
+      "model": "sonnet",
+      "num_turns": 3,
+      "ok": true,
+      "output_tokens": 527,
+      "rep": 2,
+      "text": "No \u2014 a plain index on `created_at` won't fix it. The document explicitly rules that out: the query filters on `date_trunc('day', created_at) = $1`, and a btree on the raw column can't be used to satisfy a wrapped expression, so the planner would still seq-scan.\n\nThe two fixes it actually recommends:\n\n1. Index the expression itself: `(date_trunc('day', created_at, 'UTC'), tenant_id)` \u2014 but the query must be rewritten to use the explicit-timezone form of `date_trunc`, since that's required for it to be `IMMUTABLE` and index-eligible.\n2. Rewrite the query to a half-open range (`created_at >= $1 AND created_at < $1 + interval '1 day'`) and index `(tenant_id, created_at)` \u2014 this is called out as the smaller, safer change.\n\nSo the fix isn't \"add an index on `created_at`\" alone \u2014 it's pairing a query rewrite with a matching composite index (option 2 being preferred).",
+      "tools": [
+        "Bash",
+        "Read"
+      ],
+      "total_cost_usd": 0.04381840000000001
+    },
+    {
+      "arm": "laconic",
+      "cache_creation_input_tokens": 5804,
+      "cache_read_input_tokens": 47903,
+      "case": "confirm-index",
+      "claude_cli_version": "2.1.252 (Claude Code)",
+      "duration_ms": 5312,
+      "generated_at": "2026-09-01T02:00:24Z",
+      "generator": "20260901T015914Z-2286073",
+      "input_tokens": 4,
+      "model": "sonnet",
+      "num_turns": 2,
+      "ok": true,
+      "output_tokens": 332,
+      "rep": 2,
+      "text": "No \u2014 a plain index on `created_at` won't work. The doc explicitly says that index \"cannot serve this query\" because the predicate wraps the column in `date_trunc('day', created_at)`, which a btree on the bare column can't match.\n\nThe fix is one of two things instead:\n\n1. Index the expression: `(date_trunc('day', created_at, 'UTC'), tenant_id)`, with the query rewritten to use `'UTC'` explicitly (needed for `IMMUTABLE`), or\n2. Rewrite the query to a half-open range (`created_at >= $1 AND created_at < $1 + interval '1 day'`) and index `(tenant_id, created_at)` \u2014 the doc flags this as the smaller, safer change.",
+      "tools": [
+        "Read"
+      ],
+      "total_cost_usd": 0.037107600000000004
+    },
+    {
+      "arm": "baseline",
+      "cache_creation_input_tokens": 5298,
+      "cache_read_input_tokens": 68000,
+      "case": "confirm-metric",
+      "claude_cli_version": "2.1.252 (Claude Code)",
+      "duration_ms": 7254,
+      "generated_at": "2026-09-01T02:00:33Z",
+      "generator": "20260901T015914Z-2286073",
+      "input_tokens": 6,
+      "model": "sonnet",
+      "num_turns": 3,
+      "ok": true,
+      "output_tokens": 433,
+      "rep": 2,
+      "text": "Not quite \u2014 the conclusion is narrower than \"lift is the wrong metric.\" The doc argues lift is unusable here specifically because the denominator (4 purchases) is too small to give a stable ratio. But it then shows the \"fix\" of switching to absolute-difference lift doesn't rescue the experiment either, since detecting a 0.3pp gap at these rates would need ~34,000 sessions/arm vs. the ~920 actually collected.\n\nSo the real conclusion is: **the sample size is inadequate for the observed effect size, and no metric choice (relative or absolute) can compensate for that.** The recommendation is to either run longer or switch to a higher-frequency proxy metric (e.g., reaching the payment step) \u2014 not simply to swap which metric is reported.",
+      "tools": [
+        "Bash",
+        "Read"
+      ],
+      "total_cost_usd": 0.040126
+    },
+    {
+      "arm": "laconic",
+      "cache_creation_input_tokens": 5349,
+      "cache_read_input_tokens": 74008,
+      "case": "confirm-metric",
+      "claude_cli_version": "2.1.252 (Claude Code)",
+      "duration_ms": 11227,
+      "generated_at": "2026-09-01T02:00:45Z",
+      "generator": "20260901T015914Z-2286073",
+      "input_tokens": 6,
+      "model": "sonnet",
+      "num_turns": 3,
+      "ok": true,
+      "output_tokens": 594,
+      "rep": 2,
+      "text": "Not quite. The doc's conclusion is broader than \"lift is the wrong metric\": it says lift is unreliable here because it's a ratio of counts as small as 4 purchases (a one-purchase swing moves it from +36% to +125%), but it also shows the natural substitute \u2014 absolute percentage-point difference \u2014 doesn't fix things either, since resolving a 0.3pt gap at these conversion rates would need ~34,000 sessions/arm versus the ~920 actually run. So the real finding is the sample size can't support a ship decision on *any* metric, not just that lift specifically is the wrong choice. Its recommendation is to run longer or switch to a higher-frequency proxy metric (e.g., reaching the payment step), not simply to swap lift for another metric.",
+      "tools": [
+        "Bash",
+        "Read"
+      ],
+      "total_cost_usd": 0.0431366
+    },
+    {
+      "arm": "baseline",
+      "cache_creation_input_tokens": 5784,
+      "cache_read_input_tokens": 68021,
+      "case": "confirm-rollback",
+      "claude_cli_version": "2.1.252 (Claude Code)",
+      "duration_ms": 7663,
+      "generated_at": "2026-09-01T02:00:54Z",
+      "generator": "20260901T015914Z-2286073",
+      "input_tokens": 6,
+      "model": "sonnet",
+      "num_turns": 3,
+      "ok": true,
+      "output_tokens": 539,
+      "rep": 2,
+      "text": "Not quite \u2014 the document itself is explicit that it's two causes, not one.\n\n- **The config change** (`PAYMENTS_SETTLEMENT_MODE` \u2192 `split`) was the **trigger**: it caused the initial 500s at 14:02 because `v411`'s `assertSettlementMode()` throws on an unrecognized value.\n- **The migration** (`0042_add_settlement_currency`, adding a `NOT NULL` column with no default) is what made the incident **unrecoverable by rollback**. Once it ran at 14:05, reverting the config (14:21) or rolling back the release (14:33) both still failed, just for a different reason (not-null violations instead of the mode assertion).\n\nAs the doc states: *\"The config change is the trigger. The migration is what made it unrecoverable by rollback. Either alone would have been a short incident.\"* So calling the config change \"the cause\" overstates it \u2014 it explains why errors started, but not why the standard remediations (config revert, release rollback) failed to stop them. That's the migration's doing.",
+      "tools": [
+        "Bash",
+        "Read"
+      ],
+      "total_cost_usd": 0.0431302
+    },
+    {
+      "arm": "laconic",
+      "cache_creation_input_tokens": 5589,
+      "cache_read_input_tokens": 47895,
+      "case": "confirm-rollback",
+      "claude_cli_version": "2.1.252 (Claude Code)",
+      "duration_ms": 4785,
+      "generated_at": "2026-09-01T02:01:00Z",
+      "generator": "20260901T015914Z-2286073",
+      "input_tokens": 4,
+      "model": "sonnet",
+      "num_turns": 2,
+      "ok": true,
+      "output_tokens": 257,
+      "rep": 2,
+      "text": "Partially \u2014 the config change triggered it, but the migration is what made it unrecoverable.\n\nThe document is explicit: \"The config change is the trigger. The migration is what made it unrecoverable by rollback. Either alone would have been a short incident.\" Config revert alone didn't fix the error rate (held at 58%) because migration `0042` had already made the `NOT NULL` `settlement_currency` column live, and `v411`'s insert path never wrote that column \u2014 so both the config revert and the `v411` rollback failed for the same reason.",
+      "tools": [
+        "Read"
+      ],
+      "total_cost_usd": 0.035491
+    },
+    {
+      "arm": "baseline",
+      "cache_creation_input_tokens": 5853,
+      "cache_read_input_tokens": 43931,
+      "case": "confirm-index",
+      "claude_cli_version": "2.1.252 (Claude Code)",
+      "duration_ms": 8852,
+      "generated_at": "2026-09-01T02:01:11Z",
+      "generator": "20260901T015914Z-2286073",
+      "input_tokens": 4,
+      "model": "sonnet",
+      "num_turns": 2,
+      "ok": true,
+      "output_tokens": 548,
+      "rep": 3,
+      "text": "No \u2014 the document explicitly rules that out. A plain `CREATE INDEX ... ON events (created_at)` can't serve this query because the `WHERE` clause filters on `date_trunc('day', created_at) = $1`, not on `created_at` itself, and the planner can't infer that the wrapped expression is monotonic in the raw column. So the bare index would be built (~40 min) but never chosen \u2014 the plan stays a seq scan.\n\nFINDINGS.md lays out two fixes that actually work:\n\n1. **Expression index** on `date_trunc('day', created_at, 'UTC'), tenant_id` \u2014 but the query itself must change to include the explicit `'UTC'` timezone arg, since `date_trunc` is only `IMMUTABLE` for `timestamptz` with an explicit zone.\n2. **Rewrite the query** to a half-open range (`created_at >= $1 AND created_at < $1 + interval '1 day'`) and add a composite index on `(tenant_id, created_at)` \u2014 this is the one flagged as smaller and less error-prone since it avoids the immutability gotcha.\n\nSo: not \"just add an index on `created_at`\" \u2014 the query needs to change too, either to match an expression index or to use a sargable range predicate.",
+      "tools": [
+        "Read"
+      ],
+      "total_cost_usd": 0.0386692
+    },
+    {
+      "arm": "laconic",
+      "cache_creation_input_tokens": 5947,
+      "cache_read_input_tokens": 73944,
+      "case": "confirm-index",
+      "claude_cli_version": "2.1.252 (Claude Code)",
+      "duration_ms": 9331,
+      "generated_at": "2026-09-01T02:01:21Z",
+      "generator": "20260901T015914Z-2286073",
+      "input_tokens": 6,
+      "model": "sonnet",
+      "num_turns": 3,
+      "ok": true,
+      "output_tokens": 432,
+      "rep": 3,
+      "text": "No \u2014 a plain index on `created_at` won't fix it. The query filters on `date_trunc('day', created_at)`, which a bare btree on `created_at` can't serve (the planner won't treat that expression as sortable via the raw-column index), so that ticket's proposed index changes nothing while costing ~40 minutes to build.\n\nFINDINGS.md recommends instead either:\n1. An expression index matching the predicate: `date_trunc('day', created_at, 'UTC')` (must include the explicit `'UTC'` for immutability), plus rewriting the query to match, or\n2. Rewriting the query to a half-open range (`created_at >= $1 AND created_at < $1 + interval '1 day'`) and adding a composite index on `(tenant_id, created_at)` \u2014 noted as the smaller, safer fix.",
+      "tools": [
+        "Bash",
+        "Read"
+      ],
+      "total_cost_usd": 0.04389180000000001
+    },
+    {
+      "arm": "baseline",
+      "cache_creation_input_tokens": 5344,
+      "cache_read_input_tokens": 68046,
+      "case": "confirm-metric",
+      "claude_cli_version": "2.1.252 (Claude Code)",
+      "duration_ms": 8718,
+      "generated_at": "2026-09-01T02:01:31Z",
+      "generator": "20260901T015914Z-2286073",
+      "input_tokens": 6,
+      "model": "sonnet",
+      "num_turns": 3,
+      "ok": true,
+      "output_tokens": 600,
+      "rep": 3,
+      "text": "Not quite. The document's conclusion is narrower than \"lift is the wrong metric\":\n\n- Lift is criticized specifically because its denominator (4 purchases) is so small that the estimate is unstable \u2014 moving one purchase swings it from +36% to +125%.\n- But the fix isn't switching to a better metric. The analysis explicitly tests the natural substitute (absolute percentage-point difference) and shows it doesn't rescue the readout either \u2014 it's just a better-behaved estimator of a difference this sample is too small to detect (needs ~34,000 sessions/arm vs. the ~920 actually run).\n\nSo the real conclusion is an **underpowered sample**, not a wrong metric choice: neither lift nor the absolute-difference alternative can support a ship decision on this data. The recommendation is to run longer or switch to a higher-frequency proxy outcome (e.g., reaching the payment step), not to swap in a different metric on the same purchase counts.",
+      "tools": [
+        "Bash",
+        "Read"
+      ],
+      "total_cost_usd": 0.0419842
+    },
+    {
+      "arm": "laconic",
+      "cache_creation_input_tokens": 5315,
+      "cache_read_input_tokens": 73974,
+      "case": "confirm-metric",
+      "claude_cli_version": "2.1.252 (Claude Code)",
+      "duration_ms": 9030,
+      "generated_at": "2026-09-01T02:01:42Z",
+      "generator": "20260901T015914Z-2286073",
+      "input_tokens": 6,
+      "model": "sonnet",
+      "num_turns": 3,
+      "ok": true,
+      "output_tokens": 341,
+      "rep": 3,
+      "text": "Not quite. The document's conclusion is narrower: it's not that lift is \"the wrong metric\" in general \u2014 the absolute-difference alternative is called out as *also* insufficient. The real problem is sample size (11 total purchases), which makes any ratio or difference estimator unstable here. Recommendation: don't ship, either collect more sessions or switch to a higher-frequency proxy metric (e.g., reaching payment step).",
+      "tools": [
+        "Bash",
+        "Read"
+      ],
+      "total_cost_usd": 0.04046380000000001
+    },
+    {
+      "arm": "baseline",
+      "cache_creation_input_tokens": 5581,
+      "cache_read_input_tokens": 43924,
+      "case": "confirm-rollback",
+      "claude_cli_version": "2.1.252 (Claude Code)",
+      "duration_ms": 6758,
+      "generated_at": "2026-09-01T02:01:50Z",
+      "generator": "20260901T015914Z-2286073",
+      "input_tokens": 4,
+      "model": "sonnet",
+      "num_turns": 2,
+      "ok": true,
+      "output_tokens": 431,
+      "rep": 3,
+      "text": "Not quite \u2014 the doc itself pushes back on that framing. Two distinct causes, with different roles:\n\n- **The config change was the trigger.** `PAYMENTS_SETTLEMENT_MODE` flipping to `split` caused the initial 500s at 14:02, because `v411` instances didn't recognize `split` and threw.\n- **The migration (`0042`, adding a `NOT NULL` column with no default) is what made it unrecoverable.** Once it ran at 14:05, reverting the config back to `legacy` *didn't* fix anything \u2014 error rate held at 58% \u2014 because the old insert path no longer satisfied the new schema constraint. It's also why rolling back to `v411` at 14:33 failed too.\n\nThe doc's own conclusion (line 53-54): \"**The config change is the trigger. The migration is what made it unrecoverable by rollback.** Either alone would have been a short incident.\" So calling the config change *the* cause overstates it \u2014 it explains the start of the incident, not its 45-minute duration or why the standard remediations (config revert, release rollback) both failed.",
+      "tools": [
+        "Read"
+      ],
+      "total_cost_usd": 0.0364048
+    },
+    {
+      "arm": "laconic",
+      "cache_creation_input_tokens": 5584,
+      "cache_read_input_tokens": 47897,
+      "case": "confirm-rollback",
+      "claude_cli_version": "2.1.252 (Claude Code)",
+      "duration_ms": 5967,
+      "generated_at": "2026-09-01T02:01:57Z",
+      "generator": "20260901T015914Z-2286073",
+      "input_tokens": 4,
+      "model": "sonnet",
+      "num_turns": 2,
+      "ok": true,
+      "output_tokens": 269,
+      "rep": 3,
+      "text": "Only partly. The config change (`PAYMENTS_SETTLEMENT_MODE: legacy`\u2192`split`) triggered the initial 500s at 14:02 \u2014 that part checks out. But the document is explicit that the migration `0042` is a separate, second cause: it's what made the incident unrecoverable by reverting the config or rolling back the release, and it's why the error rate held at 58% after the 14:21 revert. The doc's own conclusion: \"The config change is the trigger. The migration is what made it unrecoverable by rollback. Either alone would have been a short incident.\"",
+      "tools": [
+        "Read"
+      ],
+      "total_cost_usd": 0.035591399999999995
+    },
+    {
+      "arm": "baseline",
+      "cache_creation_input_tokens": 5975,
+      "cache_read_input_tokens": 68015,
+      "case": "confirm-index",
+      "claude_cli_version": "2.1.252 (Claude Code)",
+      "duration_ms": 9437,
+      "generated_at": "2026-09-01T02:02:08Z",
+      "generator": "20260901T015914Z-2286073",
+      "input_tokens": 6,
+      "model": "sonnet",
+      "num_turns": 3,
+      "ok": true,
+      "output_tokens": 522,
+      "rep": 4,
+      "text": "No \u2014 a plain index on `created_at` won't fix it. The findings explicitly reject that:\n\n- The current ticket proposes `CREATE INDEX ... ON events (created_at)`, but the query filters on `date_trunc('day', created_at) = $1`, not on `created_at` directly. A btree on the bare column can't be used to satisfy a wrapped-expression predicate, so the seq scan (and the 8-11s runtime) wouldn't change.\n\nThe two fixes that actually work, per the doc:\n\n1. Index the expression itself: `(date_trunc('day', created_at, 'UTC'), tenant_id)` \u2014 but requires rewriting the query to include the explicit `'UTC'` argument (needed for `IMMUTABLE`).\n2. Rewrite the query to a half-open range (`created_at >= $1 AND created_at < $1 + interval '1 day'`) and index `(tenant_id, created_at)` \u2014 the doc recommends this as the smaller, trap-free change.",
+      "tools": [
+        "Bash",
+        "Read"
+      ],
+      "total_cost_usd": 0.043733
+    },
+    {
+      "arm": "laconic",
+      "cache_creation_input_tokens": 5783,
+      "cache_read_input_tokens": 47903,
+      "case": "confirm-index",
+      "claude_cli_version": "2.1.252 (Claude Code)",
+      "duration_ms": 4773,
+      "generated_at": "2026-09-01T02:02:14Z",
+      "generator": "20260901T015914Z-2286073",
+      "input_tokens": 4,
+      "model": "sonnet",
+      "num_turns": 2,
+      "ok": true,
+      "output_tokens": 308,
+      "rep": 4,
+      "text": "No \u2014 a plain index on `created_at` doesn't help, since the query filters on `date_trunc('day', created_at)`, not the raw column, so the planner can't use it.\n\nFINDINGS.md rejects that ticket proposal and recommends one of two fixes instead:\n\n1. Index the expression: `CREATE INDEX ... ON events (date_trunc('day', created_at, 'UTC'), tenant_id)`, with the query rewritten to match the explicit-timezone `date_trunc` call, or\n2. Rewrite the query to a half-open range (`created_at >= $1 AND created_at < $1 + interval '1 day'`) and index `(tenant_id, created_at)` \u2014 called the smaller, safer change.",
+      "tools": [
+        "Read"
+      ],
+      "total_cost_usd": 0.0367836
+    },
+    {
+      "arm": "baseline",
+      "cache_creation_input_tokens": 5144,
+      "cache_read_input_tokens": 43938,
+      "case": "confirm-metric",
+      "claude_cli_version": "2.1.252 (Claude Code)",
+      "duration_ms": 7281,
+      "generated_at": "2026-09-01T02:02:23Z",
+      "generator": "20260901T015914Z-2286073",
+      "input_tokens": 4,
+      "model": "sonnet",
+      "num_turns": 2,
+      "ok": true,
+      "output_tokens": 317,
+      "rep": 4,
+      "text": "Not quite \u2014 the conclusion is narrower than \"lift is the wrong metric.\" The doc argues the *sample size* is the problem, not the metric choice: it explicitly tests the substitute (absolute percentage-point difference) and rejects that too, since detecting a 0.3pp effect at this rate needs ~34,000 sessions/arm versus the ~920 actually collected. So neither lift nor absolute difference can be trusted here \u2014 the real issue is that 4 vs. 7 purchases is too few events for any point-estimate metric to be meaningful. The recommendation is to run longer or switch to a higher-frequency proxy metric (e.g., reaching the payment step), not to just swap which formula is used on the same data.",
+      "tools": [
+        "Read"
+      ],
+      "total_cost_usd": 0.0335286
+    },
+    {
+      "arm": "laconic",
+      "cache_creation_input_tokens": 5295,
+      "cache_read_input_tokens": 73954,
+      "case": "confirm-metric",
+      "claude_cli_version": "2.1.252 (Claude Code)",
+      "duration_ms": 6587,
+      "generated_at": "2026-09-01T02:02:31Z",
+      "generator": "20260901T015914Z-2286073",
+      "input_tokens": 6,
+      "model": "sonnet",
+      "num_turns": 3,
+      "ok": true,
+      "output_tokens": 364,
+      "rep": 4,
+      "text": "Not quite. The doc doesn't say lift is \"the wrong metric\" in general \u2014 it says lift is unstable here because the purchase count (4 vs 7) is too small, and swapping to absolute difference doesn't fix it either, since that also can't be resolved at this sample size (912/934 vs. the ~34,000/arm needed). Its conclusion: neither metric supports a ship decision on this data; the real problem is underpowered sample, not metric choice. Recommendation is to run longer or switch to a higher-frequency proxy like reaching the payment step.",
+      "tools": [
+        "Bash",
+        "Read"
+      ],
+      "total_cost_usd": 0.0406098
+    },
+    {
+      "arm": "baseline",
+      "cache_creation_input_tokens": 5772,
+      "cache_read_input_tokens": 68009,
+      "case": "confirm-rollback",
+      "claude_cli_version": "2.1.252 (Claude Code)",
+      "duration_ms": 7854,
+      "generated_at": "2026-09-01T02:02:40Z",
+      "generator": "20260901T015914Z-2286073",
+      "input_tokens": 6,
+      "model": "sonnet",
+      "num_turns": 3,
+      "ok": true,
+      "output_tokens": 514,
+      "rep": 4,
+      "text": "Not quite \u2014 the document itself is explicit that it's both, not just the config:\n\n- **The config change was the trigger**: `PAYMENTS_SETTLEMENT_MODE` flipping from `legacy` to `split` in `v412` caused the initial 500s at 14:02, since `v411` instances threw on the unrecognized value.\n- **The migration (`0042_add_settlement_currency`) is what made it unrecoverable**: because it added a `NOT NULL` column with no default, reverting the config at 14:21 didn't fix anything \u2014 the old insert path then violated the new constraint instead. That's also why rolling back to `v411` at 14:33 failed.\n\nAs the doc states directly: *\"The config change is the trigger. The migration is what made it unrecoverable by rollback. Either alone would have been a short incident.\"* So attributing the incident to the config change alone misses why it lasted 45 minutes instead of a couple of minutes \u2014 that's on the migration ordering.",
+      "tools": [
+        "Bash",
+        "Read"
+      ],
+      "total_cost_usd": 0.0428198
+    },
+    {
+      "arm": "laconic",
+      "cache_creation_input_tokens": 5589,
+      "cache_read_input_tokens": 47895,
+      "case": "confirm-rollback",
+      "claude_cli_version": "2.1.252 (Claude Code)",
+      "duration_ms": 5069,
+      "generated_at": "2026-09-01T02:02:46Z",
+      "generator": "20260901T015914Z-2286073",
+      "input_tokens": 4,
+      "model": "sonnet",
+      "num_turns": 2,
+      "ok": true,
+      "output_tokens": 285,
+      "rep": 4,
+      "text": "Partly. The config change (`PAYMENTS_SETTLEMENT_MODE` to `split`) triggered the initial 500s at 14:02, but the document is explicit that it's only half the story: the migration (`0042`, adding a `NOT NULL` column with no default) is what made the incident unrecoverable \u2014 it's why reverting the config at 14:21 and rolling back to `v411` at 14:33 both failed to recover the error rate.\n\nPer the doc's own framing: \"The config change is the trigger. The migration is what made it unrecoverable by rollback. Either alone would have been a short incident.\"",
+      "tools": [
+        "Read"
+      ],
+      "total_cost_usd": 0.035771
+    }
+  ]
+}

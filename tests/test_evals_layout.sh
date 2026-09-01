@@ -59,8 +59,19 @@ fi
 # would otherwise say. A fourth candidate, design-pagination, was built and
 # discarded - keyset paging is the conventional answer to it, so it had the
 # defect it was meant to fix. See design-discrimination.md.
+#
+# 25 since 2026-09-01: confirm-metric, confirm-index and confirm-rollback, for
+# the over-length cluster (#46, #60, #113, #136, #150, #116). Every other case
+# asks an open-ended question, so the shape #136 reports - a closed question
+# whose correct answer is a single line - was not represented at all. Each of
+# the three states a conclusion in its fixture and asks the model to confirm
+# it, and each carries a qualification the fixture attaches to that conclusion,
+# so the judge grades whether the answer is right while a scoped output_tokens
+# target carries the claim about how much was said. With the three verdict-*
+# cases they give a six-cell sonnet scope, which is the minimum the two-sided
+# sign test can reach alpha on.
 count=$(ls -d "$ROOT"/evals/cases/*/ 2>/dev/null | wc -l | tr -d ' ')
-if [ "$count" = "22" ]; then ok "22 cases present"; else fail "22 cases present (found $count)"; fi
+if [ "$count" = "25" ]; then ok "25 cases present"; else fail "25 cases present (found $count)"; fi
 
 design=$(ls -d "$ROOT"/evals/cases/design-*/ 2>/dev/null | wc -l | tr -d ' ')
 if [ "$design" -ge 5 ]; then

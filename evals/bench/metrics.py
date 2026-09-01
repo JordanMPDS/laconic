@@ -262,6 +262,55 @@ def sign_test(k, n):
     tail = sum(math.comb(n, i) for i in range(0, min(k, n - k) + 1))
     return min(1.0, 2 * tail / 2 ** n)
 
+CLOSING_OFFER = re.compile(
+    r"(let me know if"
+    r"|want me to\b"
+    r"|would you like me to"
+    r"|shall i (write|add|create|run|do)"
+    r"|hope (this|that) helps"
+    r"|happy to (write|add|help|do|run)"
+    r"|i can (write|add|draft|put together) .{0,40}\bif you"
+    r"|just say the word"
+    r"|if you'?d like,? i)",
+    re.I,
+)
+
+
+def closing_offers(text):
+    """Offers to do more work, which `lite` prohibits and `full` inherits.
+
+    [#113] is the reason this exists. It reports a `lite` rule breaking on one
+    turn and holding on the next, same level, same session, adjacent turns, and
+    argues that this is worth more as evidence than as harm: word count is a
+    judgement call two readers can disagree about, while "did the answer offer
+    to do more work" is binary and needs no interpretation. If ceremony and
+    length decay together, the cheap signal measures the expensive one.
+
+    The pattern is deliberately narrow, and the first draft was not. A loose
+    version keyed on `i can`, `should i` and `if you want` scored 13 hits across
+    the 210 turn-responses of round 35 and **every one was a false positive** -
+    either a limitation ("the doc doesn't give order counts, so I can't
+    quantify impact") or a request for information needed to answer at all
+    ("point me at the `chargeOrder()` source"). Both are never-cut content. The
+    rules also carve out confirmation explicitly: "Asking the user to confirm a
+    destructive action is never a closing offer; offering to go read something
+    for them is."
+
+    Precision was measured before the rate was used, on the standard [#155]
+    set: 30 hits drawn at random from the archive, hand-read, **30 of 30
+    genuine** offers to do more work. That is the bar [#155]'s restatement
+    metric could not clear at 55.3%, and it is why this one is a usable metric
+    and that one is parked.
+
+    Recall is not measured and the rate is therefore a floor, not an estimate.
+    That is acceptable for an arm comparison as long as the misses are
+    arm-independent, which is assumed and not established.
+
+    Returns the matched strings, so a caller can count them or show them.
+    """
+    return [m.group(0) for m in CLOSING_OFFER.finditer(text)]
+
+
 def never_cut_missing(text, keywords):
     low = text.lower()
     return [k for k in keywords if k.lower() not in low]

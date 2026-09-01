@@ -4450,5 +4450,74 @@ check("closing-offer line says it is not a gate",
       "not a gate" in bench_report._closing_offer_line({"closing_offers": 1},
                                                  {"closing_offers": 2}))
 
+# --- turn delivery (#60) ---
+# The shipped plugin sends the full slice once at SessionStart and a one-line
+# reminder at every UserPromptSubmit. The harness has been re-appending the whole
+# slice every turn, which is a stronger persistence signal than any real session
+# gets. `repeat` stays the default so no stored snapshot shifts; `plugin` is the
+# faithful one.
+_calls = []
+
+
+def _fake_call(claude_bin, model, prompt, system_prompt, cwd, output_style=None,
+               resume=None):
+    _calls.append({"prompt": prompt, "system_prompt": system_prompt,
+                   "resume": resume})
+    return {"ok": True, "session_id": "s1", "text": "x", "num_turns": 1,
+            "total_cost_usd": 0.0, "duration_ms": 1, "output_tokens": 1,
+            "input_tokens": 1, "cache_creation_input_tokens": 0,
+            "cache_read_input_tokens": 0, "tools": []}
+
+
+_real_call = bench_run.call
+bench_run.call = _fake_call
+try:
+    _calls.clear()
+    bench_run.call_turns("c", "m", ["one", "two", "three"], "RULES", "/tmp")
+    check("repeat sends the slice on every turn",
+          [c["system_prompt"] for c in _calls] == ["RULES", "RULES", "RULES"])
+    check("repeat leaves the prompt text alone",
+          [c["prompt"] for c in _calls] == ["one", "two", "three"])
+
+    _calls.clear()
+    bench_run.call_turns("c", "m", ["one", "two", "three"], "RULES", "/tmp",
+                         delivery="plugin", level="full")
+    check("plugin sends the slice only on turn 1",
+          [c["system_prompt"] for c in _calls] == ["RULES", None, None])
+    check("plugin prepends the reminder to later turns",
+          _calls[1]["prompt"].startswith("LACONIC MODE ACTIVE (full)")
+          and _calls[1]["prompt"].endswith("two"))
+    check("plugin leaves turn 1's prompt alone", _calls[0]["prompt"] == "one")
+
+    # A single-turn case must be identical under both modes: the reminder only
+    # exists for turns that follow one.
+    _calls.clear()
+    bench_run.call_turns("c", "m", ["only"], "RULES", "/tmp",
+                         delivery="plugin", level="full")
+    check("a one-turn case is unchanged under plugin delivery",
+          _calls == [{"prompt": "only", "system_prompt": "RULES",
+                      "resume": None}])
+
+    # The mode is recorded on a multi-turn record, so a snapshot says which
+    # treatment it holds rather than leaving a reader to assume.
+    _calls.clear()
+    rec = bench_run.call_turns("c", "m", ["one", "two"], "RULES", "/tmp",
+                              delivery="plugin", level="full")
+    check("a multi-turn record records its delivery mode",
+          rec.get("turn_delivery") == "plugin")
+    _calls.clear()
+    rec1 = bench_run.call_turns("c", "m", ["only"], "RULES", "/tmp")
+    check("a one-turn record carries no delivery field",
+          "turn_delivery" not in rec1)
+finally:
+    bench_run.call = _real_call
+
+# The reminder is a second copy of a string that lives in hooks/laconic.sh, and
+# a copy that drifts is the failure this repo's sync convention exists to stop.
+# Pin them together rather than trusting them to stay equal.
+_hook_src = (ROOT / "hooks" / "laconic.sh").read_text()
+check("run.py's REMINDER is the line hooks/laconic.sh actually emits",
+      bench_run.REMINDER in _hook_src)
+
 print("\n%d failure(s)" % fails)
 sys.exit(1 if fails else 0)

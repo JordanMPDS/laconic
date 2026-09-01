@@ -246,6 +246,37 @@ for is any statement of the form "laconic against baseline". Nor for the baselin
 scoped count target is registered against, which step 5 requires the round to
 generate for itself.
 
+**But carrying the laconic arm is a bet that the counted behaviour is
+era-stable, and round 37 watched that bet lose.** Holding `rules_cksum`
+136269960 and `laconic_level` `full` fixed - same case, same arm, no judge
+anywhere - the share of `walkthrough` responses opening with a pure announcement
+read 55.0%, 38.8% and 52.5% across 2026-08-27 to 08-31, then **10.0%** on 09-01.
+August pooled against that day is Fisher **p = 1.0e-05**, over five CLI patch
+releases with the rules text unchanged.
+
+The same test on a counter a gate actually reads is reassuring and does not
+settle it: the share of laconic `walkthrough` responses carrying any readability
+violation went 15.0%, 36.2%, 26.2%, 27.5% over those same four dates, and the
+widest pair is **p = 0.11** - not significant. Its per-response *mean* swung 0.35
+to 1.35, which is the clustering [#103] already documents rather than drift.
+
+So the position is not "fatal counters drift" and it is not "carrying is safe".
+It is that **one syntactic behaviour moved 4.7x and another did not, at the same
+rules text on the same case, and nothing told us in advance which would be
+which.** Practical consequences:
+
+- Generate both sides when the round can afford it. A scoped round always can.
+- When a counter moves in a carried comparison, **movement is not evidence the
+  edit caused it** until the era is ruled out. Re-generating the baseline arm for
+  that one counter is cheaper than a wrong accept.
+- A rate quoted from a snapshot needs its date. `rules_cksum` certifies the
+  instrument was identical, which is exactly what made round 37's measurement
+  clean - the guard cannot see era at all.
+
+See [`round-37.md`](../../../evals/results/loop/round-37.md).
+
+[#103]: https://github.com/JordanMPDS/laconic/issues/103
+
 **`concise-style` belongs in every interleaved batch.** It is the native Claude
 Code `Concise` output style, delivered through `--settings` rather than an
 appended system prompt, and it is the one control that answers "does the plugin

@@ -331,6 +331,65 @@ def closing_offers(text):
     return [m.group(0) for m in CLOSING_OFFER.finditer(text)]
 
 
+_BACKTICKED = re.compile(r"`[^`]*`")
+
+PREAMBLE = re.compile(
+    r"^\s*(?:\*\*)?("
+    r"here'?s (?:the|what|what's|how|a|my|an)[^.\n(\u2014\u2013,;:]{0,55}[:.](?=\s|$)"
+    r"|here is (?:the|what|how|a|my|an)[^.\n(\u2014\u2013,;:]{0,55}[:.](?=\s|$)"
+    r"|let me (?:walk|break|start|look|check|read|go|explain|take|dig)"
+    r"[^.\n(\u2014\u2013,;:]{0,55}[:.](?=\s|$)"
+    r"|i'?ll (?:walk|break|start|look|check|read|go through|explain)"
+    r"[^.\n(\u2014\u2013,;:]{0,55}[:.](?=\s|$)"
+    r"|i'?m going to[^.\n(\u2014\u2013,;:]{0,55}[:.](?=\s|$)"
+    r"|(?:sure|great question|absolutely|certainly|of course)[,!.](?=\s|$)"
+    r")",
+    re.I,
+)
+
+
+def preamble(text, window=160):
+    """A pure announcement opening, which `lite` prohibits.
+
+    The rule: "No preamble. Do not restate the question, announce what is about
+    to happen, or narrate tool calls the user can already see."
+
+    **The unit is one complete sentence, and a sentence that both announces and
+    asserts is not preamble**, because deleting it loses a claim. That rule is
+    imported from `deletability.md`, where it was the one part of [#155]'s
+    direction B that worked. It does most of the work here:
+
+        Here's the full flow in `auth.js` (41 lines total, no other files
+        reference it - this module is self-contained).
+
+    asserts scope and is not preamble, while
+
+        Here's the complete token refresh flow:
+
+    asserts nothing and is. A first pattern that keyed on any `Here's ...`
+    opening scored about 60-65% precision against the criterion, which is
+    [#155]'s parked territory and the same failure mode - the mixed sentence.
+    Requiring a *pure* announcement, with no parenthetical, em-dash aside,
+    relative clause or trailing assertion, reads 18 of 18 on a fresh draw.
+
+    Backticked spans are blanked before matching. Without that the terminator
+    matches the dot inside a filename, and ``Here's the full flow in `auth.js`
+    (41 lines...`` fires despite the parenthetical it was meant to exclude.
+
+    **The archive cannot score arms with this**, and that is a property of the
+    corpus rather than the detector: preamble is near zero everywhere except
+    `walkthrough`, and the deduplicated baseline arm holds ten responses there.
+    See [`preamble.md`](../results/loop/preamble.md) - the whole-archive gap is
+    mix-shift, and the one matched comparison is p = 0.0508 on n = 10.
+
+    Returns the matched opening, or None.
+    """
+    head = " ".join((text or "").strip().split())[:window]
+    head = _BACKTICKED.sub(lambda m: "X" * len(m.group(0)), head)
+    m = PREAMBLE.search(head)
+    return m.group(0) if m else None
+
+
 def never_cut_missing(text, keywords):
     low = text.lower()
     return [k for k in keywords if k.lower() not in low]

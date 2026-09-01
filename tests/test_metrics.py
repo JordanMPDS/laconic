@@ -308,5 +308,23 @@ check("closing_offers returns every match, not just the first",
       len(metrics.closing_offers(
           "Want me to draft it? Let me know if that helps.")) == 2)
 
+# preamble(): the unit is a sentence, and one that also asserts is not preamble.
+check("preamble finds a pure announcement",
+      metrics.preamble("Here's the complete token refresh flow:\n\n## Normal") is not None)
+check("preamble finds a let-me opener",
+      metrics.preamble("Let me walk through the flow:\n\n1. First") is not None)
+check("preamble finds a pleasantry",
+      metrics.preamble("Sure! The limiter fails open on Redis errors.") is not None)
+check("preamble ignores an announcement that also asserts",
+      metrics.preamble(
+          "Here's the full flow in auth.js (41 lines total, no other files "
+          "reference it - this module is self-contained).") is None)
+# Without blanking backticks the terminator matches the dot inside the filename.
+check("preamble is not fooled by a dot inside a backticked filename",
+      metrics.preamble(
+          "Here's the full flow in `auth.js` (41 lines, self-contained).") is None)
+check("preamble ignores a direct answer",
+      metrics.preamble("Three tests still fail, not zero.") is None)
+
 print("\n%d failure(s)" % fails)
 sys.exit(1 if fails else 0)

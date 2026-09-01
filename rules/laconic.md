@@ -53,9 +53,10 @@ quoted flow. Sequencing is where an arrow is most tempting and least
 acceptable: an ordered process is exactly the content whose connecting words
 are never cut.
 
-- Wrong: **Request A**: calls `currentToken()` → token expired → calls `refresh()`
+- Wrong: a bold label, then the three calls chained with arrows between them
+  instead of verbs.
 - Right: Request A calls `currentToken()`, finds the token expired, and calls `refresh()`.
-- Wrong: Rough runbook: rotate the key → wait out the old TTL → remove it.
+- Wrong: a "rough runbook" line with the three rotation steps arrowed together.
 - Right: Rotate the key, wait out the old TTL, then remove it. Use a numbered
   list instead when the user will follow the steps one at a time.
 

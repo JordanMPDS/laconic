@@ -1,0 +1,1810 @@
+{
+  "judgments": [
+    {
+      "arm": "baseline",
+      "case": "cold-service",
+      "model": "sonnet",
+      "quote": "require an `Idempotency-Key` header (client-generated UUID, same value reused across retries of the *same* logical request)... PRIMARY KEY (account_id, key)",
+      "reason": "The response uses a client-supplied idempotency key enforced via a database unique/primary key constraint, with replay returning the originally stored response rather than inserting a duplicate order.",
+      "rep": 0,
+      "usage": {
+        "cache_creation_input_tokens": 5420,
+        "cache_read_input_tokens": 20040,
+        "duration_ms": 2664,
+        "input_tokens": 2,
+        "num_turns": 1,
+        "output_tokens": 134,
+        "total_cost_usd": 0.02918
+      },
+      "verdict": "pass"
+    },
+    {
+      "arm": "laconic",
+      "case": "cold-service",
+      "model": "sonnet",
+      "quote": "Client sends an `Idempotency-Key` header (a UUID it generates once per checkout attempt and resends unchanged on retry)... Migration: add the column and a partial unique index scoped per account... Change the insert to `INSERT ... ON CONFLICT (account_id, idempotency_key) DO NOTHING RETURNING *`",
+      "reason": "The response uses a client-supplied idempotency key enforced via a database unique constraint (with atomic ON CONFLICT insert), returning the original row on replay rather than deduplicating on body content or generating the key server-side.",
+      "rep": 0,
+      "usage": {
+        "cache_creation_input_tokens": 4988,
+        "cache_read_input_tokens": 20040,
+        "duration_ms": 3446,
+        "input_tokens": 2,
+        "num_turns": 1,
+        "output_tokens": 205,
+        "total_cost_usd": 0.027850000000000003
+      },
+      "verdict": "pass"
+    },
+    {
+      "arm": "baseline",
+      "case": "drift-service",
+      "model": "sonnet",
+      "quote": "Store the key with a uniqueness constraint scoped to the account",
+      "reason": "The response requires a client-supplied Idempotency-Key header, enforces uniqueness via a database constraint, and uses INSERT ... ON CONFLICT to atomically return the original row on retry rather than inserting a duplicate.",
+      "rep": 0,
+      "usage": {
+        "cache_creation_input_tokens": 5744,
+        "cache_read_input_tokens": 20040,
+        "duration_ms": 3401,
+        "input_tokens": 2,
+        "num_turns": 1,
+        "output_tokens": 119,
+        "total_cost_usd": 0.030556
+      },
+      "verdict": "pass"
+    },
+    {
+      "arm": "laconic",
+      "case": "drift-service",
+      "model": "sonnet",
+      "quote": "client sends an `Idempotency-Key` header (a UUID it generates once per logical attempt and reuses across retries). Server stores that key on the row and enforces uniqueness per account",
+      "reason": "The response uses a client-supplied idempotency key with a database unique constraint (account_id, idempotency_key) and an INSERT ... ON CONFLICT DO NOTHING upsert-or-fetch pattern so a replayed POST returns the original row instead of duplicating.",
+      "rep": 0,
+      "usage": {
+        "cache_creation_input_tokens": 5427,
+        "cache_read_input_tokens": 20040,
+        "duration_ms": 3076,
+        "input_tokens": 2,
+        "num_turns": 1,
+        "output_tokens": 172,
+        "total_cost_usd": 0.029585000000000004
+      },
+      "verdict": "pass"
+    },
+    {
+      "arm": "baseline",
+      "case": "cold-service",
+      "model": "sonnet",
+      "quote": "PRIMARY KEY (account_id, key)",
+      "reason": "The answer requires a client-supplied Idempotency-Key header enforced via a database unique/primary key with reserve-then-execute semantics, satisfying the criterion's core requirement.",
+      "rep": 1,
+      "usage": {
+        "cache_creation_input_tokens": 5375,
+        "cache_read_input_tokens": 20040,
+        "duration_ms": 2300,
+        "input_tokens": 2,
+        "num_turns": 1,
+        "output_tokens": 99,
+        "total_cost_usd": 0.028648999999999997
+      },
+      "verdict": "pass"
+    },
+    {
+      "arm": "laconic",
+      "case": "cold-service",
+      "model": "sonnet",
+      "quote": "If it succeeds, proceed to insert the order, then `UPDATE idempotency_keys SET status='completed', status_code=201, response=$order WHERE ...` and commit... If `status='completed'`, return the stored `status_code`/`response` directly, skipping the order insert entirely.",
+      "reason": "The answer uses a client-supplied Idempotency-Key enforced by a database primary-key/unique constraint so a replay returns the original order response instead of inserting a duplicate, satisfying the criterion's core requirement even though it uses a separate table rather than a column on orders.",
+      "rep": 1,
+      "usage": {
+        "cache_creation_input_tokens": 5117,
+        "cache_read_input_tokens": 20040,
+        "duration_ms": 13567,
+        "input_tokens": 2,
+        "num_turns": 1,
+        "output_tokens": 1219,
+        "total_cost_usd": 0.038608
+      },
+      "verdict": "pass"
+    },
+    {
+      "arm": "baseline",
+      "case": "drift-service",
+      "model": "sonnet",
+      "quote": "Require an `Idempotency-Key` header (client-generated UUID, same value reused across retries of the same logical order attempt)... Scoped by `account_id` deliberately... key TEXT... PRIMARY KEY (account_id, key)",
+      "reason": "The response requires a client-supplied idempotency key with a database-enforced unique constraint (account_id, key) that returns the stored response on replay, matching the criterion's requirements.",
+      "rep": 1,
+      "usage": {
+        "cache_creation_input_tokens": 5941,
+        "cache_read_input_tokens": 20040,
+        "duration_ms": 2915,
+        "input_tokens": 2,
+        "num_turns": 1,
+        "output_tokens": 158,
+        "total_cost_usd": 0.031905
+      },
+      "verdict": "pass"
+    },
+    {
+      "arm": "laconic",
+      "case": "drift-service",
+      "model": "sonnet",
+      "quote": "add an `idempotency_key` column to `orders` with a unique index on `(account_id, idempotency_key)`",
+      "reason": "The response ties retries to a client-supplied Idempotency-Key header stored in an orders column with a unique constraint, enforced atomically via INSERT ... ON CONFLICT inside db.write(), matching the criterion's requirements.",
+      "rep": 1,
+      "usage": {
+        "cache_creation_input_tokens": 5374,
+        "cache_read_input_tokens": 20040,
+        "duration_ms": 2658,
+        "input_tokens": 2,
+        "num_turns": 1,
+        "output_tokens": 136,
+        "total_cost_usd": 0.028994000000000002
+      },
+      "verdict": "pass"
+    },
+    {
+      "arm": "baseline",
+      "case": "cold-service",
+      "model": "sonnet",
+      "quote": "The unique constraint on `(account_id, key)` is what makes concurrent duplicate POSTs safe \u2014 the second `INSERT` naturally loses the race and falls into the \"already claimed\" branch instead of double-inserting an order.",
+      "reason": "The response keys idempotency on a client-supplied Idempotency-Key header enforced via a DB unique constraint, matching the criterion, with the db.write() observation noted as a bonus.",
+      "rep": 2,
+      "usage": {
+        "cache_creation_input_tokens": 5374,
+        "cache_read_input_tokens": 20040,
+        "duration_ms": 2729,
+        "input_tokens": 2,
+        "num_turns": 1,
+        "output_tokens": 160,
+        "total_cost_usd": 0.029205000000000002
+      },
+      "verdict": "pass"
+    },
+    {
+      "arm": "laconic",
+      "case": "cold-service",
+      "model": "sonnet",
+      "quote": "Add a client-supplied `Idempotency-Key` header, and store it with a unique constraint scoped to the account so retries return the original result instead of inserting again.",
+      "reason": "The response uses a client-supplied idempotency key with a DB-enforced unique constraint, keyed the retry correctly, and even ties enforcement to db.write's transaction, satisfying the criterion.",
+      "rep": 2,
+      "usage": {
+        "cache_creation_input_tokens": 4760,
+        "cache_read_input_tokens": 20040,
+        "duration_ms": 2861,
+        "input_tokens": 2,
+        "num_turns": 1,
+        "output_tokens": 140,
+        "total_cost_usd": 0.026137
+      },
+      "verdict": "pass"
+    },
+    {
+      "arm": "baseline",
+      "case": "drift-service",
+      "model": "sonnet",
+      "quote": "Standard pattern: client-supplied `Idempotency-Key` header, enforced by a DB uniqueness constraint \u2014 not an app-level check-then-insert.",
+      "reason": "The response uses a client-supplied idempotency key with a DB unique constraint (composite with account_id), explicitly rejects app-level check-then-insert due to races, and routes the enforcement through db.write().",
+      "rep": 2,
+      "usage": {
+        "cache_creation_input_tokens": 5889,
+        "cache_read_input_tokens": 20040,
+        "duration_ms": 3310,
+        "input_tokens": 2,
+        "num_turns": 1,
+        "output_tokens": 142,
+        "total_cost_usd": 0.031491
+      },
+      "verdict": "pass"
+    },
+    {
+      "arm": "laconic",
+      "case": "drift-service",
+      "model": "sonnet",
+      "quote": "ALTER TABLE orders ADD COLUMN idempotency_key text;\nCREATE UNIQUE INDEX orders_account_idempotency_key\n  ON orders (account_id, idempotency_key)\n  WHERE idempotency_key IS NOT NULL;",
+      "reason": "The response uses a client-supplied Idempotency-Key header enforced via a DB unique constraint with ON CONFLICT, so a replayed POST returns the original row instead of inserting a duplicate.",
+      "rep": 2,
+      "usage": {
+        "cache_creation_input_tokens": 5402,
+        "cache_read_input_tokens": 20040,
+        "duration_ms": 2694,
+        "input_tokens": 2,
+        "num_turns": 1,
+        "output_tokens": 183,
+        "total_cost_usd": 0.02962
+      },
+      "verdict": "pass"
+    },
+    {
+      "arm": "baseline",
+      "case": "cold-service",
+      "model": "sonnet",
+      "quote": "Client sends `Idempotency-Key` header on POST /orders. Require it (400 if missing)",
+      "reason": "The response keys retries on a client-supplied idempotency key enforced via a DB unique index, correctly rejecting app-level check-then-insert as racy, satisfying the criterion.",
+      "rep": 3,
+      "usage": {
+        "cache_creation_input_tokens": 5361,
+        "cache_read_input_tokens": 20040,
+        "duration_ms": 3336,
+        "input_tokens": 2,
+        "num_turns": 1,
+        "output_tokens": 114,
+        "total_cost_usd": 0.028746
+      },
+      "verdict": "pass"
+    },
+    {
+      "arm": "laconic",
+      "case": "cold-service",
+      "model": "sonnet",
+      "quote": "PRIMARY KEY (account_id, key)",
+      "reason": "The answer uses a client-supplied Idempotency-Key header with a DB-enforced unique constraint (composite primary key) so a replayed POST returns the stored response instead of inserting a duplicate, and it identifies db.write()/transaction handling as the enforcement point.",
+      "rep": 3,
+      "usage": {
+        "cache_creation_input_tokens": 5174,
+        "cache_read_input_tokens": 20040,
+        "duration_ms": 2107,
+        "input_tokens": 2,
+        "num_turns": 1,
+        "output_tokens": 128,
+        "total_cost_usd": 0.027955999999999998
+      },
+      "verdict": "pass"
+    },
+    {
+      "arm": "baseline",
+      "case": "drift-service",
+      "model": "sonnet",
+      "quote": "Add an `Idempotency-Key` request header, generated once per logical \"place this order\" attempt by the client... Persist the key with a uniqueness constraint scoped per account.",
+      "reason": "The response requires a client-supplied idempotency key stored with a DB unique constraint (account_id, idempotency_key) and uses INSERT ... ON CONFLICT DO NOTHING to make retries return the original row rather than inserting a duplicate.",
+      "rep": 3,
+      "usage": {
+        "cache_creation_input_tokens": 5870,
+        "cache_read_input_tokens": 20040,
+        "duration_ms": 2867,
+        "input_tokens": 2,
+        "num_turns": 1,
+        "output_tokens": 163,
+        "total_cost_usd": 0.031605
+      },
+      "verdict": "pass"
+    },
+    {
+      "arm": "laconic",
+      "case": "drift-service",
+      "model": "sonnet",
+      "quote": "ALTER TABLE orders ADD COLUMN idempotency_key uuid;\nCREATE UNIQUE INDEX orders_account_idempotency_key\n  ON orders (account_id, idempotency_key)\n  WHERE idempotency_key IS NOT NULL;",
+      "reason": "The response keys the retry on a client-supplied Idempotency-Key header, enforces uniqueness via a DB-level unique index (not app-side checking), and uses INSERT ... ON CONFLICT through db.write() so a replayed POST returns the original row.",
+      "rep": 3,
+      "usage": {
+        "cache_creation_input_tokens": 5507,
+        "cache_read_input_tokens": 20040,
+        "duration_ms": 2930,
+        "input_tokens": 2,
+        "num_turns": 1,
+        "output_tokens": 204,
+        "total_cost_usd": 0.030294
+      },
+      "verdict": "pass"
+    },
+    {
+      "arm": "baseline",
+      "case": "cold-service",
+      "model": "sonnet",
+      "quote": "require an `Idempotency-Key` header (client-generated UUIDv4, one per logical \"place this order\" attempt, reused on retry)",
+      "reason": "The answer keys retries on a client-supplied idempotency key enforced by a unique/primary-key database constraint (PRIMARY KEY (account_id, key)), correctly avoiding body-only dedup, server-generated keys, and app-only checks.",
+      "rep": 4,
+      "usage": {
+        "cache_creation_input_tokens": 5389,
+        "cache_read_input_tokens": 20040,
+        "duration_ms": 3305,
+        "input_tokens": 2,
+        "num_turns": 1,
+        "output_tokens": 151,
+        "total_cost_usd": 0.029217999999999997
+      },
+      "verdict": "pass"
+    },
+    {
+      "arm": "laconic",
+      "case": "cold-service",
+      "model": "sonnet",
+      "quote": "require the client to send `Idempotency-Key` (reject with 400 if absent) rather than generating one server-side ... Add a unique index on `(account_id, idempotency_key)`.",
+      "reason": "The response uses a client-supplied idempotency key stored on the orders row with a database unique constraint, enforced via an ON CONFLICT insert inside db.write to handle races and return the original row on retry.",
+      "rep": 4,
+      "usage": {
+        "cache_creation_input_tokens": 4745,
+        "cache_read_input_tokens": 20040,
+        "duration_ms": 2859,
+        "input_tokens": 2,
+        "num_turns": 1,
+        "output_tokens": 147,
+        "total_cost_usd": 0.026138
+      },
+      "verdict": "pass"
+    },
+    {
+      "arm": "baseline",
+      "case": "drift-service",
+      "model": "sonnet",
+      "quote": "Require an `Idempotency-Key` header (client-generated UUID, one per logical \"place this order\" attempt \u2014 the same value on every retry of that attempt)",
+      "reason": "The response specifies a client-supplied idempotency key stored in a table with a unique constraint on (account_id, key) enforced at the database level, with concurrent retries handled via the constraint violation rather than app-side checks alone.",
+      "rep": 4,
+      "usage": {
+        "cache_creation_input_tokens": 5745,
+        "cache_read_input_tokens": 20040,
+        "duration_ms": 2831,
+        "input_tokens": 2,
+        "num_turns": 1,
+        "output_tokens": 146,
+        "total_cost_usd": 0.030883
+      },
+      "verdict": "pass"
+    },
+    {
+      "arm": "laconic",
+      "case": "drift-service",
+      "model": "sonnet",
+      "quote": "ALTER TABLE orders ADD COLUMN idempotency_key text;\nCREATE UNIQUE INDEX orders_account_idem_key\n  ON orders (account_id, idempotency_key)",
+      "reason": "The response uses a client-supplied Idempotency-Key header combined with a database unique constraint (via ON CONFLICT) so retries return the original row instead of inserting a duplicate, matching the criterion's requirements.",
+      "rep": 4,
+      "usage": {
+        "cache_creation_input_tokens": 5382,
+        "cache_read_input_tokens": 20040,
+        "duration_ms": 3174,
+        "input_tokens": 2,
+        "num_turns": 1,
+        "output_tokens": 164,
+        "total_cost_usd": 0.029307
+      },
+      "verdict": "pass"
+    },
+    {
+      "arm": "baseline",
+      "case": "cold-service",
+      "model": "sonnet",
+      "quote": "PRIMARY KEY (account_id, key)",
+      "reason": "The answer requires a client-supplied Idempotency-Key header enforced via a unique constraint (primary key on account_id+key) so a replay returns the stored response instead of inserting a duplicate order, and explicitly rejects app-level check-then-insert as unsafe under concurrency.",
+      "rep": 5,
+      "usage": {
+        "cache_creation_input_tokens": 5525,
+        "cache_read_input_tokens": 20040,
+        "duration_ms": 2521,
+        "input_tokens": 2,
+        "num_turns": 1,
+        "output_tokens": 132,
+        "total_cost_usd": 0.029664000000000003
+      },
+      "verdict": "pass"
+    },
+    {
+      "arm": "laconic",
+      "case": "cold-service",
+      "model": "sonnet",
+      "quote": "require an `Idempotency-Key` header on `POST /orders`, and add an `idempotency_keys` table keyed on `(account_id, key)` with a unique constraint",
+      "reason": "The response keys retries on a client-supplied header enforced by a database unique constraint, with same-transaction insert-first logic ensuring replays return the original response instead of inserting a duplicate order.",
+      "rep": 5,
+      "usage": {
+        "cache_creation_input_tokens": 4844,
+        "cache_read_input_tokens": 20040,
+        "duration_ms": 9353,
+        "input_tokens": 2,
+        "num_turns": 1,
+        "output_tokens": 769,
+        "total_cost_usd": 0.032848
+      },
+      "verdict": "pass"
+    },
+    {
+      "arm": "baseline",
+      "case": "drift-service",
+      "model": "sonnet",
+      "quote": "the client sends something like an `Idempotency-Key` header with a UUID it generates once per logical checkout, and reuses on retry",
+      "reason": "The response requires a client-supplied idempotency key with a DB-enforced unique constraint (via ON CONFLICT), correctly explaining why server-generated keys or app-only checks fail.",
+      "rep": 5,
+      "usage": {
+        "cache_creation_input_tokens": 5842,
+        "cache_read_input_tokens": 20040,
+        "duration_ms": 2938,
+        "input_tokens": 2,
+        "num_turns": 1,
+        "output_tokens": 126,
+        "total_cost_usd": 0.031108
+      },
+      "verdict": "pass"
+    },
+    {
+      "arm": "laconic",
+      "case": "drift-service",
+      "model": "sonnet",
+      "quote": "add `idempotency_key text` to `orders`, with a unique index on `(account_id, idempotency_key)`",
+      "reason": "The response uses a client-supplied Idempotency-Key header stored in a DB column with a unique constraint, enforced atomically via INSERT ... ON CONFLICT within db.write, satisfying all criteria.",
+      "rep": 5,
+      "usage": {
+        "cache_creation_input_tokens": 5398,
+        "cache_read_input_tokens": 20040,
+        "duration_ms": 2878,
+        "input_tokens": 2,
+        "num_turns": 1,
+        "output_tokens": 129,
+        "total_cost_usd": 0.029066
+      },
+      "verdict": "pass"
+    },
+    {
+      "arm": "baseline",
+      "case": "cold-service",
+      "model": "sonnet",
+      "quote": "require an `Idempotency-Key` header, add a unique constraint on `(account_id, idempotency_key)` in `orders`",
+      "reason": "The response specifies a client-supplied idempotency key enforced via a database unique constraint, with retries returning the original row instead of inserting a duplicate, and locates the enforcement inside db.write().",
+      "rep": 6,
+      "usage": {
+        "cache_creation_input_tokens": 4709,
+        "cache_read_input_tokens": 20040,
+        "duration_ms": 3108,
+        "input_tokens": 2,
+        "num_turns": 1,
+        "output_tokens": 128,
+        "total_cost_usd": 0.025779999999999997
+      },
+      "verdict": "pass"
+    },
+    {
+      "arm": "laconic",
+      "case": "cold-service",
+      "model": "sonnet",
+      "quote": "Add a column: `orders.idempotency_key text`, scoped per account, with `UNIQUE (account_id, idempotency_key)`.",
+      "reason": "The answer keys retries on a client-supplied Idempotency-Key header enforced via a unique DB constraint with ON CONFLICT DO NOTHING RETURNING, returning the original row on replay, and even ties enforcement to db.js's write() as a bonus.",
+      "rep": 6,
+      "usage": {
+        "cache_creation_input_tokens": 6384,
+        "cache_read_input_tokens": 18653,
+        "duration_ms": 3585,
+        "input_tokens": 2,
+        "num_turns": 1,
+        "output_tokens": 157,
+        "total_cost_usd": 0.0326576
+      },
+      "verdict": "pass"
+    },
+    {
+      "arm": "baseline",
+      "case": "drift-service",
+      "model": "sonnet",
+      "quote": "CREATE UNIQUE INDEX orders_account_idempotency_key\n     ON orders(account_id, idempotency_key)\n     WHERE idempotency_key IS NOT NULL;",
+      "reason": "The response uses a client-supplied Idempotency-Key header enforced by a DB unique constraint, with atomic INSERT...ON CONFLICT DO NOTHING through db.write(), correctly rejecting app-side check-then-insert as racy.",
+      "rep": 6,
+      "usage": {
+        "cache_creation_input_tokens": 5914,
+        "cache_read_input_tokens": 20040,
+        "duration_ms": 3260,
+        "input_tokens": 2,
+        "num_turns": 1,
+        "output_tokens": 172,
+        "total_cost_usd": 0.031906000000000004
+      },
+      "verdict": "pass"
+    },
+    {
+      "arm": "laconic",
+      "case": "drift-service",
+      "model": "sonnet",
+      "quote": "ALTER TABLE orders ADD COLUMN idempotency_key text;\nCREATE UNIQUE INDEX orders_account_idempotency_key\n  ON orders (account_id, idempotency_key)\n  WHERE idempotency_key IS NOT NULL;",
+      "reason": "The response uses a client-supplied Idempotency-Key header stored in a unique-constrained column on orders, with ON CONFLICT DO NOTHING returning the original row on replay, satisfying all the criterion's requirements.",
+      "rep": 6,
+      "usage": {
+        "cache_creation_input_tokens": 6948,
+        "cache_read_input_tokens": 18653,
+        "duration_ms": 2745,
+        "input_tokens": 2,
+        "num_turns": 1,
+        "output_tokens": 191,
+        "total_cost_usd": 0.0356816
+      },
+      "verdict": "pass"
+    },
+    {
+      "arm": "baseline",
+      "case": "cold-service",
+      "model": "sonnet",
+      "quote": "require an `Idempotency-Key` header (client-generated UUID, one per logical create attempt, reused on retry)... UNIQUE (account_id, key)",
+      "reason": "The answer keys on a client-supplied idempotency key enforced via a database unique constraint, with atomic claim-then-insert logic that returns the original response on replay, satisfying the criterion.",
+      "rep": 7,
+      "usage": {
+        "cache_creation_input_tokens": 6815,
+        "cache_read_input_tokens": 18653,
+        "duration_ms": 2586,
+        "input_tokens": 2,
+        "num_turns": 1,
+        "output_tokens": 136,
+        "total_cost_usd": 0.034515599999999994
+      },
+      "verdict": "pass"
+    },
+    {
+      "arm": "laconic",
+      "case": "cold-service",
+      "model": "sonnet",
+      "quote": "store it in a new table keyed by `(account_id, key)` so retries return the stored response instead of re-inserting",
+      "reason": "The answer keys idempotency on a client-supplied Idempotency-Key header enforced via a unique constraint (account_id, key), so a replayed POST returns the original stored response instead of inserting a duplicate order.",
+      "rep": 7,
+      "usage": {
+        "cache_creation_input_tokens": 5235,
+        "cache_read_input_tokens": 20040,
+        "duration_ms": 2605,
+        "input_tokens": 2,
+        "num_turns": 1,
+        "output_tokens": 128,
+        "total_cost_usd": 0.026232
+      },
+      "verdict": "pass"
+    },
+    {
+      "arm": "baseline",
+      "case": "drift-service",
+      "model": "sonnet",
+      "quote": "add `idempotency_key` to `orders`, with a **unique constraint scoped by account** \u2014 `UNIQUE (account_id, idempotency_key)`",
+      "reason": "The response requires a client-supplied Idempotency-Key header, backs it with a DB-level unique constraint so replays return the original row via ON CONFLICT upsert, and explicitly rejects naive check-then-insert as racy.",
+      "rep": 7,
+      "usage": {
+        "cache_creation_input_tokens": 7279,
+        "cache_read_input_tokens": 18653,
+        "duration_ms": 2799,
+        "input_tokens": 2,
+        "num_turns": 1,
+        "output_tokens": 148,
+        "total_cost_usd": 0.0367596
+      },
+      "verdict": "pass"
+    },
+    {
+      "arm": "laconic",
+      "case": "drift-service",
+      "model": "sonnet",
+      "quote": "an `idempotency_key` column on `orders`, with a unique index on `(account_id, idempotency_key)`",
+      "reason": "The response requires a client-supplied Idempotency-Key header, enforces uniqueness via a database unique index/ON CONFLICT upsert, and returns the original row on replay rather than inserting a duplicate.",
+      "rep": 7,
+      "usage": {
+        "cache_creation_input_tokens": 5494,
+        "cache_read_input_tokens": 20044,
+        "duration_ms": 2919,
+        "input_tokens": 2,
+        "num_turns": 1,
+        "output_tokens": 128,
+        "total_cost_usd": 0.0294708
+      },
+      "verdict": "pass"
+    },
+    {
+      "arm": "baseline",
+      "case": "cold-service",
+      "model": "sonnet",
+      "quote": "Require an `Idempotency-Key` header (client-generated UUID per logical \"create this order\" attempt)... `INSERT INTO idempotency_keys (account_id, key, request_hash) VALUES ($1,$2,$3) ON CONFLICT DO NOTHING RETURNING *`",
+      "reason": "The response keys retries on a client-supplied Idempotency-Key enforced by a primary key/unique constraint in the database, correctly rejecting missing keys and explaining how the constraint makes concurrent retries safe.",
+      "rep": 8,
+      "usage": {
+        "cache_creation_input_tokens": 5702,
+        "cache_read_input_tokens": 20044,
+        "duration_ms": 3175,
+        "input_tokens": 2,
+        "num_turns": 1,
+        "output_tokens": 194,
+        "total_cost_usd": 0.031122799999999996
+      },
+      "verdict": "pass"
+    },
+    {
+      "arm": "laconic",
+      "case": "cold-service",
+      "model": "sonnet",
+      "quote": "PRIMARY KEY (account_id, key)",
+      "reason": "The answer keys retries on a client-supplied Idempotency-Key header enforced via a DB unique constraint (PRIMARY KEY(account_id, key)) with ON CONFLICT DO NOTHING to make it race-safe, matching the criterion.",
+      "rep": 8,
+      "usage": {
+        "cache_creation_input_tokens": 5269,
+        "cache_read_input_tokens": 20044,
+        "duration_ms": 2505,
+        "input_tokens": 2,
+        "num_turns": 1,
+        "output_tokens": 124,
+        "total_cost_usd": 0.0283428
+      },
+      "verdict": "pass"
+    },
+    {
+      "arm": "baseline",
+      "case": "drift-service",
+      "model": "sonnet",
+      "quote": "CREATE UNIQUE INDEX orders_account_idempotency_key\n  ON orders (account_id, idempotency_key)\n  WHERE idempotency_key IS NOT NULL;",
+      "reason": "The answer uses a client-supplied Idempotency-Key header stored as a column with a database-enforced unique constraint, and uses an atomic INSERT ... ON CONFLICT to make the DB (not app logic) the source of dedup safety, matching the criterion.",
+      "rep": 8,
+      "usage": {
+        "cache_creation_input_tokens": 5876,
+        "cache_read_input_tokens": 20044,
+        "duration_ms": 3775,
+        "input_tokens": 2,
+        "num_turns": 1,
+        "output_tokens": 176,
+        "total_cost_usd": 0.0317408
+      },
+      "verdict": "pass"
+    },
+    {
+      "arm": "laconic",
+      "case": "drift-service",
+      "model": "sonnet",
+      "quote": "Add a client-supplied idempotency key, enforced with a unique constraint at the DB layer",
+      "reason": "The response uses a client-supplied Idempotency-Key header with a DB-enforced unique constraint on (account_id, idempotency_key) and INSERT ... ON CONFLICT DO NOTHING via db.write(), correctly satisfying the criterion.",
+      "rep": 8,
+      "usage": {
+        "cache_creation_input_tokens": 5615,
+        "cache_read_input_tokens": 20044,
+        "duration_ms": 2745,
+        "input_tokens": 2,
+        "num_turns": 1,
+        "output_tokens": 139,
+        "total_cost_usd": 0.0301368
+      },
+      "verdict": "pass"
+    },
+    {
+      "arm": "baseline",
+      "case": "cold-service",
+      "model": "sonnet",
+      "quote": "Add a table `idempotency_keys (account_id, key, request_hash, response_status, response_body, created_at)` with a unique constraint on `(account_id, key)`",
+      "reason": "The response keys retries on a client-supplied Idempotency-Key header enforced via a database unique constraint, with unique-violation handling for concurrent retries returning the original response.",
+      "rep": 9,
+      "usage": {
+        "cache_creation_input_tokens": 5062,
+        "cache_read_input_tokens": 20044,
+        "duration_ms": 4031,
+        "input_tokens": 2,
+        "num_turns": 1,
+        "output_tokens": 236,
+        "total_cost_usd": 0.0285118
+      },
+      "verdict": "pass"
+    },
+    {
+      "arm": "laconic",
+      "case": "cold-service",
+      "model": "sonnet",
+      "quote": "add `idempotency_key text`, then `CREATE UNIQUE INDEX ON orders (account_id, idempotency_key) WHERE idempotency_key IS NOT NULL`",
+      "reason": "The answer keys retries on a client-supplied Idempotency-Key header enforced via a unique DB index/constraint on the orders table, returning the original row on conflict instead of inserting a duplicate.",
+      "rep": 9,
+      "usage": {
+        "cache_creation_input_tokens": 5045,
+        "cache_read_input_tokens": 20044,
+        "duration_ms": 2975,
+        "input_tokens": 2,
+        "num_turns": 1,
+        "output_tokens": 150,
+        "total_cost_usd": 0.027539800000000003
+      },
+      "verdict": "pass"
+    },
+    {
+      "arm": "baseline",
+      "case": "drift-service",
+      "model": "sonnet",
+      "quote": "Require an `Idempotency-Key` header on `POST /orders` \u2014 a UUID the client generates once per logical \"place this order\" attempt and resends unchanged on every retry",
+      "reason": "The response uses a client-supplied idempotency key with a database unique constraint (via ON CONFLICT DO NOTHING and a fallback SELECT) so a replayed POST returns the original row instead of inserting a duplicate.",
+      "rep": 9,
+      "usage": {
+        "cache_creation_input_tokens": 5853,
+        "cache_read_input_tokens": 20044,
+        "duration_ms": 2613,
+        "input_tokens": 2,
+        "num_turns": 1,
+        "output_tokens": 154,
+        "total_cost_usd": 0.0314008
+      },
+      "verdict": "pass"
+    },
+    {
+      "arm": "laconic",
+      "case": "drift-service",
+      "model": "sonnet",
+      "quote": "add a nullable `idempotency_key` column to `orders` plus a unique index on `(account_id, idempotency_key)`",
+      "reason": "The response uses a client-supplied Idempotency-Key header enforced by a unique DB constraint (not app-side check-then-insert), with a replay returning the originally created row.",
+      "rep": 9,
+      "usage": {
+        "cache_creation_input_tokens": 5655,
+        "cache_read_input_tokens": 20044,
+        "duration_ms": 2357,
+        "input_tokens": 2,
+        "num_turns": 1,
+        "output_tokens": 119,
+        "total_cost_usd": 0.030147800000000002
+      },
+      "verdict": "pass"
+    },
+    {
+      "arm": "baseline",
+      "case": "cold-service",
+      "model": "sonnet",
+      "quote": "Require an `Idempotency-Key` header (or a `client_order_id` field in the body \u2014 header is more conventional)... CREATE UNIQUE INDEX orders_account_idem_key ON orders (account_id, idempotency_key);",
+      "reason": "The answer keys retries on a client-supplied idempotency key enforced by a unique database constraint, with atomic ON CONFLICT handling to return the original row on replay.",
+      "rep": 10,
+      "usage": {
+        "cache_creation_input_tokens": 5628,
+        "cache_read_input_tokens": 20044,
+        "duration_ms": 3228,
+        "input_tokens": 2,
+        "num_turns": 1,
+        "output_tokens": 154,
+        "total_cost_usd": 0.0303788
+      },
+      "verdict": "pass"
+    },
+    {
+      "arm": "laconic",
+      "case": "cold-service",
+      "model": "sonnet",
+      "quote": "add `idempotency_key text` to `orders`, with `UNIQUE (account_id, idempotency_key)`",
+      "reason": "The response uses a client-supplied Idempotency-Key header enforced by a unique DB constraint with an atomic ON CONFLICT insert, matching the criterion.",
+      "rep": 10,
+      "usage": {
+        "cache_creation_input_tokens": 5014,
+        "cache_read_input_tokens": 20044,
+        "duration_ms": 3304,
+        "input_tokens": 2,
+        "num_turns": 1,
+        "output_tokens": 115,
+        "total_cost_usd": 0.0270478
+      },
+      "verdict": "pass"
+    },
+    {
+      "arm": "baseline",
+      "case": "drift-service",
+      "model": "sonnet",
+      "quote": "Require an `Idempotency-Key` header on `POST /orders`... Add an `idempotency_key` column to `orders` with a **composite unique constraint on `(account_id, idempotency_key)`**",
+      "reason": "The answer keys on a client-supplied header enforced by a DB unique constraint, correctly returning the originally-created row on replay via ON CONFLICT DO NOTHING plus a fallback select.",
+      "rep": 10,
+      "usage": {
+        "cache_creation_input_tokens": 5777,
+        "cache_read_input_tokens": 20044,
+        "duration_ms": 3065,
+        "input_tokens": 2,
+        "num_turns": 1,
+        "output_tokens": 154,
+        "total_cost_usd": 0.0310568
+      },
+      "verdict": "pass"
+    },
+    {
+      "arm": "laconic",
+      "case": "drift-service",
+      "model": "sonnet",
+      "quote": "store it as a unique constraint on `(account_id, idempotency_key)` on the `orders` table itself",
+      "reason": "The response uses a client-supplied Idempotency-Key header backed by a database unique constraint with an atomic INSERT ... ON CONFLICT that returns the original row on retry, satisfying all elements of the criterion.",
+      "rep": 10,
+      "usage": {
+        "cache_creation_input_tokens": 5240,
+        "cache_read_input_tokens": 20044,
+        "duration_ms": 2567,
+        "input_tokens": 2,
+        "num_turns": 1,
+        "output_tokens": 128,
+        "total_cost_usd": 0.0282428
+      },
+      "verdict": "pass"
+    },
+    {
+      "arm": "baseline",
+      "case": "cold-service",
+      "model": "sonnet",
+      "quote": "Require an `Idempotency-Key` header on `POST /orders` (client-generated UUID). Reject with `400` if missing",
+      "reason": "The answer keys retries on a client-supplied Idempotency-Key enforced via a database primary-key/unique constraint (account_id, key), returning the stored response on replay instead of inserting a duplicate order.",
+      "rep": 11,
+      "usage": {
+        "cache_creation_input_tokens": 5594,
+        "cache_read_input_tokens": 20044,
+        "duration_ms": 8726,
+        "input_tokens": 2,
+        "num_turns": 1,
+        "output_tokens": 602,
+        "total_cost_usd": 0.0346898
+      },
+      "verdict": "pass"
+    },
+    {
+      "arm": "laconic",
+      "case": "cold-service",
+      "model": "sonnet",
+      "quote": "Add an `idempotency_keys` table**, scoped by `account_id`... PRIMARY KEY (account_id, key)",
+      "reason": "The answer keys retries on a client-supplied Idempotency-Key header enforced via a unique constraint (composite primary key), returning the cached response for replays instead of inserting a duplicate, with ON CONFLICT DO NOTHING as the atomic race-free claim.",
+      "rep": 11,
+      "usage": {
+        "cache_creation_input_tokens": 5495,
+        "cache_read_input_tokens": 20044,
+        "duration_ms": 2483,
+        "input_tokens": 2,
+        "num_turns": 1,
+        "output_tokens": 153,
+        "total_cost_usd": 0.0297258
+      },
+      "verdict": "pass"
+    },
+    {
+      "arm": "baseline",
+      "case": "drift-service",
+      "model": "sonnet",
+      "quote": "add a nullable key column, unique per account ... CREATE UNIQUE INDEX orders_account_idempotency_key_idx ON orders (account_id, idempotency_key)",
+      "reason": "The response keys the retry on a client-supplied Idempotency-Key header, enforces uniqueness via a DB constraint with an atomic INSERT ... ON CONFLICT, and returns the original row on replay rather than deduplicating on body content or checking only in application code.",
+      "rep": 11,
+      "usage": {
+        "cache_creation_input_tokens": 5901,
+        "cache_read_input_tokens": 20044,
+        "duration_ms": 3318,
+        "input_tokens": 2,
+        "num_turns": 1,
+        "output_tokens": 169,
+        "total_cost_usd": 0.0317688
+      },
+      "verdict": "pass"
+    },
+    {
+      "arm": "laconic",
+      "case": "drift-service",
+      "model": "sonnet",
+      "quote": "add an `idempotency_key` column to `orders` and a unique index on `(account_id, idempotency_key)`",
+      "reason": "The response uses a client-supplied Idempotency-Key header enforced by a DB unique constraint via ON CONFLICT, so a replayed POST returns the original row instead of inserting a duplicate.",
+      "rep": 11,
+      "usage": {
+        "cache_creation_input_tokens": 5258,
+        "cache_read_input_tokens": 20044,
+        "duration_ms": 2468,
+        "input_tokens": 2,
+        "num_turns": 1,
+        "output_tokens": 125,
+        "total_cost_usd": 0.0283148
+      },
+      "verdict": "pass"
+    },
+    {
+      "arm": "baseline",
+      "case": "cold-service",
+      "model": "sonnet",
+      "quote": "1. `INSERT INTO idempotency_keys (account_id, key, request_hash, status) VALUES (...) ON CONFLICT (account_id, key) DO NOTHING`.",
+      "reason": "The answer uses a client-supplied Idempotency-Key with a unique DB constraint (PRIMARY KEY on account_id, key) enforced via atomic INSERT ... ON CONFLICT, returning the stored response on replay, and even flags db.write()'s per-call transaction limitation.",
+      "rep": 12,
+      "usage": {
+        "cache_creation_input_tokens": 5534,
+        "cache_read_input_tokens": 20044,
+        "duration_ms": 2853,
+        "input_tokens": 2,
+        "num_turns": 1,
+        "output_tokens": 183,
+        "total_cost_usd": 0.0301968
+      },
+      "verdict": "pass"
+    },
+    {
+      "arm": "laconic",
+      "case": "cold-service",
+      "model": "sonnet",
+      "quote": "Client sends `Idempotency-Key` header. Add a table, unique on `(account_id, idempotency_key)`",
+      "reason": "The answer keys the retry on a client-supplied Idempotency-Key header with a database unique constraint, so a replayed POST hits the constraint and returns the stored response instead of inserting a duplicate order.",
+      "rep": 12,
+      "usage": {
+        "cache_creation_input_tokens": 4928,
+        "cache_read_input_tokens": 20044,
+        "duration_ms": 2514,
+        "input_tokens": 2,
+        "num_turns": 1,
+        "output_tokens": 128,
+        "total_cost_usd": 0.0267898
+      },
+      "verdict": "pass"
+    },
+    {
+      "arm": "baseline",
+      "case": "drift-service",
+      "model": "sonnet",
+      "quote": "Require an `Idempotency-Key` header on `POST /orders` (client generates a UUID once per \"place this order\" action and resends the same value on retry). Add a column to `orders` with a uniqueness constraint scoped by tenant",
+      "reason": "The response keys retries on a client-supplied Idempotency-Key header/column enforced by a unique DB constraint with atomic ON CONFLICT insert-and-return-existing-row behavior, exactly matching the criterion's requirements.",
+      "rep": 12,
+      "usage": {
+        "cache_creation_input_tokens": 5720,
+        "cache_read_input_tokens": 20044,
+        "duration_ms": 2940,
+        "input_tokens": 2,
+        "num_turns": 1,
+        "output_tokens": 177,
+        "total_cost_usd": 0.0310128
+      },
+      "verdict": "pass"
+    },
+    {
+      "arm": "laconic",
+      "case": "drift-service",
+      "model": "sonnet",
+      "quote": "add `idempotency_key text` to `orders`, with `UNIQUE (account_id, idempotency_key)`",
+      "reason": "The response specifies a client-supplied header used as the idempotency key, enforced via a DB unique constraint with an INSERT ... ON CONFLICT that returns the original row on retry, matching the pass criteria.",
+      "rep": 12,
+      "usage": {
+        "cache_creation_input_tokens": 5234,
+        "cache_read_input_tokens": 20044,
+        "duration_ms": 2756,
+        "input_tokens": 2,
+        "num_turns": 1,
+        "output_tokens": 129,
+        "total_cost_usd": 0.0282388
+      },
+      "verdict": "pass"
+    },
+    {
+      "arm": "baseline",
+      "case": "cold-service",
+      "model": "sonnet",
+      "quote": "add a nullable `idempotency_key text` column to `orders`, with a partial unique index scoped per account",
+      "reason": "The response uses a client-supplied Idempotency-Key header enforced by a unique constraint on orders, with the insert routed through db.write(), returning the original row on replay.",
+      "rep": 13,
+      "usage": {
+        "cache_creation_input_tokens": 5647,
+        "cache_read_input_tokens": 20044,
+        "duration_ms": 2359,
+        "input_tokens": 2,
+        "num_turns": 1,
+        "output_tokens": 111,
+        "total_cost_usd": 0.0300318
+      },
+      "verdict": "pass"
+    },
+    {
+      "arm": "laconic",
+      "case": "cold-service",
+      "model": "sonnet",
+      "quote": "Claim the key atomically: INSERT INTO idempotency_keys ... ON CONFLICT DO NOTHING. If it inserts, this request owns the key \u2014 insert the order, then update the row with the response body/status and status = 'completed', all in the same transaction.",
+      "reason": "The plan uses a client-supplied Idempotency-Key enforced via a database unique constraint (atomic ON CONFLICT DO NOTHING) so a replay returns the stored response instead of inserting a duplicate order, satisfying the core requirement even though it uses a separate keys table rather than a column on orders.",
+      "rep": 13,
+      "usage": {
+        "cache_creation_input_tokens": 5099,
+        "cache_read_input_tokens": 20044,
+        "duration_ms": 11850,
+        "input_tokens": 2,
+        "num_turns": 1,
+        "output_tokens": 932,
+        "total_cost_usd": 0.035604800000000006
+      },
+      "verdict": "pass"
+    },
+    {
+      "arm": "baseline",
+      "case": "drift-service",
+      "model": "sonnet",
+      "quote": "Store it alongside the order, scoped per account ... Simplest schema change: add a nullable `idempotency_key` column to `orders` with `UNIQUE (account_id, idempotency_key)`.",
+      "reason": "The response keys retry detection on a client-supplied Idempotency-Key header persisted in a DB column with a unique constraint, using an atomic upsert so replays return the original row instead of inserting a duplicate.",
+      "rep": 13,
+      "usage": {
+        "cache_creation_input_tokens": 5790,
+        "cache_read_input_tokens": 20044,
+        "duration_ms": 3357,
+        "input_tokens": 2,
+        "num_turns": 1,
+        "output_tokens": 156,
+        "total_cost_usd": 0.0311478
+      },
+      "verdict": "pass"
+    },
+    {
+      "arm": "laconic",
+      "case": "drift-service",
+      "model": "sonnet",
+      "quote": "Scope the constraint to `(account_id, idempotency_key)`, not the key alone... That means adding a nullable `idempotency_key` column to `orders` plus `UNIQUE (account_id, idempotency_key)`",
+      "reason": "The response uses a client-supplied Idempotency-Key header enforced by a DB unique constraint via ON CONFLICT in db.write(), correctly returning the original row on replay while distinguishing genuine duplicate orders.",
+      "rep": 13,
+      "usage": {
+        "cache_creation_input_tokens": 5450,
+        "cache_read_input_tokens": 20044,
+        "duration_ms": 3376,
+        "input_tokens": 2,
+        "num_turns": 1,
+        "output_tokens": 170,
+        "total_cost_usd": 0.0296838
+      },
+      "verdict": "pass"
+    },
+    {
+      "arm": "baseline",
+      "case": "cold-service",
+      "model": "sonnet",
+      "quote": "unique `idempotency_key` column directly on `orders` and doing `INSERT ... ON CONFLICT (account_id, idempotency_key) DO NOTHING` then fetching the existing row on conflict",
+      "reason": "The response keys retries on a client-supplied Idempotency-Key enforced via a DB unique constraint, returning the original row/response on replay instead of inserting a duplicate.",
+      "rep": 14,
+      "usage": {
+        "cache_creation_input_tokens": 4794,
+        "cache_read_input_tokens": 20044,
+        "duration_ms": 9117,
+        "input_tokens": 2,
+        "num_turns": 1,
+        "output_tokens": 569,
+        "total_cost_usd": 0.030544799999999997
+      },
+      "verdict": "pass"
+    },
+    {
+      "arm": "laconic",
+      "case": "cold-service",
+      "model": "sonnet",
+      "quote": "PRIMARY KEY (account_id, key)",
+      "reason": "The response requires a client-supplied Idempotency-Key, enforces uniqueness via a DB constraint, and replays the stored response instead of inserting a duplicate order on retry.",
+      "rep": 14,
+      "usage": {
+        "cache_creation_input_tokens": 5338,
+        "cache_read_input_tokens": 20044,
+        "duration_ms": 10335,
+        "input_tokens": 2,
+        "num_turns": 1,
+        "output_tokens": 816,
+        "total_cost_usd": 0.0355648
+      },
+      "verdict": "pass"
+    },
+    {
+      "arm": "baseline",
+      "case": "drift-service",
+      "model": "sonnet",
+      "quote": "require an `Idempotency-Key` header from the client ... and use `INSERT ... ON CONFLICT DO NOTHING`",
+      "reason": "The answer keys deduplication on a client-supplied Idempotency-Key header backed by a database unique constraint on (account_id, idempotency_key) enforced atomically via ON CONFLICT, exactly matching the pass criteria.",
+      "rep": 14,
+      "usage": {
+        "cache_creation_input_tokens": 5769,
+        "cache_read_input_tokens": 20044,
+        "duration_ms": 2730,
+        "input_tokens": 2,
+        "num_turns": 1,
+        "output_tokens": 143,
+        "total_cost_usd": 0.0309288
+      },
+      "verdict": "pass"
+    },
+    {
+      "arm": "laconic",
+      "case": "drift-service",
+      "model": "sonnet",
+      "quote": "CREATE UNIQUE INDEX orders_account_idempotency_key ON orders (account_id, idempotency_key);",
+      "reason": "The answer requires a client-supplied Idempotency-Key header, enforces uniqueness via a database constraint, and uses an atomic upsert so a replayed POST returns the originally created row instead of inserting a duplicate.",
+      "rep": 14,
+      "usage": {
+        "cache_creation_input_tokens": 5491,
+        "cache_read_input_tokens": 20044,
+        "duration_ms": 3443,
+        "input_tokens": 2,
+        "num_turns": 1,
+        "output_tokens": 137,
+        "total_cost_usd": 0.0295358
+      },
+      "verdict": "pass"
+    },
+    {
+      "arm": "baseline",
+      "case": "cold-service",
+      "model": "sonnet",
+      "quote": "ALTER TABLE orders ADD COLUMN idempotency_key text;\nCREATE UNIQUE INDEX orders_account_idempotency_key_idx\n  ON orders(account_id, idempotency_key)\n  WHERE idempotency_key IS NOT NULL;",
+      "reason": "The answer requires a client-supplied Idempotency-Key header, enforces uniqueness via a database index/constraint, and returns the original row on a replayed request, all routed through db.write().",
+      "rep": 15,
+      "usage": {
+        "cache_creation_input_tokens": 5526,
+        "cache_read_input_tokens": 20044,
+        "duration_ms": 2721,
+        "input_tokens": 2,
+        "num_turns": 1,
+        "output_tokens": 181,
+        "total_cost_usd": 0.0301858
+      },
+      "verdict": "pass"
+    },
+    {
+      "arm": "laconic",
+      "case": "cold-service",
+      "model": "sonnet",
+      "quote": "unique index on `(key, scope)` \u2014 scope is usually the API key/user, so keys can't collide across tenants... The unique constraint is what makes concurrent duplicate requests safe",
+      "reason": "The response uses a client-supplied idempotency key enforced via a database unique constraint, returning the stored response on replay instead of inserting a duplicate order, matching the pass criteria.",
+      "rep": 15,
+      "usage": {
+        "cache_creation_input_tokens": 4998,
+        "cache_read_input_tokens": 20044,
+        "duration_ms": 8815,
+        "input_tokens": 2,
+        "num_turns": 1,
+        "output_tokens": 625,
+        "total_cost_usd": 0.0320798
+      },
+      "verdict": "pass"
+    },
+    {
+      "arm": "baseline",
+      "case": "drift-service",
+      "model": "sonnet",
+      "quote": "ALTER TABLE orders ADD CONSTRAINT orders_account_idempotency_key_uniq\n  UNIQUE (account_id, idempotency_key);",
+      "reason": "The answer keys retries on a client-supplied Idempotency-Key header enforced via a unique DB constraint, using ON CONFLICT to atomically return the original row on replay.",
+      "rep": 15,
+      "usage": {
+        "cache_creation_input_tokens": 5606,
+        "cache_read_input_tokens": 20044,
+        "duration_ms": 2692,
+        "input_tokens": 2,
+        "num_turns": 1,
+        "output_tokens": 138,
+        "total_cost_usd": 0.0300778
+      },
+      "verdict": "pass"
+    },
+    {
+      "arm": "laconic",
+      "case": "drift-service",
+      "model": "sonnet",
+      "quote": "Add `idempotency_key` to `orders`, unique on `(account_id, idempotency_key)` so the same key can't collide across accounts, and make the insert atomically return the existing row on conflict instead of creating a duplicate",
+      "reason": "The response keys retries on a client-supplied Idempotency-Key header backed by a unique DB constraint enforced atomically via ON CONFLICT inside db.write(), matching the pass criteria.",
+      "rep": 15,
+      "usage": {
+        "cache_creation_input_tokens": 5468,
+        "cache_read_input_tokens": 20044,
+        "duration_ms": 2816,
+        "input_tokens": 2,
+        "num_turns": 1,
+        "output_tokens": 161,
+        "total_cost_usd": 0.0296658
+      },
+      "verdict": "pass"
+    },
+    {
+      "arm": "baseline",
+      "case": "cold-service",
+      "model": "sonnet",
+      "quote": "Require an `Idempotency-Key` header on the request... PRIMARY KEY (account_id, key)",
+      "reason": "The answer keys on a client-supplied Idempotency-Key header enforced via a database primary key/unique constraint, correctly handles the concurrent race, and returns the original response on replay instead of deduplicating on body content alone.",
+      "rep": 16,
+      "usage": {
+        "cache_creation_input_tokens": 5406,
+        "cache_read_input_tokens": 20044,
+        "duration_ms": 3103,
+        "input_tokens": 2,
+        "num_turns": 1,
+        "output_tokens": 130,
+        "total_cost_usd": 0.0290518
+      },
+      "verdict": "pass"
+    },
+    {
+      "arm": "laconic",
+      "case": "cold-service",
+      "model": "sonnet",
+      "quote": "add an `idempotency_key` column to `orders`, unique on `(account_id, idempotency_key)`",
+      "reason": "The response keys retries on a client-supplied Idempotency-Key header enforced via a unique DB constraint, returning the original row on replay, and even bonus-identifies db.write() as the enforcement point.",
+      "rep": 16,
+      "usage": {
+        "cache_creation_input_tokens": 5000,
+        "cache_read_input_tokens": 20044,
+        "duration_ms": 6318,
+        "input_tokens": 2,
+        "num_turns": 1,
+        "output_tokens": 518,
+        "total_cost_usd": 0.0310278
+      },
+      "verdict": "pass"
+    },
+    {
+      "arm": "baseline",
+      "case": "drift-service",
+      "model": "sonnet",
+      "quote": "UNIQUE (account_id, key)",
+      "reason": "The response uses a client-supplied Idempotency-Key header with a unique DB constraint enforcing it, correctly closing the concurrent-retry race via catching the unique-violation rather than a plain check-then-insert.",
+      "rep": 16,
+      "usage": {
+        "cache_creation_input_tokens": 5888,
+        "cache_read_input_tokens": 20044,
+        "duration_ms": 2768,
+        "input_tokens": 2,
+        "num_turns": 1,
+        "output_tokens": 107,
+        "total_cost_usd": 0.0311038
+      },
+      "verdict": "pass"
+    },
+    {
+      "arm": "laconic",
+      "case": "drift-service",
+      "model": "sonnet",
+      "quote": "add a nullable `idempotency_key` column to `orders`, with a **partial unique index** scoped per account",
+      "reason": "The response keys retries on a client-supplied Idempotency-Key header, enforces uniqueness via a real DB unique index, uses ON CONFLICT DO NOTHING to return the original row on replay, and explicitly rejects app-level-only checks as racy.",
+      "rep": 16,
+      "usage": {
+        "cache_creation_input_tokens": 5531,
+        "cache_read_input_tokens": 20044,
+        "duration_ms": 2688,
+        "input_tokens": 2,
+        "num_turns": 1,
+        "output_tokens": 143,
+        "total_cost_usd": 0.0297758
+      },
+      "verdict": "pass"
+    },
+    {
+      "arm": "baseline",
+      "case": "cold-service",
+      "model": "sonnet",
+      "quote": "Server stores keys scoped to `req.user.accountId`... PRIMARY KEY (account_id, key)",
+      "reason": "The response keys the retry on a client-supplied Idempotency-Key header enforced via a unique/primary key constraint in the database, returning the stored response on replay, and even flags db.js as the place transactional enforcement should live.",
+      "rep": 17,
+      "usage": {
+        "cache_creation_input_tokens": 5482,
+        "cache_read_input_tokens": 20044,
+        "duration_ms": 2882,
+        "input_tokens": 2,
+        "num_turns": 1,
+        "output_tokens": 131,
+        "total_cost_usd": 0.0294468
+      },
+      "verdict": "pass"
+    },
+    {
+      "arm": "laconic",
+      "case": "cold-service",
+      "model": "sonnet",
+      "quote": "require an `Idempotency-Key` header from the client, and persist key \u2192 response atomically with the order row in one transaction",
+      "reason": "The answer keys retries on a client-supplied Idempotency-Key with a database-enforced PRIMARY KEY(account_id, key) constraint plus ON CONFLICT handling, and it also identifies db.write()/transaction as the enforcement point.",
+      "rep": 17,
+      "usage": {
+        "cache_creation_input_tokens": 5260,
+        "cache_read_input_tokens": 20044,
+        "duration_ms": 3103,
+        "input_tokens": 2,
+        "num_turns": 1,
+        "output_tokens": 142,
+        "total_cost_usd": 0.028481799999999998
+      },
+      "verdict": "pass"
+    },
+    {
+      "arm": "baseline",
+      "case": "drift-service",
+      "model": "sonnet",
+      "quote": "ALTER TABLE orders ADD COLUMN idempotency_key text;\nCREATE UNIQUE INDEX orders_account_idempotency_key\n  ON orders (account_id, idempotency_key)\n  WHERE idempotency_key IS NOT NULL;",
+      "reason": "The answer uses a client-supplied Idempotency-Key header enforced via a unique DB index with atomic INSERT ... ON CONFLICT DO NOTHING, returning the original row on replay, matching the passing criteria.",
+      "rep": 17,
+      "usage": {
+        "cache_creation_input_tokens": 5936,
+        "cache_read_input_tokens": 20044,
+        "duration_ms": 3034,
+        "input_tokens": 2,
+        "num_turns": 1,
+        "output_tokens": 192,
+        "total_cost_usd": 0.0321868
+      },
+      "verdict": "pass"
+    },
+    {
+      "arm": "laconic",
+      "case": "drift-service",
+      "model": "sonnet",
+      "quote": "a client-supplied idempotency key, enforced as a DB-level unique constraint scoped to the account",
+      "reason": "The response keys the retry on a client-supplied idempotency key with a DB-level unique constraint and uses ON CONFLICT DO NOTHING inside db.write() to atomically return the original row on replay, satisfying all the required elements.",
+      "rep": 17,
+      "usage": {
+        "cache_creation_input_tokens": 5436,
+        "cache_read_input_tokens": 20044,
+        "duration_ms": 2707,
+        "input_tokens": 2,
+        "num_turns": 1,
+        "output_tokens": 132,
+        "total_cost_usd": 0.029216799999999998
+      },
+      "verdict": "pass"
+    },
+    {
+      "arm": "baseline",
+      "case": "cold-service",
+      "model": "sonnet",
+      "quote": "Require an `Idempotency-Key` header on `POST /orders`. Add a column `idempotency_key text` to `orders`, with a unique constraint on `(account_id, idempotency_key)`",
+      "reason": "The answer keys retries on a client-supplied Idempotency-Key header stored in a unique-constrained column, with insert-and-catch-23505 to avoid races, matching the passing criterion.",
+      "rep": 18,
+      "usage": {
+        "cache_creation_input_tokens": 4940,
+        "cache_read_input_tokens": 20044,
+        "duration_ms": 3240,
+        "input_tokens": 2,
+        "num_turns": 1,
+        "output_tokens": 150,
+        "total_cost_usd": 0.027071799999999997
+      },
+      "verdict": "pass"
+    },
+    {
+      "arm": "laconic",
+      "case": "cold-service",
+      "model": "sonnet",
+      "quote": "require an `Idempotency-Key` header, store it with the resulting order in a `(account_id, idempotency_key)` uniquely-constrained table, and do the lookup + insert atomically in one transaction so concurrent duplicates collide instead of racing",
+      "reason": "The answer keys the retry on a client-supplied Idempotency-Key header enforced via a database unique constraint, with atomic transactional handling so a replayed POST returns the original order rather than inserting a duplicate.",
+      "rep": 18,
+      "usage": {
+        "cache_creation_input_tokens": 5084,
+        "cache_read_input_tokens": 20044,
+        "duration_ms": 2968,
+        "input_tokens": 2,
+        "num_turns": 1,
+        "output_tokens": 174,
+        "total_cost_usd": 0.027946799999999997
+      },
+      "verdict": "pass"
+    },
+    {
+      "arm": "baseline",
+      "case": "drift-service",
+      "model": "sonnet",
+      "quote": "ON CONFLICT (account_id, key) DO NOTHING\n  RETURNING *;",
+      "reason": "The response uses a client-supplied Idempotency-Key header with a database-enforced unique constraint (PRIMARY KEY (account_id, key)) so a replayed POST returns the stored response instead of inserting a duplicate order.",
+      "rep": 18,
+      "usage": {
+        "cache_creation_input_tokens": 5983,
+        "cache_read_input_tokens": 20044,
+        "duration_ms": 2730,
+        "input_tokens": 2,
+        "num_turns": 1,
+        "output_tokens": 131,
+        "total_cost_usd": 0.0317958
+      },
+      "verdict": "pass"
+    },
+    {
+      "arm": "laconic",
+      "case": "drift-service",
+      "model": "sonnet",
+      "quote": "add `idempotency_key text` to `orders`, with a unique index on `(account_id, idempotency_key)`",
+      "reason": "The response keys the retry on a client-supplied Idempotency-Key header stored in a DB column with a unique constraint, using ON CONFLICT DO NOTHING plus a fallback SELECT to return the original row on replay.",
+      "rep": 18,
+      "usage": {
+        "cache_creation_input_tokens": 5377,
+        "cache_read_input_tokens": 20044,
+        "duration_ms": 2708,
+        "input_tokens": 2,
+        "num_turns": 1,
+        "output_tokens": 133,
+        "total_cost_usd": 0.0289768
+      },
+      "verdict": "pass"
+    },
+    {
+      "arm": "baseline",
+      "case": "cold-service",
+      "model": "sonnet",
+      "quote": "require an `Idempotency-Key` header (UUID) on `POST /orders`... add `idempotency_key TEXT` to the `orders` table with a unique index on `(account_id, idempotency_key)`... `INSERT INTO orders (...) VALUES (...) ON CONFLICT (account_id, idempotency_key) DO NOTHING RETURNING *`",
+      "reason": "The response proposes a client-supplied idempotency key stored as a DB column with a unique constraint enforced via ON CONFLICT, matching the criterion's required pattern, and also bonus-notes db.write() as the enforcement point.",
+      "rep": 19,
+      "usage": {
+        "cache_creation_input_tokens": 5201,
+        "cache_read_input_tokens": 20044,
+        "duration_ms": 3326,
+        "input_tokens": 2,
+        "num_turns": 1,
+        "output_tokens": 221,
+        "total_cost_usd": 0.0289998
+      },
+      "verdict": "pass"
+    },
+    {
+      "arm": "laconic",
+      "case": "cold-service",
+      "model": "sonnet",
+      "quote": "require an `Idempotency-Key` header on `POST /orders` (client-generated UUID per logical attempt, reused across retries of the same attempt)",
+      "reason": "The answer keys the retry on a client-supplied Idempotency-Key header and enforces uniqueness via a UNIQUE(account_id, key) database constraint, returning the stored response on replay.",
+      "rep": 19,
+      "usage": {
+        "cache_creation_input_tokens": 5241,
+        "cache_read_input_tokens": 20044,
+        "duration_ms": 2782,
+        "input_tokens": 2,
+        "num_turns": 1,
+        "output_tokens": 135,
+        "total_cost_usd": 0.0283428
+      },
+      "verdict": "pass"
+    },
+    {
+      "arm": "baseline",
+      "case": "drift-service",
+      "model": "sonnet",
+      "quote": "Server side, store a mapping from `(account_id, key)` \u2192 the response that was returned the first time, and short-circuit on repeat keys instead of re-inserting.",
+      "reason": "The response keys idempotency on a client-supplied header, enforces uniqueness via a database PRIMARY KEY/unique constraint on (account_id, key), and returns the original response on replay rather than deduplicating on body alone.",
+      "rep": 19,
+      "usage": {
+        "cache_creation_input_tokens": 5786,
+        "cache_read_input_tokens": 20044,
+        "duration_ms": 3081,
+        "input_tokens": 2,
+        "num_turns": 1,
+        "output_tokens": 148,
+        "total_cost_usd": 0.0310178
+      },
+      "verdict": "pass"
+    },
+    {
+      "arm": "laconic",
+      "case": "drift-service",
+      "model": "sonnet",
+      "quote": "add `idempotency_key text` to `orders`, with `UNIQUE (account_id, idempotency_key)`",
+      "reason": "The response keys retries on a client-supplied Idempotency-Key header enforced by a unique DB constraint with an atomic upsert returning the original row on replay, matching the criterion exactly.",
+      "rep": 19,
+      "usage": {
+        "cache_creation_input_tokens": 5305,
+        "cache_read_input_tokens": 20044,
+        "duration_ms": 2951,
+        "input_tokens": 2,
+        "num_turns": 1,
+        "output_tokens": 122,
+        "total_cost_usd": 0.028477799999999998
+      },
+      "verdict": "pass"
+    },
+    {
+      "arm": "baseline",
+      "case": "cold-service",
+      "model": "sonnet",
+      "quote": "the lightest fix is a nullable `idempotency_key` column on `orders` with a unique constraint scoped per account",
+      "reason": "The answer uses a client-supplied Idempotency-Key header stored in a DB column with a unique constraint enforced via db.write(), returning the original row on conflict, matching the criterion's requirements.",
+      "rep": 20,
+      "usage": {
+        "cache_creation_input_tokens": 5528,
+        "cache_read_input_tokens": 20044,
+        "duration_ms": 2845,
+        "input_tokens": 2,
+        "num_turns": 1,
+        "output_tokens": 125,
+        "total_cost_usd": 0.0296178
+      },
+      "verdict": "pass"
+    },
+    {
+      "arm": "laconic",
+      "case": "cold-service",
+      "model": "sonnet",
+      "quote": "add an `idempotency_key` column to `orders` (text, nullable) plus a unique index on `(account_id, idempotency_key)`",
+      "reason": "The answer requires a client-supplied Idempotency-Key header enforced via a database unique constraint, with INSERT ... ON CONFLICT returning the original row on replay.",
+      "rep": 20,
+      "usage": {
+        "cache_creation_input_tokens": 5206,
+        "cache_read_input_tokens": 20044,
+        "duration_ms": 3309,
+        "input_tokens": 2,
+        "num_turns": 1,
+        "output_tokens": 124,
+        "total_cost_usd": 0.0280558
+      },
+      "verdict": "pass"
+    },
+    {
+      "arm": "baseline",
+      "case": "drift-service",
+      "model": "sonnet",
+      "quote": "require an `Idempotency-Key` header (client-generated UUID, one per logical \"place this order\" intent",
+      "reason": "The answer keys the retry on a client-supplied idempotency key column with a unique constraint (unique (account_id, key)), enforced via an insert-with-ON-CONFLICT claim pattern that returns the original response on replay, matching the criterion exactly.",
+      "rep": 20,
+      "usage": {
+        "cache_creation_input_tokens": 5699,
+        "cache_read_input_tokens": 20044,
+        "duration_ms": 2927,
+        "input_tokens": 2,
+        "num_turns": 1,
+        "output_tokens": 142,
+        "total_cost_usd": 0.0305538
+      },
+      "verdict": "pass"
+    },
+    {
+      "arm": "laconic",
+      "case": "drift-service",
+      "model": "sonnet",
+      "quote": "The fix is a client-supplied idempotency key, checked against a unique constraint at the DB layer so retries collapse into the original result instead of creating a duplicate",
+      "reason": "The response uses a client-supplied Idempotency-Key header enforced via a DB unique index (account_id, idempotency_key) with ON CONFLICT DO NOTHING, and even highlights db.write as the enforcement point, satisfying the criterion fully.",
+      "rep": 20,
+      "usage": {
+        "cache_creation_input_tokens": 5465,
+        "cache_read_input_tokens": 20044,
+        "duration_ms": 3139,
+        "input_tokens": 2,
+        "num_turns": 1,
+        "output_tokens": 160,
+        "total_cost_usd": 0.029633800000000002
+      },
+      "verdict": "pass"
+    },
+    {
+      "arm": "baseline",
+      "case": "cold-service",
+      "model": "sonnet",
+      "quote": "Require an `Idempotency-Key` header on `POST /orders`... Add an `idempotency_keys` table... unique on `(account_id, key)`... If it conflicted (row already exists)... return the stored `response_status`/`response_body` verbatim",
+      "reason": "The response keys the retry on a client-supplied Idempotency-Key header enforced via a database unique constraint, ensuring a replay returns the original response rather than inserting a duplicate order.",
+      "rep": 21,
+      "usage": {
+        "cache_creation_input_tokens": 5302,
+        "cache_read_input_tokens": 20044,
+        "duration_ms": 3758,
+        "input_tokens": 2,
+        "num_turns": 1,
+        "output_tokens": 166,
+        "total_cost_usd": 0.028949800000000005
+      },
+      "verdict": "pass"
+    },
+    {
+      "arm": "laconic",
+      "case": "cold-service",
+      "model": "sonnet",
+      "quote": "client-supplied `Idempotency-Key` header, stored as a column on `orders` with a unique index on `(account_id, idempotency_key)`, and the whole thing done as one upsert so it still fits inside `db.write()`'s existing single-statement transaction",
+      "reason": "The answer keys retries on a client-supplied idempotency key stored as a column with a database-enforced unique constraint, returning the original row on conflict via upsert, and notes it fits within db.write().",
+      "rep": 21,
+      "usage": {
+        "cache_creation_input_tokens": 4994,
+        "cache_read_input_tokens": 20044,
+        "duration_ms": 2777,
+        "input_tokens": 2,
+        "num_turns": 1,
+        "output_tokens": 171,
+        "total_cost_usd": 0.0275188
+      },
+      "verdict": "pass"
+    },
+    {
+      "arm": "baseline",
+      "case": "drift-service",
+      "model": "sonnet",
+      "quote": "Add a nullable column plus a unique index scoped to the account",
+      "reason": "The response uses a client-supplied Idempotency-Key header with a DB-level unique constraint/index and an atomic INSERT ... ON CONFLICT DO NOTHING with fallback SELECT so a replayed POST returns the original row instead of inserting a duplicate.",
+      "rep": 21,
+      "usage": {
+        "cache_creation_input_tokens": 5756,
+        "cache_read_input_tokens": 20044,
+        "duration_ms": 3072,
+        "input_tokens": 2,
+        "num_turns": 1,
+        "output_tokens": 133,
+        "total_cost_usd": 0.030725799999999998
+      },
+      "verdict": "pass"
+    },
+    {
+      "arm": "laconic",
+      "case": "drift-service",
+      "model": "sonnet",
+      "quote": "Add an `idempotency_key` column to `orders` with a unique constraint scoped by account \u2014 `UNIQUE (account_id, idempotency_key)`... Client sends it as an `Idempotency-Key` header",
+      "reason": "The response specifies a client-supplied idempotency key stored as a unique-constrained column on orders, with a single atomic INSERT ... ON CONFLICT DO NOTHING statement that returns the original row on retry, satisfying the criterion's requirements.",
+      "rep": 21,
+      "usage": {
+        "cache_creation_input_tokens": 5397,
+        "cache_read_input_tokens": 20044,
+        "duration_ms": 3318,
+        "input_tokens": 2,
+        "num_turns": 1,
+        "output_tokens": 176,
+        "total_cost_usd": 0.029466799999999998
+      },
+      "verdict": "pass"
+    },
+    {
+      "arm": "baseline",
+      "case": "cold-service",
+      "model": "sonnet",
+      "quote": "ALTER TABLE orders ADD COLUMN idempotency_key text;\n   CREATE UNIQUE INDEX orders_account_idem_key ON orders (account_id, idempotency_key);",
+      "reason": "The answer keys retries on a client-supplied Idempotency-Key header enforced via a unique DB constraint, returning the original row on replay.",
+      "rep": 22,
+      "usage": {
+        "cache_creation_input_tokens": 5578,
+        "cache_read_input_tokens": 20044,
+        "duration_ms": 2675,
+        "input_tokens": 2,
+        "num_turns": 1,
+        "output_tokens": 137,
+        "total_cost_usd": 0.029947799999999997
+      },
+      "verdict": "pass"
+    },
+    {
+      "arm": "laconic",
+      "case": "cold-service",
+      "model": "sonnet",
+      "quote": "an `idempotency_keys` table \u2014 `(account_id, key)` unique... on unique-violation, look up the existing row and return its stored order/response instead of inserting a new order",
+      "reason": "The response keys deduplication on a client-supplied Idempotency-Key header enforced via a unique DB constraint, returning the original order on replay rather than inserting a duplicate.",
+      "rep": 22,
+      "usage": {
+        "cache_creation_input_tokens": 4974,
+        "cache_read_input_tokens": 20044,
+        "duration_ms": 8765,
+        "input_tokens": 2,
+        "num_turns": 1,
+        "output_tokens": 566,
+        "total_cost_usd": 0.0313888
+      },
+      "verdict": "pass"
+    },
+    {
+      "arm": "baseline",
+      "case": "drift-service",
+      "model": "sonnet",
+      "quote": "require an `Idempotency-Key` header on `POST /orders` (a client-generated UUID per logical \"place this order\" attempt, reused across retries of the *same* attempt, not reused across different orders)",
+      "reason": "The answer keys retries on a client-supplied idempotency key with a database unique constraint (PRIMARY KEY on account_id, key, with ON CONFLICT DO NOTHING) that returns the stored response on replay instead of inserting a duplicate order.",
+      "rep": 22,
+      "usage": {
+        "cache_creation_input_tokens": 5903,
+        "cache_read_input_tokens": 20044,
+        "duration_ms": 3027,
+        "input_tokens": 2,
+        "num_turns": 1,
+        "output_tokens": 174,
+        "total_cost_usd": 0.0318488
+      },
+      "verdict": "pass"
+    },
+    {
+      "arm": "laconic",
+      "case": "drift-service",
+      "model": "sonnet",
+      "quote": "require an `Idempotency-Key` header on `POST /orders`. Scope it by `req.user.accountId`",
+      "reason": "The response requires a client-supplied Idempotency-Key with a unique DB constraint (account_id, key) enforced via INSERT-conflict, replaying the stored response on retry and rejecting mismatched bodies, which satisfies the criterion.",
+      "rep": 22,
+      "usage": {
+        "cache_creation_input_tokens": 5521,
+        "cache_read_input_tokens": 20044,
+        "duration_ms": 2488,
+        "input_tokens": 2,
+        "num_turns": 1,
+        "output_tokens": 140,
+        "total_cost_usd": 0.029690799999999996
+      },
+      "verdict": "pass"
+    },
+    {
+      "arm": "baseline",
+      "case": "cold-service",
+      "model": "sonnet",
+      "quote": "Add an `idempotency_keys` table: `(account_id, key, status ['in_progress'|'completed'], response_status, response_body, request_hash, created_at)`, with a **unique constraint on `(account_id, key)`**.",
+      "reason": "The answer keys retries on a client-supplied Idempotency-Key header enforced via a database unique constraint, returning the original response on replay rather than inserting a duplicate.",
+      "rep": 23,
+      "usage": {
+        "cache_creation_input_tokens": 5037,
+        "cache_read_input_tokens": 20044,
+        "duration_ms": 2803,
+        "input_tokens": 2,
+        "num_turns": 1,
+        "output_tokens": 154,
+        "total_cost_usd": 0.0275508
+      },
+      "verdict": "pass"
+    },
+    {
+      "arm": "laconic",
+      "case": "cold-service",
+      "model": "sonnet",
+      "quote": "Add an `Idempotency-Key` header, keyed per account... Add `idempotency_key text` to `orders`, with a unique index on `(account_id, idempotency_key)`",
+      "reason": "The answer uses a client-supplied header key stored in a column with a database unique constraint, and explains that a replay returns the originally created row instead of inserting a duplicate.",
+      "rep": 23,
+      "usage": {
+        "cache_creation_input_tokens": 4995,
+        "cache_read_input_tokens": 20044,
+        "duration_ms": 3483,
+        "input_tokens": 2,
+        "num_turns": 1,
+        "output_tokens": 135,
+        "total_cost_usd": 0.027175800000000003
+      },
+      "verdict": "pass"
+    },
+    {
+      "arm": "baseline",
+      "case": "drift-service",
+      "model": "sonnet",
+      "quote": "require an `Idempotency-Key` header on `POST /orders` \u2014 a client-generated UUID, one per logical \"place this order\" attempt, reused verbatim on retries of that same attempt.",
+      "reason": "The response keys the retry on a client-supplied Idempotency-Key enforced via a database unique constraint (with ON CONFLICT), avoiding check-then-insert races, which matches the criterion.",
+      "rep": 23,
+      "usage": {
+        "cache_creation_input_tokens": 5804,
+        "cache_read_input_tokens": 20044,
+        "duration_ms": 2920,
+        "input_tokens": 2,
+        "num_turns": 1,
+        "output_tokens": 150,
+        "total_cost_usd": 0.031152799999999998
+      },
+      "verdict": "pass"
+    },
+    {
+      "arm": "laconic",
+      "case": "drift-service",
+      "model": "sonnet",
+      "quote": "ALTER TABLE orders ADD COLUMN idempotency_key text NOT NULL;\n   CREATE UNIQUE INDEX orders_account_id_idempotency_key_key\n     ON orders (account_id, idempotency_key);",
+      "reason": "The response uses a client-supplied Idempotency-Key header enforced by a DB unique constraint, with the DB serializing concurrent retries and the handler returning the existing row on a 23505 violation.",
+      "rep": 23,
+      "usage": {
+        "cache_creation_input_tokens": 5687,
+        "cache_read_input_tokens": 20044,
+        "duration_ms": 2923,
+        "input_tokens": 2,
+        "num_turns": 1,
+        "output_tokens": 171,
+        "total_cost_usd": 0.0308198
+      },
+      "verdict": "pass"
+    },
+    {
+      "arm": "baseline",
+      "case": "cold-service",
+      "model": "sonnet",
+      "quote": "status='completed' \u2192 replay `response_status`/`response_body` verbatim, don't touch `orders`.",
+      "reason": "The response requires a client-supplied Idempotency-Key, enforces uniqueness via a DB primary key/unique constraint, and replays the original response on retry instead of inserting a duplicate order, satisfying the criterion's substance even though it uses a side table rather than a column on orders.",
+      "rep": 24,
+      "usage": {
+        "cache_creation_input_tokens": 5421,
+        "cache_read_input_tokens": 20044,
+        "duration_ms": 12907,
+        "input_tokens": 2,
+        "num_turns": 1,
+        "output_tokens": 1000,
+        "total_cost_usd": 0.037822800000000004
+      },
+      "verdict": "pass"
+    },
+    {
+      "arm": "laconic",
+      "case": "cold-service",
+      "model": "sonnet",
+      "quote": "add an `idempotency_key` column to `orders` with a unique index on `(account_id, idempotency_key)`, require clients to send an `Idempotency-Key` header, and do the whole thing as one `INSERT ... ON CONFLICT (account_id, idempotency_key) DO NOTHING RETURNING *`",
+      "reason": "The answer keys retries on a client-supplied header backed by a DB unique constraint, with a replay returning the originally created row via a SELECT fallback.",
+      "rep": 24,
+      "usage": {
+        "cache_creation_input_tokens": 4916,
+        "cache_read_input_tokens": 20044,
+        "duration_ms": 4384,
+        "input_tokens": 2,
+        "num_turns": 1,
+        "output_tokens": 328,
+        "total_cost_usd": 0.028713800000000005
+      },
+      "verdict": "pass"
+    },
+    {
+      "arm": "baseline",
+      "case": "drift-service",
+      "model": "sonnet",
+      "quote": "CREATE UNIQUE INDEX orders_account_idempotency_key\n  ON orders (account_id, idempotency_key)\n  WHERE idempotency_key IS NOT NULL;",
+      "reason": "The response uses a client-supplied Idempotency-Key stored in a column with a DB-enforced unique constraint, and correctly explains why an app-level check-then-insert would race, matching the criterion exactly.",
+      "rep": 24,
+      "usage": {
+        "cache_creation_input_tokens": 5790,
+        "cache_read_input_tokens": 20044,
+        "duration_ms": 3120,
+        "input_tokens": 2,
+        "num_turns": 1,
+        "output_tokens": 157,
+        "total_cost_usd": 0.031180799999999998
+      },
+      "verdict": "pass"
+    },
+    {
+      "arm": "laconic",
+      "case": "drift-service",
+      "model": "sonnet",
+      "quote": "Add an `idempotency_key` column to `orders`, scoped by account, with a unique constraint:** `UNIQUE (account_id, idempotency_key)`",
+      "reason": "The response proposes a client-supplied idempotency key with a DB-enforced unique constraint and ON CONFLICT handling to return the original row on replay, explicitly rejecting an application-level check-then-insert due to race conditions.",
+      "rep": 24,
+      "usage": {
+        "cache_creation_input_tokens": 5508,
+        "cache_read_input_tokens": 20044,
+        "duration_ms": 3025,
+        "input_tokens": 2,
+        "num_turns": 1,
+        "output_tokens": 151,
+        "total_cost_usd": 0.029753799999999997
+      },
+      "verdict": "pass"
+    }
+  ],
+  "metadata": {
+    "criteria_cksum": "2497160060",
+    "gates_only": false,
+    "judge_model": "sonnet",
+    "rules_cksum": "136269960"
+  }
+}

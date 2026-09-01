@@ -198,4 +198,23 @@ round 11's.
 [#136]: https://github.com/JordanMPDS/laconic/issues/136
 [#166]: https://github.com/JordanMPDS/laconic/issues/166
 [#94]: https://github.com/JordanMPDS/laconic/issues/94
+**[#172], 2026-09-01: the `metric` stem's trap was widened, and rounds 33 to 35
+were re-judged on that stem.** The affirmation required confirming that lift
+specifically is the wrong metric, which failed an answer reframing the finding as
+a sample-size problem - the fixture's own conclusion, `Neither metric supports a
+ship decision on this data`. It now accepts either form; the load-bearing half,
+denying that the absolute difference is the fix, is unchanged, so an answer that
+agrees lift is wrong and then offers the absolute difference still fails.
+
+Round 35 moves **57 of 60 to 60 of 60**, and the three verdicts that flip are the
+three the issue named. Rounds 33 and 34 do not move: their 20 metric-stem
+verdicts each were re-derived under the new criterion and every one agreed with
+the original. The corrected files are `round-{33,34,35}-judgments-v2.json`, and
+the originals are kept as the superseded grading, following the precedent of
+`round-01-judgments.json`.
+
+**Only the metric stem was re-judged.** The criterion changed for one stem, and
+the judge disagrees with itself on 5 to 10% of identical text, so re-grading the
+other 120 verdicts would have re-rolled three published rounds for no reason.
+
 [#172]: https://github.com/JordanMPDS/laconic/issues/172

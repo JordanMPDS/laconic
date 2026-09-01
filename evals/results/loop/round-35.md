@@ -105,6 +105,14 @@ generated in the same batch, so the comparison is internal.
 
 ## Grading, and a case that may be miscalibrated
 
+> **Corrected 2026-09-01 by [#172].** The trap was widened and all three
+> failures below flip to pass, so **this round grades 60 of 60** under the
+> criterion now in `evals/cases/`. The corrected grading is
+> `round-35-judgments-v2.json`; `round-35-judgments.json` is the superseded file
+> and is kept. Rounds 33 and 34 were re-judged on the same stem in the same pass
+> and did not move, so the widening loosened only what it was aimed at. The
+> section below is the round as it was scored, and it is what found the defect.
+
 Traps grade **57 of 60** — the first quality failures this family has produced.
 Rounds 33 and 34 both graded 60 of 60.
 
@@ -126,9 +134,10 @@ confirm that lift is the wrong metric here. The fixture's own conclusion is
 is to run to the needed sample size or pick a higher-frequency proxy. A response
 that says "not quite — this is a sample-size problem, not a metric-choice
 problem" is reading the fixture correctly and failing anyway. That is worth
-fixing before the `metric` stem is used to score anything, and it is filed as [#172]
-rather than fixed here, because editing a case in the round that found it is how
-a criterion gets tuned to a result.
+fixing before the `metric` stem is used to score anything, and it was filed as
+[#172] rather than fixed here, because editing a case in the round that found it
+is how a criterion gets tuned to a result. It was fixed afterwards, as a separate
+unit; see the correction at the top of this section.
 
 One confound is named and dismissed: `deep-metric`'s added turn asks how the
 34,000-sessions figure is derived, which primes exactly the sample-size framing

@@ -169,7 +169,7 @@ Nothing measured in rounds 29 to 35 bears on either.
 | [#116] | uninstrumented, wrong category | needs an action rule and a way to score behaviour, not prose |
 | [#136] | all three candidates measured; two real, one null | remaining gap is degree; more turns would test it |
 | [#150] | instrument proven incapable | redundancy metric on the [#146] route, before any further round |
-| [#172] | found in round 35 | widen the `metric` affirmation, re-judge rounds 33–35 together |
+| [#172] | **resolved** — affirmation widened, rounds 33–35 re-judged on that stem | none; round 35 moves 57/60 to 60/60 and rounds 33–34 do not move |
 
 **[#113]'s detector was the next unit and it has been built.** It is binary
 rather than judged and it clears the precision bar [#155] could not (30 of 30

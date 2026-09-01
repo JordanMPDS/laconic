@@ -24,7 +24,32 @@ try { [Console]::OutputEncoding = $Utf8NoBom } catch {}
 # Write through [Console]::Out, not Write-Output: the output becomes model
 # context and PowerShell's own output pipeline would terminate every line with
 # CRLF. Stray carriage returns are noise in the prompt.
-function Emit([string]$Text) { [Console]::Out.Write($Text) }
+#
+# LACONIC_JSON_PATH wraps the same bytes as a JSON string nested at a dotted key
+# path, for hook systems that read a field rather than stdout. Unset or empty is
+# the raw path, byte for byte. Kept in step with laconic.sh, which does this in
+# awk; see that file's header for why the path is a parameter rather than a
+# fixed shape.
+#
+# ConvertTo-Json does the escaping. It is in PowerShell 5.1, which is what CI
+# tests and what ships with Windows, and it handles the quotes, backslashes and
+# newlines the rule slice contains on every level. The single trailing newline is
+# dropped first so the field carries the text and not the line terminator, which
+# is what the awk side does by construction.
+function Emit([string]$Text) {
+  $path = $env:LACONIC_JSON_PATH
+  if ([string]::IsNullOrEmpty($path)) { [Console]::Out.Write($Text); return }
+  if ($Text.EndsWith("`n")) { $Text = $Text.Substring(0, $Text.Length - 1) }
+  $value = ConvertTo-Json -InputObject $Text -Compress
+  $keys = $path -split '\.'
+  $pre = ''
+  $post = ''
+  foreach ($k in $keys) {
+    $pre += '{' + (ConvertTo-Json -InputObject $k -Compress) + ':'
+    $post += '}'
+  }
+  [Console]::Out.Write($pre + $value + $post + "`n")
+}
 
 # Case-sensitive, like the bash case statement: "Start" is not a mode.
 if (@('start', 'remind') -cnotcontains $Mode) { exit 0 }

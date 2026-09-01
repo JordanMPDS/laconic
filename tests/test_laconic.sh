@@ -518,5 +518,119 @@ assert_empty "badge silent when the project flag is off" "$out"
 clear_project
 rm -f "$FLAG"
 
+# --- LACONIC_JSON_PATH: the JSON output mode (#13) ---
+#
+# Raw stdout is what Claude Code consumes and must not move, so the first check
+# here is that the raw path is byte-identical with the variable unset. The rest
+# cover the failure mode raw stdout never had: the rule slice carries double
+# quotes and newlines on every level, so a wrapper that escaped neither would
+# ship malformed JSON.
+printf 'full' > "$FLAG"
+
+out=$(bash "$SCRIPT" start </dev/null 2>/dev/null)
+out_empty=$(LACONIC_JSON_PATH= bash "$SCRIPT" start </dev/null 2>/dev/null)
+if [ "$out" = "$out_empty" ]; then
+  ok "an empty LACONIC_JSON_PATH is the raw path, byte for byte"
+else
+  fail "an empty LACONIC_JSON_PATH is the raw path, byte for byte"
+fi
+
+json=$(LACONIC_JSON_PATH=hookSpecificOutput.additionalContext \
+       bash "$SCRIPT" start </dev/null 2>/dev/null)
+if printf '%s' "$json" | python3 -c 'import json,sys; json.load(sys.stdin)' 2>/dev/null; then
+  ok "start emits well-formed JSON when a path is set"
+else
+  fail "start emits well-formed JSON when a path is set"
+fi
+
+# The payload must be the raw slice exactly, minus the single trailing newline:
+# the field carries the text, not the line terminator. Both sides go to files,
+# because $(...) strips trailing newlines and cannot reconstruct the raw bytes.
+bash "$SCRIPT" start </dev/null > "$CLAUDE_CONFIG_DIR/raw.txt" 2>/dev/null
+LACONIC_JSON_PATH=hookSpecificOutput.additionalContext \
+  bash "$SCRIPT" start </dev/null > "$CLAUDE_CONFIG_DIR/wrapped.json" 2>/dev/null
+if python3 -c '
+import json, sys
+got = json.load(open(sys.argv[1]))["hookSpecificOutput"]["additionalContext"]
+raw = open(sys.argv[2]).read()
+sys.exit(0 if got == raw[:-1] else 1)
+' "$CLAUDE_CONFIG_DIR/wrapped.json" "$CLAUDE_CONFIG_DIR/raw.txt" 2>/dev/null; then
+  ok "the JSON payload round-trips to the raw slice"
+else
+  fail "the JSON payload round-trips to the raw slice"
+fi
+
+# The escaping the raw path never needed. The shipped slice contains both, so
+# this asserts against real content rather than a synthetic string.
+if printf '%s' "$json" | python3 -c '
+import json, sys
+got = json.load(sys.stdin)["hookSpecificOutput"]["additionalContext"]
+sys.exit(0 if chr(34) in got and chr(10) in got else 1)
+' 2>/dev/null; then
+  ok "quotes and newlines survive the JSON round-trip"
+else
+  fail "quotes and newlines survive the JSON round-trip"
+fi
+
+json_remind=$(LACONIC_JSON_PATH=hookSpecificOutput.additionalContext \
+              bash "$SCRIPT" remind </dev/null 2>/dev/null)
+if printf '%s' "$json_remind" | python3 -c 'import json,sys; json.load(sys.stdin)' 2>/dev/null; then
+  ok "remind emits well-formed JSON when a path is set"
+else
+  fail "remind emits well-formed JSON when a path is set"
+fi
+
+# A single-segment path must not be nested, and a deep one must nest all the way:
+# Codex and Copilot do not put the field where Gemini does (#14, #15).
+one=$(LACONIC_JSON_PATH=context bash "$SCRIPT" remind </dev/null 2>/dev/null)
+case "$one" in
+  '{"context":"LACONIC MODE ACTIVE'*) ok "a single-segment path is not nested" ;;
+  *) fail "a single-segment path is not nested — got: $one" ;;
+esac
+
+deep=$(LACONIC_JSON_PATH=a.b.c bash "$SCRIPT" remind </dev/null 2>/dev/null)
+case "$deep" in
+  '{"a":{"b":{"c":"'*'}}}') ok "a dotted path nests every segment" ;;
+  *) fail "a dotted path nests every segment — got: $deep" ;;
+esac
+
+# Backslashes and tabs, which the shipped slice does not contain, so the checks
+# above cannot reach them. The hook resolves its rules file from its own
+# directory, so a temp tree with a copy of the script and a synthetic rules file
+# exercises the escaper against content chosen to break it.
+ESCDIR="$(mktemp -d)"
+mkdir -p "$ESCDIR/hooks" "$ESCDIR/rules"
+cp "$SCRIPT" "$ESCDIR/hooks/laconic.sh"
+printf 'back\\slash and "quote" and\ttab\nsecond line\n' > "$ESCDIR/rules/laconic.md"
+printf 'full' > "$FLAG"
+LACONIC_JSON_PATH=v bash "$ESCDIR/hooks/laconic.sh" start </dev/null \
+  > "$ESCDIR/out.json" 2>/dev/null
+if python3 -c '
+import json, sys
+got = json.load(open(sys.argv[1]))["v"]
+want = "back\\slash and \"quote\" and\ttab\nsecond line"
+sys.exit(0 if got == want else 1)
+' "$ESCDIR/out.json" 2>/dev/null; then
+  ok "backslashes, quotes and tabs survive the JSON round-trip"
+else
+  fail "backslashes, quotes and tabs survive the JSON round-trip"
+fi
+rm -rf "$ESCDIR"
+rm -f "$FLAG"
+printf 'full' > "$FLAG"
+
+# The level whitelist still gates it. JSON mode must not become a way to emit
+# something when no level is active.
+rm -f "$FLAG"
+out=$(LACONIC_JSON_PATH=hookSpecificOutput.additionalContext \
+      bash "$SCRIPT" start </dev/null 2>/dev/null)
+assert_empty "no level active emits nothing even with a JSON path set" "$out"
+
+printf 'off' > "$FLAG"
+out=$(LACONIC_JSON_PATH=hookSpecificOutput.additionalContext \
+      bash "$SCRIPT" start </dev/null 2>/dev/null)
+assert_empty "level off emits nothing even with a JSON path set" "$out"
+rm -f "$FLAG"
+
 printf '\n%d failure(s)\n' "$fails"
 [ "$fails" = "0" ]

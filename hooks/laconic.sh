@@ -5,6 +5,17 @@
 #   remind  persist any "/laconic <level> [project]" on stdin, print one line
 # Prints nothing at all unless a valid level is active.
 #
+# Output is raw text by default, which is what Claude Code consumes. Setting
+# LACONIC_JSON_PATH to a dotted key path wraps that text as JSON instead, for
+# hook systems that read a field rather than stdout:
+#
+#   LACONIC_JSON_PATH=hookSpecificOutput.additionalContext   # Gemini CLI (#13)
+#
+# The path is a parameter rather than a fixed shape because the platforms do not
+# agree on where the field lives — Codex and Copilot nest it differently (#14,
+# #15). Unset or empty means the raw path, byte for byte, so nothing about the
+# Claude Code behaviour moves.
+#
 # There is deliberately no subagent mode. laconic exists to make a response
 # pleasant and cheap for a person to read, and nobody reads a subagent's report
 # — it goes to the parent model. evals/results/2026-07-31-subagent.md measured
@@ -107,8 +118,54 @@ case "$LEVEL" in
   *)     exit 0 ;;
 esac
 
+# Emit on stdout: raw when LACONIC_JSON_PATH is unset or empty, otherwise the
+# same bytes as a JSON string nested at that dotted path.
+#
+# The escaping is the failure mode raw stdout never had. The rule slice contains
+# double quotes, backslashes and newlines on every level, so a wrapper that only
+# handled quotes would ship malformed JSON the moment a rule mentioned `\n` or a
+# quoted example. awk does it here rather than jq, which is not a dependency this
+# project has, or python, which a shell hook has no business requiring.
+laconic_emit() {
+  if [ -z "${LACONIC_JSON_PATH:-}" ]; then
+    cat
+    return
+  fi
+  awk -v path="$LACONIC_JSON_PATH" '
+    function esc(s,   out, i, c, n) {
+      out = ""
+      n = length(s)
+      for (i = 1; i <= n; i++) {
+        c = substr(s, i, 1)
+        if      (c == "\\") out = out "\\\\"
+        else if (c == "\"")  out = out "\\\""
+        else if (c == "\b")  out = out "\\b"
+        else if (c == "\f")  out = out "\\f"
+        else if (c == "\n")  out = out "\\n"
+        else if (c == "\r")  out = out "\\r"
+        else if (c == "\t")  out = out "\\t"
+        else if (c < " ")     out = out sprintf("\\u%04x", index(CTRL, c) - 1)
+        else                  out = out c
+      }
+      return out
+    }
+    BEGIN {
+      CTRL = ""
+      for (i = 0; i < 32; i++) CTRL = CTRL sprintf("%c", i)
+      body = ""
+    }
+    { body = body (NR > 1 ? "\n" : "") $0 }
+    END {
+      n = split(path, key, ".")
+      pre = ""; post = ""
+      for (i = 1; i <= n; i++) { pre = pre "{\"" esc(key[i]) "\":"; post = post "}" }
+      printf "%s\"%s\"%s\n", pre, esc(body), post
+    }
+  '
+}
+
 if [ "$MODE" = "remind" ]; then
-  printf 'LACONIC MODE ACTIVE (%s). Make fewer claims and keep normal grammar. Cut content, not words.\n' "$LEVEL"
+  printf 'LACONIC MODE ACTIVE (%s). Make fewer claims and keep normal grammar. Cut content, not words.\n' "$LEVEL" | laconic_emit
   exit 0
 fi
 
@@ -142,4 +199,4 @@ awk -v want="$RANK" '
   /^<!-- level:full -->$/  { rank = 2; next }
   /^<!-- level:ultra -->$/ { rank = 3; next }
   rank <= want
-' "$RULES"
+' "$RULES" | laconic_emit

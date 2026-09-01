@@ -284,14 +284,14 @@ responses an arm as the readability table above:
 
 | arm | closing offers (of 220) | rate |
 |---|--:|--:|
-| baseline | 47 | 21.4% |
-| word-compression | 46 | 20.9% |
-| terse-control | 43 | 19.5% |
-| concise-style | 30 | 13.6% |
-| **laconic** | **12** | **5.5%** |
+| baseline | 57 | 25.9% |
+| word-compression | 49 | 22.3% |
+| terse-control | 47 | 21.4% |
+| concise-style | 34 | 15.5% |
+| **laconic** | **13** | **5.9%** |
 
 **Being told to be brief does not suppress the shape; the rule does.** Two arms
-instructed to compress sit within two points of baseline, and `concise-style` —
+instructed to compress sit within four points of baseline, and `concise-style` —
 which installs a near-clause-for-clause restatement of laconic's own never-cut
 list — sits at two and a half times laconic's rate.
 
@@ -301,10 +301,10 @@ cases, sonnet, 30 responses an arm:
 
 | arm | rate |
 |---|--:|
-| baseline | 50.0% |
-| concise-style | 40.0% |
+| baseline | 53.3% |
+| concise-style | 46.7% |
 | word-compression | 30.0% |
-| terse-control | 20.0% |
+| terse-control | 26.7% |
 | **laconic** | **6.7%** |
 
 The rates are higher throughout because design questions invite an offer to
@@ -330,9 +330,19 @@ are never-cut content. The rules also carve out confirmation explicitly, so
 not a closing offer. All three shapes are regression tests in
 `tests/test_metrics.py`.
 
-**Recall is not measured, so every rate above is a floor rather than an
-estimate.** Comparing arms on a floor is sound only if the misses are
-arm-independent, which is assumed here and not established.
+**Recall was measured too, and the first pattern's was not good enough.** 40
+responses the detector scored negative were drawn at random and hand-read; three
+were genuine offers it had missed — "should I look at the actual codebase", "I
+can help wire up the `kid`-based verification directly", "would you like to dig
+into any of these approaches?". Those shapes were added, every one of the 22
+responses the widening newly catches was hand-read, and on the same 40-response
+sample the widened pattern misses none.
+
+**The widening did not move the ordering, and it widened the gap.** Baseline
+went 21.4% to 25.9% and laconic 5.5% to 5.9%, because the misses were
+baseline-skewed: 10 added against 1. The recall limitation was understating the
+difference between the arms rather than threatening it. Recall is still
+estimated from 40 responses, so the rates remain floors.
 
 **It says nothing about drift within a session,** which is what [#113] actually
 reported. That needs per-turn rates inside multi-turn runs, and the only
@@ -459,7 +469,7 @@ This arm exists because it is the closest thing to a native competitor this
 plugin has, and the result is that on compression it wins.
 
 It does not win everywhere. On [closing offers](#closing-offers) it sits at
-13.6% against laconic's 5.5%, and at 40.0% against 6.7% in the matched batch —
+15.5% against laconic's 5.9%, and at 46.7% against 6.7% in the matched batch —
 despite installing a near-clause-for-clause restatement of laconic's own
 never-cut list. That is the clearest axis on which this plugin beats what the
 CLI already ships.

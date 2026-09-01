@@ -265,11 +265,14 @@ def sign_test(k, n):
 CLOSING_OFFER = re.compile(
     r"(let me know if"
     r"|want me to\b"
-    r"|would you like me to"
+    r"|would you like (to|me)\b"
     r"|shall i (write|add|create|run|do)"
+    r"|should i (look|check|review|dig|go)\b"
     r"|hope (this|that) helps"
     r"|happy to (write|add|help|do|run)"
     r"|i can (write|add|draft|put together) .{0,40}\bif you"
+    r"|i can (help|walk you through|look at|review|wire|sketch|show you)\b"
+    r"|i could (write|add|sketch|draft|implement|wire)\b"
     r"|just say the word"
     r"|if you'?d like,? i)",
     re.I,
@@ -302,9 +305,26 @@ def closing_offers(text):
     metric could not clear at 55.3%, and it is why this one is a usable metric
     and that one is parked.
 
-    Recall is not measured and the rate is therefore a floor, not an estimate.
-    That is acceptable for an arm comparison as long as the misses are
-    arm-independent, which is assumed and not established.
+    Recall was then measured, and the first pattern's was not good enough. 40
+    responses the detector scored negative were drawn at random from
+    `round-21.json` and hand-read: **3 were genuine offers it had missed** -
+    "should I look at the actual codebase", "I can help wire up the `kid`-based
+    verification directly", "would you like to dig into any of these
+    approaches?". All three are offers to do work rather than questions asking
+    for information, which is the line this pattern draws.
+
+    The three shapes were added, and every one of the 22 responses that widening
+    newly catches was hand-read: 21 are unambiguous and one is borderline ("what
+    aspect would you like to change?"), so precision holds. On the same 40-response
+    sample the widened pattern misses none.
+
+    **The widening did not move the arm ordering, and it widened the gap**:
+    baseline 21.4% to 25.9% against laconic 5.5% to 5.9%, because the misses were
+    baseline-skewed (10 added against 1). So the recall limitation understated the
+    difference between the arms rather than threatening it.
+
+    Recall is still estimated from 40 responses and is not established precisely.
+    The rates remain floors.
 
     Returns the matched strings, so a caller can count them or show them.
     """

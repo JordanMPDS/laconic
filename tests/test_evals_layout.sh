@@ -88,8 +88,19 @@ fi
 # the answer but not required by the closed question, so a correct answer is the
 # same length as recall-*'s. If it is not, subject size is what the over-length
 # cluster is actually about.
+#
+# 34 since 2026-09-01: deep-metric, deep-index and deep-rollback, for round 35.
+# Rounds 33 and 34 measured two of the three mechanisms #136 offers. Ownership
+# is real and worth about a third more words; subject size, at +3% of context,
+# is worth nothing. These three test the one the issue's own wording points at -
+# "a lot of recent context it is proud of" is a claim about the volume of the
+# model's OWN prior output, and recall-* supplies exactly one prior answer.
+# Each asks five turns where recall-* asks two, sharing its fixture, its final
+# question and its trap. The three added turns are deliberately kept off what
+# the trap grades, so the closed question stays fresh and the accumulated
+# output is the only thing that varies.
 count=$(ls -d "$ROOT"/evals/cases/*/ 2>/dev/null | wc -l | tr -d ' ')
-if [ "$count" = "31" ]; then ok "31 cases present"; else fail "31 cases present (found $count)"; fi
+if [ "$count" = "34" ]; then ok "34 cases present"; else fail "34 cases present (found $count)"; fi
 
 design=$(ls -d "$ROOT"/evals/cases/design-*/ 2>/dev/null | wc -l | tr -d ' ')
 if [ "$design" -ge 5 ]; then

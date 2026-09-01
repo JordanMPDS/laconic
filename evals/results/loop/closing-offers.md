@@ -33,9 +33,11 @@ the user to confirm a destructive action is never a closing offer; offering to
 go read something for them is."*
 
 The shipped pattern requires the offer form itself — `want me to`, `would you
-like me to`, `let me know if`, `shall i write/add/create/run/do`, `happy to
-write/add/help`, `just say the word` — and all three shapes above are excluded
-by construction. They are in `tests/test_metrics.py` as regression cases.
+like to/me`, `let me know if`, `shall i write/add/create/run/do`, `should i
+look/check/review/dig/go`, `i can help/walk you through/look at/sketch`, `happy
+to write/add/help`, `just say the word` — and all three shapes above are excluded
+by construction. They are in `tests/test_metrics.py` as regression cases, along
+with the three the recall pass added.
 
 ## Precision, measured before the rate was used
 
@@ -54,9 +56,44 @@ and it is the difference between a usable metric and a parked one. The reason
 this one is easy and that one is hard is that a closing offer is syntactically
 formulaic while a restated claim is semantic.
 
-**Recall is not measured, so the rate is a floor rather than an estimate.** That
-is acceptable for comparing arms only if the misses are arm-independent, which
-is assumed here and not established.
+### Recall, measured second, and the pattern widened
+
+The first pattern's recall was not good enough. 40 responses it scored negative
+were drawn at random from `round-21.json` and hand-read, and **three were genuine
+offers it had missed**:
+
+> Want to explore any part of this deeper, or **should I look at the actual
+> codebase** to see what's already in place?
+
+> If you show me your current auth/JWT code, **I can help wire up** the
+> `kid`-based dual-key verification directly.
+
+> Is there a specific ops dashboard you're thinking about, or **would you like to
+> dig into** any of these approaches?
+
+All three are offers to do work, not questions asking for information, which is
+the line this pattern draws. They were added, and **every one of the 22 responses
+the widening newly catches was hand-read**: 21 unambiguous, one borderline
+("what aspect would you like to change?"). On the same 40-response sample the
+widened pattern misses none.
+
+**The widening did not move the arm ordering, and it widened the gap:**
+
+| Arm | first pattern | widened |
+|---|--:|--:|
+| baseline | 21.4% | **25.9%** |
+| `word-compression` | 20.9% | 22.3% |
+| `terse-control` | 19.5% | 21.4% |
+| `concise-style` | 13.6% | 15.5% |
+| **laconic** | **5.5%** | **5.9%** |
+
+The misses were baseline-skewed - 10 added against laconic's 1 - so **the recall
+limitation was understating the difference between the arms rather than
+threatening it.** That is the direction a measurement's unmeasured half should
+fail in, and it was worth checking rather than assuming.
+
+Recall is still estimated from 40 responses and is not established precisely.
+The rates remain floors.
 
 ## The rate, deduplicated
 
@@ -67,18 +104,18 @@ baseline denominator roughly tenfold. Counting each distinct
 
 | Arm | Closing offers | Rate |
 |---|--:|--:|
-| **laconic** | 439 / 12,662 | **3.5%** |
-| baseline | 62 / 475 | 13.1% |
-| `concise-style` | 42 / 250 | 16.8% |
-| `terse-control` | 49 / 250 | 19.6% |
-| `word-compression` | 55 / 250 | 22.0% |
+| **laconic** | 517 / 12,681 | **4.1%** |
+| baseline | 76 / 499 | 15.2% |
+| `concise-style` | 48 / 250 | 19.2% |
+| `terse-control` | 55 / 250 | 22.0% |
+| `word-compression` | 58 / 250 | 23.2% |
 
-Baseline against laconic, Fisher exact: **p = 8.6e-18**.
+Baseline against laconic, Fisher exact: **p = 2.1e-21**.
 
 **The rule is doing work that generic brevity instructions do not.** Every
 control arm sits at or above baseline — being told to be terse, to compress
 words, or to use the CLI's native `Concise` style does not suppress closing
-offers, and `concise-style` at 16.8% is nearly five times laconic's rate. This
+offers, and `concise-style` at 19.2% is nearly five times laconic's rate. This
 is a cheap, binary, high-precision axis on which the plugin beats what the CLI
 already ships, which is a claim the loop has otherwise struggled to make.
 

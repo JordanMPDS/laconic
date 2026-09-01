@@ -287,6 +287,23 @@ check("closing_offers ignores a destructive confirmation",
       metrics.closing_offers(
           "DROP TABLE users CASCADE drops both constraints and orphans every "
           "dependent row. Should I proceed?") == [])
+# The three the recall sample found the first pattern missing. Each is an offer
+# to do work; the negative cases above are questions asking for information.
+check("closing_offers finds an offer to go read the codebase",
+      metrics.closing_offers(
+          "Want to explore this deeper, or should I look at the actual codebase?")
+      != [])
+check("closing_offers finds a conditional offer to implement",
+      metrics.closing_offers(
+          "If you show me your auth code, I can help wire up the dual-key path.")
+      != [])
+check("closing_offers finds a would-you-like-to offer",
+      metrics.closing_offers("Would you like to dig into any of these approaches?")
+      != [])
+check("closing_offers still ignores a question asking for information",
+      metrics.closing_offers(
+          "What is your current token lifetime and infrastructure setup?") == [])
+
 check("closing_offers returns every match, not just the first",
       len(metrics.closing_offers(
           "Want me to draft it? Let me know if that helps.")) == 2)

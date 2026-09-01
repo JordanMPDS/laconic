@@ -717,6 +717,30 @@ def _arrow_form_line(prev, cur):
     return "arrow forms (disclosure, not a gate): %s%s" % (parts, tail)
 
 
+def _closing_offer_line(prev, cur):
+    """The closing-offer disclosure, or None when neither round has one.
+
+    `lite` prohibits closing offers and offers to do more work, and `full`
+    inherits the rule, so unlike every other count in this report the events
+    are checkable without a judge: whether the answer offered to go and do
+    something is not a judgement two readers can disagree about.
+
+    Disclosure and never a gate, for two reasons. The rate is a floor rather
+    than an estimate - recall is measured on 40 responses and not established
+    precisely - and the archive's arm comparison rests on a deduplicated
+    baseline of a few hundred responses. A number this loop has not earned the
+    right to reject a round on should not be able to.
+
+    See closing-offers.md for the precision and recall passes, and preamble.md
+    for why the sibling detector on the other half of the same rule is equally
+    precise and still unusable for scoring arms.
+    """
+    a, b = prev.get("closing_offers"), cur.get("closing_offers")
+    if a is None or b is None or (a == 0 and b == 0):
+        return None
+    return ("closing offers (disclosure, not a gate): %d -> %d" % (a, b))
+
+
 def _counts(lac, judg, runs, cases=None, models=None):
     """The four count metrics and their exposure, over every case or a subset.
 
@@ -863,6 +887,8 @@ def round_summary(snap, judg=None, prefs=None, target_cases=None,
         quality_strata=_quality_strata(judg, runs),
         # Disclosure only - see metrics.arrow_forms and _arrow_form_line (#34).
         arrow_forms=_sum_forms(v.get("arrow_forms") or {} for v in lac.values()),
+        # Disclosure only - see metrics.closing_offers and _closing_offer_line.
+        closing_offers=sum(v.get("closing_offers") or 0 for v in lac.values()),
     )
     if target_cases:
         summary["scoped"] = dict(
@@ -1607,6 +1633,9 @@ def accept_verdict(prev, cur, target, noise=None, target_cases=None,
     forms = _arrow_form_line(prev, cur)
     if forms:
         reasons.append(forms)
+    offers = _closing_offer_line(prev, cur)
+    if offers:
+        reasons.append(offers)
     strata = _strata_line(prev, cur)
     if strata:
         reasons.append(strata)
@@ -1681,6 +1710,18 @@ def aggregate(snap):
             # equals this cell's symbol_connectors.
             "arrow_forms": _sum_forms(metrics.arrow_forms(r.get("text", ""))
                                       for r in runs),
+            # Disclosure only, and deliberately so. `lite` prohibits closing
+            # offers and `full` inherits it, so this is a rule the arms can be
+            # compared on without a judge: 30 of 30 precision on a hand-read
+            # sample, against the 55.3% that parked #155's restatement metric,
+            # and the recall pass that followed found the misses were
+            # baseline-skewed and were understating the gap rather than
+            # threatening it. It gates nothing - see closing-offers.md for why
+            # the rates are floors, and preamble.md for the sibling detector
+            # that is equally precise and which the archive cannot score.
+            "closing_offers": sum(
+                1 for r in runs if metrics.closing_offers(r.get("text", ""))
+            ),
             "violations_flagged_responses": sum(1 for s in scored if s["violations"] > 0),
             "article_rate": _median([s["article_rate"] for s in scored], 0.0),
             "aux_verb_rate": _median([s["aux_verb_rate"] for s in scored], 0.0),

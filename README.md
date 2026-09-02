@@ -94,11 +94,18 @@ To turn it off in one repository only, see
 
 ## Other agents
 
-Gemini CLI has a hook system close enough to Claude Code's that the same scripts
-serve it — copy [`hooks/gemini-settings.json`](hooks/gemini-settings.json) into
-`~/.gemini/settings.json` and point it at your clone. Details and the two
-behavioral differences are in
-[`docs/other-agents.md`](docs/other-agents.md#gemini-cli-run-the-hooks).
+Codex CLI and Gemini CLI both have hook systems close enough to Claude Code's
+that the same scripts serve them.
+
+- **Codex CLI** — append [`hooks/codex-config.toml`](hooks/codex-config.toml) to
+  `~/.codex/config.toml` and point it at your clone. Codex will not run a new
+  hook until you trust it once from an interactive session, which is the one
+  thing that makes a correct setup look broken:
+  [`docs/other-agents.md`](docs/other-agents.md#codex-cli-run-the-hooks).
+- **Gemini CLI** — copy [`hooks/gemini-settings.json`](hooks/gemini-settings.json)
+  into `~/.gemini/settings.json` and point it at your clone. Details and the two
+  behavioral differences are in
+  [`docs/other-agents.md`](docs/other-agents.md#gemini-cli-run-the-hooks).
 
 Agents without a hook system take a static instructions file. `rules/dist/` holds
 one pre-sliced file per level — copy

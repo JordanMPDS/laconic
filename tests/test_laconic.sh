@@ -570,6 +570,108 @@ sys.exit(0 if isinstance(v, str) and v.strip() else 1)
 done
 rm -f "$FLAG"
 
+# --- codex-config.toml: the Codex CLI hook fragment (#14) ---
+#
+# Codex injects a hook's raw stdout into model context as a developer message,
+# the same way Claude Code does, so this fragment must NOT set
+# LACONIC_JSON_PATH. Copying the variable across from gemini-settings.json would
+# still run the hook and still deliver something — a JSON object, rendered
+# literally into the model's context instead of the rules.
+CODEX="$ROOT/hooks/codex-config.toml"
+if [ -f "$CODEX" ]; then ok "codex-config.toml exists"; else fail "codex-config.toml exists"; fi
+if python3 -c "import tomllib;tomllib.load(open('$CODEX','rb'))" 2>/dev/null; then
+  ok "codex-config.toml is valid TOML"
+else
+  fail "codex-config.toml is valid TOML"
+fi
+
+# Same event-to-mode pairing check hooks.json gets, against Codex's event names.
+# They are Claude Code's names, which is why the mode is the last token either way.
+for pair in "SessionStart:start" "UserPromptSubmit:remind"; do
+  ev=${pair%:*}; mode=${pair#*:}
+  found=$(python3 -c "
+import tomllib
+d = tomllib.load(open('$CODEX', 'rb'))['hooks']
+print(' '.join(h['command'].split()[-1] for g in d.get('$ev', []) for h in g['hooks']))
+" 2>/dev/null)
+  if [ "$found" = "$mode" ]; then
+    ok "codex-config.toml wires $ev -> $mode"
+  else
+    fail "codex-config.toml wires $ev -> $mode (got: ${found:-nothing})"
+  fi
+done
+
+# commandWindows is Codex's own field name, spelled exactly as hooks.json spells
+# it, and it has to select the same mode as the bash command beside it. A
+# fragment whose Windows line ran a different mode would be wrong on precisely
+# the platform nobody testing on Linux would notice.
+if python3 -c "
+import sys, tomllib
+d = tomllib.load(open('$CODEX', 'rb'))['hooks']
+hooks = [h for groups in d.values() for g in groups for h in g['hooks']]
+sys.exit(0 if hooks and all(
+    'laconic.ps1' in h.get('commandWindows', '')
+    and h['commandWindows'].split()[-1] == h['command'].split()[-1]
+    for h in hooks) else 1)
+" 2>/dev/null; then
+  ok "codex-config.toml commandWindows runs laconic.ps1 in the same mode"
+else
+  fail "codex-config.toml commandWindows runs laconic.ps1 in the same mode"
+fi
+
+# Codex's timeouts are seconds, like hooks.json's and unlike Gemini's. A 5000
+# copied across from the Gemini fragment would be an 83-minute hook budget.
+if python3 -c "
+import sys, tomllib
+d = tomllib.load(open('$CODEX', 'rb'))['hooks']
+t = [h.get('timeout', 0) for groups in d.values() for g in groups for h in g['hooks']]
+sys.exit(0 if t and all(1 <= x <= 60 for x in t) else 1)
+" 2>/dev/null; then
+  ok "codex-config.toml timeouts are in seconds"
+else
+  fail "codex-config.toml timeouts are in seconds"
+fi
+
+# Read the parsed commands, not the file text: the comment above them names the
+# variable in order to explain why it is absent.
+if python3 -c "
+import sys, tomllib
+d = tomllib.load(open('$CODEX', 'rb'))['hooks']
+cmds = [c for groups in d.values() for g in groups for h in g['hooks']
+        for c in (h['command'], h.get('commandWindows', ''))]
+sys.exit(0 if cmds and not any('LACONIC_JSON_PATH' in c for c in cmds) else 1)
+" 2>/dev/null; then
+  ok "codex-config.toml leaves stdout raw, which is what Codex reads"
+else
+  fail "codex-config.toml leaves stdout raw, which is what Codex reads"
+fi
+
+# End to end against the fragment's own command rather than a literal, so the
+# fragment and the hook cannot drift apart silently. Unlike the Gemini block
+# above this is more than a schema check: #14 verified both modes reaching the
+# model context on Codex CLI 0.147.0, and what this asserts is that the command
+# the fragment ships still produces the bytes that were verified.
+set_level full
+for mode in start remind; do
+  out=$(python3 -c "
+import tomllib
+d = tomllib.load(open('$CODEX', 'rb'))['hooks']
+for groups in d.values():
+    for g in groups:
+        for h in g['hooks']:
+            if h['command'].split()[-1] == '$mode':
+                print(h['command'])
+" 2>/dev/null \
+    | sed "s|/absolute/path/to/laconic|$ROOT|" \
+    | while read -r cmd; do eval "$cmd" </dev/null 2>/dev/null; done)
+  if [ -n "$out" ]; then
+    ok "$mode delivers raw text through the fragment's own command"
+  else
+    fail "$mode delivers raw text through the fragment's own command"
+  fi
+done
+rm -f "$FLAG"
+
 # --- statusline ---
 BADGE="$ROOT/hooks/laconic-statusline.sh"
 rm -f "$FLAG"

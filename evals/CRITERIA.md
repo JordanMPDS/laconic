@@ -263,14 +263,31 @@ identifiers from code (like variable names), flags from commands, status codes
 like `401`, schema names from SQL. Anything conceptual with multiple valid
 phrasings belongs to the trap instead, because a deterministic substring check
 that matches correct prose is worse than no check — it produces false alarms
-when the right answer uses a synonym. Seventeen of the twenty-two cases —
-`decision`, `floor`, `ordered-steps`, and every `quality`, `design-*` and
-`verdict-*` case — deliberately carry empty `never_cut` lists for this reason;
-an empty list is not an oversight but a deliberate signal that the case is
-graded entirely by the judge, not by keyword.
+when the right answer uses a synonym. Twenty-seven of the thirty-six cases
+deliberately carry empty `never_cut` lists for this reason; an empty list is not
+an oversight but a deliberate signal that the case is graded entirely by the
+judge, not by keyword.
 
-The `quality` cases are empty for a sharper reason than the others. Each turns
-on a mechanism with several correct phrasings: "returns `null`" is also "returns
-a non-number" and "returns nothing on error". Pinning any one of those as a
-required substring would fail correct answers, and the whole point of these
-cases is that the criterion tracks the *answer*, not its wording.
+Nine cases carry keywords. Five are the original set — `walkthrough` `["401"]`,
+`destructive` `["cascade","invoices","sessions"]`, `badnews` `["proration"]`,
+`conditional` `["leak"]`, `code-fidelity` `["-size","-mtime"]`. The other four
+are the `*-index` multi-turn family — `confirm-index`, `recall-index`,
+`deep-index` and `wide-index` — which carry `["date_trunc"]`, added after the
+criterion above was applied to every case added since the original eight. That
+sweep is [`results/never-cut-coverage.md`](results/never-cut-coverage.md): it
+measured every candidate token against 541 archived multi-turn responses, and
+`date_trunc` was the only one that passed. It is the identifier the fixture's
+whole answer turns on, present in 176 of 181 archived `*-index` responses, and
+the five that lack it state no reason at all for rejecting the proposed index —
+which is the half of the trap the identifier carries.
+
+The `quality` cases that stay empty are empty for a sharper reason than the
+others. Each turns on a mechanism with several correct phrasings: "returns
+`null`" is also "returns a non-number" and "returns nothing on error". Pinning
+any one of those as a required substring would fail correct answers, and the
+whole point of these cases is that the criterion tracks the *answer*, not its
+wording. The `*-metric` and `*-rollback` families are empty for exactly this
+reason and were measured to be: their fixtures' identifiers —
+`settlement_currency` at 7%, `chk-047` at 0%, `0042` at 60% — are all avoidable
+by a correct answer, because what those traps protect is an argument rather than
+a name.

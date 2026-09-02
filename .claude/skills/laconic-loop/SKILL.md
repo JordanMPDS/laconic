@@ -11,6 +11,50 @@ and either open a PR or throw it away. **The loop proposes. A human merges.**
 Design and the reasoning behind every threshold:
 `docs/superpowers/specs/2026-08-01-rules-loop-design.md`.
 
+## Running the backlog unattended: one process per issue
+
+`bash tools/loop.sh` works the backlog with a genuinely empty context per
+issue. It exists because **a session cannot clear itself.** `/clear` is a
+client-side command; no hook output field reaches the conversation history, and
+no CLI flag or setting auto-clears. `autoCompactEnabled` and `autoCompactWindow`
+govern *compaction*, which is the opposite — it preserves the conversation by
+summarising it, and summarising an eight-hour backlog session repeatedly is how
+detail gets lost.
+
+What a session can do is exit, and a process boundary is a real clear rather
+than an approximation of one. So:
+
+- `.claude/hooks/post-merge-stop.py` is a `PostToolUse`/`Bash` hook wired in
+  `.claude/settings.json`. It watches for `gh pr merge` reporting success and
+  returns `{"continue": false}`, ending the turn at the merge.
+- `tools/loop.sh` starts the next `claude` process. Its prompt says to take
+  **exactly one issue** end to end and then stop — the restart is the loop, not
+  a `while` inside one context.
+
+Continuity is the repository, not a context window: the open issues,
+[`LEDGER.md`](../../../evals/results/loop/LEDGER.md), and master's log. That is
+what makes throwing the window away free, and it is worth keeping true — a
+round whose only record is the transcript cannot survive a restart.
+
+```sh
+bash tools/loop.sh                 # until stopped
+LOOP_MAX=3 bash tools/loop.sh      # three issues, then exit
+touch .claude/loop-stop            # finish the current issue, then exit
+```
+
+`LOOP_PERMISSION_MODE` defaults to `auto`. A genuinely unattended overnight run
+wants `bypassPermissions`; set it per run, deliberately.
+
+**Do not truncate the merge output.** `gh pr merge ... 2>&1 | tail -1` usually
+survives, because the hook also accepts the branch-deletion line, but
+`>/dev/null` hides the merge from the hook and the loop silently never clears.
+`python3 .claude/hooks/post-merge-stop.py --selftest` pins the `gh` wording the
+detection depends on; run it if `gh` upgrades.
+
+Inside a single interactive session the equivalent is a subagent per unit of
+work — a fresh window whose verbose output never reaches this one — but only
+the restart actually clears what is already here.
+
 ## Before you start
 
 Set `N` to the next round number and `PREV` to the last round's snapshot. The

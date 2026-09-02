@@ -4512,6 +4512,40 @@ try:
 finally:
     bench_run.call = _real_call
 
+# --target-models used to be validated against the literal ("haiku", "sonnet"),
+# which made a scoped target unusable the moment a third model was generated
+# (#117), and it only tested target_models[0], so a typo anywhere after the
+# first name scoped the target to an empty stratum without saying so. Both are
+# one check now, against the models the snapshot holds. Exercised through the
+# real CLI: the validation lives in main() and nothing else calls it.
+with tempfile.TemporaryDirectory() as td_models:
+    cur_snap = Path(td_models) / "results.json"
+    prev_snap = Path(td_models) / "prev.json"
+    bench_run.save_snapshot(cur_snap, synthetic)
+    bench_run.save_snapshot(prev_snap, synthetic)
+
+    def _scoped(models):
+        return subprocess.run(
+            [sys.executable, str(ROOT / "evals" / "bench" / "report.py"),
+             "--results", str(cur_snap), "--judgments", "/dev/null", "--no-gate",
+             "--against", str(prev_snap), "--against-judgments", "/dev/null",
+             "--target-cases", "floor", "--target-models", models],
+            capture_output=True, text=True,
+        )
+
+    proc_absent = _scoped("opus")
+    check("--target-models rejects a model the snapshot has no runs for",
+          proc_absent.returncode != 0
+          and "no runs for" in (proc_absent.stdout + proc_absent.stderr))
+
+    proc_second = _scoped("haiku,hiaku")
+    check("--target-models validates every name, not just the first",
+          "hiaku" in (proc_second.stdout + proc_second.stderr))
+
+    proc_present = _scoped("haiku")
+    check("--target-models accepts a model the snapshot does hold",
+          "no runs for" not in (proc_present.stdout + proc_present.stderr))
+
 # The reminder is a second copy of a string that lives in hooks/laconic.sh, and
 # a copy that drifts is the failure this repo's sync convention exists to stop.
 # Pin them together rather than trusting them to stay equal.

@@ -2344,9 +2344,6 @@ def main():
                             if m.strip()})
     if target_models and not target_cases:
         sys.exit("--target-models narrows a scoped target; it needs --target-cases")
-    if target_models and target_models[0] not in ("haiku", "sonnet"):
-        sys.exit("--target-models names an unknown model: %s"
-                 % ", ".join(target_models))
 
     # load_snapshot has the identical corrupt-file defect _load_judgments is
     # guarded against below: json.loads on a non-empty, invalid file raises
@@ -2369,6 +2366,18 @@ def main():
     usable_runs = len(bench_run.usable(snap["runs"]))
     if usable_runs == 0:
         sys.exit("no usable runs in %s - every call failed; nothing to report" % args.results)
+
+    # Checked against the models the snapshot actually holds, not against a
+    # literal pair. The literal was ("haiku", "sonnet"), so the flag rejected a
+    # third model on the day one was first generated (#117), and it only ever
+    # tested target_models[0] - a typo in any name after the first passed
+    # straight through and silently scoped the target to nothing.
+    snap_models = sorted({r.get("model") for r in bench_run.usable(snap["runs"])})
+    unknown_models = [m for m in target_models if m not in snap_models]
+    if unknown_models:
+        sys.exit("--target-models names a model this snapshot has no runs for: "
+                 "%s (it holds %s)"
+                 % (", ".join(unknown_models), ", ".join(snap_models)))
 
     try:
         judg = _load_judgments(args.judgments)

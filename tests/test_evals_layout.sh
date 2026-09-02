@@ -164,6 +164,43 @@ sys.exit(0 if isinstance(d.get('never_cut'),list) and isinstance(d.get('trap'),s
   fi
 done
 
+# --- Never-cut coverage ---
+# never_cut_failures is one of the four fatal counters, and a case with an empty
+# list contributes 0 to it whatever the response did. So the set of cases that
+# carry keywords IS the denominator of every "never-cut held" claim the loop
+# prints, and it is not visible anywhere except in 36 separate expect.json
+# files. #10 is the issue that got the denominator wrong once already.
+#
+# The set is pinned here so that neither direction can happen quietly. Emptying
+# a list shrinks the denominator while the round still reports "never-cut held".
+# Adding one to a case whose protected content is conceptual inflates the
+# denominator with a check that fires on correct answers - which is worse than
+# no check, and is why `decision`, `floor` and `ordered-steps` were emptied in
+# round 2 of the original build. The admission criterion is in
+# evals/CRITERIA.md: a token a correct answer cannot avoid, meaning a literal
+# identifier, flag, status code or schema name. Not a concept with synonyms.
+#
+# The *-index family was measured against 541 archived multi-turn responses
+# before being admitted; every other candidate for the multi-turn families was
+# rejected by the same sweep. See evals/results/never-cut-coverage.md. Changing
+# this list means doing that measurement, not editing the line below.
+covered=$(python3 - "$ROOT" <<'PY'
+import json
+from pathlib import Path
+import sys
+root = Path(sys.argv[1]) / "evals" / "cases"
+names = sorted(d.name for d in root.iterdir()
+               if d.is_dir() and json.loads((d / "expect.json").read_text())["never_cut"])
+print(" ".join(names))
+PY
+)
+expected="badnews code-fidelity conditional confirm-index deep-index destructive recall-index walkthrough wide-index"
+if [ "$covered" = "$expected" ]; then
+  ok "9 of 36 cases carry never_cut keywords, and they are the measured set"
+else
+  fail "never_cut coverage changed: expected [$expected], found [$covered]"
+fi
+
 # --- Grading provenance ---
 # Every case declares where its trap criteria came from, because that decides
 # what its verdicts may be used for. A `quality` case is the only kind that

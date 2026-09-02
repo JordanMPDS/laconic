@@ -2127,11 +2127,14 @@ def render(snap, judg, threshold, prefs=()):
                                         prefs)) + "\n")
 
     # "0 failures" only means something once you know how many responses were
-    # actually checked. Six cases (decision, floor, ordered-steps, and the
-    # three quality cases) carry an empty never_cut list, so "checked" must be
-    # reported alongside "unchecked" - a bare failure count reads as "every
-    # response verified" even when under half the cases have anything to
-    # verify.
+    # actually checked. 27 of the 36 cases carry an empty never_cut list, so
+    # "checked" must be reported alongside "unchecked" - a bare failure count
+    # reads as "every response verified" even when under half the cases have
+    # anything to verify. The nine that are checked are decided by the
+    # criterion in evals/CRITERIA.md, not by which cases happen to be handy:
+    # a keyword is admissible only if a correct answer cannot paraphrase it.
+    # See evals/results/never-cut-coverage.md for the sweep that admitted the
+    # *-index family and rejected every other candidate.
     nc_checked = defaultdict(int)
     nc_unchecked = defaultdict(int)
     nc_fail = defaultdict(int)

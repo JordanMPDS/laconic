@@ -94,6 +94,12 @@ To turn it off in one repository only, see
 
 ## Other agents
 
+Gemini CLI has a hook system close enough to Claude Code's that the same scripts
+serve it — copy [`hooks/gemini-settings.json`](hooks/gemini-settings.json) into
+`~/.gemini/settings.json` and point it at your clone. Details and the two
+behavioral differences are in
+[`docs/other-agents.md`](docs/other-agents.md#gemini-cli-run-the-hooks).
+
 Agents without a hook system take a static instructions file. `rules/dist/` holds
 one pre-sliced file per level — copy
 [`laconic-lite.md`](rules/dist/laconic-lite.md),

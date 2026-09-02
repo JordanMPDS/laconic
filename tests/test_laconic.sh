@@ -490,6 +490,86 @@ else
   fail "SessionStart matcher (got: ${matcher:-nothing})"
 fi
 
+# --- gemini-settings.json: the Gemini CLI hook fragment (#13) ---
+#
+# Gemini reads a field out of a JSON object rather than raw stdout, so the
+# fragment is only useful if it sets LACONIC_JSON_PATH to the exact path Gemini
+# looks in. A fragment that dropped the variable would still be valid JSON, would
+# still run the hook, and would inject nothing at all.
+GEMINI="$ROOT/hooks/gemini-settings.json"
+if [ -f "$GEMINI" ]; then ok "gemini-settings.json exists"; else fail "gemini-settings.json exists"; fi
+if python3 -c "import json,sys;json.load(open('$GEMINI'))" 2>/dev/null; then
+  ok "gemini-settings.json is valid JSON"
+else
+  fail "gemini-settings.json is valid JSON"
+fi
+
+# Same event-to-mode pairing check hooks.json gets, against Gemini's event names.
+for pair in "SessionStart:start" "BeforeAgent:remind"; do
+  ev=${pair%:*}; mode=${pair#*:}
+  found=$(python3 -c "
+import json
+d = json.load(open('$GEMINI'))['hooks']
+print(' '.join(h['command'].split()[-1]
+               for g in d.get('$ev', []) for h in g['hooks']))
+" 2>/dev/null)
+  if [ "$found" = "$mode" ]; then
+    ok "gemini-settings.json wires $ev -> $mode"
+  else
+    fail "gemini-settings.json wires $ev -> $mode (got: ${found:-nothing})"
+  fi
+done
+
+GEMINI_PATH=$(python3 -c "
+import json
+d = json.load(open('$GEMINI'))['hooks']
+paths = set()
+for groups in d.values():
+    for g in groups:
+        for h in g['hooks']:
+            for tok in h['command'].split():
+                if tok.startswith('LACONIC_JSON_PATH='):
+                    paths.add(tok.split('=', 1)[1])
+print(paths.pop() if len(paths) == 1 else '')
+" 2>/dev/null)
+if [ "$GEMINI_PATH" = "hookSpecificOutput.additionalContext" ]; then
+  ok "gemini-settings.json sets the JSON path Gemini reads, on every hook"
+else
+  fail "gemini-settings.json JSON path (got: ${GEMINI_PATH:-nothing or inconsistent})"
+fi
+
+# Gemini's timeouts are milliseconds; hooks.json's are seconds. Copying the 5
+# across would give a 5 ms budget and kill the hook before it read the flag.
+if python3 -c "
+import json, sys
+d = json.load(open('$GEMINI'))['hooks']
+t = [h.get('timeout', 0) for g in d.values() for e in g for h in e['hooks']]
+sys.exit(0 if t and all(x >= 1000 for x in t) else 1)
+" 2>/dev/null; then
+  ok "gemini-settings.json timeouts are in milliseconds"
+else
+  fail "gemini-settings.json timeouts are in milliseconds"
+fi
+
+# End to end against the fragment's own path rather than a literal, so the
+# fragment and the hook cannot drift apart silently. This is a schema check and
+# nothing more: per #13, a well-formed object is not evidence that Gemini loads
+# it, and no Gemini install has confirmed that yet.
+set_level full
+for mode in start remind; do
+  if LACONIC_JSON_PATH="$GEMINI_PATH" bash "$SCRIPT" "$mode" </dev/null 2>/dev/null \
+     | python3 -c "
+import json, sys
+v = json.load(sys.stdin)['hookSpecificOutput']['additionalContext']
+sys.exit(0 if isinstance(v, str) and v.strip() else 1)
+" 2>/dev/null; then
+    ok "$mode fills additionalContext where Gemini reads it"
+  else
+    fail "$mode fills additionalContext where Gemini reads it"
+  fi
+done
+rm -f "$FLAG"
+
 # --- statusline ---
 BADGE="$ROOT/hooks/laconic-statusline.sh"
 rm -f "$FLAG"

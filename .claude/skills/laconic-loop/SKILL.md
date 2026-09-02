@@ -45,6 +45,29 @@ touch .claude/loop-stop            # finish the current issue, then exit
 `LOOP_PERMISSION_MODE` defaults to `auto`. A genuinely unattended overnight run
 wants `bypassPermissions`; set it per run, deliberately.
 
+**A failed iteration waits and retries; it does not end the loop.** The first
+version stopped on any non-zero exit, and on 2026-09-02 that cost twelve hours:
+iteration 3 exited 1 at 04:05 with `You've hit your session limit · resets
+6:20am (UTC)`, the supervisor stopped, and nothing restarted it after the reset
+two hours later. A usage limit is the likeliest way an unattended run ends and
+it clears itself, so it is the one failure the loop has to survive — the same
+conclusion `run.py` and `judge.py` reached, which is why both stop only after
+eight *consecutive* failures. The backoff is 10 minutes doubling to an hour,
+for `LOOP_MAX_FAILURES` (default 8) consecutive failures, about six hours of
+cover, and it resets on any iteration that finishes cleanly.
+
+The log distinguishes the two cases, because they need different responses:
+
+```
+loop: usage limit (resets 6:20am (UTC)) — retrying in 600s (1/8)
+loop: exit 3 — retrying in 600s (1/8)
+```
+
+`bash tools/loop.sh --selftest` drives the script against a stub `claude`: six
+checks over the retry, the failure cap, the two log labels, and the stop file.
+Five of the six fail against the version that shipped, which is the point of
+having it.
+
 **The hook asks GitHub; it does not read `gh`'s output.** It cannot: `gh pr
 merge` prints its "✓ Squashed and merged pull request #N" line only when
 stderr is a terminal, and under an agent's shell tool the command prints

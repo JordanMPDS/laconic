@@ -754,6 +754,51 @@ if ($null -ne $gem) {
 }
 Remove-Item -LiteralPath $Flag -Force -ErrorAction SilentlyContinue
 
+# --- codex-config.toml: the Windows half of the Codex CLI fragment (#14) ---
+#
+# Windows PowerShell 5.1 has no TOML parser and this project adds no dependency
+# for one, so the bash suite owns the schema checks and this side owns the only
+# claim a Windows machine can actually settle: that the commandWindows line
+# Codex would run does deliver the rules. Codex reads a hook's raw stdout, so
+# the assert is on the text itself rather than on a JSON field.
+$Codex = Join-Path $Root 'hooks\codex-config.toml'
+if (Test-Path -LiteralPath $Codex) { Ok 'codex-config.toml exists' } else { Fail 'codex-config.toml exists' }
+
+if (Test-Path -LiteralPath $Codex) {
+  Set-Level 'full'
+  $text = [System.IO.File]::ReadAllText($Codex)
+  foreach ($mode in @('start', 'remind')) {
+    # Pull the -File argument and the mode out of the fragment's own line, so a
+    # fragment that renamed either cannot pass by running something else.
+    # No `$` anchor: a Windows checkout may have CRLF endings, and the closing
+    # quote after the mode already pins the end of the value.
+    $m = [regex]::Match($text, '(?m)^commandWindows = "[^"]*-File ([^"]+?) ' + $mode + '"')
+    if (-not $m.Success) {
+      Fail "codex-config.toml has a commandWindows line for $mode"
+      continue
+    }
+    Ok "codex-config.toml has a commandWindows line for $mode"
+    # TOML escapes the backslashes; the placeholder root becomes this clone.
+    $path = $m.Groups[1].Value.Replace('\\', '\').Replace('C:\path\to\laconic', $Root)
+    $outFile = Join-Path $env:CLAUDE_CONFIG_DIR '.codex-stdout'
+    $inFile  = Join-Path $env:CLAUDE_CONFIG_DIR '.codex-stdin'
+    [System.IO.File]::WriteAllText($inFile, '', $Utf8NoBom)
+    $p = Start-Process -FilePath $Host_ `
+      -ArgumentList @('-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', $path, $mode) `
+      -RedirectStandardInput $inFile -RedirectStandardOutput $outFile `
+      -NoNewWindow -Wait -PassThru
+    $p.WaitForExit()
+    $got = [System.IO.File]::ReadAllText($outFile)
+    Remove-Item -LiteralPath $inFile, $outFile -Force -ErrorAction SilentlyContinue
+    if ($got.Trim().Length -gt 0) {
+      Ok "$mode delivers raw text through the fragment's own commandWindows"
+    } else {
+      Fail "$mode delivers raw text through the fragment's own commandWindows"
+    }
+  }
+  Remove-Item -LiteralPath $Flag -Force -ErrorAction SilentlyContinue
+}
+
 Clear-Project
 Remove-Item -LiteralPath $env:CLAUDE_CONFIG_DIR -Recurse -Force -ErrorAction SilentlyContinue
 Remove-Item -LiteralPath $env:CLAUDE_PROJECT_DIR -Recurse -Force -ErrorAction SilentlyContinue

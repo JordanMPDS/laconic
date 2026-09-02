@@ -1,6 +1,99 @@
 # Other agents
 
-Gemini CLI runs the hooks. Everything else takes a static rule file.
+Codex CLI and Gemini CLI run the hooks. Everything else takes a static rule file.
+
+## Codex CLI: run the hooks
+
+Codex CLI injects a hook's **raw stdout** into the model's context as a developer
+message, which is what Claude Code does, so `hooks/laconic.sh` and
+`hooks/laconic.ps1` serve it with no change at all. Its two context-injecting
+events carry Claude Code's names and Claude Code's payload fields:
+
+| Codex event | Injects | laconic mode |
+| --- | --- | --- |
+| `SessionStart` | stdout, as a developer message before the first turn | `start` |
+| `UserPromptSubmit` | stdout, as a developer message on every turn | `remind` |
+
+Append [`hooks/codex-config.toml`](../hooks/codex-config.toml) to
+`~/.codex/config.toml` and replace `/absolute/path/to/laconic` with your clone:
+
+```bash
+git clone https://github.com/JordanMPDS/laconic ~/projects/laconic
+```
+
+Then set a level. `/laconic full` works from inside Codex, or write the flag
+directly — it is the same `~/.claude/.laconic-level` Claude Code reads:
+
+```bash
+printf full > ~/.claude/.laconic-level
+```
+
+### Trust the hooks once, interactively
+
+**Codex will not run a new or changed hook until you trust it, and `codex exec`
+cannot do the trusting.** Start `codex` interactively after editing the config;
+it shows
+
+```
+Hooks need review
+1 hook is new or changed.
+Hooks can run outside the sandbox after you trust them.
+› 1. Review hooks   2. Trust all and continue   3. Continue without trusting (hooks won't run)
+```
+
+Choosing option 3, or running `codex exec` before ever answering, leaves the
+hooks silently inert — no error, no output, exactly as if laconic were not
+installed. Trusting writes a `[hooks.state."<config path>:<event>:<n>:<n>"]`
+entry with a `trusted_hash` into `~/.codex/config.toml`, and **editing either
+hook line invalidates it**, so a later edit needs the same interactive
+confirmation again.
+
+### Why the command looks like that
+
+- **No `LACONIC_JSON_PATH`.** Codex reads raw stdout, so the plain path is the
+  correct one and the variable would inject a JSON object into the model's
+  context instead of the rules. This is the opposite of Gemini's requirement
+  below, and the fragments are not interchangeable.
+- **An absolute path.** Codex sets no `CLAUDE_PLUGIN_ROOT`, and `plugin_hooks` is
+  a removed feature in 0.147.0, so laconic cannot ship this as a plugin the way
+  it does for Claude Code.
+- **`timeout = 5`.** Codex's timeouts are seconds, like `hooks/hooks.json`'s and
+  unlike Gemini's milliseconds.
+- **No `matcher`.** The field is a regex over the event's source and omitting it
+  fires on every one, which is what laconic wants — the rules need reloading
+  whatever restarted the session.
+- **`commandWindows`.** Codex spells the field exactly as `hooks/hooks.json`
+  does, so the PowerShell path needs no separate fragment.
+
+### What is different from Claude Code
+
+- **The trust step above.** It is the one thing that will make a correct
+  configuration look broken.
+- **No subagent injection.** Codex has a `SubagentStart` event and laconic
+  deliberately has no subagent mode: nobody reads a subagent's report, and
+  measuring the path found the rules raised the cost of a subagent call by 6–16%
+  for no accuracy gain. See [#6](https://github.com/JordanMPDS/laconic/issues/6).
+- **`/laconic` does switch the level**, unlike under Gemini. Codex's
+  `UserPromptSubmit` payload carries the same `"prompt"` field Claude Code's
+  does, which is what the hook parses the switch out of.
+
+### What was verified
+
+Against a real Codex CLI 0.147.0 install, reading the injected developer messages
+back out of the session transcript:
+
+| | Result |
+| --- | --- |
+| No flag, no `LACONIC_DEFAULT` | nothing injected |
+| `off` | nothing injected |
+| `full` | the 5,776-character `full` slice, plus the reminder line |
+| `ultra` | the 6,237-character `ultra` slice, delivered whole and unclamped |
+| `/laconic ultra` typed at Codex | flag written, reminder line changed the same turn |
+
+The `ultra` slice is the largest laconic emits, and it arrives byte-complete with
+no `additionalContextLimit` set, so the truncation risk
+[#14](https://github.com/JordanMPDS/laconic/issues/14) flagged does not apply at
+this size.
 
 ## Gemini CLI: run the hooks
 
@@ -113,10 +206,9 @@ A static file is the rule text and nothing else. Specifically:
   guarantee the hook exists to provide.
 - **No per-turn reminder**, so nothing reinforces the rules as context fills.
 
-Codex CLI, Copilot, and Cursor all have shell-command hooks that could run
-`laconic.sh` and `laconic.ps1` properly, the way Gemini CLI now does. That work is
-tracked in [#14](https://github.com/JordanMPDS/laconic/issues/14),
-[#15](https://github.com/JordanMPDS/laconic/issues/15), and
+Copilot and Cursor both have shell-command hooks that could run `laconic.sh` and
+`laconic.ps1` properly, the way Codex CLI and Gemini CLI now do. That work is
+tracked in [#15](https://github.com/JordanMPDS/laconic/issues/15) and
 [#16](https://github.com/JordanMPDS/laconic/issues/16) — until one lands, the
 copied file is what those agents get.
 

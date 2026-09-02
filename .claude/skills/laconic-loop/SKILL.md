@@ -45,11 +45,17 @@ touch .claude/loop-stop            # finish the current issue, then exit
 `LOOP_PERMISSION_MODE` defaults to `auto`. A genuinely unattended overnight run
 wants `bypassPermissions`; set it per run, deliberately.
 
-**Do not truncate the merge output.** `gh pr merge ... 2>&1 | tail -1` usually
-survives, because the hook also accepts the branch-deletion line, but
-`>/dev/null` hides the merge from the hook and the loop silently never clears.
-`python3 .claude/hooks/post-merge-stop.py --selftest` pins the `gh` wording the
-detection depends on; run it if `gh` upgrades.
+**The hook asks GitHub; it does not read `gh`'s output.** It cannot: `gh pr
+merge` prints its "✓ Squashed and merged pull request #N" line only when
+stderr is a terminal, and under an agent's shell tool the command prints
+nothing at all. The first version of this hook matched that wording and never
+fired once — the merge it was meant to catch produced an empty payload. The
+tool payload carries no exit status either, so the hook parses the PR number
+out of the command and runs `gh pr view <N> --json state`. Truncating or
+discarding the output is therefore harmless.
+
+`python3 .claude/hooks/post-merge-stop.py --selftest` drives `main()` with
+GitHub stubbed, so it covers the empty-output case that actually occurs.
 
 Inside a single interactive session the equivalent is a subagent per unit of
 work — a fresh window whose verbose output never reaches this one — but only

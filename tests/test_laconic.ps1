@@ -596,6 +596,164 @@ if ($null -eq $bash) {
   }
 }
 
+# --- LACONIC_JSON_PATH and the Gemini CLI fragment (#13) ---
+#
+# Raw stdout is what Claude Code consumes and must not move, so the first check
+# is that it is unchanged once the variable is cleared again. The rest cover the
+# failure mode raw stdout never had: the rule slice carries double quotes and
+# newlines on every level, so a wrapper escaping neither would ship malformed
+# JSON. ConvertTo-Json does the escaping here, awk does it on the bash side, and
+# the two are only interchangeable if both are actually exercised — before this
+# block the PowerShell Emit path had no coverage at all.
+Clear-Project
+Remove-Item Env:\LACONIC_JSON_PATH -ErrorAction SilentlyContinue
+Set-Level 'full'
+Invoke-Hook 'start'
+$rawStart = $script:out
+
+$env:LACONIC_JSON_PATH = 'hookSpecificOutput.additionalContext'
+Invoke-Hook 'start'
+$jsonStart = $script:out
+Invoke-Hook 'remind'
+$jsonRemind = $script:out
+Remove-Item Env:\LACONIC_JSON_PATH -ErrorAction SilentlyContinue
+
+Invoke-Hook 'start'
+if ($script:out -ceq $rawStart) {
+  Ok 'an unset LACONIC_JSON_PATH is the raw path, byte for byte'
+} else {
+  Fail 'an unset LACONIC_JSON_PATH is the raw path, byte for byte'
+}
+
+$startObj = $null
+try { $startObj = ConvertFrom-Json $jsonStart } catch {}
+if ($null -ne $startObj) { Ok 'start emits well-formed JSON when a path is set' } else { Fail 'start emits well-formed JSON when a path is set' }
+
+$remindObj = $null
+try { $remindObj = ConvertFrom-Json $jsonRemind } catch {}
+if ($null -ne $remindObj) { Ok 'remind emits well-formed JSON when a path is set' } else { Fail 'remind emits well-formed JSON when a path is set' }
+
+# The payload must be the raw slice exactly, minus the single trailing newline:
+# the field carries the text, not the line terminator.
+$field = ''
+if ($null -ne $startObj) { $field = [string]$startObj.hookSpecificOutput.additionalContext }
+$wantRaw = $rawStart
+if ($wantRaw.EndsWith("`n")) { $wantRaw = $wantRaw.Substring(0, $wantRaw.Length - 1) }
+if ($field -ceq $wantRaw) {
+  Ok 'the JSON payload round-trips to the raw slice'
+} else {
+  Fail 'the JSON payload round-trips to the raw slice'
+}
+
+# The escaping the raw path never needed. The shipped slice contains both, so
+# this asserts against real content rather than a synthetic string.
+if ($field.Contains('"') -and $field.Contains("`n")) {
+  Ok 'quotes and newlines survive the JSON round-trip'
+} else {
+  Fail 'quotes and newlines survive the JSON round-trip'
+}
+
+# A single-segment path must not be nested, and a deep one must nest all the
+# way: Codex and Copilot do not put the field where Gemini does (#14, #15).
+$env:LACONIC_JSON_PATH = 'context'
+Invoke-Hook 'remind'
+if ($script:out.StartsWith('{"context":"LACONIC MODE ACTIVE')) {
+  Ok 'a single-segment path is not nested'
+} else {
+  Fail "a single-segment path is not nested — got: $($script:out)"
+}
+
+$env:LACONIC_JSON_PATH = 'a.b.c'
+Invoke-Hook 'remind'
+$deep = ''
+try { $deep = [string](ConvertFrom-Json $script:out).a.b.c } catch {}
+if ($deep.StartsWith('LACONIC MODE ACTIVE')) {
+  Ok 'a dotted path nests every segment'
+} else {
+  Fail "a dotted path nests every segment — got: $($script:out)"
+}
+
+# The level whitelist still gates it. JSON mode must not become a way to emit
+# something when no level is active.
+$env:LACONIC_JSON_PATH = 'hookSpecificOutput.additionalContext'
+Remove-Item -LiteralPath $Flag -Force -ErrorAction SilentlyContinue
+Invoke-Hook 'start'
+Assert-Empty 'no level active emits nothing even with a JSON path set' $script:out
+Set-Level 'off'
+Invoke-Hook 'start'
+Assert-Empty 'level off emits nothing even with a JSON path set' $script:out
+Remove-Item Env:\LACONIC_JSON_PATH -ErrorAction SilentlyContinue
+
+# The fragment itself. Gemini reads a field out of a JSON object rather than raw
+# stdout, so the fragment is only useful if it sets LACONIC_JSON_PATH to the
+# exact path Gemini looks in. One that dropped the variable would still be valid
+# JSON, would still run the hook, and would inject nothing at all.
+$Gemini = Join-Path $Root 'hooks\gemini-settings.json'
+if (Test-Path -LiteralPath $Gemini) { Ok 'gemini-settings.json exists' } else { Fail 'gemini-settings.json exists' }
+$gem = $null
+try { $gem = ConvertFrom-Json ([System.IO.File]::ReadAllText($Gemini)) } catch {}
+if ($null -ne $gem) { Ok 'gemini-settings.json is valid JSON' } else { Fail 'gemini-settings.json is valid JSON' }
+
+if ($null -ne $gem) {
+  foreach ($pair in @(@('SessionStart', 'start'), @('BeforeAgent', 'remind'))) {
+    $ev = $pair[0]; $mode = $pair[1]
+    $found = @()
+    foreach ($group in $gem.hooks.$ev) {
+      foreach ($h in $group.hooks) { $found += ($h.command -split ' ')[-1] }
+    }
+    $got = ($found -join ' ')
+    if ($got -ceq $mode) { Ok "gemini-settings.json wires $ev -> $mode" } else { Fail "gemini-settings.json wires $ev -> $mode (got: $got)" }
+  }
+
+  $paths = @()
+  $times = @()
+  foreach ($prop in $gem.hooks.PSObject.Properties) {
+    foreach ($group in $prop.Value) {
+      foreach ($h in $group.hooks) {
+        $times += [int]$h.timeout
+        foreach ($tok in ($h.command -split ' ')) {
+          if ($tok.StartsWith('LACONIC_JSON_PATH=')) { $paths += $tok.Substring(18) }
+        }
+      }
+    }
+  }
+  # Force an array: Sort-Object -Unique returns a bare string for one result,
+  # and indexing a string yields its first character rather than the value.
+  $unique = @($paths | Sort-Object -Unique)
+  if ($unique.Count -eq 1 -and $unique[0] -ceq 'hookSpecificOutput.additionalContext') {
+    Ok 'gemini-settings.json sets the JSON path Gemini reads, on every hook'
+  } else {
+    Fail "gemini-settings.json JSON path (got: $($unique -join ', '))"
+  }
+
+  # Gemini's timeouts are milliseconds; hooks.json's are seconds. Copying the 5
+  # across would give a 5 ms budget and kill the hook before it read the flag.
+  if ($times.Count -gt 0 -and -not ($times | Where-Object { $_ -lt 1000 })) {
+    Ok 'gemini-settings.json timeouts are in milliseconds'
+  } else {
+    Fail 'gemini-settings.json timeouts are in milliseconds'
+  }
+
+  # End to end against the fragment's own path rather than a literal, so the
+  # fragment and the hook cannot drift apart silently. This is a schema check
+  # and nothing more: per #13, a well-formed object is not evidence that Gemini
+  # loads it, and no Gemini install has confirmed that yet.
+  Set-Level 'full'
+  $env:LACONIC_JSON_PATH = $unique[0]
+  foreach ($mode in @('start', 'remind')) {
+    Invoke-Hook $mode
+    $value = ''
+    try { $value = [string](ConvertFrom-Json $script:out).hookSpecificOutput.additionalContext } catch {}
+    if (-not [string]::IsNullOrEmpty($value.Trim())) {
+      Ok "$mode fills additionalContext where Gemini reads it"
+    } else {
+      Fail "$mode fills additionalContext where Gemini reads it"
+    }
+  }
+  Remove-Item Env:\LACONIC_JSON_PATH -ErrorAction SilentlyContinue
+}
+Remove-Item -LiteralPath $Flag -Force -ErrorAction SilentlyContinue
+
 Clear-Project
 Remove-Item -LiteralPath $env:CLAUDE_CONFIG_DIR -Recurse -Force -ErrorAction SilentlyContinue
 Remove-Item -LiteralPath $env:CLAUDE_PROJECT_DIR -Recurse -Force -ErrorAction SilentlyContinue

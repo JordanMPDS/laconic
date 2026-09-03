@@ -4719,5 +4719,80 @@ check("the refusal quotes the plan's cost when it knows the call count",
 check("judge.py enforces the same guard",
       "require_opus_reason" in (ROOT / "evals" / "bench" / "judge.py").read_text())
 
+
+# --- A multi-turn round must name its delivery mode ------------------------
+# Rounds 33 to 36 all took `repeat` without anyone choosing it and read the
+# resulting inflation as a property of conversational depth. Round 40 ran the
+# same cells under `plugin` and the chain reverses - 88.5/17/27 median words
+# against 94.0/115.0/159.5, from a turn 1 that does not move - so it was a
+# property of the delivery mode, and correcting four round documents cost more
+# than this guard does. `repeat` is still what a resume of a stored round needs,
+# so the default is removed rather than flipped.
+def _delivery_refuses(multi_left, delivery):
+    try:
+        bench_run.require_turn_delivery(multi_left, delivery)
+    except SystemExit:
+        return True
+    return False
+
+
+check("a single-turn pass is never asked",
+      not _delivery_refuses([], None)
+      and bench_run.require_turn_delivery([], None) is None)
+check("a single-turn pass does not invent a mode either",
+      bench_run.require_turn_delivery([], "plugin") is None)
+check("multi-turn work without a mode is refused",
+      _delivery_refuses(["deep-metric"], None))
+check("either mode, named, is accepted and returned",
+      bench_run.require_turn_delivery(["deep-metric"], "plugin") == "plugin"
+      and bench_run.require_turn_delivery(["deep-metric"], "repeat") == "repeat")
+# The refusal has to say what the choice costs, or it is just an obstacle - the
+# same bar the opus refusal above is held to.
+try:
+    bench_run.require_turn_delivery(["deep-metric", "recall-index"], None)
+    _named = ""
+except SystemExit as exc:
+    _named = str(exc)
+check("the refusal names the multi-turn cases it is refusing",
+      "deep-metric" in _named and "recall-index" in _named)
+check("the refusal describes both modes rather than only rejecting",
+      "plugin" in _named and "repeat" in _named and "17 words" in _named)
+# Both generation sites resolve the same value. The retry path took
+# `args.turn_delivery` directly, which after the default was removed would have
+# silently retried a `plugin` cell as `repeat` - the exact treatment mismatch
+# this guard exists to prevent, reintroduced inside it.
+_run_src = (ROOT / "evals" / "bench" / "run.py").read_text()
+check("no call_turns site reads the raw flag, so a retry cannot change mode",
+      "delivery=args.turn_delivery" not in _run_src
+      and _run_src.count('delivery=delivery or "repeat"') == 2)
+check("the pass records its delivery in the snapshot metadata",
+      'meta["turn_delivery"] = delivery' in _run_src)
+
+# End-to-end through main(), the same way the claude-bin guard is tested: the
+# extracted predicate passing proves nothing if main() never reaches it, and a
+# guard that fires after the first call has already spent what it exists to
+# protect. `deep-metric` is five turns; `floor` is one.
+with tempfile.TemporaryDirectory() as td_td:
+    _snap = Path(td_td) / "snap.json"
+    _proc = subprocess.run(
+        [sys.executable, str(ROOT / "evals" / "bench" / "run.py"),
+         "--models", "haiku", "--reps", "1", "--arms", "laconic",
+         "--cases", "deep-metric", "--snapshot", str(_snap)],
+        capture_output=True, text=True)
+    check("subprocess: multi-turn without --turn-delivery exits non-zero",
+          _proc.returncode != 0)
+    check("subprocess: it refuses before spending a call",
+          "budget:" not in _proc.stdout and "refusing" in (_proc.stderr + _proc.stdout))
+
+    _snap2 = Path(td_td) / "snap2.json"
+    _proc2 = subprocess.run(
+        [sys.executable, str(ROOT / "evals" / "bench" / "run.py"),
+         "--models", "haiku", "--reps", "1", "--arms", "laconic",
+         "--cases", "floor", "--snapshot", str(_snap2),
+         "--claude-bin", "nonexistent-command-xyz"],
+        capture_output=True, text=True)
+    check("subprocess: a single-turn pass is not stopped by this guard",
+          "--turn-delivery" not in (_proc2.stderr + _proc2.stdout))
+
 print("\n%d failure(s)" % fails)
 sys.exit(1 if fails else 0)

@@ -155,6 +155,48 @@ def require_opus_reason(models, reason, calls=None):
            estimate))
 
 
+def require_turn_delivery(multi_left, delivery):
+    """Exit unless a round with multi-turn work says which delivery it means.
+
+    `repeat` re-appends the whole rule slice as a system prompt on every turn.
+    `plugin` reproduces the shipped wiring: the slice once on turn 1, then only
+    the one-line reminder. Round 40 measured the gap and it is not a detail -
+    at master rules the laconic median goes 88.5 words at turn 1, 17 at turn 2
+    and 27 at turn 5 under `plugin`, against 94.0, 115.0 and 159.5 under
+    `repeat`. Turn 1 is the internal control and does not move, so depth adds
+    70% of the answer under one mode and removes 70% under the other.
+
+    Rounds 33 to 36 all took `repeat` without anyone choosing it - three of them
+    predate the flag entirely - and read the inflation as a property of
+    conversational depth. It is a property of the delivery mode, and correcting
+    the four round documents cost more than this guard does. `repeat` is still
+    what a resume of a stored round needs, so the fix is not to change the
+    default silently but to refuse the default silently: name the mode, or do
+    not run multi-turn cells.
+
+    `multi_left` is the multi-turn cases this pass still has work for. A pass
+    with none is single-turn by construction and delivery cannot reach it, so
+    it is not asked.
+
+    Returns the delivery to use, or None when the pass is entirely single-turn.
+    """
+    if not multi_left:
+        return None
+    if delivery:
+        return delivery
+    sys.exit(
+        "refusing to generate multi-turn cases (%s) without --turn-delivery. "
+        "The two modes are different treatments and the gap is large: at master "
+        "rules the laconic median is 17 words at turn 2 under 'plugin' and 115 "
+        "under 'repeat', from an identical turn 1.\n"
+        "  --turn-delivery plugin   the shipped wiring - the slice once on turn "
+        "1, then the one-line reminder. Use this for any claim about the "
+        "product.\n"
+        "  --turn-delivery repeat   the whole slice re-appended every turn. "
+        "What every snapshot below round 40 holds; use it to resume or extend "
+        "one." % ", ".join(multi_left))
+
+
 def parse_cli_json(raw):
     blank = {"ok": False, "text": "", "output_tokens": 0, "input_tokens": 0,
              "cache_creation_input_tokens": 0, "cache_read_input_tokens": 0,
@@ -602,16 +644,17 @@ def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--level", default="full")
     ap.add_argument("--turn-delivery", choices=("repeat", "plugin"),
-                    default="repeat",
-                    help="what a later turn of a multi-turn case carries. "
-                         "'repeat' (default) re-appends the whole rule slice "
-                         "every turn, which is what rounds 33 to 38 used and "
-                         "is what every stored snapshot holds. 'plugin' "
-                         "reproduces the shipped hook wiring instead: the slice "
-                         "once on turn 1, then only the one-line reminder, "
-                         "which is what a real session gets. 'repeat' is the "
-                         "default so no stored comparison shifts, not because "
-                         "it is the faithful one")
+                    default=None,
+                    help="what a later turn of a multi-turn case carries, and "
+                         "there is no default because the two are different "
+                         "treatments. 'plugin' reproduces the shipped hook "
+                         "wiring - the slice once on turn 1, then only the "
+                         "one-line reminder - and is what a claim about the "
+                         "product needs. 'repeat' re-appends the whole slice "
+                         "every turn, which is what every snapshot below round "
+                         "40 holds, so it is what a resume of one needs. "
+                         "Required whenever the pass has multi-turn work left, "
+                         "and recorded as metadata.turn_delivery")
     ap.add_argument("--models", default="haiku,sonnet")
     ap.add_argument("--allow-opus", metavar="REASON", default=None,
                     help="why this hypothesis needs opus. Required whenever "
@@ -784,6 +827,17 @@ def main():
     # spend. Every call is one CLI session, which is the unit a subscription
     # limit is denominated in.
     multi = sorted(c for c, n in turns_per_case.items() if n > 1)
+    # Asked about the multi-turn work this pass still has, not about the case
+    # list: a resume whose multi-turn cells are all done spends no call the
+    # choice could reach, and should not be made to name one.
+    multi_left = sorted({c for c, _, _, _ in left_cells if turns_per_case[c] > 1})
+    delivery = require_turn_delivery(multi_left, args.turn_delivery)
+    # Describes the file rather than one invocation, like the concurrency
+    # declaration above it: once a snapshot holds multi-turn runs it holds the
+    # treatment they were generated under, and rounds 33 to 36 are the cost of
+    # leaving a reader to assume.
+    if delivery:
+        meta["turn_delivery"] = delivery
     print("budget: %d call(s) to make, of %d cell(s) in this pass (%d already "
           "in the snapshot)%s. A failed call is retried once, so the ceiling "
           "is %d.%s" % (left_calls, total, total - left,
@@ -824,7 +878,7 @@ def main():
                         shutil.copytree(fixture, scratch, dirs_exist_ok=True)
                     res = call_turns(claude_bin, model, turns, arms[arm],
                                      scratch, ARM_OUTPUT_STYLES.get(arm),
-                                     delivery=args.turn_delivery,
+                                     delivery=delivery or "repeat",
                                      level=args.level)
                     shutil.rmtree(scratch, ignore_errors=True)
                     if not res.get("ok"):  # one retry before recording a failure
@@ -833,7 +887,7 @@ def main():
                             shutil.copytree(fixture, scratch, dirs_exist_ok=True)
                         res = call_turns(claude_bin, model, turns, arms[arm],
                                          scratch, ARM_OUTPUT_STYLES.get(arm),
-                                         delivery=args.turn_delivery,
+                                         delivery=delivery or "repeat",
                                          level=args.level)
                         shutil.rmtree(scratch, ignore_errors=True)
                     res.update({"case": case, "arm": arm, "model": model, "rep": rep,

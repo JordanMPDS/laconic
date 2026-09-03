@@ -329,6 +329,34 @@ with 320.
 
 [#133]: https://github.com/JordanMPDS/laconic/issues/133
 
+**A multi-turn round has to name its delivery mode, and the harness will not
+let it forget.** `run.py` sends the rules to a later turn two ways. `repeat`
+re-appends the whole rule slice every turn; `plugin` reproduces the shipped hook
+wiring, the slice once on turn 1 and the one-line reminder after. They are not
+the same treatment. At master rules the laconic median on the graded turn is
+**17 words at turn 2 under `plugin` and 115 under `repeat`**, from a turn 1 that
+does not move (p = 0.576) because both modes send byte-identical turn-1
+material. Depth adds 70% of the answer under one and removes 70% under the
+other.
+
+Rounds 33, 34, 35 and 36 all took `repeat` without anyone choosing it — three of
+them predate the flag — and read the inflation as a property of conversational
+depth. Round 40 ran the same cells under `plugin` and it reversed, which cost
+four round documents a correction. So there is no default: a pass with
+multi-turn work left exits unless `--turn-delivery` names a mode, and the answer
+is stamped into `metadata.turn_delivery`.
+
+- **`plugin` for any claim about the product.** That includes every round in the
+  over-length cluster, because those issues are reports from real sessions.
+- **`repeat` only to resume or extend a snapshot below round 40**, which is what
+  all of them hold.
+
+A persistence clause of the kind [#60] asks for cannot be tested under `repeat`
+at all: `repeat` is already a maximal persistence clause, so the treatment and
+its proposed fix are indistinguishable. See
+[`turn-delivery.md`](../../../evals/results/loop/turn-delivery.md) and
+[`round-40.md`](../../../evals/results/loop/round-40.md).
+
 **If you shard a round across processes, declare it.** One `run.py` is
 sequential, so a merged snapshot from five of them describes a regime no single
 process could produce, and until [#120] nothing in the file recorded it - ten

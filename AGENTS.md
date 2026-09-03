@@ -65,6 +65,19 @@ one that catches stale generated files, and it is the easiest to skip by acciden
   is given, and `run.py` records it as `metadata.opus_justification`. A
   confirmatory round does not qualify: run it on haiku and sonnet, and reserve
   opus for a hypothesis that is about opus.
+- **A multi-turn round has to name its delivery mode.** `run.py` can send the
+  rules to a later turn two ways, and they are different treatments: `repeat`
+  re-appends the whole rule slice every turn, while `plugin` reproduces the
+  shipped hook wiring, the slice once on turn 1 and the one-line reminder after.
+  At master rules the laconic median on the graded turn is 17 words at turn 2
+  under `plugin` and 115 under `repeat`, from a turn 1 that does not move.
+  Rounds 33 to 36 all took `repeat` without choosing it and read the difference
+  as a property of conversational depth; it was the delivery mode, and four
+  round documents had to be corrected. There is now no default: a pass with
+  multi-turn work left refuses to start without `--turn-delivery`, and records
+  the answer as `metadata.turn_delivery`. Use `plugin` for any claim about the
+  product and `repeat` to resume or extend a snapshot below round 40.
+
 - **A benchmark round reads the working tree for hours, so editing `rules/laconic.md`
   or anything under `evals/cases/` while one is running corrupts it.** Both are
   checksummed into every snapshot (`rules_cksum`, `cases_cksum`), and `run.py`,

@@ -77,16 +77,20 @@ not the plugin. Each round doc now carries the same note.
 
 `run.py` gains `--turn-delivery`:
 
-- **`repeat`** — the default, and what every stored snapshot holds. Re-appends
+- **`repeat`** — what every stored snapshot below round 40 holds. Re-appends
   the whole slice on every turn.
 - **`plugin`** — the slice once on turn 1, then only the reminder, prepended to
   the prompt the way `UserPromptSubmit`'s `additionalContext` reaches the model.
 
-`repeat` stays the default so no stored comparison shifts, **not because it is
-the faithful one**. A multi-turn record now carries `turn_delivery`, so a
-snapshot says which treatment it holds instead of leaving a reader to assume;
-one-turn records carry no such field, because the distinction does not exist for
-them.
+`repeat` was the default so no stored comparison would shift, **not because it
+is the faithful one** — and that is the part this document got wrong twice over.
+Rounds 33 to 36 took it without anyone choosing it. **Since 2026-09-03 there is
+no default at all**: a pass with multi-turn work left refuses to start unless
+`--turn-delivery` names a mode, the same shape as `--allow-opus`. A multi-turn
+record carries `turn_delivery` and the snapshot now carries
+`metadata.turn_delivery`, so a file says which treatment it holds instead of
+leaving a reader to assume; one-turn records carry no such field, because the
+distinction does not exist for them.
 
 The reminder string is a second copy of a line in `hooks/laconic.sh`, so a test
 pins them together rather than trusting them to stay equal.
@@ -103,8 +107,8 @@ matched `repeat` batch grades 90/90 while spending six times the words. So the
 extra words `repeat` buys are not carrying anything the judge can see, and
 `plugin` is the mode a round about the shipped product has to use.
 
-**`repeat` is still the default**, so a round that means to describe the plugin
-has to say `--turn-delivery plugin` explicitly. Round 40 is the first that did.
+Round 40 is the first round that named its mode. It is also the last that had to
+remember to: a multi-turn pass now refuses to start without the flag.
 
 [#60]: https://github.com/JordanMPDS/laconic/issues/60
 [#136]: https://github.com/JordanMPDS/laconic/issues/136

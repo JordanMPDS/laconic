@@ -214,9 +214,11 @@ turn 1 as the internal control and not moving (p = 0.576). So the mechanism is
 real under `repeat` and absent under the shipped wiring, and neither figure may
 be quoted as an explanation of [#136] without naming its delivery mode.
 
-**Pass `--turn-delivery plugin` when a multi-turn case is meant to describe the
-product.** The default exists so that stored snapshots stay comparable, not
-because it is faithful. See
+**Name the delivery mode.** Since 2026-09-03 there is no default: a pass with
+multi-turn work left refuses to start without `--turn-delivery`, and records the
+answer as `metadata.turn_delivery`. Use `plugin` when the case is meant to
+describe the product, and `repeat` only to resume or extend a snapshot below
+round 40. See
 [`results/loop/turn-delivery.md`](results/loop/turn-delivery.md) and
 [`results/loop/round-40.md`](results/loop/round-40.md).
 

@@ -139,8 +139,13 @@ rather than a gap in the diagnosis.
   laconic side comes from [`round-41.md`](round-41.md), which judged these exact
   cells at this exact revision and delivery: 30/30 at turn 1 and 28/30 at turn 5,
   p = 0.4915. **Baseline's quality at depth is unjudged**, so this round cannot
-  say whether its extra 180 words buy anything. Round 41 answered the analogous
-  question for `repeat` and found they do not.
+  say whether its extra 180 words buy anything.
+
+  > **Answered by [`round-43.md`](round-43.md), on this snapshot.** Both arms
+  > grade **120 of 120**, every cell 10/10, so at turn 5 baseline writes seven
+  > times as much and answers no better. The comparison is at its ceiling: it
+  > rules out a laconic deficit of 6 failures in 30 and cannot see anything
+  > smaller.
 - **Sonnet only**, 10 reps, one rules revision.
 - **`recall-*` was omitted** to keep the round at one contrast, so the two-turn
   midpoint is not measured under a matched baseline.

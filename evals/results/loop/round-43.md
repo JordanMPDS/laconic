@@ -1,8 +1,7 @@
-# Round 43: does an unruled arm's extra 180 words at depth buy anything?
+# Round 43: the extra 180 words buy nothing, on a comparison at its ceiling
 
-**Registration. No verdict below this line has been computed** — this file is
-committed before the judging pass runs, so the hypothesis provably predates the
-numbers.
+**The registration below was committed in `d77769d`, before the pass ran.** The
+result section is the only thing added afterwards.
 
 **This round proposes no rule edit.** It closes the one hole
 [`round-42.md`](round-42.md) left open, on the snapshot round 42 already
@@ -75,6 +74,83 @@ No generation, so `rules_cksum` and `cases_cksum` are round 42's unchanged.
 **This round cannot be re-run to a different answer.** There is one snapshot, one
 pass, and the falsifier is written above.
 
-## Result
+## Result: 120 of 120, both arms, both depths
 
-_To be filled in by the pass._
+| arm | turn 1 (`confirm-*`) | turn 5 (`deep-*`) | median words at turn 5 |
+|---|--:|--:|--:|
+| baseline | **30/30** | **30/30** | 210.5 |
+| laconic | **30/30** | **30/30** | 30.5 |
+
+Every one of the six cells is 10 of 10. No judgment came back `not_exercised`,
+and no judge call failed.
+
+**The registered falsifier did not fire.** Baseline's turn-5 pass rate does not
+exceed laconic's: 30/30 against 30/30, two-sided Fisher p = 1.0. Baseline spends
+180 more words per answer at turn 5 and the judge cannot tell the difference.
+
+The three secondary readings, all registered above:
+
+1. **Each arm against itself.** Baseline 30/30 to 30/30 and laconic 30/30 to
+   30/30, p = 1.0 both. Neither arm falls with depth.
+2. **The arms at turn 1**, the internal control: 30/30 against 30/30, p = 1.0.
+3. **The failure mode.** There are no failures to read.
+
+## What this can and cannot claim, because it is a ceiling
+
+A comparison at 100% on both sides detects a fall and nothing else, which is
+[#94]'s level-versus-variance distinction. It is worth saying exactly how large a
+fall it could have seen. Against a baseline at 30/30:
+
+| laconic | Fisher p |
+|---|--:|
+| 28/30 | 0.4915 |
+| 26/30 | 0.1124 |
+| 25/30 | 0.0522 |
+| **24/30** | **0.0237** |
+
+So this round rules out a laconic deficit of **six failures in thirty, a 20%
+share of correctness**, and cannot see anything smaller. In particular it could
+not have detected 28/30 — which is precisely what
+[`round-41.md`](round-41.md) measured for the laconic arm on these same cells at
+this same revision and delivery.
+
+**Stated at the strength the evidence supports: laconic's 85% compression at
+depth does not cost a fifth of correctness.** It is not evidence that the cost is
+exactly zero, and this instrument cannot become that evidence by adding reps —
+the constraint is that baseline has no headroom to fall from either.
+
+## An unregistered replication, worth recording
+
+Round 41 read the laconic arm at turn 5 as 28/30 on `round-40-control.json`.
+This round reads 30/30 on `round-42.json`. Same cells, same `rules_cksum`
+136269960, same `--turn-delivery plugin`, different batch three days apart.
+
+Two verdicts of thirty is inside the judge's disagreement with itself on
+identical text, which this loop puts at 5 to 10%. So the two readings agree, and
+**round 43 is an independent replication of round 41's laconic-at-depth quality
+that also carries the baseline arm round 41 lacked.**
+
+## What this settles for round 42
+
+Round 42's result was that depth inflates an unruled answer by +51.4% while
+laconic runs −68.9% against it, and its own limits section named the missing
+piece: whether baseline's extra words carry anything. They do not, down to the
+resolution stated above.
+
+The pair now reads: **at turn 5 an unruled model writes seven times as much and
+answers the same question no better.** That is the strongest statement this loop
+has made about the plugin's multi-turn behaviour, and it rests on a length
+measurement with p = 5e-06 and a quality comparison at its ceiling — the second
+being the weaker half, which is why the bound is written out above rather than
+rounded to "no difference".
+
+## Cost
+
+120 judgments, 0 failed, $3.25. No generation. `rules_cksum` and `cases_cksum`
+are round 42's, unchanged, because nothing was generated.
+
+## Ledger
+
+No rule edit. Recorded in [`LEDGER.md`](LEDGER.md).
+
+[#94]: https://github.com/JordanMPDS/laconic/issues/94

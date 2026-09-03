@@ -4681,5 +4681,43 @@ _hook_src = (ROOT / "hooks" / "laconic.sh").read_text()
 check("run.py's REMINDER is the line hooks/laconic.sh actually emits",
       bench_run.REMINDER in _hook_src)
 
+
+# --- Opus needs a stated reason -------------------------------------------
+# These harnesses shell out to the `claude` binary, so a round spends the
+# operator's usage window rather than a separate API budget. On 2026-09-03 an
+# unattended round asked for opus with nobody deciding to: 220 opus generations
+# plus 140 opus judgments emptied a fresh window in half an hour and stalled the
+# loop for the following four. Opus was never the default; what was missing is
+# that asking cost nothing.
+def _opus_refuses(models, reason):
+    try:
+        bench_run.require_opus_reason(models, reason)
+    except SystemExit:
+        return True
+    return False
+
+
+check("a round naming no opus model is unaffected",
+      not _opus_refuses(["haiku", "sonnet"], None)
+      and bench_run.require_opus_reason(["haiku", "sonnet"], None) is None)
+check("opus without a reason is refused", _opus_refuses(["haiku", "opus"], None))
+check("an empty or blank reason is not a reason",
+      _opus_refuses(["opus"], "") and _opus_refuses(["opus"], "   "))
+check("a stated reason is accepted and returned stripped",
+      bench_run.require_opus_reason(["opus"], "  #117 is about opus  ")
+      == "#117 is about opus")
+check("a fully-qualified opus id is caught too",
+      _opus_refuses(["claude-opus-5"], None))
+# The refusal has to price the round, or it is just an obstacle.
+try:
+    bench_run.require_opus_reason(["opus"], None, calls=200)
+    _priced = ""
+except SystemExit as exc:
+    _priced = str(exc)
+check("the refusal quotes the plan's cost when it knows the call count",
+      "200 call(s)" in _priced and "$29.80" in _priced)
+check("judge.py enforces the same guard",
+      "require_opus_reason" in (ROOT / "evals" / "bench" / "judge.py").read_text())
+
 print("\n%d failure(s)" % fails)
 sys.exit(1 if fails else 0)

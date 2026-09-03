@@ -109,6 +109,52 @@ def require_claude_bin(arg):
     return claude_bin
 
 
+# Measured over the 2,429 calls the loop made on 2026-09-02, in US dollars per
+# generation. Opus was a quarter of the calls and half the bill.
+COST_PER_CALL = {"opus": 0.149, "sonnet": 0.075, "haiku": 0.016}
+
+
+def require_opus_reason(models, reason, calls=None):
+    """Exit unless a round that asks for opus says why it needs opus.
+
+    These harnesses shell out to the `claude` binary, so every generation and
+    every judgment spends the operator's Claude Code usage window rather than a
+    separate API budget. Opus costs 9.2x haiku per call, and on 2026-09-03 an
+    unattended round asked for it without anyone deciding to: #117 bought 220
+    opus generations and 140 opus judgments and emptied a fresh usage window in
+    half an hour, which stalled the loop for the following four.
+
+    Opus is not the default and never has been - `--models` is `haiku,sonnet`
+    and `judge.py --model` is `sonnet`. What was missing is that asking cost
+    nothing. This is the same shape as `--allow-case-change`: the override
+    exists, it has to be deliberate, and the reason is stamped into the snapshot
+    instead of living in a transcript nobody reads.
+
+    Returns the justification to record, or None when no opus model was named.
+    """
+    opus = [m for m in models if "opus" in m]
+    if not opus:
+        return None
+    if reason and reason.strip():
+        return reason.strip()
+    estimate = ""
+    if calls:
+        estimate = (" At %d call(s) that is about $%.2f, against $%.2f on "
+                    "sonnet and $%.2f on haiku."
+                    % (calls, calls * COST_PER_CALL["opus"],
+                       calls * COST_PER_CALL["sonnet"],
+                       calls * COST_PER_CALL["haiku"]))
+    sys.exit(
+        "refusing to run %s without a stated reason. Opus costs about $%.3f a "
+        "call against $%.3f on haiku, and it spends the operator's usage "
+        "window, not a separate API budget.%s\n"
+        "Drop it from --models, or pass --allow-opus '<why this hypothesis "
+        "needs opus>'. A confirmatory round does not: run it on haiku and "
+        "sonnet, and reserve opus for a hypothesis that is about opus."
+        % (", ".join(opus), COST_PER_CALL["opus"], COST_PER_CALL["haiku"],
+           estimate))
+
+
 def parse_cli_json(raw):
     blank = {"ok": False, "text": "", "output_tokens": 0, "input_tokens": 0,
              "cache_creation_input_tokens": 0, "cache_read_input_tokens": 0,
@@ -567,6 +613,11 @@ def main():
                          "default so no stored comparison shifts, not because "
                          "it is the faithful one")
     ap.add_argument("--models", default="haiku,sonnet")
+    ap.add_argument("--allow-opus", metavar="REASON", default=None,
+                    help="why this hypothesis needs opus. Required whenever "
+                         "--models names an opus model, and recorded as "
+                         "metadata.opus_justification. A confirmatory round "
+                         "does not need opus; run it on haiku and sonnet")
     ap.add_argument("--reps", type=int, default=5)
     ap.add_argument("--cases", default="*")
     ap.add_argument("--arms", default=",".join(ARMS))
@@ -620,6 +671,15 @@ def main():
                    and match_case(d.name, args.cases))
     if not cases:
         sys.exit("no cases matched: %s" % args.cases)
+    # The gate, placed as early as the numbers allow: after the scope is known,
+    # so the refusal can price the round, and before the snapshot is opened, so
+    # a refused round leaves nothing behind. The count is the whole plan rather
+    # than the calls left to make, which overstates a resume - the right
+    # direction for a warning about spending.
+    opus_reason = require_opus_reason(
+        models, args.allow_opus,
+        calls=len(cases) * args.reps * len(arm_names)
+        * sum(1 for m in models if "opus" in m))
 
     # Resolved once, then stamped onto every run below. The snapshot-level
     # stamp is written when the file is created and never again, so a round
@@ -684,6 +744,11 @@ def main():
     meta = snap["metadata"]
     meta["concurrency_declared"] = max(meta.get("concurrency_declared") or 1,
                                        args.concurrency)
+    # Like the concurrency declaration, this describes the file rather than one
+    # invocation: once a snapshot holds opus runs, it holds them for good, so a
+    # later resume must not drop the reason they were bought.
+    if opus_reason:
+        meta["opus_justification"] = opus_reason
     # Resolved once: carry_arms has already run by here, so the carried set
     # cannot change during the pass, and reading the carry source on each of
     # 440 writes would re-parse a multi-megabyte snapshot every time.

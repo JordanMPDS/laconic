@@ -52,6 +52,19 @@ one that catches stale generated files, and it is the easiest to skip by acciden
   `metadata.concurrency_declared`. `python3 evals/bench/concurrency.py` sweeps
   the committed snapshots and exits non-zero on an undeclared one. Ten
   snapshots predate the flag; see `evals/results/loop/concurrency-audit.md`.
+- **Opus needs a stated reason, and a round is spent from a person's usage
+  window.** These harnesses shell out to the `claude` binary, so every
+  generation and every judgment is a CLI session drawing on the operator's
+  Claude Code subscription rather than a separate API budget. Opus costs about
+  9x haiku per call. It is not the default — `run.py --models` is
+  `haiku,sonnet` and `judge.py --model` is `sonnet` — but naming it used to
+  cost nothing, and on 2026-09-03 an unattended round bought 220 opus
+  generations and 140 opus judgments, emptied a fresh usage window in half an
+  hour, and stalled the loop for the four hours after. Both harnesses now
+  refuse an opus model unless `--allow-opus '<why this hypothesis needs opus>'`
+  is given, and `run.py` records it as `metadata.opus_justification`. A
+  confirmatory round does not qualify: run it on haiku and sonnet, and reserve
+  opus for a hypothesis that is about opus.
 - **A benchmark round reads the working tree for hours, so editing `rules/laconic.md`
   or anything under `evals/cases/` while one is running corrupts it.** Both are
   checksummed into every snapshot (`rules_cksum`, `cases_cksum`), and `run.py`,

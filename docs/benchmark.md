@@ -586,7 +586,13 @@ What the numbers cover:
   [Provenance and confounds](#provenance-and-confounds).
 - **n=5 per cell, two models, one vendor.** Differences smaller than the
   published stdev are treated as noise, and the results speak only to Claude
-  models.
+  models. A separate three-model batch has since asked whether the compression
+  claim survives a third point, and it does, steeply: on `opus` the same
+  instrument that reads −32% on sonnet reads −68%, all 22 cases reduce, and
+  laconic's readability violations fall to 1 in 110 responses. Haiku is
+  unchanged at −9% with six cases longer. That batch generated two arms rather
+  than five, so it restates no table above:
+  [`opus-model-set.md`](../evals/results/loop/opus-model-set.md).
 - **The judge is a Claude model grading Claude outputs,** blind to arm with the
   rules text withheld. It is not an independent evaluator, and the quality and
   trap claims are the ones that rest on it.

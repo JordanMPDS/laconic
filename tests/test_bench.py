@@ -4774,9 +4774,13 @@ check("the pass records its delivery in the snapshot metadata",
 # protect. `deep-metric` is five turns; `floor` is one.
 with tempfile.TemporaryDirectory() as td_td:
     _snap = Path(td_td) / "snap.json"
+    # A stub `claude`, because CI has none and the binary guard runs first: a
+    # non-zero exit from the wrong guard would pass a returncode check while
+    # testing nothing.
     _proc = subprocess.run(
         [sys.executable, str(ROOT / "evals" / "bench" / "run.py"),
          "--models", "haiku", "--reps", "1", "--arms", "laconic",
+         "--claude-bin", str(ROOT / "tests" / "stubs" / "claude-stub.sh"),
          "--cases", "deep-metric", "--snapshot", str(_snap)],
         capture_output=True, text=True)
     check("subprocess: multi-turn without --turn-delivery exits non-zero",

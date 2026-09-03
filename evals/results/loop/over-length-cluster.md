@@ -1,9 +1,9 @@
-# The over-length cluster: what ten rounds established
+# The over-length cluster: what eleven rounds established
 
 Six issues report over-long answers at level `full`: [#46], [#60], [#113],
-[#116], [#136] and [#150]. Rounds 29, 32, 33, 34, 35, 36, 37, 38, 40 and 41 have
-been spent on them. This is what is now known, and what each issue should do
-next.
+[#116], [#136] and [#150]. Rounds 29, 32, 33, 34, 35, 36, 37, 38, 40, 41 and 42
+have been spent on them. This is what is now known, and what each issue
+should do next.
 
 > **Rewritten 2026-09-03.** The version of this document written after round 35
 > concluded that conversational investment lengthens the answer, and sent four of
@@ -49,24 +49,29 @@ and it does not move (p = 0.576). The second family behaves the same way:
 `cold-service` to `drift-service` reads 263 to 364 under `repeat` and 284 to
 134.5 under `plugin`.
 
-**So the answer is not longer deep in a session. Under the wiring the reports
-came from, it is about a fifth as long, and round 41 established that this costs
-nothing measurable** — 30/30, 28/30 and 28/30 on the identical final question at
-the three depths, p = 0.4915, against 90/90 on a matched `repeat` batch that
-spends six times the words.
+**So the laconic answer is not longer deep in a session. Under the wiring the
+reports came from, it is about a fifth as long, and round 41 established that this
+costs nothing measurable** — 30/30, 28/30 and 28/30 on the identical final
+question at the three depths, p = 0.4915, against 90/90 on a matched `repeat`
+batch that spends six times the words.
 
-That leaves the cluster in a harder place than the round-35 version of this
-document thought. Rounds 33 to 35 did not find the mechanism behind [#60],
-[#113] and [#136]; they found a property of a harness mode. What is now known is
-that **the instrument does not reproduce the reported failure under the shipped
-delivery, in either its single-turn form (round 32) or its multi-turn one.**
+**The unruled answer does get longer, and round 42 measured it: +51.4% at the
+same depths.** So the depth effect the cluster was built on is real; what was
+wrong was the arm it had been measured on.
+
+Rounds 33 to 35 did not find the mechanism behind [#60], [#113] and [#136] —
+they measured a harness mode. Round 42 found it, on the arm that carries no
+rules. What is now known is that **the mechanism the reports name is real, the
+plugin reverses it, and the instrument still does not reproduce the reported
+failure** — a laconic session going long at depth — in either its single-turn
+form (round 32) or its multi-turn one.
 
 The subject-size null is bounded and the bound was registered before the words
 were read: tripling the fixture moved it from ~2% of turn-1 context to ~5%. A
 manipulation that made the subject the bulk of context is untested, and so is
 subject size under `plugin`.
 
-## Two reports name a mechanism the instrument does not reproduce
+## Two reports name the mechanism, and it measures real on the unruled arm
 
 [#136] locates it itself — the pull is strongest *"when the model has a lot of
 recent context it is proud of"* — and [#60] describes the same thing without
@@ -77,14 +82,19 @@ naming it:
 > long stopped feeling like a violation, and the next turn inherited the
 > register even though the request had changed shape entirely.
 
-Two independent field reports converging on one mechanism is still the best
-qualitative evidence this cluster has. What has changed is that the quantitative
-support was withdrawn: round 35 measured the mechanism at +36.8% under `repeat`,
-and under `plugin` the same manipulation reads −70%.
+Two independent field reports converging on one mechanism, which then measures
+real against a matched control, is the strongest evidence this cluster has
+produced. Round 42 puts it at **+51.4%** on baseline, replicating the +65.4% that
+rounds 33 and 35 measured on the same arm under the other delivery mode.
 
-**The gap between the reports and the instrument is now the cluster's central
-question**, and it is a different question from the one rounds 33 to 35 were
-asking. Two candidate explanations, neither tested:
+What was withdrawn is the reading of it as *laconic's* behaviour. Round 35 had
+laconic at +36.8% under `repeat`; under `plugin` the same manipulation reads
+−68.9% against a baseline at +51.4%.
+
+**The gap between the reports and the instrument is the cluster's central
+question**, and it is now a narrower one: not "what lengthens the answer" but
+"why does laconic fail in the field where it binds hardest here". Two candidate
+explanations, neither tested:
 
 - **The harness's earlier turns are not the reports' earlier turns.** Both
   reports describe a session whose prior answers were *legitimately long* —
@@ -108,8 +118,12 @@ buying until the measurement below is in.
 All three are *deep into a long session*, and all three describe a short question
 answered at length after earlier turns established a register. The round-35
 version of this document called this "the group the measured mechanisms explain".
-It is now the group whose mechanism is **unexplained**: under the shipped
-delivery the instrument produces the opposite of what all three report.
+Its mechanism has since been measured on the other arm: round 42 finds an
+unruled model running **+51.4%** longer at turn 5, which is what all three
+describe, while laconic runs **−68.9%** against it. So the group's mechanism is
+explained and the plugin already answers it on this instrument; what is
+unexplained is why the field reports show laconic failing where the instrument
+shows it binding hardest.
 
 | | Trigger | Reported |
 |---|---|--:|
@@ -249,12 +263,29 @@ Nothing measured in rounds 29 to 41 bears on either.
 | Issue | Status | Next |
 |---|---|---|
 | [#46] | mechanism found (reading rate), edit shipped in round 26 | nothing; closest thing to resolved |
-| [#60] | structural edit tried in round 40 and rejected | nothing until the depth measurement below; four wording attempts and one structural attempt have failed |
+| [#60] | structural edit tried in round 40 and rejected; its depth premise is now measured on the baseline arm (round 42) | the inflation it describes is real and the plugin already reverses it on this instrument; what is unreproduced is a *laconic* session going long at depth |
 | [#113] | detector built and validated; the design-shaped family was built (round 36) and answers *no decay*, under both delivery modes | the flicker itself is still unreproduced; needs a case that admits it, not another round on these cells |
 | [#116] | uninstrumented, wrong category | needs an action rule and a way to score behaviour, not prose |
-| [#136] | three candidates measured under `repeat`; the two positive ones reverse under `plugin` | the depth measurement below, which asks whether the reversal is the plugin working or the harness at depth |
+| [#136] | mechanism restored on the baseline arm by round 42: depth inflates an unruled answer +51.4%, and laconic runs −68.9% against it | the diagnosis is no longer the open part. The gap is between the report and the product, and closing it needs a case that reproduces a laconic session going long at depth — see the two case-authoring candidates above |
 | [#150] | instrument proven incapable | redundancy metric on the [#146] route, before any further round |
 | [#172] | **resolved** — affirmation widened, rounds 33–35 re-judged on that stem | none; round 35 moves 57/60 to 60/60 and rounds 33–34 do not move |
+
+## The measurement this cluster needed: bought, and it answers
+
+> **Round 42 ran this and the falsifier did not fire.** Baseline does not fall at
+> depth — it rises by half again, 139.0 to 210.5 median words (+51.4%), while
+> laconic falls 98.0 to 30.5 (−68.9%). Six of six cells move as predicted,
+> p = 0.0312, and the arm gap widens from −39.5 words at turn 1 to −181.0 at
+> turn 5 (p = 5e-06). **So depth inflates an unruled answer by about half, which
+> is what [#136] and [#60] describe, and the plugin is what reverses it.** What
+> rounds 33 to 35 measured was laconic *failing to resist* that inflation under
+> `repeat`. The section below is the registration, kept as written.
+>
+> Baseline turns out to be a delivery-invariant control by construction —
+> `arms["baseline"]` carries no system prompt, so both modes send it identical
+> material on every turn — and it replicates across the boundary: +65.4% under
+> `repeat` (rounds 33 and 35) against +51.4% under `plugin`. Full write-up in
+> [`round-42.md`](round-42.md).
 
 ## The one measurement this cluster now needs, registered here
 

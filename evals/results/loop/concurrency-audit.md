@@ -176,6 +176,18 @@ comparisons straddle it:
    runs, so a snapshot written before any of this still discloses how it was
    produced.
 
+5. **The merge itself is a script.** The eight undeclared snapshots above are
+   undeclared because each shard process wrote its own file and the union was
+   assembled by hand afterwards, which is a step with no record and no checks.
+   `python3 evals/bench/merge.py <shards> --out <round>` does that union
+   instead: it refuses shards that disagree on `rules_cksum` or
+   `laconic_level`, recomputes `cases_cksum` over the union rather than copying
+   a shard's, declares no less concurrency than the number of shards it read,
+   and writes `metadata.shards` so the merged file carries its own provenance.
+   The first hand-merged `opus-model-set.json` held 100 of 660 runs, which is
+   the failure mode worth naming: a silent under-merge reports a number rather
+   than an absence, so nothing downstream notices.
+
 `tests/test_bench.py` pins the ten-snapshot affected set, so a new name appearing
 in it means a round was generated concurrently and this document needs
 re-reading.

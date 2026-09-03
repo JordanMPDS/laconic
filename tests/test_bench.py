@@ -3492,6 +3492,32 @@ with tempfile.TemporaryDirectory() as td_69:
     check("judge: a mismatched case checksum stops the pass",
           _r69.returncode != 0 and "case material changed" in _r69.stderr)
 
+# The same guard, recomputed over the --cases subset instead of the snapshot's
+# whole case set, reported a case change on every filtered pass: the stored
+# checksum covers everything run.py selected, so comparing it against a
+# subset's is comparing two case sets rather than two revisions of one. It made
+# --cases unusable on any snapshot holding more cases than the filter names,
+# which is the ordinary way to judge one stratum of a merged round.
+with tempfile.TemporaryDirectory() as td_69b:
+    _s69b = Path(td_69b) / "results.json"
+    _s69b.write_text(json.dumps(
+        {"metadata": {"rules_cksum": "1",
+                      "cases_cksum": bench_run.cases_cksum(
+                          ROOT / "evals" / "cases", ["destructive", "floor"])},
+         "runs": [{"case": c, "arm": "laconic", "model": "haiku",
+                   "rep": 0, "ok": True, "text": "t"}
+                  for c in ("destructive", "floor")]}))
+    _stub69b = Path(td_69b) / "claude"
+    _stub69b.write_text("#!/usr/bin/env bash\nexit 1\n")
+    _stub69b.chmod(0o755)
+    _r69b = subprocess.run(
+        [sys.executable, str(ROOT / "evals" / "bench" / "judge.py"),
+         "--claude-bin", str(_stub69b), "--cases", "destructive",
+         "--results", str(_s69b), "--out", str(Path(td_69b) / "j.json")],
+        capture_output=True, text=True)
+    check("judge: --cases on a wider snapshot is not read as a case change",
+          "case material changed" not in (_r69b.stdout + _r69b.stderr))
+
 # run.py's carried_arms_from was the same shape and does not drift, for a reason
 # worth pinning: it is written when the snapshot is created, and run.py mutates
 # metadata rather than replacing it, so a resume cannot reach it.
@@ -4354,6 +4380,12 @@ _expected_concurrent = {
     "quality-rates-design.json", "round-01-n10-v4.json", "round-16.json",
     "round-17.json", "round-18.json", "round-18-arbitration.json",
     "round-19.json", "round-20.json",
+    # Generated after #120 and therefore not part of its finding: this one
+    # declares its concurrency, which the guard below checks, and it is here
+    # only because the sweep cannot tell a declared shard merge from an
+    # undeclared one. The shard files are each strictly sequential; it is the
+    # merge that describes a regime no single process produced.
+    "opus-model-set.json",
 }
 _found = set()
 for _p in sorted((ROOT / "evals" / "snapshots").rglob("*.json")):
@@ -4545,6 +4577,102 @@ with tempfile.TemporaryDirectory() as td_models:
     proc_present = _scoped("haiku")
     check("--target-models accepts a model the snapshot does hold",
           "no runs for" not in (proc_present.stdout + proc_present.stderr))
+
+# merge.py unions the shard files of one sharded round. The bug it exists to
+# stop is silent under-merge: the first hand-merged opus-model-set.json held 100
+# of 660 runs, and a snapshot with five sixths of its runs missing reports a
+# number rather than an absence, so nothing downstream notices.
+import merge as bench_merge  # noqa: E402
+
+
+def _shard(model, cases, rules="1", level="full", ok=True, reps=2, cksum="c"):
+    return {
+        "metadata": {"reps": reps, "models": [model], "laconic_level": level,
+                     "rules_cksum": rules, "generated_at": "2026-09-02T19:00:00Z",
+                     "git_commit": "y", "claude_cli_version": "z",
+                     "cases_cksum": cksum, "cases_dir": "cd",
+                     "concurrency_declared": 3},
+        "arms": {"baseline": {"system_prompt": None},
+                 "laconic": {"system_prompt": "r"}},
+        "runs": [{"case": c, "arm": a, "model": model, "rep": rep, "ok": ok,
+                  "text": "t", "output_tokens": 10, "total_cost_usd": 0.01,
+                  "duration_ms": 1000,
+                  "generated_at": "2026-09-02T19:00:0%d Z" % rep}
+                 for c in cases for a in ("baseline", "laconic")
+                 for rep in range(reps)],
+    }
+
+
+with tempfile.TemporaryDirectory() as td_merge:
+    td = Path(td_merge)
+
+    def _write(name, snap):
+        bench_run.save_snapshot(td / name, snap)
+        return str(td / name)
+
+    a = _write("a.json", _shard("haiku", ["floor", "badnews"]))
+    b = _write("b.json", _shard("sonnet", ["floor", "badnews"]))
+
+    def _merge_cli(args):
+        return subprocess.run(
+            [sys.executable, str(ROOT / "evals" / "bench" / "merge.py")] + args,
+            capture_output=True, text=True)
+
+    out = str(td / "merged.json")
+    proc = _merge_cli([a, b, "--out", out, "--cases-dir",
+                       str(ROOT / "evals" / "cases")])
+    merged = bench_run.load_snapshot(out)
+    check("merge keeps every run from every shard",
+          proc.returncode == 0 and merged is not None
+          and len(merged["runs"]) == 16)
+    check("merge unions the models rather than keeping the first shard's",
+          merged["metadata"]["models"] == ["haiku", "sonnet"])
+    # Each shard checksums only the cases it names, so three shards of one round
+    # legitimately carry three different values. Copying any one of them would
+    # stamp the merged round with a subset's identity.
+    check("merge recomputes cases_cksum over the union, not copying a shard's",
+          merged["metadata"]["cases_cksum"]
+          == bench_run.cases_cksum(str(ROOT / "evals" / "cases"),
+                                   ["badnews", "floor"]))
+    check("merge records where every run came from",
+          [s["shard"] for s in merged["metadata"]["shards"]] == ["a", "b"])
+    check("merge never declares less concurrency than the merge itself shows",
+          merged["metadata"]["concurrency_declared"] >= 2)
+
+    # rules_cksum is the guard the whole harness is built around: two shards
+    # generated from different rules are two rounds, and one file holding both
+    # reports a single round produced by two instruments.
+    c = _write("c.json", _shard("opus", ["floor"], rules="2"))
+    proc_rules = _merge_cli([a, c, "--out", str(td / "x.json")])
+    check("merge refuses shards generated from different rules",
+          proc_rules.returncode != 0
+          and "rules_cksum" in (proc_rules.stdout + proc_rules.stderr))
+
+    d = _write("d.json", _shard("haiku", ["floor"], level="ultra"))
+    proc_level = _merge_cli([a, d, "--out", str(td / "x.json")])
+    check("merge refuses shards generated at different levels",
+          proc_level.returncode != 0
+          and "laconic_level" in (proc_level.stdout + proc_level.stderr))
+
+    # A resumed shard and its predecessor overlap on the retried cells. The
+    # successful record has to win, or a merge reintroduces the failures the
+    # resume was run to clear.
+    failed = _write("failed.json", _shard("haiku", ["floor"], ok=False))
+    succeeded = _write("succeeded.json", _shard("haiku", ["floor"], ok=True))
+    out2 = str(td / "merged2.json")
+    _merge_cli([failed, succeeded, "--out", out2, "--cases-dir",
+                str(ROOT / "evals" / "cases")])
+    merged2 = bench_run.load_snapshot(out2)
+    check("merge keeps one record per cell, the successful one winning",
+          len(merged2["runs"]) == 4
+          and all(r["ok"] for r in merged2["runs"]))
+
+    # Merging a file into itself reads a partial merge as a shard, which is one
+    # keystroke away from the command that is correct.
+    proc_self = _merge_cli([a, b, "--out", a])
+    check("merge refuses an output that is also an input",
+          proc_self.returncode != 0)
+
 
 # The reminder is a second copy of a string that lives in hooks/laconic.sh, and
 # a copy that drifts is the failure this repo's sync convention exists to stop.

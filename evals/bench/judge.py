@@ -378,7 +378,14 @@ def main():
     stored = prior.get("metadata", {}).get("cases_cksum") or \
         snap.get("metadata", {}).get("cases_cksum")
     if stored is not None:
-        live = bench_run.cases_cksum(CASES, sorted({r["case"] for r in runs}))
+        # Over the snapshot's whole case set, not the --cases subset being
+        # judged. run.py stamps the checksum over every case the generating
+        # pass selected, so recomputing it over a filter's subset compares two
+        # different case sets and reports a case change that did not happen -
+        # which made --cases unusable on any snapshot holding more cases than
+        # the filter names. prefer.py already reads the snapshot unfiltered.
+        live = bench_run.cases_cksum(
+            CASES, sorted({r["case"] for r in snap["runs"]}))
         if stored != live and not args.allow_case_change:
             sys.exit("the case material changed since these runs were generated "
                      "(cases_cksum %s vs %s). Judging now would grade them against "

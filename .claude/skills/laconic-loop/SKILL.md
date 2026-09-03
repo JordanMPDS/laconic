@@ -213,6 +213,43 @@ the harnesses or switch branches while a pass is running.
 
 [#69]: https://github.com/JordanMPDS/laconic/issues/69
 
+## What a round spends, and whose it is
+
+**A round is bought with a person's usage window, not an API budget.** `run.py`
+and `judge.py` shell out to the `claude` binary, so every generation and every
+judgment is a CLI session against the operator's Claude Code subscription. The
+budget line each harness prints before spending is denominated in exactly the
+unit a subscription limit is: calls.
+
+On 2026-09-02 the loop made **2,429 of them** — 1,699 generations and 730
+judgments, about $134 API-equivalent. Opus was a quarter of the calls and half
+the cost, at roughly 9x haiku per call:
+
+| model | per call | 220-run arm |
+| --- | ---: | ---: |
+| opus | $0.149 | $32.78 |
+| sonnet | $0.075 | $16.50 |
+| haiku | $0.016 | $3.52 |
+
+**Opus needs a stated reason.** It has never been the default, but naming it
+used to cost nothing, and #117 bought 220 opus generations plus 140 opus
+judgments, emptied a fresh usage window in half an hour and stalled the loop for
+the four hours after. Both harnesses now refuse it unless the round says why:
+
+```bash
+--allow-opus 'the hypothesis is about opus, not confirmed on it'
+```
+
+`run.py` stamps that into `metadata.opus_justification`, so a snapshot holding
+opus runs carries the reason they were bought. **A confirmatory round does not
+qualify.** #117's own finding — that the compression claim generalises to opus —
+is what makes further opus rounds confirmatory, and confirmatory work belongs on
+haiku and sonnet.
+
+Size the round before buying it. The staged rule below already says to open at
+10 reps and extend only if the round needs it; that matters most on the arm that
+costs nine times the others.
+
 ## Steps 1-3: measure the round you have (405 calls at n=5)
 
 ```bash

@@ -277,6 +277,10 @@ def main():
     global CASES
     ap = argparse.ArgumentParser()
     ap.add_argument("--model", default="sonnet")
+    ap.add_argument("--allow-opus", metavar="REASON", default=None,
+                    help="why this grading needs an opus judge. Required "
+                         "whenever --model is an opus model. A judge is not "
+                         "the hypothesis; sonnet grades every published round")
     ap.add_argument("--cases", default="*")
     ap.add_argument("--results", default=str(RESULTS))
     ap.add_argument("--out", default=str(JUDGMENTS))
@@ -321,6 +325,7 @@ def main():
     CASES = Path(args.cases_dir)
 
     claude_bin = bench_run.require_claude_bin(args.claude_bin)
+    bench_run.require_opus_reason([args.model], args.allow_opus)
 
     snap = bench_run.load_snapshot(args.results)
     if snap is None:

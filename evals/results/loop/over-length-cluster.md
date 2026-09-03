@@ -284,8 +284,13 @@ Nothing measured in rounds 29 to 41 bears on either.
 > Baseline turns out to be a delivery-invariant control by construction —
 > `arms["baseline"]` carries no system prompt, so both modes send it identical
 > material on every turn — and it replicates across the boundary: +65.4% under
-> `repeat` (rounds 33 and 35) against +51.4% under `plugin`. Full write-up in
-> [`round-42.md`](round-42.md).
+> `repeat` (rounds 33 and 35) against +51.4% under `plugin`.
+>
+> **Round 43 then judged both arms of that snapshot: 120 of 120 pass, every cell
+> 10/10.** So at turn 5 an unruled model writes seven times as much and answers
+> the same question no better. That comparison sits at its ceiling and rules out
+> a laconic deficit of a fifth of correctness, not a smaller one. Full write-ups
+> in [`round-42.md`](round-42.md) and [`round-43.md`](round-43.md).
 
 ## The one measurement this cluster now needs, registered here
 

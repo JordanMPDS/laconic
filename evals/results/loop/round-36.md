@@ -13,8 +13,20 @@
 > one turn, so delivery cannot reach it, which makes it the internal control:
 > 263 against 284 is between-batch variation. Two families reversing together is
 > the same finding twice rather than two findings, and what round 35 and this
-> round replicated was a property of the delivery mode. See
-> [`round-40.md`](round-40.md) and [`turn-delivery.md`](turn-delivery.md).
+> round replicated was a property of the delivery mode.
+>
+> **The headline was then checked under `plugin` and it holds.** The fair
+> objection to this round is that `repeat` re-asserts the whole ruleset on every
+> turn, which is close to a maximal persistence clause, so "no decay" measured
+> under it is a weak test of a decay question. Running the same validated
+> detector over `round-40-control.json` — no new calls, the text is already
+> stored — laconic reads **0 closing offers in 50 `drift-service` turn-responses
+> and 0 in 10 `cold-service` responses** under `plugin`, against 0 of 125 and 1
+> of 25 here. The rule holds when it is not being re-sent. The sample is smaller,
+> so by the rule of three 0 of 50 bounds the true rate at about 6% rather than
+> demonstrating zero, but it is the first evidence on this question from the
+> delivery mode [#113] actually describes. See [`round-40.md`](round-40.md) and
+> [`turn-delivery.md`](turn-delivery.md).
 
 **This round proposes no rule edit.** It answers [#113]'s question — does the
 no-closing-offers rule break down as a session goes on — and the answer is no, in

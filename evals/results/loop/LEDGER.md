@@ -258,7 +258,14 @@ and 28/30 on the identical final question at the three depths, p = 0.4915.
 
 Round 36's headline is not affected: no decay in the closing-offer rate, and
 laconic at 0 of 125 turn-responses, is a rate on a rule holding. Its unregistered
-replication of round 35's inflation is.
+replication of round 35's inflation is. The headline was also checked under the
+other delivery mode while making this correction, because `repeat` re-asserts the
+whole ruleset every turn and is therefore a weak test of a decay question:
+running the validated detector over `round-40-control.json` at no new cost,
+laconic reads **0 closing offers in 50 `drift-service` turn-responses and 0 in 10
+`cold-service` responses** under `plugin`. By the rule of three that bounds the
+rate at about 6% rather than demonstrating zero, but it is the first evidence on
+[#113]'s question from the delivery mode the issue describes, and it agrees.
 
 Nothing was re-scored. These rounds proposed no rule edit, so no verdict depends
 on the figures, and re-running them under `plugin` would be a new round rather

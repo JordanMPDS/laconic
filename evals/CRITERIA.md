@@ -206,8 +206,19 @@ mechanism directly: `recall-*` shares its fixture, its `expect.json` and its
 turn-2 question with the `confirm-*` case of the same stem, so the two differ
 only in whether the model is confirming a conclusion it read or one it wrote.
 Ownership lengthens the answer in 6 of 6 cells and 29 of 30 rep-paired runs, but
-laconic's median moves only 93 to 127 words. **The mechanism is real and worth
-about a third more words, not the quadrupling [#136] reports.**
+laconic's median moves only 93 to 127 words — **under `repeat` delivery, which is
+what `run.py` sends by default and is not what the plugin ships.** Round 40 ran
+these cells under `--turn-delivery plugin` and the direction reverses: 88.5 words
+at turn 1 against 17 at turn 2, where `repeat` reads 94.0 against 115.0, with
+turn 1 as the internal control and not moving (p = 0.576). So the mechanism is
+real under `repeat` and absent under the shipped wiring, and neither figure may
+be quoted as an explanation of [#136] without naming its delivery mode.
+
+**Pass `--turn-delivery plugin` when a multi-turn case is meant to describe the
+product.** The default exists so that stored snapshots stay comparable, not
+because it is faithful. See
+[`results/loop/turn-delivery.md`](results/loop/turn-delivery.md) and
+[`results/loop/round-40.md`](results/loop/round-40.md).
 
 Three things to know when writing one:
 

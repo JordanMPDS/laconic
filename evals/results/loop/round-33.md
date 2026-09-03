@@ -1,5 +1,22 @@
 # Round 33: ownership is real, and it is not big enough
 
+> **Scope corrected 2026-09-03 by round 40. This round measures `repeat`
+> delivery, not the shipped plugin.** `run.py` re-appended the whole rule slice
+> on every turn here, because `--turn-delivery` did not exist yet and `repeat` is
+> still its default. The within-round contrast below is unaffected — both arms
+> were generated the same way in the same batch, so ownership really does
+> lengthen the answer by about a third *under `repeat`*. What does not survive is
+> the next step, which this round takes: reading that as an explanation of
+> [#136], a report from a real session under the shipped wiring.
+> [`round-40.md`](round-40.md) generated these same cells under
+> `--turn-delivery plugin` at the same rules and the direction reverses — laconic
+> medians 88.5 words at turn 1 against **17** at turn 2, where `repeat` reads 94.0
+> against 115.0. Turn 1 is the internal control and does not move (p = 0.576).
+> So ownership does not lengthen the plugin's answers; it lengthens answers under
+> a delivery mode the plugin does not use. See
+> [`turn-delivery.md`](turn-delivery.md), whose lower-bound reading round 40 also
+> falsified.
+
 **This round proposes no rule edit.** It runs the experiment [#166] was built
 for, and reports what the mechanism [#136] names is actually worth in words.
 

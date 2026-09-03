@@ -1,5 +1,26 @@
 # Round 35: accumulated own output is the second real mechanism
 
+> **Headline corrected 2026-09-03 by round 40. The +68% chain below is a
+> property of `repeat` delivery and reverses under the wiring the plugin ships.**
+> `run.py` re-appended the whole rule slice on every turn here. Under
+> `--turn-delivery plugin`, at the same rules and on these same cells, the laconic
+> chain runs the other way:
+>
+> | family | depth | `repeat` | `plugin` |
+> | --- | --- | ---: | ---: |
+> | `confirm-*` | turn 1 | 94.0 | 88.5 |
+> | `recall-*` | turn 2 | 115.0 | **17.0** |
+> | `deep-*` | turn 5 | 159.5 | **27.0** |
+>
+> Turn 1 is the internal control — both modes send byte-identical turn-1 material
+> — and it does not move (p = 0.576). So accumulated own output adds about 70% of
+> the answer under `repeat` and removes about 70% of it under `plugin`. The
+> within-round contrast is not withdrawn; its generalisation to [#136], which is a
+> report from a real session, is. [`round-41.md`](round-41.md) then established
+> that the fall is not a quality defect: 30/30, 28/30 and 28/30 on the identical
+> final question at the three depths, p = 0.4915. See
+> [`round-40.md`](round-40.md) and [`turn-delivery.md`](turn-delivery.md).
+
 **This round proposes no rule edit.** It tests the last of the three mechanisms
 [#136] offers, and finds a second real one.
 

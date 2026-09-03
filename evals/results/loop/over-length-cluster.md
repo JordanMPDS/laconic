@@ -220,7 +220,22 @@ The asymmetry its report names is the reason it needs a stricter default rather
 than the same one: unrequested prose costs a reader seconds, unrequested work
 costs tokens, wall-clock and sometimes money.
 
-Nothing measured in rounds 29 to 41 bears on either.
+**It is no longer uninstrumented.**
+[`volunteered-work.md`](volunteered-work.md) surveyed the 5,557 archived `tools`
+lists and found the behaviour already in the suite: every `Edit` call ever
+recorded is on `conditional`, whose prompt asks *"Should I raise the pool size?"*
+and which gets edited instead. A matched batch reads **baseline 25/40 against
+laconic 14/40, p = 0.0247**, so laconic halves it.
+
+Two things follow. **Laconic already acts on this**, which is more than the
+cluster could say for [#116] before. And **the prose metric rewards the
+failure** — an editing run's median is 45 words against 144, p = 5e-06, so an
+answer that edits instead of answering scores as excellent compression ([#209]).
+
+What is still missing is a case this can be optimized against: `conditional`
+grades `rule-adherence`, so no rule edit may be proposed from it.
+
+Nothing measured in rounds 29 to 43 bears on [#150].
 
 ## Six instrument lessons, all from this cluster
 
@@ -265,7 +280,7 @@ Nothing measured in rounds 29 to 41 bears on either.
 | [#46] | mechanism found (reading rate), edit shipped in round 26 | nothing; closest thing to resolved |
 | [#60] | structural edit tried in round 40 and rejected; its depth premise is now measured on the baseline arm (round 42) | the inflation it describes is real and the plugin already reverses it on this instrument; what is unreproduced is a *laconic* session going long at depth |
 | [#113] | detector built and validated; the design-shaped family was built (round 36) and answers *no decay*, under both delivery modes | the flicker itself is still unreproduced; needs a case that admits it, not another round on these cells |
-| [#116] | uninstrumented, wrong category | needs an action rule and a way to score behaviour, not prose |
+| [#116] | **first measurement in** — [`volunteered-work.md`](volunteered-work.md) finds the behaviour already in the suite, on `conditional`, and laconic halves it | a case that admits an edit *and* may be optimized against; `conditional` grades `rule-adherence`, so nothing may be proposed from it. The prose metric rewards the failure ([#209]) and needs an edit stratum first |
 | [#136] | mechanism restored on the baseline arm by round 42: depth inflates an unruled answer +51.4%, and laconic runs −68.9% against it | the diagnosis is no longer the open part. The gap is between the report and the product, and closing it needs a case that reproduces a laconic session going long at depth — see the two case-authoring candidates above |
 | [#150] | instrument proven incapable | redundancy metric on the [#146] route, before any further round |
 | [#172] | **resolved** — affirmation widened, rounds 33–35 re-judged on that stem | none; round 35 moves 57/60 to 60/60 and rounds 33–34 do not move |
@@ -343,5 +358,6 @@ own report — the flicker, present on one turn and absent on the adjacent one.
 [#136]: https://github.com/JordanMPDS/laconic/issues/136
 [#146]: https://github.com/JordanMPDS/laconic/issues/146
 [#150]: https://github.com/JordanMPDS/laconic/issues/150
+[#209]: https://github.com/JordanMPDS/laconic/issues/209
 [#155]: https://github.com/JordanMPDS/laconic/issues/155
 [#172]: https://github.com/JordanMPDS/laconic/issues/172

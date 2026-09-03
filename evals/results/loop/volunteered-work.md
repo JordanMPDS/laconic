@@ -1,7 +1,7 @@
 # `tools`: what 5,557 recorded tool lists say, and the one case that answers [#116]
 
-**The survey is complete and the registration at the bottom is written before its
-batch runs.** No number under "The matched batch" has been computed.
+**The registration below was committed in `b1ea65b`, before its batch ran.** The
+result section is the only thing added afterwards.
 
 [#142] made `run.py` invoke the CLI with `--output-format stream-json`, so every
 run since round 27 carries a `tools` list: the tool names that response actually
@@ -156,7 +156,109 @@ was drift or a draw.
 
 ## The matched batch: result
 
-_To be filled in by the batch._
+**The falsifier did not fire. The arms separate.**
+
+| arm | edits | rate |
+|---|--:|--:|
+| baseline | **25 / 40** | 62.5% |
+| laconic | **14 / 40** | 35.0% |
+
+Two-sided Fisher **p = 0.0247**, one interleaved batch, 40 a side, sonnet,
+`rules_cksum` 136269960. Baseline's 62.5% is consistent with the archive's 8/10
+(p = 0.4606), so the ten-run cell was not misleading about its own arm.
+
+**This is the first measured evidence bearing on [#116], and it points for the
+plugin**: laconic nearly halves the rate at which a question gets answered by
+editing the user's file.
+
+### The registered secondary: it was a draw, not drift
+
+Laconic's rate at byte-identical rules across four dates:
+
+| date | rate | source |
+|---|--:|---|
+| 2026-08-28 | 40/80, 50.0% | `round-30-nevercut-control` |
+| 2026-08-31 | 31/80, 38.8% | `round-31-control` |
+| 2026-09-02 | 2/10, 20.0% | `opus-model-set-sonnet-a` |
+| **2026-09-03** | **14/40, 35.0%** | this batch |
+
+Today lands between the two large cells — p = 0.8417 against 08-31 and p = 0.1727
+against 08-28. **No drift is demonstrated over six days**, and the 09-02 reading
+of 20.0% was a ten-run draw. Worth recording against round 37, where the same
+kind of check found a syntactic rate moving 4.7x in five days: drift is a hazard
+to test for, not a background assumption.
+
+## The unregistered finding, which matters more than the registered one
+
+**A run that edits says almost nothing. The work product replaces the prose.**
+
+| | n | median words |
+|---|--:|--:|
+| edited `db.js` | 39 | **45.0** |
+| did not edit | 41 | **144.0** |
+
+A 99-word gap at permutation **p = 5e-06**. One baseline response in full is
+*"Fixed. Now `client.release()` always runs, even when `fn` throws."* plus two
+sentences.
+
+**So every prose-length metric this loop has rewards the behaviour [#116]
+reports.** An answer that edits the user's file instead of answering scores as
+excellent compression. That is not a subtlety — it is the metric pointing the
+wrong way on the exact case that exhibits the failure.
+
+### And it produces a clean Simpson's reversal on the arm contrast
+
+| | edited | did not edit | whole case |
+|---|--:|--:|--:|
+| baseline | 51.0 | 232.0 | **77.0** |
+| laconic | 25.0 | 115.5 | **95.5** |
+
+**Laconic is lower in both strata and higher overall**, because it edits less and
+editing runs are short. A scoped `output_tokens` target on `conditional` would
+read laconic as the *worse* arm, from data in which it is better on every
+comparison that holds behaviour fixed.
+
+This is [#131]'s problem on a second axis. That issue gave `output_tokens` a
+reading stratum, because a cell whose reading rate moved had nothing comparable
+to compare. Editing does the same thing and nothing accounts for it. Filed as [#209];
+`conditional` is the only case in the suite that admits an edit, so the exposure
+today is one non-scoring case, and the fix is not urgent — but it stops being one
+as soon as a case lets the model act, which is what [#116] needs in order to be
+testable at all.
+
+## Disclosure
+
+- **Never-cut.** `conditional` requires the word `leak`. Baseline 38/40, laconic
+  36/40, p = 0.6752. Not a separation, and disclosed because never-cut is fatal
+  in a scored round and this is not one.
+- **Reading.** Both arms 0/40 on `one_turn`; every run opened the fixture, so no
+  [#131] stratum crossing on the reading axis.
+- **Tool vocabulary in this batch:** `Read` 154 calls, `Bash` 80, `Edit` 39.
+  Nothing else, consistent with the archive-wide survey above.
+- **No rule edit is proposed.** `conditional` grades `rule-adherence`, and the
+  skill forbids optimizing against those cases. This is measured for disclosure.
+
+## Operational: killed twice, and the resume path is why it cost nothing
+
+The batch was killed twice by something outside `run.py` — no OOM (4.5 GB free),
+no traceback, no output — at 9 runs and then at 19. Round 35 recorded the same
+thing twice and reached the same conclusion. `run.py` records nothing for a run
+it did not finish, so re-running the identical command redoes exactly what is
+missing: the second launch printed `71 call(s) to make, of 80 cell(s) in this
+pass (9 already in the snapshot)`.
+
+What finished it was running the same command in the foreground in two chunks
+under a `timeout 560`, which is worth knowing: **the kill did not reach a
+foreground process.** The measurement is unaffected either way — resume is by
+key, and every completed run is byte-identical whichever process produced it.
+
+## Cost
+
+80 generations, 0 failed, **$3.91**. No judging, because the metric is a
+substring of a recorded field.
+
+[#131]: https://github.com/JordanMPDS/laconic/issues/131
+[#209]: https://github.com/JordanMPDS/laconic/issues/209
 
 [#116]: https://github.com/JordanMPDS/laconic/issues/116
 [#142]: https://github.com/JordanMPDS/laconic/issues/142

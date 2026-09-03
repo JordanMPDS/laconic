@@ -1,5 +1,33 @@
 # Round 36: the rule does not decay, and it has nothing to decay from
 
+> **Partially corrected 2026-09-03 by round 40, and the headline is not the part
+> that moves.** The closing-offer result — no decay, the movement running the
+> other way, and laconic reading 0 of 125 turn-responses — is a rate on a rule
+> holding, and nothing since has disturbed it. What does not survive is the
+> unregistered second result below, the replication of round 35's word-count
+> inflation at +38.4%. This round ran `repeat` delivery, re-appending the whole
+> rule slice on every turn. Round 40's control batch carries these two cells at
+> 10 reps under `--turn-delivery plugin` and the same rules, and computed from
+> `round-40-control.json` the laconic medians read **284 words cold and 134.5 at
+> turn 5** — a 53% fall where this round measured a 38% rise. `cold-service` is
+> one turn, so delivery cannot reach it, which makes it the internal control:
+> 263 against 284 is between-batch variation. Two families reversing together is
+> the same finding twice rather than two findings, and what round 35 and this
+> round replicated was a property of the delivery mode.
+>
+> **The headline was then checked under `plugin` and it holds.** The fair
+> objection to this round is that `repeat` re-asserts the whole ruleset on every
+> turn, which is close to a maximal persistence clause, so "no decay" measured
+> under it is a weak test of a decay question. Running the same validated
+> detector over `round-40-control.json` — no new calls, the text is already
+> stored — laconic reads **0 closing offers in 50 `drift-service` turn-responses
+> and 0 in 10 `cold-service` responses** under `plugin`, against 0 of 125 and 1
+> of 25 here. The rule holds when it is not being re-sent. The sample is smaller,
+> so by the rule of three 0 of 50 bounds the true rate at about 6% rather than
+> demonstrating zero, but it is the first evidence on this question from the
+> delivery mode [#113] actually describes. See [`round-40.md`](round-40.md) and
+> [`turn-delivery.md`](turn-delivery.md).
+
 **This round proposes no rule edit.** It answers [#113]'s question — does the
 no-closing-offers rule break down as a session goes on — and the answer is no, in
 a direction the issue did not anticipate.

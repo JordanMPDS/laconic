@@ -1,5 +1,17 @@
 # Round 34: subject size is not the missing factor
 
+> **Scope corrected 2026-09-03 by round 40. This round measures `repeat`
+> delivery, not the shipped plugin.** The null below is real and is bounded to
+> the mode it was measured in: a fixture worth +3% of context does not move
+> answer length *under `repeat`*, where the whole rule slice is re-appended every
+> turn. It has not been tested under `--turn-delivery plugin`, and the companion
+> effects this round is set against — ownership and accumulated own output — do
+> not merely shrink under `plugin`, they reverse
+> ([`round-40.md`](round-40.md)). A null carried across a mode change is worth
+> less than a positive result carried across one, so this round's verdict is the
+> least disturbed of rounds 33 to 36 and still may not be quoted as a fact about
+> the plugin.
+
 **This round proposes no rule edit.** It tests the variable round 33 pointed at
 and reports a null, with the bound that null carries.
 

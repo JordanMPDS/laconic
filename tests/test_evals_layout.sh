@@ -109,8 +109,29 @@ fi
 # which is the shape that produces offers, and they share a fixture and a
 # byte-identical final question: cold-service asks it at turn 1 and
 # drift-service asks it at turn 5. That pair is what makes drift readable.
+#
+# 37 since 2026-09-04: quota-merge, for #116. That issue is about volunteered
+# *work* rather than volunteered prose - a comprehension question answered
+# correctly and then substantiated with analysis nobody asked for - and until
+# now nothing could score it. evals/results/loop/volunteered-work.md found the
+# behaviour already in the suite, on `conditional`, at 21% of sonnet runs; but
+# `conditional` grades rule-adherence, so no rule edit may be proposed from it.
+#
+# The obstacle to a scorable one was CRITERIA.md's own rule: every case ends
+# "Don't edit anything." or "its verdicts measure whether the model chose to
+# act". quota-merge is the first case to drop that clause, and it drops it on
+# evidence - judging 80 conditional runs put an editing response's trap pass
+# rate at 24/39 against 22/41 for a non-editing one, p = 0.5055, so the
+# diagnosis does not migrate into the diff.
+#
+# So the case can be graded on quality while the behaviour is read off the tool
+# list as a syntactic counter, the way closing offers and one_turn are. The
+# question is an interrogative whose deliverable is understanding, the fixture
+# is one the model could act on instead, and the trap grades two fixture facts:
+# that the merge is possible, and that reconcile() is the only writer of the
+# day totals billing reads.
 count=$(ls -d "$ROOT"/evals/cases/*/ 2>/dev/null | wc -l | tr -d ' ')
-if [ "$count" = "36" ]; then ok "36 cases present"; else fail "36 cases present (found $count)"; fi
+if [ "$count" = "37" ]; then ok "37 cases present"; else fail "37 cases present (found $count)"; fi
 
 design=$(ls -d "$ROOT"/evals/cases/design-*/ 2>/dev/null | wc -l | tr -d ' ')
 if [ "$design" -ge 5 ]; then
@@ -171,6 +192,10 @@ done
 # prints, and it is not visible anywhere except in 36 separate expect.json
 # files. #10 is the issue that got the denominator wrong once already.
 #
+# quota-merge joined in 2026-09-04 with an empty list, deliberately: the
+# admission criterion below wants a token measured against archived responses,
+# and a case generated for the first time has none to measure against.
+#
 # The set is pinned here so that neither direction can happen quietly. Emptying
 # a list shrinks the denominator while the round still reports "never-cut held".
 # Adding one to a case whose protected content is conceptual inflates the
@@ -196,7 +221,7 @@ PY
 )
 expected="badnews code-fidelity conditional confirm-index deep-index destructive recall-index walkthrough wide-index"
 if [ "$covered" = "$expected" ]; then
-  ok "9 of 36 cases carry never_cut keywords, and they are the measured set"
+  ok "9 of 37 cases carry never_cut keywords, and they are the measured set"
 else
   fail "never_cut coverage changed: expected [$expected], found [$covered]"
 fi

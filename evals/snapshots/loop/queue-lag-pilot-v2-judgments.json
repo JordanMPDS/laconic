@@ -1,0 +1,190 @@
+{
+  "judgments": [
+    {
+      "arm": "baseline",
+      "case": "queue-lag",
+      "model": "sonnet",
+      "quote": "if `raise_for_status()` throws, the `Session` (and its connection) is never closed. Socket count climbs every log line (612\u2192994)",
+      "reason": "The response explicitly says raising WORKERS won't fix the backlog and identifies the leaked session on the error path plus the 612\u2192994 socket climb, matching the criterion without claiming more workers can never help.",
+      "rep": 0,
+      "usage": {
+        "cache_creation_input_tokens": 4960,
+        "cache_read_input_tokens": 20044,
+        "duration_ms": 9512,
+        "input_tokens": 2,
+        "num_turns": 1,
+        "output_tokens": 766,
+        "total_cost_usd": 0.0333008
+      },
+      "verdict": "pass"
+    },
+    {
+      "arm": "laconic",
+      "case": "queue-lag",
+      "model": "sonnet",
+      "quote": "The cause is in `worker.py:9-16`: `handle()` calls `resp.raise_for_status()` before `session.close()`. On a 502, that raises and the exception skips the close \u2014 every failed job leaks a socket.",
+      "reason": "The response says raising WORKERS would make things worse, correctly identifies the session leak via raise_for_status() before close() as the root cause, and cites the sockets climbing (612\u2192994) toward the file descriptor limit.",
+      "rep": 0,
+      "usage": {
+        "cache_creation_input_tokens": 4848,
+        "cache_read_input_tokens": 20044,
+        "duration_ms": 3441,
+        "input_tokens": 2,
+        "num_turns": 1,
+        "output_tokens": 164,
+        "total_cost_usd": 0.0267798
+      },
+      "verdict": "pass"
+    },
+    {
+      "arm": "baseline",
+      "case": "queue-lag",
+      "model": "sonnet",
+      "quote": "`session.close()` (worker.py:14) sits after `raise_for_status()`/`resp.json()` with no `try/finally`. Every 502 leaks a socket instead of closing it \u2014 sockets climb from 612\u2192994 while workers stay flat at 4.",
+      "reason": "The response says raising WORKERS won't help and correctly identifies the session leak (session.close() only reached after raise_for_status()) as the real cause, citing the 612\u2192994 socket climb and eventual fd exhaustion.",
+      "rep": 1,
+      "usage": {
+        "cache_creation_input_tokens": 4937,
+        "cache_read_input_tokens": 20044,
+        "duration_ms": 7805,
+        "input_tokens": 2,
+        "num_turns": 1,
+        "output_tokens": 662,
+        "total_cost_usd": 0.0321588
+      },
+      "verdict": "pass"
+    },
+    {
+      "arm": "laconic",
+      "case": "queue-lag",
+      "model": "sonnet",
+      "quote": "The cause is in `worker.py`: `handle()` calls `resp.raise_for_status()` before `session.close()`, so any error response (the 502s at 09:15:02/33, 09:16:04) skips the close and leaks that session's sockets.",
+      "reason": "The response says raising WORKERS will make things worse, correctly identifies the session leak caused by raise_for_status() being called before session.close(), and cites the socket climb and eventual too-many-open-files error, matching the criterion's requirements.",
+      "rep": 1,
+      "usage": {
+        "cache_creation_input_tokens": 4802,
+        "cache_read_input_tokens": 20044,
+        "duration_ms": 2899,
+        "input_tokens": 2,
+        "num_turns": 1,
+        "output_tokens": 180,
+        "total_cost_usd": 0.0267028
+      },
+      "verdict": "pass"
+    },
+    {
+      "arm": "baseline",
+      "case": "queue-lag",
+      "model": "sonnet",
+      "quote": "resp.raise_for_status()   # <-- raises HTTPError on the 502s we're seeing\n    result = resp.json()\n    session.close()           # <-- never reached when raise_for_status() throws",
+      "reason": "The response correctly says raising WORKERS won't fix the backlog and names the leaked session caused by raise_for_status() throwing before session.close(), tying it to the 612\u2192994 socket climb.",
+      "rep": 2,
+      "usage": {
+        "cache_creation_input_tokens": 5103,
+        "cache_read_input_tokens": 20044,
+        "duration_ms": 4507,
+        "input_tokens": 2,
+        "num_turns": 1,
+        "output_tokens": 343,
+        "total_cost_usd": 0.0297668
+      },
+      "verdict": "pass"
+    },
+    {
+      "arm": "laconic",
+      "case": "queue-lag",
+      "model": "sonnet",
+      "quote": "Each `handle()` call opens a fresh `requests.Session()` per job (worker.py:10) and only closes it at line 15 \u2014 but the billing service is returning `502 Bad Gateway`... which makes `resp.raise_for_status()` raise before `session.close()` runs. Every failed job leaks a socket.",
+      "reason": "The response says raising WORKERS would make things worse, correctly attributes the backlog to the leaked session on the 502 error path (not the 502s themselves), cites the socket climb from 612 to 994, and proposes fixing the leak with try/finally.",
+      "rep": 2,
+      "usage": {
+        "cache_creation_input_tokens": 4926,
+        "cache_read_input_tokens": 20044,
+        "duration_ms": 2910,
+        "input_tokens": 2,
+        "num_turns": 1,
+        "output_tokens": 206,
+        "total_cost_usd": 0.0275568
+      },
+      "verdict": "pass"
+    },
+    {
+      "arm": "baseline",
+      "case": "queue-lag",
+      "model": "sonnet",
+      "quote": "resp.raise_for_status()   # <-- raises on the 502s you see in the log",
+      "reason": "The response correctly says raising WORKERS won't fix the backlog and identifies the leaked session (session.close() never reached after raise_for_status throws) tied to the socket growth in the log.",
+      "rep": 3,
+      "usage": {
+        "cache_creation_input_tokens": 5125,
+        "cache_read_input_tokens": 20044,
+        "duration_ms": 2824,
+        "input_tokens": 2,
+        "num_turns": 1,
+        "output_tokens": 111,
+        "total_cost_usd": 0.0275638
+      },
+      "verdict": "pass"
+    },
+    {
+      "arm": "laconic",
+      "case": "queue-lag",
+      "model": "sonnet",
+      "quote": "handle() calls resp.raise_for_status() before session.close() (worker.py:13-15), so every failed billing call leaks a socket",
+      "reason": "The response correctly says raising WORKERS would make things worse, identifies the session leak from raise_for_status() before session.close(), and cites the sockets climbing 612\u2192994 in worker.log.",
+      "rep": 3,
+      "usage": {
+        "cache_creation_input_tokens": 4733,
+        "cache_read_input_tokens": 20044,
+        "duration_ms": 2350,
+        "input_tokens": 2,
+        "num_turns": 1,
+        "output_tokens": 128,
+        "total_cost_usd": 0.0258468
+      },
+      "verdict": "pass"
+    },
+    {
+      "arm": "baseline",
+      "case": "queue-lag",
+      "model": "sonnet",
+      "quote": "which skips `session.close()` below it. Each 502 leaks a socket",
+      "reason": "The response says raising WORKERS would make things worse, explains the session leak via handle()'s raise_for_status() skipping session.close(), and ties it to sockets climbing (612\u2192994) and file descriptor exhaustion, matching the criterion.",
+      "rep": 4,
+      "usage": {
+        "cache_creation_input_tokens": 4862,
+        "cache_read_input_tokens": 20044,
+        "duration_ms": 2706,
+        "input_tokens": 2,
+        "num_turns": 1,
+        "output_tokens": 125,
+        "total_cost_usd": 0.0264398
+      },
+      "verdict": "pass"
+    },
+    {
+      "arm": "laconic",
+      "case": "queue-lag",
+      "model": "sonnet",
+      "quote": "Fixed the leak (`session` now always closes via `finally`)",
+      "reason": "The response identifies the leaked session as the root cause preventing WORKERS from clearing the backlog, satisfying the criterion even without discussing the 612\u2192994 socket detail explicitly.",
+      "rep": 4,
+      "usage": {
+        "cache_creation_input_tokens": 4497,
+        "cache_read_input_tokens": 20044,
+        "duration_ms": 2913,
+        "input_tokens": 2,
+        "num_turns": 1,
+        "output_tokens": 105,
+        "total_cost_usd": 0.0244858
+      },
+      "verdict": "pass"
+    }
+  ],
+  "metadata": {
+    "criteria_cksum": "4245842380",
+    "gates_only": false,
+    "judge_model": "sonnet",
+    "rules_cksum": "136269960"
+  }
+}

@@ -136,6 +136,13 @@ fi
 # quota-merge's 35 of 40, so it could not grade fixture-derived content and had
 # no business in the suite. Both snapshots are kept. See
 # evals/results/loop/question-shape.md.
+#
+# queue-lag was built on 2026-09-04 as the #116 instrument and withdrawn the
+# same day, in two fixture versions. It restored reading to 10 of 10, which
+# confirmed the question-shape diagnosis, and still elicited 0 and then 1
+# edit in 10 against `conditional`'s 39 of 80. Both traps graded 10/10 in
+# both arms, so it was saturated as well as inert. Snapshots kept. See
+# evals/results/loop/volunteered-work-cases.md.
 count=$(ls -d "$ROOT"/evals/cases/*/ 2>/dev/null | wc -l | tr -d ' ')
 if [ "$count" = "37" ]; then ok "37 cases present"; else fail "37 cases present (found $count)"; fi
 

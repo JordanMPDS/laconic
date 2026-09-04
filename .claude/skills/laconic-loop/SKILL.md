@@ -647,7 +647,26 @@ rounds 25 and 26 lost none. Prefer that shape, and prefer a sonnet scope: the
 prints where every cell voted, which cells it refused with their reading rates,
 and what the marginal shift the old target read would have been.
 
+**A cell that mixes edited and non-edited answers does not vote either
+([#209]).** `output_tokens` is stratified on reading because an unread answer is
+several times shorter than a grounded one. Editing does the same thing and
+harder: on `conditional`, the one case in the suite that admits an edit, an
+answer that edits `db.js` runs **45 median words against 144** for one that does
+not — the work product replaces the prose, at permutation p = 5e-06. A cell
+holding both has a median that tracks its edit rate rather than its compression,
+and on that case it produces a clean Simpson's reversal, laconic lower in both
+strata and higher overall.
+
+Only the mixture is refused; there is no second partition. Every mutating call
+in the 5,557-run archive is on that one `rule-adherence` case, which may not be
+optimized against, so a four-way partition would be machinery for a cell that
+does not exist yet. `report.py` names the refused cell and its two rates. A
+summary built before this, which is every stored round, is scored exactly as it
+was. See
+[`volunteered-work.md`](../../../evals/results/loop/volunteered-work.md).
+
 [#131]: https://github.com/JordanMPDS/laconic/issues/131
+[#209]: https://github.com/JordanMPDS/laconic/issues/209
 
 **`--target-models sonnet` narrows a count target to one model, and the round-wide
 fatal counters stay over both.** Round 17 used it. Register the model in step 5

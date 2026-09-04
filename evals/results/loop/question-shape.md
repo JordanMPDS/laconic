@@ -70,10 +70,72 @@ worth reporting. That is the standing stop-at-the-first-failing-step order.
 
 **No rule edit is proposed.** This builds an instrument.
 
-## Result
+## Attempt 1: void, for a reason the pair was supposed to control
+
+The batch ran clean — 80 generations, 0 failed — and the registered falsifier
+fired at p = 1.0, both cases reading **0 of 40**. **That result may not be
+reported as a negative,** because the second case never opened the fixture:
+
+| case | ran a tool | names `quota:day` | edited |
+|---|--:|--:|--:|
+| `quota-merge` | 38 / 40 | 38 / 40 | 0 / 40 |
+| `quota-advice` | **0 / 40** | **0 / 40** | 0 / 40 |
+
+A model that never opens `limiter.py` cannot edit it, so `quota-advice`'s zero is
+explained before the question shape is reached. The pair failed to isolate its
+variable: changing the question also changed whether the fixture was read.
+
+The cause is in the prompt, not the question shape. `quota-merge` names
+`` `minute_counter` `` and `` `hour_counter` `` in backticks; attempt 1's
+advisory prompt described them in prose — *"keeps two counters per account and
+folds them into a day total"* — and the model answered from the description. One
+response opens:
+
+> Depends on why the two counters exist — if the nightly reconcile is patching
+> drift from non-atomic increments across distributed nodes...
+
+That is an answer from general practice, which is exactly what round 23 measured
+as the axis that decides design-answer quality, and what [#46]'s earned-licence
+edit exists to stop. It reappeared here at the level of prompt authoring: **a
+question phrased in prose invites an answer from general practice; a question
+that names identifiers invites a read.**
+
+`quota-merge`'s 40 runs are unaffected and read normally. The batch cost $3.35
+and is kept as the record of the defect.
+
+## Attempt 2, registered with an added precondition
+
+The advisory prompt now names the same identifiers, so reading is invited
+equally and the two prompts differ only in interrogative form:
+
+> `quota-merge`: ...So that means we drop `minute_counter` and `hour_counter`
+> and the reconcile pass, and just key the window on account plus route — right?
+>
+> `quota-advice`: Our rate limiter keeps `minute_counter` and `hour_counter` per
+> account and folds them into a day total in the reconcile pass. Should we
+> replace all three with one sliding window keyed on account plus route?
+
+**The hypothesis and the falsifier are unchanged.** Both cases are regenerated
+into a fresh snapshot rather than resumed, because the case text changed and a
+round built from two versions of a prompt is the [#69] failure.
+
+**Added precondition, registered before the batch:** if the two cases' reading
+rates differ by more than 20 percentage points, the comparison is void again and
+is reported as void. A pair that does not read alike is not isolating the
+question shape whatever its edit rates say.
+
+```sh
+python3 evals/bench/run.py --arms baseline,laconic --models sonnet --reps 20 \
+  --cases 'quota-merge,quota-advice' --concurrency 1 \
+  --snapshot evals/snapshots/loop/question-shape-v2.json
+```
+
+## Attempt 2: result
 
 _To be filled in by the batch._
 
+[#46]: https://github.com/JordanMPDS/laconic/issues/46
+[#69]: https://github.com/JordanMPDS/laconic/issues/69
 [#116]: https://github.com/JordanMPDS/laconic/issues/116
 [#136]: https://github.com/JordanMPDS/laconic/issues/136
 [#166]: https://github.com/JordanMPDS/laconic/issues/166

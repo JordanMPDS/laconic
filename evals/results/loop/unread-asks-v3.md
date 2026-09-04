@@ -93,4 +93,77 @@ Nothing about round 28, which was scored through v2 and says so. Nothing about
 whether `unread_asks` should be fatal — 78.9% in-sample is not the number that
 decides that, and the fresh figure is what this registration exists to buy.
 
+---
+
+# Batch 3: the bar fails, and v2 fails with it
+
+**The registered bar was fresh precision above 73.7% and fresh recall no worse
+than 87.5%. v3 reads 70.0% and 58.3%. It is not promoted.**
+
+80 responses drawn with seed 153 from the same eight snapshots and the same
+`laconic`/`sonnet`/`design-*` population as both earlier batches, disjoint from
+all 140 already labelled, out of a pool of 1,220. Labelled blind from `blind.md`
+under batch 2's rule verbatim, **before either detector was run on it**.
+
+| batch | detector | precision | recall | F1 |
+|---|---|--:|--:|--:|
+| 2 (published) | v2 | 73.7% | 87.5% | 80.0% |
+| **3 (fresh)** | **v2** | **66.7%** | **50.0%** | **57.1%** |
+| **3 (fresh)** | **v3** | **70.0%** | **58.3%** | **63.6%** |
+
+**v3 beats v2 on this batch on every measure** — one more true positive, one
+fewer false negative, the same three false positives — and both are far below
+what batch 2 said either was worth.
+
+## The result that matters is not v3's
+
+**v2's published out-of-sample figure does not replicate.** 73.7%/87.5% on batch
+2 against 66.7%/**50.0%** on batch 3, on the same population by the same drawing
+method. Recall nearly halves.
+
+[#153] treats 73.7% as v2's honest number, earned by freeze-then-draw, and it
+was — for that draw. A second fresh batch says the quantity itself moves a great
+deal between samples, which is a different and worse problem than v3 failing a
+bar.
+
+## The leading alternative explanation, and it is not detector quality
+
+**These are my labels, not the original labeller's**, and the two may not draw
+the same line. Three things point that way and one points against:
+
+- **The base rates differ**: 12 of 80 here against 16 of 80 on batch 2, 15%
+  against 20%.
+- **The case mix differs.** Batch 3 drew 11 `design-alerting` and 13
+  `design-audit-log`; batch 2 had none of the first and 4 of the second. Those
+  cases end in impersonal "Left out:" notes rather than direct questions.
+- **The rule's own `_note` names this seam** — *"the borderline class in both is
+  the 'fork posed then resolved for both branches' shape"* — and labelling batch
+  3 needed two conventions to settle it, recorded in `labels.json`.
+- **Against:** v3's five misses are shapes no version was built to catch, not
+  borderline calls. *"I'd want to know if Cardstream offers webhooks before
+  picking"*, *"I don't have that answer from what's here"*, *"the fork you'll
+  need to resolve"*, *"worth checking that first"*, and *"What's the payment
+  processor here — that determines…"* (which v3's wh-clause misses only because
+  it requires the word "you" in the line). Those are hand-backs on any reading.
+
+## What would separate them, and it is free
+
+**Re-label batch 2 under the two conventions recorded here, and compare against
+its stored labels.** If the labels agree, the drop is real and the instrument is
+weaker than [#153] believes. If they disagree, the drop is a labeller effect and
+both fresh figures are measuring the labeller as much as the detector.
+
+That check costs no calls and it is the next unit. **Until it is done, neither
+73.7% nor 66.7% should be quoted as v2's precision.**
+
+## What this does not change
+
+Round 28 was scored through v2 and says so; nothing here re-scores it. But the
+case for ever making `unread_asks` fatal is weaker than it was this morning, not
+stronger — the counter's precision is now known to move by 7 points and its
+recall by 37 between two fresh samples drawn the same way.
+
+`detector_v3.py` stays in the tree, unpromoted, with its in-sample and fresh
+figures both recorded. `report.py` is untouched and still calls v2.
+
 [#153]: https://github.com/JordanMPDS/laconic/issues/153

@@ -141,9 +141,17 @@ the text did not cause.
 ## What this leaves for [#116]
 
 No instrument, and now a clearer specification for one. A case for [#116] needs a
-criterion the judge applies stably — which means a trap whose pass condition is a
-fact present or absent in the response, not a judgement about how advice is
-framed. `conditional` elicits the behaviour and cannot grade it; the three cases
+criterion the judge applies stably.
+
+> **The obvious guess about what makes one stable was tested and does not
+> hold.** This document originally continued "which means a trap whose pass
+> condition is a fact present or absent in the response, not a judgement about
+> how advice is framed". [`judge-self-disagreement.md`](judge-self-disagreement.md)
+> re-judged four cells and the two shapes interleave: `design-alerting` 26.8%
+> (framing), `design-realtime` 18.2% (fact), `conditional` 12.5% (framing),
+> `design-cache` 0.0% (fact). What survives is that stability is a property of
+> the criterion rather than of the judge — one cell moved 0 of 55 — so a noisy
+> criterion can be rewritten, by some means not yet identified. `conditional` elicits the behaviour and cannot grade it; the three cases
 in [`volunteered-work-cases.md`](volunteered-work-cases.md) grade cleanly and do
 not elicit it. Nothing yet does both.
 

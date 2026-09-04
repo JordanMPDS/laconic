@@ -80,6 +80,14 @@ See [`round-14.md`](round-14.md).
 
 ## The judge disagrees with itself at 5.3%, not 9.6%
 
+> **Refined 2026-09-04.** Both figures below are pooled over a whole round, and
+> most of a round's cells sit at or near a ceiling where no verdict can move.
+> Re-judging four cells chosen for intermediate pass rates — where churn is
+> possible at all — reads **0% to 27%**, pooling at 15%. That does not
+> contradict 5.3%; it says the pooled number averages frozen cells with live
+> ones, and every gate decision is made on the live kind. See
+> [`judge-self-disagreement.md`](judge-self-disagreement.md).
+
 Round 13 re-judged round 12's 340 laconic responses a second time under
 identical criteria. It is the same experiment the carried control arm provides
 for free, run directly on the arm the gates actually read.

@@ -252,6 +252,111 @@ under a `timeout 560`, which is worth knowing: **the kill did not reach a
 foreground process.** The measurement is unaffected either way — resume is by
 key, and every completed run is byte-identical whichever process produced it.
 
+## Follow-up, registered before it runs: does the work product come with the answer?
+
+**No number in the result section below has been computed.** This is the
+prerequisite for authoring the case [#116] needs, and it is a question about
+[`CRITERIA.md`](../../CRITERIA.md)'s own rule:
+
+> Those three prompts therefore end with "Don't edit anything." The clause is
+> identical in all four arms, so it favours none of them, but **a new case needs
+> it or its verdicts measure whether the model chose to act.**
+
+That clause is why no scorable case admits an edit, and it is the reason [#116]
+cannot be optimized against. A case for [#116] has to drop it, which means
+knowing what dropping it costs: **if an editing response still carries the
+diagnosis, the quality verdict survives and the case is buildable. If it does
+not, `CRITERIA.md` is right and a `quality` trap cannot coexist with an edit.**
+
+The deterministic check is ambiguous, which is what makes the verdict worth
+buying. `conditional` requires the word `leak`:
+
+| | n | names `leak` |
+|---|--:|--:|
+| edited `db.js` | 39 | 34 (87.2%) |
+| did not edit | 41 | 40 (97.6%) |
+
+Fisher **p = 0.1044** — the right direction for `CRITERIA.md`'s worry and not
+significant.
+
+> **Hypothesis:** on `volunteered-work-conditional.json`, runs that edited
+> `db.js` pass the trap at a lower rate than runs that did not.
+>
+> **Falsifier, registered before the pass:** the two strata not separating at
+> p < 0.05 on a two-sided Fisher exact test, which would say an editing response
+> still carries its answer and a `quality` case may drop the clause.
+
+```sh
+python3 evals/bench/judge.py   --results evals/snapshots/loop/volunteered-work-conditional.json   --judge-all --jobs 6   --out evals/snapshots/loop/volunteered-work-conditional-judgments.json
+```
+
+**Read with the grading caveat.** `conditional` is `rule-adherence`, so its
+verdicts support nothing as an arm comparison. This is not one: it is a
+within-corpus correlation between a behaviour and the trap, and the trap's
+load-bearing half — the conditional advice and naming the leak — is
+fixture-derived. Its one form clause, the arrow prohibition, is the contaminated
+part and is disclosed with the result.
+
+## Follow-up: the falsifier fired, and the clause can go
+
+| stratum | trap passes | rate |
+|---|--:|--:|
+| edited `db.js` | 24 / 39 | 61.5% |
+| did not edit | 22 / 41 | 53.7% |
+
+Two-sided Fisher **p = 0.5055**. The registered falsifier fired: the strata do
+not separate, and the point estimate runs the *other* way from the worry.
+
+**An editing response carries its answer as often as a non-editing one.** The
+diagnosis does not migrate into the diff — the model edits *and* explains, or
+fails to explain whether or not it edited. So the premise behind
+[`CRITERIA.md`](../../CRITERIA.md)'s clause does not hold on this case, and **a
+`quality`-graded case for [#116] may drop "Don't edit anything."**
+
+That is the prerequisite cleared. What such a case still needs, and what this
+result does not supply, is its own fixture and trap: the behaviour is then read
+from the tool list as a syntactic counter, the way closing offers and `one_turn`
+are, while the judge grades only fixture-derived content. Keeping those two
+apart is what stops the trap from grading laconic against a rule laconic
+proposed.
+
+### Disclosure: the clause that makes this case `rule-adherence` never fires
+
+`conditional` is marked `rule-adherence` because its trap's fail condition
+includes the arrow prohibition — *"when the conditional is collapsed into a
+symbol such as `waiting climbing -> raise max`"*. Across **34 failures, not one**
+judge reason cites it. Every failure is on the fixture-derived half: the advice
+was given unqualified rather than conditional, or the `withClient` leak was never
+named.
+
+That is worth recording and is not acted on here. Re-grading a case changes what
+its stored verdicts support, and a case's classification should not be revised
+inside the measurement that noticed it — the same reason [#172] was filed rather
+than fixed in round 35.
+
+### Disclosure: an arm gap that may not be read as one
+
+| arm | trap passes |
+|---|--:|
+| baseline | 31 / 40 |
+| laconic | 15 / 40 |
+
+**No claim is made from this and none may be.** `conditional` grades
+`rule-adherence`, which per `CRITERIA.md` supports nothing in either direction:
+it is the treatment arm graded against text it was handed. The trap requires two
+things at once — state the conditional *and* name the leak — which is exactly the
+kind of two-part completeness a terse arm sheds, so scoring laconic against it is
+the circularity the rule exists to prevent.
+
+It is disclosed rather than omitted because omitting an unfavourable number is
+how a ledger lies, and because it is the sharpest argument for building the
+`quality`-graded successor: on a case whose trap is fixture-derived and whose
+grading permits a comparison, this number would mean something. Here it cannot.
+
+### Cost
+
+80 judgments, 0 failed, 3 `not_exercised`. No generation.
+
 ## Cost
 
 80 generations, 0 failed, **$3.91**. No judging, because the metric is a

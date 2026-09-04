@@ -133,6 +133,62 @@ criterion reaching for any of it is grading how the answer was written rather th
 it was right, which is exactly the contamination that forced the retraction. Marking
 `decision` as `quality` fails the suite on three words.
 
+## A criterion has a stability, and it is measurable before you rely on it
+
+`grading` says what a verdict may be *used* for. This says how much any verdict
+is worth, and it is a property of the criterion rather than of the judge or the
+labeller.
+
+**Three independent lines of work reached that conclusion on 2026-09-04, by
+different routes.**
+
+| what was re-run | same criterion, same text | result |
+|---|---|---|
+| four judged cells, [`judge-self-disagreement.md`](results/loop/judge-self-disagreement.md) | re-judged | **0% to 27%** of verdicts move; `design-cache` 0 of 55, `design-alerting` 15 of 56 |
+| the `restates` detector, [`restatement-stability.md`](results/loop/restatement-stability.md) | re-run | **20%** of 120 verdicts move |
+| the `unread_asks` detector, [`unread-asks-v3.md`](results/loop/unread-asks-v3.md) | second fresh sample | precision moves **7 points**, recall **37** |
+
+**In all three the movement is symmetric — the rate barely shifts and *which*
+items pass does.** Every McNemar in the first two is p ≥ 0.75. So a headline
+number can look stable while the verdicts under it are being redrawn.
+
+### It concentrates on the seam the criterion leaves undecided
+
+This is the part that makes it actionable rather than merely discouraging.
+
+`conditional`'s trap asks that advice "stays conditional", and every one of its
+18 flips is about whether an unqualified *"no, fix the leak"* counts. The
+`restates` criterion is silent on a sentence that is half recap and half new
+judgement, and the ten `true → false` flips fall into the same four
+false-positive classes [#155] already catalogued — one of them verbatim the
+example that issue quotes.
+
+**A criterion with a named ambiguity will be unstable exactly there.** So the
+ambiguity is not a documentation debt to be tidied later; it is the thing that
+decides whether the criterion can carry a number at all.
+
+### What to do about it
+
+- **Before quoting a rate from a new criterion, re-run it once.** Re-judging the
+  same runs costs what the first pass cost and is the only way to know whether
+  the verdicts are reproducible. `design-cache` moved 0 of 55, so this is not an
+  unavoidable tax on using a judge — it is a property some criteria have and
+  others do not.
+- **A criterion whose pass condition is a named fact tends to reproduce; one
+  asking whether an answer is *framed* correctly tends not to.** Registered as a
+  prediction and only weakly supported — four cells interleave the two shapes —
+  so treat it as a hint about where to look, not a rule.
+- **Do not promote a noisy criterion into a fatal counter.** `quality_fails` and
+  `safety_fails` reject a round on their own, and a criterion that flips one
+  verdict in eight puts a coin flip behind that gate. That is why `conditional`
+  stayed `rule-adherence` when the case for re-grading it was otherwise good
+  ([`conditional-retrap.md`](results/loop/conditional-retrap.md)).
+- **A noisy criterion is a criterion that can be rewritten.** The instability is
+  not in the model; nothing about the judge changed between `design-cache`'s 0
+  of 55 and `design-alerting`'s 15 of 56 on the same pass, the same day.
+
+[#155]: https://github.com/JordanMPDS/laconic/issues/155
+
 ## Saturated cells: `saturated_models`
 
 A case's `expect.json` may mark specific models saturated, excluding that cell

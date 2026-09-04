@@ -440,6 +440,49 @@ emitting 52% more output tokens than it. Each generation is one call with a
 single question rather than a multi-turn session, so this **overstates** what a
 real session pays once the first turn's cache write becomes a cache read.
 
+## Multi-turn: what a session costs as it deepens
+
+Every figure above is a single question answered cold. A real session is a
+sequence, and the rules reach a later turn differently: the plugin sends the full
+text once at `SessionStart` and a one-line reminder afterwards. A separate batch
+measured that directly, using two case families that share a fixture, a final
+question and a trap byte for byte, and differ only in whether the question is
+asked at turn 1 or turn 5.
+
+Sonnet, 20 runs per arm per family, generated in one interleaved batch under the
+shipped hook wiring:
+
+| | median words | USD per call | seconds per run |
+|---|--:|--:|--:|
+| **turn 1** — baseline | 139.0 | 0.0415 | 8.1 |
+| **turn 1** — laconic | 98.0 | 0.0439 | 7.0 |
+| **turn 5** — baseline | 210.5 | 0.0427 | 121.3 |
+| **turn 5** — laconic | **30.5** | **0.0241** | **20.0** |
+
+**The arms move in opposite directions.** An unruled answer runs 51% longer at
+turn 5 than at turn 1; laconic's runs 69% shorter. Every one of the six cells
+agrees, two-sided exact sign test p = 0.0312, and the gap between the arms widens
+from a median 39.5 words to 181 (p = 5e-06 on a permutation over the paired
+cells).
+
+**The rules cost you on the first turn and pay back at depth.** At turn 1 laconic
+is marginally the more expensive arm per call, because the injected text is input
+tokens — the same effect the Haiku column shows above. By turn 5 it is 44%
+cheaper per call, and the whole five-turn conversation finishes in 20 seconds
+against 121.
+
+**The extra words buy nothing the judge can see.** Both arms were graded on the
+identical final question at both depths and both read **120 of 120**. That
+comparison sits at a ceiling: it rules out a laconic deficit of six failures in
+thirty and cannot see a smaller one.
+
+Read with the same limits as everything else here: sonnet only, one vendor, n=20
+a side, and scored on words rather than `output_tokens`, because a single-turn
+graded answer carries a tool-use block that a multi-turn one does not and the
+token counts are not comparable across that boundary. Full write-ups in
+[`round-42.md`](../evals/results/loop/round-42.md) and
+[`round-43.md`](../evals/results/loop/round-43.md).
+
 ## Never-cut check
 
 Checked on the 50 responses per arm that carry a keyword list by design.
@@ -593,6 +636,12 @@ What the numbers cover:
   unchanged at −9% with six cases longer. That batch generated two arms rather
   than five, so it restates no table above:
   [`opus-model-set.md`](../evals/results/loop/opus-model-set.md).
+- **Every figure outside the multi-turn section is a single question asked
+  cold.** That is the cheap case for the plugin and the honest one to publish as
+  the headline, but it is not what a session looks like. The one batch that asked
+  what happens at depth found the arms diverging rather than holding: unruled
+  answers 51% longer by turn 5, laconic's 69% shorter, at equal graded quality.
+  See [Multi-turn](#multi-turn-what-a-session-costs-as-it-deepens).
 - **The judge is a Claude model grading Claude outputs,** blind to arm with the
   rules text withheld. It is not an independent evaluator, and the quality and
   trap claims are the ones that rest on it.

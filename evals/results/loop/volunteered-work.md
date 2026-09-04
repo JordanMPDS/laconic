@@ -334,6 +334,15 @@ its stored verdicts support, and a case's classification should not be revised
 inside the measurement that noticed it — the same reason [#172] was filed rather
 than fixed in round 35.
 
+> **Tested and refused, 2026-09-04.**
+> [`conditional-retrap.md`](conditional-retrap.md) re-judged these 80 runs under
+> a trap with the clause removed. The clause is indeed inert — 0 of 18 flips turn
+> on it, matching the 0 of 34 here. But a same-trap control moved **10 verdicts
+> of 80**, so this criterion self-disagrees at 12.5% and the null is
+> uninformative. `conditional` stays `rule-adherence`: promoting a criterion
+> that flips 1 verdict in 8 into `quality_fails`, a fatal counter, would put a
+> coin flip behind a fatal gate.
+
 ### Disclosure: an arm gap that may not be read as one
 
 | arm | trap passes |
@@ -363,6 +372,7 @@ grading permits a comparison, this number would mean something. Here it cannot.
 substring of a recorded field.
 
 [#131]: https://github.com/JordanMPDS/laconic/issues/131
+[#172]: https://github.com/JordanMPDS/laconic/issues/172
 [#209]: https://github.com/JordanMPDS/laconic/issues/209
 
 [#116]: https://github.com/JordanMPDS/laconic/issues/116

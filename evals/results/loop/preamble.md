@@ -1,9 +1,17 @@
 # `preamble`: a high-precision detector the archive cannot score
 
-**Status: parked, with the numbers recorded.** The detector works. The archive
-cannot separate the arms with it, and the one comparison that is properly matched
-points *against* the plugin at p = 0.051 on a baseline cell of ten responses.
-Settling it needs a matched batch, not another archive read.
+> **Recall measured 2026-09-04, and the arm rates below are withdrawn.** [#179]
+> registered precision first and recall second. Precision was done — 18 of 18 —
+> and recall was not. Doing it now finds **9 genuine misses in 40 hand-read
+> negatives, and all 9 are baseline responses.** The detector under-counts one
+> arm and not the other, so every arm rate on this page is unusable in the
+> direction it points. See [Recall](#recall-measured-second-and-the-arm-rates-do-not-survive-it).
+
+**Status: parked, with the numbers recorded.** The detector works on what it
+catches. The archive cannot separate the arms with it, and the one comparison
+that is properly matched points *against* the plugin at p = 0.051 on a baseline
+cell of ten responses. Settling it needs a matched batch, not another archive
+read.
 
 The criterion and the measurement order were registered in [#179] before any rate
 was computed.
@@ -98,7 +106,6 @@ arms do not separate.
 > standing because it is what prompted the round, and because its own caveat —
 > that a baseline cell of ten cannot settle it — was right.
 
-
 `walkthrough` alone, where the shape actually lives:
 
 | | preamble | rate |
@@ -127,6 +134,89 @@ that asks for a walkthrough.
 
 So "a ceremony rule has a regex, therefore the archive can score it" is false,
 and this is the counterexample.
+
+## Recall, measured second, and the arm rates do not survive it
+
+[#179] registered the order: *"Precision first... Recall second, on a hand-read
+random sample of detector negatives — the step that was initially skipped for
+closing offers and, when done later, found baseline-skewed misses that were
+understating the gap."* Precision was measured and recall was not. This is that
+step, run the same way and finding the same thing, harder.
+
+**40 detector negatives drawn at random** (seed 179) from
+`opus-model-set.json` — 660 runs, both arms, three models, 22 cases, one
+interleaved batch. The detector scores 12 of those 660 positive, a 1.8% hit rate.
+Each of the 40 openings was hand-read against the criterion registered in [#179].
+
+**9 are genuine misses. All 9 are baseline.**
+
+| # | arm | model | case | opening |
+|---|---|---|---|---|
+| 3 | baseline | haiku | `design-upload` | *"For a marketplace listing with phone photos, here's the typical architecture:"* |
+| 7 | baseline | opus | `design-alerting` | *"I read `SPEC.md` (79 lines)."* |
+| 11 | baseline | sonnet | `design-rate-limit` | *"Looked at the app — this is useful context."* |
+| 12 | baseline | opus | `verdict-rollout` | *"I read it."* |
+| 26 | baseline | haiku | `design-audit-log` | *"Based on the architecture, here's how I'd approach this:"* |
+| 30 | baseline | haiku | `design-retry` | *"For payment timeouts, retrying typically works like this:"* |
+| 32 | baseline | haiku | `design-upload` | *"For a marketplace with phone camera uploads, the typical approach is:"* |
+| 34 | baseline | opus | `verdict-experiment` | *"I read it and ran the numbers on the decision rule."* |
+| 37 | baseline | haiku | `fail-open` | *"Found it."* |
+
+The sample was 19 baseline and 21 laconic, so **at least 9 of 19 baseline
+responses in it open with preamble** against a measured archive-wide rate of
+0.76%.
+
+### Two systematic gaps, both nameable
+
+**1. Criterion 3 is not implemented at all.** [#179] defines preamble as
+restating the question, announcing what follows, *or* **narrating a tool call the
+user can already see** — and the shipped pattern has no clause for the third.
+Five of the nine misses are exactly that: `I read it.`, `Found it.`,
+`Looked at the app`, `I read SPEC.md (79 lines).`, `I read it and ran the
+numbers`. The criterion was registered and then not built.
+
+**2. The announcement clause is anchored at the string start.** It matches
+`here's the …` only at position 0, so a scoping lead-in defeats it: *"For a
+marketplace listing with phone photos, here's the typical architecture:"* escapes
+a pattern that would have caught the same sentence standing alone. Four misses
+are that shape, two of them not using "here's" at all — *"…works like this:"* and
+*"the typical approach is:"*.
+
+### What this withdraws
+
+**Every arm rate on this page.** The deduplicated table reads laconic 3.51%
+against baseline 0.76% and this document already declined to take it at face
+value, on mix-shift grounds. Recall gives a second and stronger reason: the
+misses are not merely numerous, they are **entirely on one arm**, so the
+instrument under-counts baseline specifically. A gap measured with it cannot be
+read in either direction.
+
+**And it reaches round 37.** That round used this detector to settle the one
+comparison this page called live, reading `walkthrough` at baseline 17.5% against
+laconic 10.0%, p = 0.518. The recall gap runs the same way there, so baseline's
+true rate is higher than reported and the true gap is wider in laconic's favour.
+That does not rescue the number — an instrument that misses 9 of 19 on one arm
+cannot support a rate — but it does mean **round 37's conclusion, that laconic
+does not emit more preamble than baseline, is not threatened by this.** It was
+already the direction the correction pushes.
+
+### What it does not withdraw
+
+The **precision** result stands: 18 of 18 on a fresh draw, and the whole-sentence
+boundary rule that produced it. What the detector catches, it catches correctly.
+It simply catches a fraction of what the criterion names, and that fraction is
+arm-correlated.
+
+### The next unit, specified rather than guessed
+
+Widen on the two named gaps — a tool-narration clause, and a bounded lead-in
+before the announcement clause — then hand-read **every** newly-caught response,
+which is what [`closing-offers.md`](closing-offers.md) did when its own recall
+pass came back short. Only then are the rates worth recomputing.
+
+That was not done here deliberately. The closing-offer widening held precision
+because each new shape was checked before it shipped, and doing that carefully is
+a unit of its own rather than a coda to this one.
 
 [#155]: https://github.com/JordanMPDS/laconic/issues/155
 [#179]: https://github.com/JordanMPDS/laconic/issues/179

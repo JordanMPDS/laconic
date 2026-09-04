@@ -500,6 +500,17 @@ runs pass is. **Self-disagreement is a property of the criterion, not of the
 judge**, so a noisy cell is a criterion that can be rewritten — and a 20-run
 gate-relevant cell carries roughly 3 verdicts of grading noise, not 1.
 
+**Two detectors reached the same conclusion by different routes on the same
+day.** The `restates` detector re-runs 20% of its own verdicts, and the flips
+land on the one seam its criterion leaves undecided
+([`restatement-stability.md`](../../../evals/results/loop/restatement-stability.md)).
+`unread_asks` v2's published out-of-sample figure moves 7 points of precision and
+37 of recall between two fresh samples drawn identically, and a kappa-0.902
+re-label rules out the labeller
+([`unread-asks-v3.md`](../../../evals/results/loop/unread-asks-v3.md)). So:
+**re-run a new criterion once before quoting a rate from it**, and never promote
+a noisy one into a fatal counter. `evals/CRITERIA.md` carries the rule.
+
 This is not in tension with regenerating the controls above. Re-grading text
 that has *already been graded* is waste; generating *fresh* control text in the
 round's own batch is what makes an arm comparison mean anything. A round that

@@ -130,9 +130,86 @@ python3 evals/bench/run.py --arms baseline,laconic --models sonnet --reps 20 \
   --snapshot evals/snapshots/loop/question-shape-v2.json
 ```
 
-## Attempt 2: result
+## Attempt 2: void again, on the precondition registered to catch it
 
-_To be filled in by the batch._
+Naming the identifiers helped and did not come close to fixing it.
+
+| | ran a tool | names `quota:day` | edited |
+|---|--:|--:|--:|
+| `quota-merge` (closed) | **35 / 40** (87.5%) | 35 / 40 | 0 / 40 |
+| `quota-advice` (open) | **9 / 40** (22.5%) | 6 / 40 | 0 / 40 |
+
+The registered precondition allowed a 20-point gap. **The gap is 65 points, so
+the comparison is void and is reported as void.** The primary again reads 0
+against 0 at p = 1.0, and again that number means nothing: neither case can edit
+a file, and one of them barely opens one.
+
+Naming the identifiers did move it — `quota-advice` went from 0 of 40 to 9 of 40
+between attempts, Fisher **p = 0.0024** — so the prose-versus-identifier reading
+was right about its direction and wrong about its size.
+
+## The finding, unregistered and larger than the one registered
+
+Two attempts have established something the round was not built to ask.
+
+**Question form controls reading rate, at identical everything else.** Same
+fixture, same trap, same identifiers, same arms, one interleaved batch — the two
+prompts differ only in interrogative form:
+
+| form | reads |
+|---|--:|
+| *"So that means we drop X and Y — right?"* | 35 / 40 |
+| *"Should we replace X and Y with Z?"* | 9 / 40 |
+
+Fisher **p = 5.2e-09**.
+
+A closed confirmation sends the model to the source to check. An open advisory
+question invites an answer from general practice — which is the axis round 23
+measured as the one that decides design-answer quality, and which [#46]'s
+earned-licence edit exists to close. This is the cleanest demonstration of it the
+suite has, because nothing but the sentence form varies.
+
+**And it is the binding constraint on a [#116] instrument, not the edit rate.**
+The chain is: an open advisory question suppresses reading, and a model that
+never opens the file cannot volunteer work on it. `quota-advice` reads 22.5% and
+edits 0 of 40 against `conditional`'s 39 of 80, p = 3.0e-09.
+
+## What this says the [#116] instrument should be
+
+`conditional` is the only case that elicits the behaviour, and the three
+attempts here isolate what it does that these do not: it names **files** rather
+than identifiers (*"pool.log has the last hour and db.js is where it's
+configured"*), it frames a **live problem** rather than a design choice, and only
+then does it ask advisorily. Two of those three were missing here.
+
+That points at a conclusion this round did not expect: **the case [#116] needs
+may already exist, and what it needs is a different trap.**
+[`volunteered-work.md`](volunteered-work.md) recorded that `conditional` is
+marked `rule-adherence` because its fail condition includes the arrow
+prohibition — and that across **34 failures not one** judge reason cited it.
+Every failure was on the fixture-derived half. A `conditional`-shaped case whose
+trap drops that clause would be `quality`-gradeable, would elicit edits at the
+35–62% already measured, and would need no new fixture.
+
+That is the next unit, and it is cheaper than a fourth prompt variant.
+
+## What ships, and what does not
+
+- **`quota-advice` is withdrawn.** A case that reads its fixture in 9 of 40 runs
+  cannot grade fixture-derived content, so it has no business in the suite
+  whatever it was built to test. The case count returns to 37.
+- **`quota-merge` stays**, unaffected: 35 of 40 reading, and its numbers here
+  replicate the pilot.
+- **Both snapshots are kept**, because a withdrawn case's data is the record of
+  why it was withdrawn.
+- **No rule edit is proposed.**
+
+## Cost
+
+Attempt 1 $3.35, attempt 2 $3.64, no judging bought — the primary failed its
+precondition before the secondary was due, per the stop-at-the-first-failing-step
+order. One outage stopped attempt 2 at 66 of 80 on the eight-consecutive-failure
+guard and the resume regenerated exactly the 14 missing keys.
 
 [#46]: https://github.com/JordanMPDS/laconic/issues/46
 [#69]: https://github.com/JordanMPDS/laconic/issues/69

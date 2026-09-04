@@ -232,8 +232,15 @@ cluster could say for [#116] before. And **the prose metric rewards the
 failure** — an editing run's median is 45 words against 144, p = 5e-06, so an
 answer that edits instead of answering scores as excellent compression ([#209]).
 
-What is still missing is a case this can be optimized against: `conditional`
-grades `rule-adherence`, so no rule edit may be proposed from it.
+What was missing is a case this can be optimized against: `conditional` grades
+`rule-adherence`, so no rule edit may be proposed from it. **The obstacle to
+building one is now gone.** `CRITERIA.md` requires every case to end
+`Don't edit anything.` "or its verdicts measure whether the model chose to act",
+which is why no scorable case admits an edit. Judging the 80 runs says the
+premise does not hold: an editing response passes the trap **24 of 39** against
+**22 of 41** for a non-editing one, p = 0.5055, so the diagnosis does not migrate
+into the diff. A `quality` case may drop the clause, grade fixture-derived
+content only, and read the behaviour off the tool list.
 
 Nothing measured in rounds 29 to 43 bears on [#150].
 
@@ -280,7 +287,7 @@ Nothing measured in rounds 29 to 43 bears on [#150].
 | [#46] | mechanism found (reading rate), edit shipped in round 26 | nothing; closest thing to resolved |
 | [#60] | structural edit tried in round 40 and rejected; its depth premise is now measured on the baseline arm (round 42) | the inflation it describes is real and the plugin already reverses it on this instrument; what is unreproduced is a *laconic* session going long at depth |
 | [#113] | detector built and validated; the design-shaped family was built (round 36) and answers *no decay*, under both delivery modes | the flicker itself is still unreproduced; needs a case that admits it, not another round on these cells |
-| [#116] | **first measurement in** — [`volunteered-work.md`](volunteered-work.md) finds the behaviour already in the suite, on `conditional`, and laconic halves it | a case that admits an edit *and* may be optimized against; `conditional` grades `rule-adherence`, so nothing may be proposed from it. The prose metric rewards the failure ([#209]) and needs an edit stratum first |
+| [#116] | **measured, and unblocked** — the behaviour is already in the suite on `conditional`, laconic halves it, the prose metric that rewarded it is stratified ([#209]), and an editing response is now shown to carry its answer | author the `quality`-graded case: it may drop `CRITERIA.md`'s "Don't edit anything." clause, grade only fixture-derived content, and read the behaviour off the tool list as a syntactic counter |
 | [#136] | mechanism restored on the baseline arm by round 42: depth inflates an unruled answer +51.4%, and laconic runs −68.9% against it | the diagnosis is no longer the open part. The gap is between the report and the product, and closing it needs a case that reproduces a laconic session going long at depth — see the two case-authoring candidates above |
 | [#150] | instrument proven incapable | redundancy metric on the [#146] route, before any further round |
 | [#172] | **resolved** — affirmation widened, rounds 33–35 re-judged on that stem | none; round 35 moves 57/60 to 60/60 and rounds 33–34 do not move |

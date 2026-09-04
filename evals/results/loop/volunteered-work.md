@@ -252,6 +252,55 @@ under a `timeout 560`, which is worth knowing: **the kill did not reach a
 foreground process.** The measurement is unaffected either way — resume is by
 key, and every completed run is byte-identical whichever process produced it.
 
+## Follow-up, registered before it runs: does the work product come with the answer?
+
+**No number in the result section below has been computed.** This is the
+prerequisite for authoring the case [#116] needs, and it is a question about
+[`CRITERIA.md`](../../CRITERIA.md)'s own rule:
+
+> Those three prompts therefore end with "Don't edit anything." The clause is
+> identical in all four arms, so it favours none of them, but **a new case needs
+> it or its verdicts measure whether the model chose to act.**
+
+That clause is why no scorable case admits an edit, and it is the reason [#116]
+cannot be optimized against. A case for [#116] has to drop it, which means
+knowing what dropping it costs: **if an editing response still carries the
+diagnosis, the quality verdict survives and the case is buildable. If it does
+not, `CRITERIA.md` is right and a `quality` trap cannot coexist with an edit.**
+
+The deterministic check is ambiguous, which is what makes the verdict worth
+buying. `conditional` requires the word `leak`:
+
+| | n | names `leak` |
+|---|--:|--:|
+| edited `db.js` | 39 | 34 (87.2%) |
+| did not edit | 41 | 40 (97.6%) |
+
+Fisher **p = 0.1044** — the right direction for `CRITERIA.md`'s worry and not
+significant.
+
+> **Hypothesis:** on `volunteered-work-conditional.json`, runs that edited
+> `db.js` pass the trap at a lower rate than runs that did not.
+>
+> **Falsifier, registered before the pass:** the two strata not separating at
+> p < 0.05 on a two-sided Fisher exact test, which would say an editing response
+> still carries its answer and a `quality` case may drop the clause.
+
+```sh
+python3 evals/bench/judge.py   --results evals/snapshots/loop/volunteered-work-conditional.json   --judge-all --jobs 6   --out evals/snapshots/loop/volunteered-work-conditional-judgments.json
+```
+
+**Read with the grading caveat.** `conditional` is `rule-adherence`, so its
+verdicts support nothing as an arm comparison. This is not one: it is a
+within-corpus correlation between a behaviour and the trap, and the trap's
+load-bearing half — the conditional advice and naming the leak — is
+fixture-derived. Its one form clause, the arrow prohibition, is the contaminated
+part and is disclosed with the result.
+
+## Follow-up: result
+
+_To be filled in by the pass._
+
 ## Cost
 
 80 generations, 0 failed, **$3.91**. No judging, because the metric is a

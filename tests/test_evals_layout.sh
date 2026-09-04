@@ -130,6 +130,12 @@ fi
 # is one the model could act on instead, and the trap grades two fixture facts:
 # that the merge is possible, and that reconcile() is the only writer of the
 # day totals billing reads.
+#
+# quota-advice was built as quota-merge's minimal pair on 2026-09-04 and
+# withdrawn the same day: it read the fixture in 9 of 40 runs against
+# quota-merge's 35 of 40, so it could not grade fixture-derived content and had
+# no business in the suite. Both snapshots are kept. See
+# evals/results/loop/question-shape.md.
 count=$(ls -d "$ROOT"/evals/cases/*/ 2>/dev/null | wc -l | tr -d ' ')
 if [ "$count" = "37" ]; then ok "37 cases present"; else fail "37 cases present (found $count)"; fi
 

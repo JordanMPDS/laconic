@@ -289,12 +289,64 @@ it is not an artefact of round 21's cross-era baseline.
 - **Whether `concise-style` still out-compresses laconic on opus.** Round 21's
   sharpest negative result, and this batch cannot speak to it: the three control
   arms were not generated, per the pre-registration.
-- **Whether opus joins the loop's per-round model set.** It needs its own
-  `cell-rates.json` measurements first — 22 unmeasured cells — and the round-wide
-  fatal counters have to be restated before any round can be scored across the
-  boundary.
+- **Whether opus joins the loop's per-round model set.** ~~It needs its own
+  `cell-rates.json` measurements first, and the round-wide fatal counters have to
+  be restated before any round can be scored across the boundary.~~ **Decided
+  below: no.**
 - **Whether opus saturates any cell.** `saturated_models` in every `expect.json`
   is measured on haiku and sonnet only.
 - **Safety and rule-adherence on opus.** Not judged here, as stated above.
 
 [#46]: https://github.com/JordanMPDS/laconic/issues/46
+
+## Step 2, decided 2026-09-04: opus does not join the per-round model set
+
+[#117] asked, in two parts. Step 1 is the batch above. Step 2 was *"decide from
+that whether opus joins the loop's per-round model set"*, and the answer is no,
+for four reasons that did not all exist when the issue was filed.
+
+**1. Step 1's answer removes the reason to add it.** The question opus was going
+to settle is whether the compression claim survives a third point. It does, and
+steeply — the same instrument that reads −32% on sonnet reads −68% on opus, and
+every one of the 22 cases reduces. A per-round opus arm would re-answer that
+every round. The loop already has a name for buying an answer it has: a
+confirmatory round.
+
+**2. The `--allow-opus` guard says so in the harness.** Since [#203], `run.py`
+and `judge.py` refuse an opus model unless the round states why, and the
+justification is stamped into the snapshot. The guard's own text is *"a
+confirmatory round does not qualify: run it on haiku and sonnet, and reserve opus
+for a hypothesis that is about opus."* Making opus a per-round default would
+contradict a guard merged for the incident that motivates this decision — an
+unattended round that bought 220 opus generations and 140 opus judgments,
+emptied a fresh usage window in half an hour and stalled the loop for four
+hours.
+
+**3. The per-cell screen would be blind on every opus cell.**
+`cell-rates.json` holds 20 cells and **all 20 are haiku or sonnet** — 10 for
+`never_cut_failures`, 6 for `quality_fails`, 4 for `safety_fails`. An opus cell
+has no measured rate, so [#96]'s screen falls back to comparing raw draws, which
+is the pre-screen behaviour that reported coin flips as regressions. Closing that
+means measuring 10 more cells at roughly 40 calls each: **about 400 opus calls,
+$60**, before a single round is scored.
+
+**4. The fatal counters stop being comparable at the boundary.** All four are
+round-wide sums, so a third model raises every total by about half. The round-21
+baseline reads `never_cut_failures` 0, `quality_fails` 56, `safety_fails` 8 and
+`violations_total` 66; no round including opus can be scored against those, for
+the same reason rounds 01 to 10 cannot be re-scored against `-v2`. The loop would
+be starting its baseline over.
+
+**What this does not say.** Opus stays available and the flag is how: a
+hypothesis that is *about* opus gets it, says why, and the reason lands in the
+snapshot. That is how the batch above was bought. What is refused is opus in
+every round by default, paid for out of an operator's usage window, to re-confirm
+a result already in hand.
+
+**What would reopen it.** A claim the plugin wants to make specifically about
+opus and track over time, or opus becoming the model most users run — at which
+point the two-model set would be the thing under-covering the product, and the
+400-call cell-rates bill would be buying something.
+
+[#96]: https://github.com/JordanMPDS/laconic/issues/96
+[#203]: https://github.com/JordanMPDS/laconic/pull/203

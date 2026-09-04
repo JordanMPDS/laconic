@@ -541,6 +541,88 @@ def cases_cksum(cases_dir, names):
     return str(zlib.crc32(json.dumps(out, sort_keys=True).encode()))
 
 
+# One response's authored files. Both caps are size guards on the snapshot,
+# not judgements about what a deliverable may be: a run that trips either says
+# so in its own record rather than silently storing part of the answer.
+ARTIFACT_MAX_BYTES = 40000
+ARTIFACT_MAX_FILES = 20
+
+
+def tree_state(root):
+    """{relative path: crc32} for every file under `root`.
+
+    Same shape and same checksum as cases_cksum's fixture block, deliberately:
+    the two are comparing the same tree at two different moments.
+    """
+    out = {}
+    base = Path(root)
+    for f in sorted(base.rglob("*")):
+        if not f.is_file():
+            continue
+        try:
+            out[str(f.relative_to(base))] = zlib.crc32(f.read_bytes())
+        except OSError:
+            continue
+    return out
+
+
+def workspace_diff(root, before):
+    """What the model wrote to its workspace, against `before`.
+
+    The scratch tree is deleted the moment a call returns, so until this every
+    file a model authored left no trace anywhere - not in the snapshot, not on
+    disk. [#150] reports its harm in an authored document rather than in a
+    chat response, and its own status comment names that half of the issue as
+    the one nothing has tested. A case cannot be written for it while the
+    deliverable is destroyed before anything reads it.
+
+    Recorded, not graded. Nothing in report.py or judge.py reads this field
+    yet, and no gate does: a metric built on it could not be re-scored against
+    a single stored round, which is the same reason the `tools` list [#142]
+    added has stayed unscored. It accumulates first.
+
+    A file that is unreadable, deleted, or not valid UTF-8 is recorded as the
+    fact rather than dropped - an absent entry would read as "the model wrote
+    nothing", which is the one thing this must never say by accident.
+
+    [#142]: https://github.com/JordanMPDS/laconic/issues/142
+    [#150]: https://github.com/JordanMPDS/laconic/issues/150
+    """
+    base = Path(root)
+    after = tree_state(root)
+    changed = sorted(p for p, c in after.items() if before.get(p) != c)
+    gone = sorted(p for p in before if p not in after)
+    out = {}
+    for rel in gone:
+        out[rel] = {"deleted": True}
+    for rel in changed[:ARTIFACT_MAX_FILES]:
+        entry = {"new": rel not in before}
+        try:
+            data = (base / rel).read_bytes()
+        except OSError:
+            entry["unreadable"] = True
+            out[rel] = entry
+            continue
+        entry["bytes"] = len(data)
+        try:
+            text = data.decode()
+        except UnicodeDecodeError:
+            entry["binary"] = True
+            out[rel] = entry
+            continue
+        if len(text) > ARTIFACT_MAX_BYTES:
+            entry["text"] = text[:ARTIFACT_MAX_BYTES]
+            entry["truncated"] = True
+        else:
+            entry["text"] = text
+        out[rel] = entry
+    if len(changed) > ARTIFACT_MAX_FILES:
+        out["_truncated_files"] = {
+            "changed": len(changed), "stored": ARTIFACT_MAX_FILES,
+            "omitted": changed[ARTIFACT_MAX_FILES:]}
+    return out
+
+
 def _git_dirty():
     """Whether the tree had uncommitted changes when the pass started.
 
@@ -872,24 +954,35 @@ def main():
                     n += 1
                     if run_key(case, arm, model, rep) in done:
                         continue
-                    scratch = tempfile.mkdtemp()
                     fixture = case_dir / "fixture"
-                    if fixture.is_dir():
-                        shutil.copytree(fixture, scratch, dirs_exist_ok=True)
-                    res = call_turns(claude_bin, model, turns, arms[arm],
-                                     scratch, ARM_OUTPUT_STYLES.get(arm),
-                                     delivery=delivery or "repeat",
-                                     level=args.level)
-                    shutil.rmtree(scratch, ignore_errors=True)
-                    if not res.get("ok"):  # one retry before recording a failure
+
+                    def attempt():
+                        """One generation in its own throwaway workspace.
+
+                        The retry below used to be a second copy of this block,
+                        and the workspace capture would have made it a third
+                        place to keep in sync.
+                        """
                         scratch = tempfile.mkdtemp()
-                        if fixture.is_dir():
-                            shutil.copytree(fixture, scratch, dirs_exist_ok=True)
-                        res = call_turns(claude_bin, model, turns, arms[arm],
-                                         scratch, ARM_OUTPUT_STYLES.get(arm),
-                                         delivery=delivery or "repeat",
-                                         level=args.level)
-                        shutil.rmtree(scratch, ignore_errors=True)
+                        try:
+                            if fixture.is_dir():
+                                shutil.copytree(fixture, scratch,
+                                                dirs_exist_ok=True)
+                            before = tree_state(scratch)
+                            out = call_turns(claude_bin, model, turns, arms[arm],
+                                             scratch, ARM_OUTPUT_STYLES.get(arm),
+                                             delivery=delivery or "repeat",
+                                             level=args.level)
+                            wrote = workspace_diff(scratch, before)
+                            if wrote:
+                                out["artifacts"] = wrote
+                            return out
+                        finally:
+                            shutil.rmtree(scratch, ignore_errors=True)
+
+                    res = attempt()
+                    if not res.get("ok"):  # one retry before recording a failure
+                        res = attempt()
                     res.update({"case": case, "arm": arm, "model": model, "rep": rep,
                                 "generated_at": _now(),
                                 "claude_cli_version": cli_version,

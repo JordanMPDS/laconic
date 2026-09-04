@@ -4757,14 +4757,23 @@ check("the refusal names the multi-turn cases it is refusing",
       "deep-metric" in _named and "recall-index" in _named)
 check("the refusal describes both modes rather than only rejecting",
       "plugin" in _named and "repeat" in _named and "17 words" in _named)
-# Both generation sites resolve the same value. The retry path took
-# `args.turn_delivery` directly, which after the default was removed would have
-# silently retried a `plugin` cell as `repeat` - the exact treatment mismatch
-# this guard exists to prevent, reintroduced inside it.
+# A retry must resolve delivery exactly as the first attempt did. The retry
+# path once took `args.turn_delivery` directly, which after the default was
+# removed would have silently retried a `plugin` cell as `repeat` - the exact
+# treatment mismatch this guard exists to prevent, reintroduced inside it.
+#
+# This was a count: two generation sites, both spelling the fallback the same
+# way. #150's workspace capture collapsed them into one `attempt()`, because a
+# third copy of the block would have been a third place to keep in sync. So the
+# guard is now structural rather than arithmetic, and it is the stronger of the
+# two - one call site cannot disagree with itself.
 _run_src = (ROOT / "evals" / "bench" / "run.py").read_text()
+_call_sites = _run_src.count("call_turns(") - _run_src.count("def call_turns(")
 check("no call_turns site reads the raw flag, so a retry cannot change mode",
       "delivery=args.turn_delivery" not in _run_src
-      and _run_src.count('delivery=delivery or "repeat"') == 2)
+      and _run_src.count('delivery=delivery or "repeat"') == 1)
+check("there is exactly one call_turns site, so a retry cannot differ from it",
+      _call_sites == 1)
 check("the pass records its delivery in the snapshot metadata",
       'meta["turn_delivery"] = delivery' in _run_src)
 
@@ -4864,6 +4873,84 @@ check("haiku's conditional cell is pure and still votes",
       ("conditional", "haiku") in _r31k)
 check("the real note quotes both rates",
       "16 of 40 -> 15 of 40" in bench_report._stratum_note(_r31k, _r31ref, _r31mix))
+
+# ---------------------------------------------------------------------------
+# Workspace capture (#150). The scratch tree is deleted the moment a call
+# returns, so before this a file the model authored left no trace anywhere.
+# #150's harm is in an authored document rather than a chat response, and no
+# case can be written for it while the deliverable is destroyed unread.
+
+
+def _workspace(files):
+    d = tempfile.mkdtemp()
+    for rel, body in files.items():
+        f = Path(d) / rel
+        f.parent.mkdir(parents=True, exist_ok=True)
+        f.write_bytes(body if isinstance(body, bytes) else body.encode())
+    return d
+
+
+_ws = _workspace({"app.js": "original\n", "sub/keep.js": "keep\n"})
+_before = bench_run.tree_state(_ws)
+check("tree_state hashes every file under the root, nested included",
+      set(_before) == {"app.js", "sub/keep.js"})
+check("an untouched workspace records nothing",
+      bench_run.workspace_diff(_ws, _before) == {})
+
+(Path(_ws) / "REPORT.md").write_text("# Report\n\nbody\n")
+(Path(_ws) / "app.js").write_text("edited\n")
+(Path(_ws) / "sub/keep.js").unlink()
+(Path(_ws) / "blob.bin").write_bytes(b"\xff\xfe\x00binary")
+_wrote = bench_run.workspace_diff(_ws, _before)
+
+check("a file the model authored is captured with its text",
+      _wrote["REPORT.md"]["text"] == "# Report\n\nbody\n"
+      and _wrote["REPORT.md"]["new"] is True)
+check("an edited fixture file is captured and marked not new",
+      _wrote["app.js"]["text"] == "edited\n"
+      and _wrote["app.js"]["new"] is False)
+check("a deleted fixture file is recorded as deleted, not omitted",
+      _wrote["sub/keep.js"] == {"deleted": True})
+check("a file that is not valid UTF-8 records the fact instead of its text",
+      _wrote["blob.bin"]["binary"] is True and "text" not in _wrote["blob.bin"])
+
+# A big file is stored truncated and says so. An entry that silently held part
+# of a document would misreport the deliverable the case exists to grade.
+_ws2 = _workspace({})
+_b2 = bench_run.tree_state(_ws2)
+(Path(_ws2) / "long.md").write_text("x" * (bench_run.ARTIFACT_MAX_BYTES + 500))
+_w2 = bench_run.workspace_diff(_ws2, _b2)
+check("an oversized file is truncated to the cap",
+      len(_w2["long.md"]["text"]) == bench_run.ARTIFACT_MAX_BYTES)
+check("a truncated file says so, and still reports its real size",
+      _w2["long.md"]["truncated"] is True
+      and _w2["long.md"]["bytes"] == bench_run.ARTIFACT_MAX_BYTES + 500)
+
+# Many files: the cap bounds the snapshot, and the record names what it left
+# out rather than quietly dropping it.
+_ws3 = _workspace({})
+_b3 = bench_run.tree_state(_ws3)
+for _i in range(bench_run.ARTIFACT_MAX_FILES + 3):
+    (Path(_ws3) / ("f%02d.md" % _i)).write_text("body")
+_w3 = bench_run.workspace_diff(_ws3, _b3)
+check("no more than the file cap is stored",
+      len([k for k in _w3 if not k.startswith("_")])
+      == bench_run.ARTIFACT_MAX_FILES)
+check("the overflow is disclosed with the real count and the omitted names",
+      _w3["_truncated_files"]["changed"] == bench_run.ARTIFACT_MAX_FILES + 3
+      and len(_w3["_truncated_files"]["omitted"]) == 3)
+
+for _d in (_ws, _ws2, _ws3):
+    shutil.rmtree(_d, ignore_errors=True)
+
+# Nothing scores this field yet, deliberately: it is absent on every stored
+# round, so a gate built on it could not be re-scored against one. Same reason
+# the #142 tool list has stayed unscored.
+check("no stored snapshot carries artifacts, so nothing can be gating on it",
+      not any(r.get("artifacts")
+              for f in glob.glob(str(ROOT / "evals/snapshots/loop/*.json"))
+              for r in (json.load(open(f)).get("runs", [])
+                        if isinstance(json.load(open(f)), dict) else [])))
 
 print("\n%d failure(s)" % fails)
 sys.exit(1 if fails else 0)

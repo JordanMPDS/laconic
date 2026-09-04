@@ -320,6 +320,44 @@ check("preamble ignores an announcement that also asserts",
           "Here's the full flow in auth.js (41 lines total, no other files "
           "reference it - this module is self-contained).") is None)
 # Without blanking backticks the terminator matches the dot inside the filename.
+# --- the two clauses the recall pass added (#179) -------------------------
+# Recall was registered in #179 as step 2 and was not done until 2026-09-04.
+# It found 9 genuine misses in 40 hand-read negatives, ALL of them baseline
+# responses, and both gaps were traceable to the issue's own text.
+#
+# Gap 1: criterion 3 - "narrate a tool call the user can already see" - was
+# registered and never built. Five misses were exactly that shape.
+check("preamble catches a bare tool narration",
+      metrics.preamble("Found it. The limiter fails open on Redis errors.") is not None)
+check("preamble catches the read-it narration",
+      metrics.preamble("I read it. The plan has one structural flaw.") is not None)
+check("preamble catches a narration naming the file",
+      metrics.preamble("Read `schema.sql`. It has real problems.") is not None)
+# The span bound is what separates narration from a sentence that also asserts:
+# the assertion runs past 55 characters, so it never reaches the terminator.
+check("preamble ignores a narration that also asserts",
+      metrics.preamble(
+          "I read it and the plan has one structural flaw that will cause an "
+          "outage.") is None)
+
+# Gap 2: the announcement clause was anchored at position 0, so a scoping
+# lead-in defeated it. Four misses were that shape.
+check("preamble catches an announcement behind a scoping lead-in",
+      metrics.preamble("For a marketplace listing with phone photos, here's "
+                       "the typical architecture:\n\n**Frontend**") is not None)
+check("preamble catches a based-on lead-in",
+      metrics.preamble("Based on the architecture, here's how I'd approach "
+                       "this:\n\n## Recommended") is not None)
+# The lead-in openers are a whitelist because `since`/`given`/`without`
+# introduce a stated limitation, which #179's criterion protects as never-cut
+# content. Allowing any lead-in caught 16 of these and cost precision.
+check("preamble ignores an announcement behind a stated limitation",
+      metrics.preamble("Since there's no existing codebase here to anchor this "
+                       "to, here's the general architecture:\n\n**Frontend**") is None)
+check("preamble ignores a without-seeing limitation",
+      metrics.preamble("Without seeing your code, here's how payment retry "
+                       "logic typically works:\n\n**Core**") is None)
+
 check("preamble is not fooled by a dot inside a backticked filename",
       metrics.preamble(
           "Here's the full flow in `auth.js` (41 lines, self-contained).") is None)

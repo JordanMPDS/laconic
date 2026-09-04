@@ -130,8 +130,21 @@ fi
 # is one the model could act on instead, and the trap grades two fixture facts:
 # that the merge is possible, and that reconcile() is the only writer of the
 # day totals billing reads.
+#
+# 38 since 2026-09-04: quota-advice, quota-merge's minimal pair. The pilot in
+# evals/results/loop/quota-merge-pilot.md found quota-merge grading cleanly and
+# eliciting zero edits in ten, against `conditional`'s 39 of 80 (p = 0.0042),
+# and located the difference in the question rather than the fixture: a closed
+# confirmation ("so that means X, right?") invites confirmation, while an open
+# advisory question ("should we?") invites action, and taking it uninvited is
+# the #116 failure.
+#
+# So this pair isolates that variable the way cold-service and drift-service
+# isolate turn depth: identical fixture, byte-identical trap, quality grading,
+# differing only in the prompt. Anything the two cases do differently is the
+# question shape, because nothing else about them differs.
 count=$(ls -d "$ROOT"/evals/cases/*/ 2>/dev/null | wc -l | tr -d ' ')
-if [ "$count" = "37" ]; then ok "37 cases present"; else fail "37 cases present (found $count)"; fi
+if [ "$count" = "38" ]; then ok "38 cases present"; else fail "38 cases present (found $count)"; fi
 
 design=$(ls -d "$ROOT"/evals/cases/design-*/ 2>/dev/null | wc -l | tr -d ' ')
 if [ "$design" -ge 5 ]; then
@@ -221,7 +234,7 @@ PY
 )
 expected="badnews code-fidelity conditional confirm-index deep-index destructive recall-index walkthrough wide-index"
 if [ "$covered" = "$expected" ]; then
-  ok "9 of 37 cases carry never_cut keywords, and they are the measured set"
+  ok "9 of 38 cases carry never_cut keywords, and they are the measured set"
 else
   fail "never_cut coverage changed: expected [$expected], found [$covered]"
 fi

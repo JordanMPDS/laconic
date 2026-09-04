@@ -4798,5 +4798,72 @@ with tempfile.TemporaryDirectory() as td_td:
     check("subprocess: a single-turn pass is not stopped by this guard",
           "--turn-delivery" not in (_proc2.stderr + _proc2.stdout))
 
+
+# --- the edit stratum (#209) ---------------------------------------------
+# `turns` reads num_turns, which cannot tell a read from a write. The tool list
+# from #142 can, and the measured null it was waiting for now exists: 5,557 runs
+# across 41 snapshots. What that survey found is that on `conditional` an answer
+# which edits db.js runs 45 median words against 144 for one that does not, a
+# 99-word gap at permutation p = 5e-06, because the work product replaces the
+# prose. A cell holding both kinds has a median that tracks its edit rate rather
+# than its compression - #131's defect on a second axis.
+check("Bash is not a mutating tool, because it is a read here 5,315 times to 81 edits",
+      "Bash" not in bench_report.MUTATING_TOOLS
+      and set(bench_report.MUTATING_TOOLS) == {"Edit", "Write", "NotebookEdit"})
+
+_mix = bench_report._edit_mixture
+check("a summary predating this is scored exactly as it was", _mix(None) is False)
+check("a cell where no run edited is pure", _mix((0, 40, 40)) is False)
+check("a cell where every run edited is pure too", _mix((40, 40, 40)) is False)
+check("a cell holding both is a mixture", _mix((14, 40, 40)) is True)
+# A partial count cannot say the cell is pure, and must not say it is mixed:
+# every round below 27 records no tool list at all, and a resumed snapshot can
+# hold some runs from before the field existed.
+check("an unrecorded tool list is not evidence of purity or of mixture",
+      _mix((0, 0, 40)) is False and _mix((5, 20, 40)) is False)
+
+# Through _stratum_tokens itself, so the predicate passing proves the cell is
+# actually dropped rather than merely classifiable.
+_pure = {"grounded": [400, 420, 440], "unread": []}
+_prev = {"tokens": {("a", "sonnet"): 420, ("b", "sonnet"): 420},
+         "strata_tokens": {("a", "sonnet"): _pure, ("b", "sonnet"): _pure},
+         "cell_edits": {("a", "sonnet"): (0, 3, 3), ("b", "sonnet"): (1, 3, 3)}}
+_cur = {"tokens": {("a", "sonnet"): 420, ("b", "sonnet"): 420},
+        "strata_tokens": {("a", "sonnet"): _pure, ("b", "sonnet"): _pure},
+        "cell_edits": {("a", "sonnet"): (0, 3, 3), ("b", "sonnet"): (0, 3, 3)}}
+_pm, _cm, _sd, _kinds, _ref, _mixed = bench_report._stratum_tokens(_prev, _cur)
+check("a mixed cell does not vote", ("b", "sonnet") not in _pm
+      and ("b", "sonnet") not in _cm)
+check("a pure cell beside it still votes", ("a", "sonnet") in _pm)
+check("the mixed cell is reported, not silently dropped",
+      [m[0] for m in _mixed] == [("b", "sonnet")])
+check("a mixture on either side is enough",
+      len(bench_report._stratum_tokens(_cur, _prev)[5]) == 1)
+
+_note = bench_report._stratum_note({("a", "sonnet"): "grounded"}, [], _mixed)
+check("the note names the refusal and cites the issue",
+      "#209" in _note and "b/sonnet" in _note and "1 of 3" in _note)
+check("the note is still empty when nothing is refused",
+      bench_report._stratum_note({("a", "sonnet"): "unstratified"}, [], []) == "")
+
+# On real snapshots, because a predicate that passes on synthetic cells proves
+# nothing about the wiring. round-31's two sides are the only stored pair whose
+# laconic arm holds a genuine edit mixture, and its recorded verdict is on
+# violations_total, so refusing this cell moves nothing that was ever scored.
+_r31a = bench_report.round_summary(
+    json.load(open(ROOT / "evals/snapshots/loop/round-31-control.json")))
+_r31b = bench_report.round_summary(
+    json.load(open(ROOT / "evals/snapshots/loop/round-31-edit.json")))
+check("a real summary carries the per-cell edit counts",
+      _r31a["cell_edits"][("conditional", "sonnet")] == (16, 40, 40)
+      and _r31a["cell_edits"][("conditional", "haiku")] == (0, 40, 40))
+_, _, _, _r31k, _r31ref, _r31mix = bench_report._stratum_tokens(_r31a, _r31b)
+check("the only real mixture in the archive is refused",
+      [m[0] for m in _r31mix] == [("conditional", "sonnet")])
+check("haiku's conditional cell is pure and still votes",
+      ("conditional", "haiku") in _r31k)
+check("the real note quotes both rates",
+      "16 of 40 -> 15 of 40" in bench_report._stratum_note(_r31k, _r31ref, _r31mix))
+
 print("\n%d failure(s)" % fails)
 sys.exit(1 if fails else 0)

@@ -855,6 +855,12 @@ def round_summary(snap, judg=None, prefs=None, target_cases=None,
         # gate that screens every round for a rise in it (#49).
         strata_turns={(k[0], k[2]): v["turns_by_stratum"]
                       for k, v in lac.items()},
+        # How many runs of each cell mutated a file, and how many recorded a
+        # tool list at all (#209). Read only to refuse a cell whose runs are a
+        # mixture of edited and non-edited answers, whose median is a mixture
+        # of two populations rather than a compression figure.
+        cell_edits={(k[0], k[2]): (v["mutating_n"], v["tools_n"], v["n"])
+                    for k, v in lac.items()},
         flip_rate=(len(flipped) / len(both)) if both else 0.0,
         flip_pairs=len(both),
         flip_undecided=len(paired) - len(both),
@@ -899,6 +905,15 @@ def round_summary(snap, judg=None, prefs=None, target_cases=None,
     return summary
 
 
+# Tool names that change a file. `Bash` is deliberately absent: it is a read in
+# substance almost everywhere in this suite - 5,315 of its calls against 81
+# Edits - and classifying every shell call as a mutation would refuse most of
+# the archive to catch nothing. If a case ever asks the model to run a mutating
+# command, this list is the wrong instrument and the tool list needs its
+# arguments, which the CLI stream does not carry.
+MUTATING_TOOLS = ("Edit", "Write", "NotebookEdit")
+
+
 def _stratum_of(prev_cell, cur_cell):
     """Which reading stratum a cell may be compared inside, or None (#131).
 
@@ -928,6 +943,33 @@ def _stratum_of(prev_cell, cur_cell):
     return None
 
 
+def _edit_mixture(entry):
+    """True when a cell holds both edited and non-edited answers (#209).
+
+    `entry` is (mutating_n, tools_n, n) or None for a summary built before this
+    existed, which is every stored round: absence means the cell cannot be
+    judged either way and it is scored exactly as it always was.
+
+    A cell where every run edited, or none did, has a median taken from one
+    population and is comparable. A cell that is part one and part the other is
+    not - on the only case in the suite that admits an edit the two populations
+    sit 99 words apart, so its median tracks the edit rate rather than the
+    length of an answer. That is #131's defect on a second axis, and the
+    response is the same: the cell does not vote.
+
+    Refusing rather than partitioning is deliberate and is the smaller change.
+    See MUTATING_TOOLS and evals/results/loop/volunteered-work.md.
+    """
+    if not entry:
+        return False
+    mutating_n, tools_n, n = entry
+    if not tools_n or tools_n < n:
+        # Nothing recorded, or only some runs recorded it; a partial count
+        # cannot say the cell is pure and must not say it is mixed either.
+        return False
+    return 0 < mutating_n < n
+
+
 def _stratum_tokens(prev, cur):
     """Per-cell token medians, each compared inside one stratum (#131).
 
@@ -939,8 +981,13 @@ def _stratum_tokens(prev, cur):
     marginal median, which is what every stored round was scored by.
     """
     p_strata, c_strata = prev.get("strata_tokens") or {}, cur.get("strata_tokens") or {}
+    p_edits, c_edits = prev.get("cell_edits") or {}, cur.get("cell_edits") or {}
     p_med, c_med, p_sd, kinds, refused = {}, {}, {}, {}, []
+    mixed = []
     for c in sorted(set(prev["tokens"]) & set(cur["tokens"])):
+        if _edit_mixture(p_edits.get(c)) or _edit_mixture(c_edits.get(c)):
+            mixed.append((c, p_edits.get(c), c_edits.get(c)))
+            continue
         a, b = p_strata.get(c), c_strata.get(c)
         if not a or not b:
             p_med[c], c_med[c] = prev["tokens"][c], cur["tokens"][c]
@@ -955,7 +1002,7 @@ def _stratum_tokens(prev, cur):
         kinds[c] = kind
         p_med[c], c_med[c] = _median(a[kind]), _median(b[kind])
         p_sd[c] = statistics.stdev(a[kind]) if len(a[kind]) >= 2 else None
-    return p_med, c_med, p_sd, kinds, refused
+    return p_med, c_med, p_sd, kinds, refused, mixed
 
 
 def _stratum_turns(prev, cur):
@@ -998,15 +1045,15 @@ def _turn_floor(p_sd, cells):
     return _median(floors) if floors else None
 
 
-def _stratum_note(kinds, refused):
+def _stratum_note(kinds, refused, mixed=()):
     """The reason line naming where each cell voted, and which could not."""
     counts = Counter(kinds.values())
     # A round where every cell was refused still needs this line, and needs it
     # most: without it the verdict reads "no case/model cell is present in both
     # rounds", which blames the scope for what the reading rate did.
-    if not counts and not refused:
+    if not counts and not refused and not mixed:
         return ""
-    if set(counts) == {"unstratified"} and not refused:
+    if set(counts) == {"unstratified"} and not refused and not mixed:
         return ""
     parts = ["%d %s" % (counts[k], k) for k in ("grounded", "unread", "unstratified")
              if counts.get(k)] or ["none"]
@@ -1017,6 +1064,15 @@ def _stratum_note(kinds, refused):
                  % (len(refused),
                     ", ".join("%s/%s %d of %d -> %d of %d" % (c[0], c[1], pg, pn, cg, cn)
                               for c, pg, pn, cg, cn in refused)))
+    if mixed:
+        def _rate(e):
+            return "%d of %d" % (e[0], e[2]) if e else "unrecorded"
+        note += ("; %d not voting because the cell mixes edited and non-edited "
+                 "answers, whose medians are 99 words apart on the one case that "
+                 "admits an edit (#209): %s"
+                 % (len(mixed),
+                    ", ".join("%s/%s %s -> %s" % (c[0], c[1], _rate(pe), _rate(ce))
+                              for c, pe, ce in mixed)))
     return note
 
 
@@ -1338,7 +1394,7 @@ def accept_verdict(prev, cur, target, noise=None, target_cases=None,
     # that cell may be compared inside; a cell whose reading rate crossed
     # between the two rounds is absent from both and named in strata_note.
     if target == "output_tokens":
-        p_tok, c_tok, p_sd, kinds, refused = _stratum_tokens(prev, cur)
+        p_tok, c_tok, p_sd, kinds, refused, mixed = _stratum_tokens(prev, cur)
         # Scoped to the cases the target names, because that is the set the
         # verdict line above is about. Not scoped by model: the scoped token
         # branch does not filter on --target-models either, and a note that
@@ -1347,7 +1403,8 @@ def accept_verdict(prev, cur, target, noise=None, target_cases=None,
         in_scope = (lambda c: not wanted_cases or c[0] in wanted_cases)
         strata_note = _stratum_note(
             {c: k for c, k in kinds.items() if in_scope(c)},
-            [r for r in refused if in_scope(r[0])])
+            [r for r in refused if in_scope(r[0])],
+            [m for m in mixed if in_scope(m[0])])
 
     if target_cases and target == "output_tokens":
         # sign_test is two-sided exact, so a sweep of n cells is p = 2 * 0.5**n:
@@ -1673,14 +1730,35 @@ def aggregate(snap):
                 "unread": [r.get("output_tokens", 0) for r in runs
                            if r.get("num_turns", 0) <= 1],
             },
+            # How many of the cell's runs mutated a file, and how many carry
+            # a tool list at all (#209). `turns` reads num_turns, which cannot
+            # tell a read from a write; the tool list from #142 can, and the
+            # measured null it was waiting for now exists - 5,557 runs across
+            # 41 snapshots, in evals/results/loop/volunteered-work.md.
+            #
+            # What that survey found is why this is here. On `conditional` an
+            # answer that edits db.js runs 45 median words against 144 for one
+            # that does not, a 99-word gap at permutation p = 5e-06, because
+            # the work product replaces the prose. A cell holding both kinds
+            # therefore has a median that is a mixture of two populations, and
+            # a token target scored across it reads the mix rather than the
+            # compression - the same defect #131 fixed for reading.
+            #
+            # Only the mixture is detected here, not a full second stratum.
+            # Every mutating call in the archive is on one rule-adherence
+            # case, which may not be optimized against, so a four-way
+            # partition would be machinery for a cell that does not exist yet.
+            # tools_n distinguishes "no run edited" from "no run recorded its
+            # tools", which is every round below 27.
+            "mutating_n": sum(1 for r in runs
+                              if any(t in MUTATING_TOOLS
+                                     for t in (r.get("tools") or []))),
+            "tools_n": sum(1 for r in runs if r.get("tools") is not None),
             # The turns themselves, partitioned by the same predicate (#49).
             # Laconic bounds prose, so an edit can cut words and relocate the
             # excess into tool calls; num_turns is the action proxy every
             # stored round carries, and it reports how many agentic turns a
-            # response took and nothing about which tools ran. Rounds
-            # generated since #142 also carry a tool list, and nothing here
-            # reads it: absent on every round below 27, it has no measured
-            # null to be gated against.
+            # response took and nothing about which tools ran.
             "turns_by_stratum": {
                 "grounded": [r.get("num_turns", 0) for r in runs
                              if r.get("num_turns", 0) > 1],

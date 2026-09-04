@@ -333,16 +333,49 @@ def closing_offers(text):
 
 _BACKTICKED = re.compile(r"`[^`]*`")
 
+# The span a matched announcement may cover. It forbids the punctuation that
+# usually introduces an assertion - a parenthetical, an em-dash aside, a
+# subordinate clause - which is what keeps "Here's the full flow in `auth.js`
+# (41 lines total)" out: that sentence asserts scope, so deleting it loses a
+# claim.
+_PRE_SPAN = r"[^.\n(\u2014\u2013,;:]{0,55}"
+
+# A scoping clause before the announcement, added 2026-09-04 when recall was
+# measured. The pattern was anchored at position 0, so "For a marketplace
+# listing with phone photos, here's the typical architecture:" escaped a rule
+# that caught the same sentence standing alone.
+#
+# The three openers are a whitelist, not a blacklist, and that is deliberate.
+# `since`, `given`, `without` and `assuming` introduce a STATED LIMITATION -
+# "Since there's no existing codebase here to anchor this to, here's the general
+# architecture:" - which #179's criterion protects as never-cut content.
+# Allowing any lead-in caught 16 of those and cost precision; allowing three
+# content-free ones costs a little recall instead. Precision first.
+_PRE_LEADIN = r"(?:(?:for|based on|looking at)[^.\n\u2014\u2013;:]{0,55},\s+)?"
+
+# Criterion 3 of #179 - "narrate a tool call the user can already see" - was
+# registered in the issue and then not built. Five of the nine misses the recall
+# pass found were exactly this: "I read it.", "Found it.", "Looked at the app",
+# "Read `schema.sql`.". The `_PRE_SPAN` bound is what separates them from
+# "I read it and the plan has one structural flaw", which asserts and is not
+# preamble: that continuation runs past 55 characters.
+_PRE_NARRATE = (r"(?:i(?:'ve| have)? )?(?:read|looked at|checked|scanned"
+                r"|reviewed|went through|ran|had a look at)")
+
 PREAMBLE = re.compile(
     r"^\s*(?:\*\*)?("
-    r"here'?s (?:the|what|what's|how|a|my|an)[^.\n(\u2014\u2013,;:]{0,55}[:.](?=\s|$)"
-    r"|here is (?:the|what|how|a|my|an)[^.\n(\u2014\u2013,;:]{0,55}[:.](?=\s|$)"
+    + _PRE_LEADIN + r"(?:"
+    r"here'?s (?:the|what|what's|how|a|my|an)" + _PRE_SPAN + r"[:.](?=\s|$)"
+    r"|here is (?:the|what|how|a|my|an)" + _PRE_SPAN + r"[:.](?=\s|$)"
+    r")"
     r"|let me (?:walk|break|start|look|check|read|go|explain|take|dig)"
-    r"[^.\n(\u2014\u2013,;:]{0,55}[:.](?=\s|$)"
+    + _PRE_SPAN + r"[:.](?=\s|$)"
     r"|i'?ll (?:walk|break|start|look|check|read|go through|explain)"
-    r"[^.\n(\u2014\u2013,;:]{0,55}[:.](?=\s|$)"
-    r"|i'?m going to[^.\n(\u2014\u2013,;:]{0,55}[:.](?=\s|$)"
+    + _PRE_SPAN + r"[:.](?=\s|$)"
+    r"|i'?m going to" + _PRE_SPAN + r"[:.](?=\s|$)"
     r"|(?:sure|great question|absolutely|certainly|of course)[,!.](?=\s|$)"
+    r"|" + _PRE_NARRATE + _PRE_SPAN + r"[.!](?=\s|$)"
+    r"|found it[.!](?=\s|$)"
     r")",
     re.I,
 )

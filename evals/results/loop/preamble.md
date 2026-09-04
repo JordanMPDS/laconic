@@ -1,11 +1,17 @@
 # `preamble`: a high-precision detector the archive cannot score
 
-> **Recall measured 2026-09-04, and the arm rates below are withdrawn.** [#179]
-> registered precision first and recall second. Precision was done — 18 of 18 —
-> and recall was not. Doing it now finds **9 genuine misses in 40 hand-read
-> negatives, and all 9 are baseline responses.** The detector under-counts one
-> arm and not the other, so every arm rate on this page is unusable in the
-> direction it points. See [Recall](#recall-measured-second-and-the-arm-rates-do-not-survive-it).
+> **Recall measured and the detector widened, 2026-09-04.** [#179] registered
+> precision first and recall second. Precision was done — 18 of 18 — and recall
+> was not. Doing it found **9 genuine misses in 40 hand-read negatives, all 9 of
+> them baseline responses**, from two gaps traceable to the issue's own text.
+> Both are now closed, at 43-of-43 precision on the new catches.
+>
+> **The archive-pooled arm rates below are superseded and were never usable.**
+> The widened detector flips their direction — laconic goes from 2.0x baseline to
+> half of it — which is what a mix-shifted comparison does when its instrument
+> changes. **Round 37 is re-scored and does not move**, so the one properly
+> matched comparison on this axis stands. See
+> [Recall](#recall-measured-second-and-the-arm-rates-do-not-survive-it).
 
 **Status: parked, with the numbers recorded.** The detector works on what it
 catches. The archive cannot separate the arms with it, and the one comparison
@@ -207,16 +213,62 @@ boundary rule that produced it. What the detector catches, it catches correctly.
 It simply catches a fraction of what the criterion names, and that fraction is
 arm-correlated.
 
-### The next unit, specified rather than guessed
+### The widening, done next and shipped
 
-Widen on the two named gaps — a tool-narration clause, and a bounded lead-in
-before the announcement clause — then hand-read **every** newly-caught response,
-which is what [`closing-offers.md`](closing-offers.md) did when its own recall
-pass came back short. Only then are the rates worth recomputing.
+Both gaps are closed in `metrics.PREAMBLE`, following
+[`closing-offers.md`](closing-offers.md)'s method: widen, then hand-read every
+response the widening newly catches.
 
-That was not done here deliberately. The closing-offer widening held precision
-because each new shape was checked before it shipped, and doing that carefully is
-a unit of its own rather than a coda to this one.
+**Precision on the new catches: 43 of 43.** Drawn in three passes — 14 at random,
+18 stratified onto the rarest matched shapes where precision is most at risk, and
+12 as a fresh confirmation draw. All are genuine preamble under the criterion.
+That is past the 30-of-30 bar the closing-offer detector met.
+
+**One shape was caught and removed before shipping.** A lead-in of any kind
+caught 16 responses opening *"Since there's no existing codebase here to anchor
+this to, here's the general architecture:"* — where the lead-in is a **stated
+limitation**, which [#179]'s criterion protects as never-cut content. The shipped
+clause therefore whitelists three content-free openers (`for`, `based on`,
+`looking at`) rather than blacklisting the bad ones. That trades recall for
+precision, which is the order this issue registered.
+
+**Four of the nine misses are still missed, and they are named.** `I read
+`SPEC.md` (79 lines).` is blocked by the parenthesis guard, `Looked at the app —
+this is useful context.` by the em-dash guard — both guards being what keeps an
+asserting sentence out, so neither is worth relaxing for these. And *"For payment
+timeouts, retrying typically works like this:"* and *"the typical approach is:"*
+are an announcement shape with no `here's` in it, which was deliberately not
+fitted: two instances in one sample is not a shape, it is a sample.
+
+### What the widening does to the numbers
+
+Deduplicated over 17,723 responses:
+
+| arm | n | old | widened |
+|---|--:|--:|--:|
+| baseline | 1,360 | 1.76% | **10.22%** |
+| laconic | 15,220 | 3.49% | **5.46%** |
+| `terse-control` | 290 | 3.45% | 12.76% |
+| `word-compression` | 300 | 2.33% | 13.00% |
+| `concise-style` | 289 | 2.42% | 3.11% |
+
+**The archive-pooled comparison changes sign.** It read laconic 2.0x baseline;
+it now reads laconic at half baseline, Fisher p = 4.6e-11.
+
+**That is not a finding, and the reason is the point.** Both numbers are
+mix-shift — the denominators are 15,220 against 1,360 and the arms cover
+different case mixes, which this page has said from the start. A comparison whose
+*direction* flips when the instrument's recall is fixed was never carrying
+information about the arms.
+
+**Round 37 does not move at all.** Re-scored with the widened detector, its
+matched batch reads `walkthrough` baseline 7/40 against laconic 4/40, p = 0.5179
+— identical to the old pattern, to the response. `ordered-steps` is 0/40 in both
+arms under both patterns.
+
+So the widening moves the pooled number enormously and the matched number not at
+all, which confirms from a second direction which of the two was worth quoting.
+**Round 37 remains the only usable comparison on this axis, and it is unchanged.**
 
 [#155]: https://github.com/JordanMPDS/laconic/issues/155
 [#179]: https://github.com/JordanMPDS/laconic/issues/179

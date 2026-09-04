@@ -84,6 +84,14 @@ new prompt, and no fourth guess about what elicits the behaviour.
 That is the next unit. It is also the cheapest of everything tried here: it buys
 judgments on runs that already exist.
 
+> **Tested and refused, same day.**
+> [`conditional-retrap.md`](conditional-retrap.md) ran it. The clause is inert as
+> predicted — 0 of 18 flips turn on it — but a same-trap control moved **10
+> verdicts of 80**, so the criterion self-disagrees at 12.5% and "none moves" is
+> not a claim this instrument can support. `conditional` stays `rule-adherence`:
+> promoting a criterion that flips 1 verdict in 8 into `quality_fails`, a fatal
+> counter, would put a coin flip behind a fatal gate.
+
 ## Cost
 
 `queue-lag` two pilots, 20 generations and 20 judgments, about $2. The

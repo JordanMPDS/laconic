@@ -153,8 +153,47 @@ its stored labels.** If the labels agree, the drop is real and the instrument is
 weaker than [#153] believes. If they disagree, the drop is a labeller effect and
 both fresh figures are measuring the labeller as much as the detector.
 
-That check costs no calls and it is the next unit. **Until it is done, neither
-73.7% nor 66.7% should be quoted as v2's precision.**
+### The check, run: the labeller explanation is refuted
+
+**61 of batch 2's 80 responses re-labelled under batch 3's conventions**, without
+consulting the stored labels. Nineteen were excluded as contaminated — this
+session had already seen their labels while diagnosing v2's errors, and knowing
+an answer is not a blind re-label.
+
+| | mine | theirs |
+|---|--:|--:|
+| labelled `asks` | 13 / 61 (21.3%) | 13 / 61 (21.3%) |
+
+**Agreement 59 of 61, 96.7%. Cohen's kappa 0.902.** The base rates are identical
+to the response.
+
+The two disagreements are both on the seam the rule's own `_note` names:
+
+| id | theirs | mine | the sentence |
+|---|---|---|---|
+| F25 | ask | not | *"The two decisions that actually fork the design: token bucket … vs. fixed/sliding window … — token bucket is usually right"* — I read the last clause as resolving it |
+| F58 | not | ask | *"worth knowing what's currently in front of `/v1` before picking that"* — inside a Left-out list, so their carve-out applies; I applied clause (c), instructing the reader to go determine something |
+
+**So batch 3's drop is not a labelling artefact.** Two labellers applying the
+same written rule to the same population agree at kappa 0.90 and disagree only
+where the rule says it is ambiguous.
+
+**One caveat on the check itself.** The 19 excluded items are not a random
+nineteen — they are precisely the ones where v2 erred, which is where labelling
+is hardest. Agreement was therefore measured on a slightly easier subset than the
+full batch, and 96.7% should be read as an upper bound on inter-labeller
+agreement rather than a point estimate.
+
+### What that settles
+
+**v2's published figure does not replicate, and the reason is the detector.**
+73.7%/87.5% on batch 2 against 66.7%/50.0% on batch 3, drawn the same way from
+the same population and labelled to a standard now shown to be reproducible.
+
+[#153] records 73.7% as v2's honest out-of-sample number. It was honest, and it
+was one draw. **Neither 73.7% nor 66.7% is v2's precision**; the two together say
+the quantity moves by 7 points of precision and 37 of recall between samples, and
+that is the number a decision about `unread_asks` has to be made against.
 
 ## What this does not change
 

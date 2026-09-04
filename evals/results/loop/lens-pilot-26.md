@@ -237,3 +237,86 @@ runs, for the same reason everything above the results line was registered.
 - `lens-pilot-26/lens-{nevercut,compression,readability,quality}.md` — the four
   reports verbatim, unedited. The classification above is only auditable against
   these.
+
+---
+
+# The control: the inventory supplies one of the five, and the lenses supply four
+
+**One reader, no lens, same inventory, same blindness, same budget. It reached
+one of the five new mechanisms and missed four.**
+
+| its candidate | class | reaches which new mechanism |
+|---|---|---|
+| A — headline to "No arrows anywhere in your own writing", naming bullet, numbered step, table cell, heading and label gloss | variant (round 03) | — |
+| B — close the quotation exemption: an inline code span is not a fenced block, and the arrow between two quoted values is yours | **new** | the exemption edit (candidates 6 and 8) |
+| C — a third `Wrong:`/`Right:` pair for the case-and-outcome bullet | variant (round 31) | — |
+
+Its two variants are the same two the lenses produced, matched to the same
+rounds. Its one new candidate is the mechanism **two** lenses had already
+converged on independently — which is the reading that mechanism deserves: it is
+the one an attentive reader of this inventory finds, whatever lens they wear.
+
+**The four it did not reach:**
+
+- Moving the connecting-words claim into `Never cut` (candidate 2).
+- Extending the `Never cut` code-and-config bullet to cover a changed setting
+  (candidate 3).
+- Rewriting the `full` level's shape budget (candidate 5).
+- Extending the `Never cut` ordered-instructions bullet (candidate 12).
+
+Three of the four are edits to a section the control never proposed touching at
+all. It confined every candidate to the arrow rule's own paragraph, its example
+list, and its exemption sentence — which is where all five prior rounds also
+worked.
+
+**On the fourth, the control did not merely miss it — it considered the premise
+and rejected it.** Its diagnosis says plainly: *"length pressure is not the
+driver … the fix is to close the scope loopholes and supply the sanctioned
+notation."* Candidate 5 is built on the opposite reading, that the `full`
+level's shape budget is what creates the pressure to compress at the word level.
+One reader ruled that out; the reader assigned to look at compression built its
+central candidate on it. That is the clearest single instance of the lens
+changing what gets proposed rather than how it is worded.
+
+## What the control settles
+
+**The confound resolves in [#26]'s favour, and not by a small margin.** A wider
+inventory is worth having and it is not what produced the novelty: given the
+same 3,017 responses and the same blindness, the unlensed reader found one new
+mechanism where the four lenses found five.
+
+**The mechanism is unglamorous, and worth stating as such.** A lens is an
+instruction about where to look. The never-cut lens is the only proposer that
+proposed moving the rule into `Never cut`, and its prompt is the only one that
+enumerated what that section protects. That is not a lens conjuring an idea from
+nowhere; it is attention allocated to a part of the file the single reader never
+opened. [#26] calls this *"several proposers reading the same inventory through
+different lenses"*, and this is what that turned out to mean in practice.
+
+**Two limits on how far to read it.** The control is one draw, and a second
+unlensed reader might land elsewhere — a null at n = 1 is thin evidence and this
+result rests on it. And every one of the six new candidates is untested: this
+pilot bought no generation calls, so nothing here says any of them would lower a
+single arrow.
+
+## What [#26] should do next
+
+The decision rule says a surviving new candidate makes the next unit *deciding
+whether that candidate earns a scoped round*, not building the workflow. That
+still stands, and the control does not change it — five untried mechanisms is a
+queue, and the loop's constraint is still the ~900-call confirmation round that
+would score any one of them.
+
+What the control does change is the cost argument. [#26] defers on the ground
+that *"parallel proposers only pay off once the loop is reliably rejecting
+candidates for being weak ideas rather than for landing inside the noise
+floor."* This pilot cost four subagent sessions and zero generation calls, and
+returned four mechanisms a single reader did not reach. That is not the full
+approach — no adversarial panel ran, and nothing was scored — but it is the
+proposer half of it, working, at a price the cost argument never contemplated.
+
+The recommendation is therefore narrower than the issue's own scope and should
+be taken as such: **run the lens step by hand at step 5 of the next round that
+has no obvious edit, and leave the workflow, the panel and the
+multiple-comparisons bookkeeping unbuilt until a lens candidate has actually
+survived a round.**

@@ -1,5 +1,11 @@
 # #36's target re-measured: one case, not two
 
+> **Consolidated 2026-09-04 into [`arrows.md`](arrows.md),** which indexes all
+> six arrow rounds and the four issues they answered. This document is the
+> instrument measurement that narrowed the target to one case; that one is the
+> line of work's summary, including round 38's finding that the rule's own
+> `Wrong:` line is not the carrier.
+
 **Date:** 2026-08-28
 **Status:** an instrument measurement, not a round. No rule changed, no round is
 accepted or rejected by it. 40 generations, 0 judge calls, 0 failures.

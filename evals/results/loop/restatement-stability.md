@@ -71,8 +71,104 @@ criterion file is untouched, so `criterion_cksum` must match the stored verdicts
 **No rule edit is proposed.** This decides whether [#155] is worth reopening or
 should be closed.
 
-## Result
+## Result: 20% of the detector's own verdicts do not reproduce
 
-_To be filled in by the pass._
+Same script, same criterion, same 120 responses. `criterion_cksum` is
+**1061017820 on both passes**, so the comparison is not void.
+
+| | n | original says restates | re-run | flips | McNemar |
+|---|--:|--:|--:|--:|--:|
+| batch 1 | 60 | 31 | 34 | **9 (15.0%)** | p = 0.5078 |
+| batch 2 | 60 | 39 | 40 | **15 (25.0%)** | p = 1.0000 |
+| **pooled** | 120 | 70 | 74 | **24 (20.0%)** | — |
+
+**The registered falsifier did not fire.** 20% is not at or below 10%, and it
+sits inside the 0-27% range
+[`judge-self-disagreement.md`](judge-self-disagreement.md) measured across four
+other criteria — near the top of it.
+
+## The rate is stable and the verdicts are not
+
+Precision against the *same* hand labels, original pass against re-run:
+
+| | precision | recall |
+|---|--:|--:|
+| batch 1, original | 74.2% | 88.5% |
+| batch 1, re-run | **64.7%** | 84.6% |
+| batch 2, original | 53.8% | 84.0% |
+| batch 2, re-run | **55.0%** | 88.0% |
+
+**The published out-of-sample figure reproduces within 1.2 points.** Batch 2 —
+the batch the freeze made meaningful — reads 53.8% then 55.0%. So [#155]'s
+headline number is sound and this round does not disturb it.
+
+**The in-sample figure does not.** Batch 1 moves 9.5 points on identical text.
+And every McNemar is far from significance, so the flips are symmetric: what is
+unstable is *which* responses the detector calls restatements, not how many. That
+is the same signature `judge-self-disagreement.md` found — *"No cell's rate
+moves. What moves is which runs pass."*
+
+## The registered secondary is confirmed, and it is the useful half
+
+[#155] classified detector v1's 26 false positives into four shapes: mixed
+closing clause (14), walkthrough concurrency elaboration (8), "rollback is broken
+too" (3), other (1).
+
+**The ten `true → false` flips fall into those same four classes, in the same
+proportions:**
+
+| flipped quote | [#155]'s class |
+|---|---|
+| *"Fix the multiple-comparisons issue first—it's the clearest threat to validity."* | mixed closing — **this is one of the two examples the issue quotes verbatim** |
+| *"#1 is the one to fix before anything else builds on this"* | mixed closing |
+| *"The sequencing/rollback interaction is the thing to fix."* | mixed closing |
+| *"The issue is strictly the sequencing during the rolling deploy."* | mixed closing |
+| *"Old code can't survive the schema change it doesn't know about."* | mixed closing |
+| *"Both callers end up awaiting the identical in-flight request…"* | walkthrough elaboration |
+| *"The first sets `inFlight` and starts the fetch…"* | walkthrough elaboration |
+| *"The rollback they've practiced… is incompatible with this migration."* | rollback is broken too |
+| *"The plan describes rollback as a practiced, six-minute operation, but…"* | rollback is broken too |
+| *"Specify the stopping rule precisely: primary metric only, or any of eight?"* | other |
+
+**The verdicts that flip are the verdicts that were false positives.** The
+detector is unstable precisely where the criterion is undecided, and stable
+everywhere else.
+
+## What this says about direction A
+
+Two things, pulling in opposite directions, and both belong in the record.
+
+**Against A: its ceiling estimate is not trustworthy.** The projected 72.4% was
+computed by removing 14 mixed-closing false positives from batch 2 — a batch on
+which the detector flips **15 of 60 verdicts**, concentrated on that same shape.
+Subtracting a class from one draw of an instrument that re-draws a quarter of
+that class is not an estimate. The true ceiling could be either side of 72%, and
+this round cannot say which.
+
+**For A: its mechanism is validated.** If the instability were spread evenly
+across all verdicts, sharpening one boundary could not help — the noise would be
+in the judge or the task, and no criterion edit would reach it. It is not spread
+evenly. It sits on the one seam [#155] identified and `criterion.md` leaves
+open, which is the strongest available evidence that **resolving that seam is
+what would reduce it.**
+
+So A is not refuted and it is not cheap. What has changed is that its cost is now
+known to buy an unknown rather than a projected 72%: the re-label is the only way
+to find out where the ceiling actually is, because the current estimate of it is
+inside the instrument's own noise.
+
+**[#155] stays open**, with the projection struck rather than the direction.
+
+## A note for anyone re-running this
+
+`detector_v1.py` resumes by key, like `run.py` and `judge.py`, and that is what
+made this affordable in ten-minute chunks. It also writes progress to stdout, so
+piping it through `head` kills it with `SIGPIPE` mid-pass — which happened once
+here and cost one response.
+
+## Cost
+
+120 calls, sonnet, the same 120 the original pass bought at $7.81. No generation.
+No rule edit.
 
 [#155]: https://github.com/JordanMPDS/laconic/issues/155

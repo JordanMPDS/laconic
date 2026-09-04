@@ -1,5 +1,16 @@
 # `restates`: building the instrument #150 needs
 
+> **Detector stability measured 2026-09-04.** Re-running `detector_v1.py`
+> unchanged, at the same criterion checksum, on the same 120 responses moves
+> **24 verdicts, 20%** — and the flips fall into the same four false-positive
+> classes this document names, in the same proportions. The published
+> out-of-sample precision reproduces within 1.2 points (53.8% then 55.0%), so
+> the headline is sound; what does not reproduce is *which* responses are called
+> restatements. The consequence for [#155]'s direction A is in
+> [`restatement-stability.md`](restatement-stability.md): its projected 72.4%
+> ceiling was computed from one draw of an instrument that re-draws a quarter of
+> the class it subtracts.
+
 **Status: parked. Detector v1 measured at 55.3% precision out of sample, which is not good enough, and the ceiling after fixing its dominant error class is about 72%. Picked up again, if at all, under [#155].**
 
 **[#155]'s direction B was piloted and failed** — see

@@ -485,8 +485,20 @@ nothing".
 carried the control *runs* and then re-graded them anyway: 510 of its 850 judge
 calls, and $25.05 of its $41.37 judging bill, spent re-grading text the baseline
 had already graded and no fatal gate reads. Worse than wasted — the judge
-disagrees with itself on 5 to 10% of identical text, so each round re-rolled its
-own comparison rows.
+disagrees with itself on 5 to 10% of identical text round-wide, so each round
+re-rolled its own comparison rows.
+
+**That band is a pooled average and it hides the cells a round is decided on.**
+Round 13 measured it over a whole round, most of whose cells sit at a ceiling
+and cannot churn.
+[`judge-self-disagreement.md`](../../../evals/results/loop/judge-self-disagreement.md)
+re-judged four cells chosen for intermediate pass rates — where churn is
+possible at all — and found **0% to 27%**, pooling at 15%: `design-cache` moved
+0 of 55 while `design-alerting` moved 15 of 56, same judge, same pass, same day.
+No cell's rate moves (every McNemar p ≥ 0.75), so a headline is not biased; which
+runs pass is. **Self-disagreement is a property of the criterion, not of the
+judge**, so a noisy cell is a criterion that can be rewritten — and a 20-run
+gate-relevant cell carries roughly 3 verdicts of grading noise, not 1.
 
 This is not in tension with regenerating the controls above. Re-grading text
 that has *already been graded* is waste; generating *fresh* control text in the

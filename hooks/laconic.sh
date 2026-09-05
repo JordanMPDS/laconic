@@ -1,8 +1,11 @@
 #!/usr/bin/env bash
 # laconic — emit the active rule set for Claude Code hooks.
-# Usage: laconic.sh start|remind
+# Usage: laconic.sh start|remind|switch
 #   start   print the rule slice for the active level
 #   remind  persist any "/laconic <level> [project]" on stdin, print one line
+#   switch  persist the same switch and acknowledge it by refusing the turn,
+#           for a hook system with no per-turn injection (#16). Prints nothing
+#           at all when the prompt is not a switch.
 # Prints nothing at all unless a valid level is active.
 #
 # Output is raw text by default, which is what Claude Code consumes. Setting
@@ -14,7 +17,8 @@
 # The path is a parameter rather than a fixed shape because the platforms do not
 # agree on where the field lives — Codex and Copilot nest it differently (#14,
 # #15). Unset or empty means the raw path, byte for byte, so nothing about the
-# Claude Code behaviour moves.
+# Claude Code behaviour moves. Switch mode ignores it: what that mode emits is a
+# fixed object with two fields rather than a rule slice at a caller's key path.
 #
 # There is deliberately no subagent mode. laconic exists to make a response
 # pleasant and cheap for a person to read, and nobody reads a subagent's report
@@ -26,7 +30,7 @@ set -uo pipefail
 
 MODE="${1:-}"
 case "$MODE" in
-  start|remind) ;;
+  start|remind|switch) ;;
   *) exit 0 ;;   # unknown or missing mode: do nothing rather than guess
 esac
 
@@ -49,7 +53,7 @@ RULES="$(cd "$(dirname "$0")/.." && pwd)/rules/laconic.md"
 # with the slash command switches the level: prose like "does /laconic off
 # actually work?" must not flip it, and must never re-enable the mode after the
 # user set off. "status" is absent from the alternation so it cannot be stored.
-if [ "$MODE" = "remind" ]; then
+if [ "$MODE" = "remind" ] || [ "$MODE" = "switch" ]; then
   payload=$(cat)
   # Keep the whole matched span, not just the level: the optional " project"
   # suffix that selects the scope is only visible here.
@@ -66,13 +70,45 @@ if [ "$MODE" = "remind" ]; then
   case "$match" in
     *" project"*) target="$PROJECT_FLAG"; target_dir="$PROJECT_CONFIG_DIR" ;;
   esac
+  applied=""
   # This write precedes the read-path symlink check below, so it needs its own
   # guard: without it, /laconic ultra against a symlinked flag would write
   # through the link into an attacker-chosen file.
   if [ -n "${switch:-}" ] && [ ! -L "$target" ]; then
     mkdir -p "$target_dir" 2>/dev/null || true
     { printf '%s' "$switch" > "$target"; } 2>/dev/null || true
+    # Read the flag back rather than trusting the redirect, whose status the
+    # guard above deliberately discards. Only switch mode uses this, and its
+    # acknowledgment is a claim that the level is on disk: a write that failed,
+    # or one refused because the flag is a symlink, must not produce one.
+    if [ "$(head -c 16 "$target" 2>/dev/null | tr -cd 'a-z')" = "$switch" ]; then
+      applied="$switch"
+    fi
   fi
+fi
+
+# switch mode ends here, before the level whitelist, because the one switch that
+# most needs acknowledging is "off" — and past this point an inactive level is
+# silence by design.
+#
+# Cursor's beforeSubmitPrompt is the only per-turn hook laconic can reach there
+# and it injects nothing: it reads `continue`, and a `user_message` shown to the
+# user only when the submission is blocked. So the one thing that event can do
+# is refuse the /laconic turn and say what happened. That beats writing the flag
+# silently — a switch nothing confirms is a weaker form of the silent no-op #2
+# exists to eliminate, and under Cursor the new level genuinely does not take
+# effect until the next session, which is the part a user has to be told.
+#
+# Anything that is not a switch prints nothing, and an empty stdout blocks
+# nothing. The blast radius of this mode is exactly the prompts that begin
+# "/laconic lite|full|ultra|off".
+if [ "$MODE" = "switch" ]; then
+  [ -n "${applied:-}" ] || exit 0
+  scope=""
+  case "$match" in *" project"*) scope=" for this project" ;; esac
+  printf '{"continue":false,"user_message":"laconic: level set to %s%s. Cursor delivers the rules at session start, so open a new chat for it to take effect."}\n' \
+    "$applied" "$scope"
+  exit 0
 fi
 
 # Resolve which flag is in force. The project flag wins so a repository can run

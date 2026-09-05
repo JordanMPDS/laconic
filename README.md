@@ -94,8 +94,9 @@ To turn it off in one repository only, see
 
 ## Other agents
 
-Codex CLI and Gemini CLI both have hook systems close enough to Claude Code's
-that the same scripts serve them.
+Codex CLI, Gemini CLI and Cursor all have hook systems close enough to Claude
+Code's that the same scripts serve them. Cursor gets a partial port: the rules
+load at session start, and nothing there can carry the per-turn reminder.
 
 - **Codex CLI** — append [`hooks/codex-config.toml`](hooks/codex-config.toml) to
   `~/.codex/config.toml` and point it at your clone. Codex will not run a new
@@ -106,6 +107,13 @@ that the same scripts serve them.
   into `~/.gemini/settings.json` and point it at your clone. Details and the two
   behavioral differences are in
   [`docs/other-agents.md`](docs/other-agents.md#gemini-cli-run-the-hooks).
+- **Cursor** — copy [`hooks/cursor-hooks.json`](hooks/cursor-hooks.json) into
+  `~/.cursor/hooks.json` and point it at your clone. **There is no per-turn
+  reminder**: Cursor injects at `sessionStart` and nowhere else, so the rules
+  arrive once and nothing reinforces them. `/laconic` still switches the level,
+  and says so by blocking that one submission, because the switch would
+  otherwise be silent until the next session:
+  [`docs/other-agents.md`](docs/other-agents.md#cursor-the-rules-load-the-reminder-cannot).
 
 Agents without a hook system take a static instructions file. `rules/dist/` holds
 one pre-sliced file per level — copy

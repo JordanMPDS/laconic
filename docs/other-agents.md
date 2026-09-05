@@ -1,6 +1,8 @@
 # Other agents
 
-Codex CLI and Gemini CLI run the hooks. Everything else takes a static rule file.
+Codex CLI and Gemini CLI run the hooks. Cursor runs half of them — the rules
+load, the per-turn reminder has no carrier. Everything else takes a static rule
+file.
 
 ## Codex CLI: run the hooks
 
@@ -159,6 +161,101 @@ the PowerShell command in place, JSON-escaped as shown:
   is not evidence of loading. [#13](https://github.com/JordanMPDS/laconic/issues/13)
   stays open until someone confirms it on a real install.
 
+## Cursor: the rules load, the reminder cannot
+
+Cursor's hook system runs arbitrary shell commands, so `hooks/laconic.sh` and
+`hooks/laconic.ps1` serve it unchanged. Only one of laconic's two deliveries has
+a carrier there, and the gap is permanent until Cursor adds per-turn injection:
+
+| Cursor event | Injects | laconic mode |
+| --- | --- | --- |
+| `sessionStart` | `additional_context`, into "the conversation's initial system context" | `start` |
+| `beforeSubmitPrompt` | **Nothing.** It reads `continue`, and a `user_message` shown only when the submission is blocked | `switch` — persists `/laconic`, and acknowledges it |
+| `postToolUse` | `additional_context` — but per tool call, not per turn | — |
+
+Copy [`hooks/cursor-hooks.json`](../hooks/cursor-hooks.json) into
+`~/.cursor/hooks.json` (or `<project-root>/.cursor/hooks.json` for one project),
+merging it with whatever is already there, and replace
+`/absolute/path/to/laconic` with your clone:
+
+```bash
+git clone https://github.com/JordanMPDS/laconic ~/projects/laconic
+```
+
+Then set a level. `/laconic full` works from inside Cursor, or write the flag
+directly — it is the same `~/.claude/.laconic-level` every other path reads:
+
+```bash
+printf full > ~/.claude/.laconic-level
+```
+
+### Why the command looks like that
+
+- **`LACONIC_JSON_PATH=additional_context`.** Unnested and snake_case, where
+  Gemini nests the same idea under `hookSpecificOutput.additionalContext`.
+  Copying Gemini's fragment across gives a file that loads, runs, and injects
+  nothing.
+- **`env` rather than a bare `VAR=value` prefix**, which only works if the
+  command goes through a shell. `env` is the command either way.
+- **`"timeout": 5`.** Cursor's timeouts are seconds, like Codex's and unlike
+  Gemini's milliseconds.
+- **`"version": 1`.** Required at the top level; Cursor rejects a hooks file
+  without it.
+- **`"type": "command"`,** spelled out rather than left to the default. The
+  other value is `"prompt"`, which hands the hook to a model to evaluate.
+- **`"failClosed": false`** on `beforeSubmitPrompt`. It is the only laconic hook
+  on any platform that can refuse a prompt, so a hook that crashes or times out
+  has to let the turn through. That is already Cursor's default, and it is
+  written out because a default is not a guarantee.
+
+On native Windows, Cursor's schema has no `commandWindows` field, so substitute
+the PowerShell command in place, JSON-escaped as shown:
+
+```json
+"command": "powershell -NoProfile -ExecutionPolicy Bypass -Command \"$env:LACONIC_JSON_PATH='additional_context'; & 'C:\\path\\to\\laconic\\hooks\\laconic.ps1' start\""
+```
+
+### What is different from Claude Code
+
+- **No per-turn reminder.** `beforeSubmitPrompt` can read the prompt and block
+  it, but it cannot add anything to the model's context, and no other event
+  fires once per turn. The rules arrive at session start and nothing reinforces
+  them as the context fills. This is the one thing the port cannot deliver, and
+  it is why [#16](https://github.com/JordanMPDS/laconic/issues/16) asked whether
+  a start-only port was worth shipping at all.
+- **`/laconic` switches the level by refusing the turn.** The switch itself
+  works — `beforeSubmitPrompt` receives the prompt, and the hook writes the flag
+  exactly as it does under Claude Code. What it cannot do is confirm the write in
+  the model's next answer, because there is no next-turn injection. A silent
+  switch is a weaker form of the silent no-op
+  [#2](https://github.com/JordanMPDS/laconic/issues/2) exists to eliminate, so
+  the `switch` mode blocks that one submission and returns the acknowledgment as
+  the `user_message`:
+
+  ```json
+  {"continue":false,"user_message":"laconic: level set to ultra. Cursor delivers the rules at session start, so open a new chat for it to take effect."}
+  ```
+
+  Blocking is the only channel that event has to the user, and the message
+  carries the part a Cursor user has to know: **a mid-session switch does not
+  take effect until the next session.** Nothing else is ever blocked — a prompt
+  that does not begin `/laconic lite|full|ultra|off` produces no output at all,
+  and empty stdout blocks nothing. A refused write produces no acknowledgment
+  either: the flag is read back first, so a symlinked flag is silent rather than
+  claiming a level it did not set.
+- **No subagent injection**, the same deliberate omission as everywhere else.
+  Cursor has a `subagentStart` event; see
+  [#6](https://github.com/JordanMPDS/laconic/issues/6).
+- **Not verified against a running Cursor.** `tests/test_laconic.sh` checks the
+  fragment against Cursor's documented schema and runs the fragment's own
+  commands end to end, and schema validity is not evidence of loading.
+  [#16](https://github.com/JordanMPDS/laconic/issues/16)'s last acceptance
+  criterion needs someone with the app. Worth knowing for whoever does it:
+  Cursor has filed bugs on hook output handling elsewhere —
+  `additional_context` accepted and logged on `postToolUse` but never surfaced,
+  and `updated_input` silently stripped on `beforeSubmitPrompt` — so confirm the
+  injected slice reaches the model rather than trusting the startup log.
+
 ## GitHub Copilot CLI: the hooks cannot carry it
 
 **Copilot CLI has a hook system that runs shell commands, and neither of the two
@@ -284,15 +381,12 @@ A static file is the rule text and nothing else. Specifically:
   guarantee the hook exists to provide.
 - **No per-turn reminder**, so nothing reinforces the rules as context fills.
 
-Copilot and Cursor both have shell-command hooks, and neither can run
-`laconic.sh` and `laconic.ps1` the way Codex CLI and Gemini CLI do. Copilot
-drops a command hook's output on both events laconic needs, which is the section
-above and closed [#15](https://github.com/JordanMPDS/laconic/issues/15). Cursor
-injects at `sessionStart` but has no per-turn injection at all, so the reminder
-has no carrier there either;
-[#16](https://github.com/JordanMPDS/laconic/issues/16) tracks whether a
-start-only port is worth shipping. For both, the copied file is what they get
-today.
+Copilot drops a command hook's output on both events laconic needs, which is the
+section above and closed [#15](https://github.com/JordanMPDS/laconic/issues/15),
+so the copied file is what it gets today. **Cursor runs the hooks for everything
+except the reminder**, which is its own section above — a static file there is
+the choice for someone who would rather not wire a hook at all, and it costs the
+`/laconic` switch and the off switch on top of the reminder.
 
 Regenerate after editing `rules/laconic.md`:
 

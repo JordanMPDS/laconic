@@ -490,6 +490,77 @@ else
   fail "SessionStart matcher (got: ${matcher:-nothing})"
 fi
 
+# --- switch mode: the Cursor acknowledgment (#16) ---
+#
+# Cursor's beforeSubmitPrompt injects nothing, so this mode does not deliver
+# rules. It persists the switch the way remind does and then refuses the turn,
+# which is the only channel that event has to the user. The first assertion is
+# the one that matters most: an ordinary prompt must produce nothing, because
+# anything on stdout here is a decision about whether the user's work is allowed
+# to be submitted.
+set_level full
+clear_project
+out=$(printf '{"prompt":"fix the failing test"}' | bash "$SCRIPT" switch)
+assert_empty "switch says nothing about an ordinary prompt" "$out"
+out=$(printf '{"prompt":"does /laconic off actually work?"}' | bash "$SCRIPT" switch)
+assert_empty "switch says nothing about prose mentioning the command" "$out"
+assert_has "switch leaves the level alone on prose" "full" "$(cat "$FLAG")"
+
+out=$(printf '{"prompt":"/laconic ultra"}' | bash "$SCRIPT" switch)
+assert_has "switch persists the level" "ultra" "$(cat "$FLAG")"
+assert_has "switch blocks the /laconic turn" '"continue":false' "$out"
+assert_has "switch names the new level" "level set to ultra" "$out"
+assert_lacks "switch does not emit the rules" "No preamble" "$out"
+if printf '%s' "$out" | python3 -c '
+import json, sys
+d = json.load(sys.stdin)
+sys.exit(0 if d["continue"] is False and d["user_message"].strip() else 1)
+' 2>/dev/null; then
+  ok "the acknowledgment is well-formed JSON in Cursor's shape"
+else
+  fail "the acknowledgment is well-formed JSON in Cursor's shape"
+fi
+
+# Asserted in full rather than by substring, and asserted identically in
+# tests/test_laconic.ps1: this is a user-visible sentence that exists in two
+# implementations, and a divergence between them would show on one platform only.
+ACK='{"continue":false,"user_message":"laconic: level set to ultra. Cursor delivers the rules at session start, so open a new chat for it to take effect."}'
+if [ "$out" = "$ACK" ]; then
+  ok "the acknowledgment is byte-identical to the PowerShell side"
+else
+  fail "the acknowledgment is byte-identical to the PowerShell side — got: $out"
+fi
+
+# off is the switch that most needs acknowledging, and it is the one the level
+# whitelist would otherwise swallow: past that gate an inactive level is
+# silence. Asserted separately because it runs a different path from the levels.
+out=$(printf '{"prompt":"/laconic off"}' | bash "$SCRIPT" switch)
+assert_has "switch acknowledges off" "level set to off" "$out"
+assert_has "off persists through switch mode" "off" "$(cat "$FLAG")"
+
+set_level full
+out=$(printf '{"prompt":"/laconic lite project"}' | bash "$SCRIPT" switch)
+assert_has "switch names the project scope" "for this project" "$out"
+assert_has "switch writes the project flag" "lite" "$(cat "$PROJECT_FLAG")"
+clear_project
+
+# A refused write must not be acknowledged. The symlink guard already stops the
+# write; without the read-back the mode would still tell the user the level had
+# changed, which is the one thing an acknowledgment exists not to do.
+rm -f "$FLAG"
+printf 'keep' > "$CLAUDE_CONFIG_DIR/decoy"
+ln -s "$CLAUDE_CONFIG_DIR/decoy" "$FLAG"
+run switch '{"prompt":"/laconic ultra"}'
+assert_silent "symlinked flag on switch"
+assert_has "symlinked flag not written through on switch" "keep" "$(cat "$CLAUDE_CONFIG_DIR/decoy")"
+rm -f "$FLAG"
+
+set_level full
+out=$(printf '{"prompt":"/laconic fullscreen"}' | bash "$SCRIPT" switch)
+assert_empty "switch does not prefix-match a level word" "$out"
+assert_has "fullscreen does not switch under switch mode" "full" "$(cat "$FLAG")"
+rm -f "$FLAG"
+
 # --- gemini-settings.json: the Gemini CLI hook fragment (#13) ---
 #
 # Gemini reads a field out of a JSON object rather than raw stdout, so the
@@ -704,6 +775,124 @@ if [ -z "$COPILOT_BAD" ]; then
 else
   fail "Copilot fragment wires a dropped event: $COPILOT_BAD"
 fi
+
+# --- cursor-hooks.json: the Cursor hook fragment (#16) ---
+#
+# Cursor reads additional_context out of a JSON object on sessionStart, and it
+# spells the field in snake_case where Gemini nests it under hookSpecificOutput.
+# A fragment carrying Gemini's path across would be valid JSON, would load, and
+# would inject nothing. There is no per-turn injection to wire at all, so the
+# second hook is the switch acknowledgment rather than remind.
+CURSOR="$ROOT/hooks/cursor-hooks.json"
+if [ -f "$CURSOR" ]; then ok "cursor-hooks.json exists"; else fail "cursor-hooks.json exists"; fi
+if python3 -c "import json,sys;json.load(open('$CURSOR'))" 2>/dev/null; then
+  ok "cursor-hooks.json is valid JSON"
+else
+  fail "cursor-hooks.json is valid JSON"
+fi
+
+# Cursor requires the schema version and rejects a file without it.
+if python3 -c "
+import json, sys
+sys.exit(0 if json.load(open('$CURSOR')).get('version') == 1 else 1)
+" 2>/dev/null; then
+  ok "cursor-hooks.json declares version 1"
+else
+  fail "cursor-hooks.json declares version 1"
+fi
+
+# Same event-to-mode pairing check the other fragments get. Cursor's hook list is
+# flat — one array of objects per event, with no matcher group in between.
+for pair in "sessionStart:start" "beforeSubmitPrompt:switch"; do
+  ev=${pair%:*}; mode=${pair#*:}
+  found=$(python3 -c "
+import json
+d = json.load(open('$CURSOR'))['hooks']
+print(' '.join(h['command'].split()[-1] for h in d.get('$ev', [])))
+" 2>/dev/null)
+  if [ "$found" = "$mode" ]; then
+    ok "cursor-hooks.json wires $ev -> $mode"
+  else
+    fail "cursor-hooks.json wires $ev -> $mode (got: ${found:-nothing})"
+  fi
+done
+
+CURSOR_PATH=$(python3 -c "
+import json
+d = json.load(open('$CURSOR'))['hooks']
+paths = set()
+for h in d.get('sessionStart', []):
+    for tok in h['command'].split():
+        if tok.startswith('LACONIC_JSON_PATH='):
+            paths.add(tok.split('=', 1)[1])
+print(paths.pop() if len(paths) == 1 else '')
+" 2>/dev/null)
+if [ "$CURSOR_PATH" = "additional_context" ]; then
+  ok "cursor-hooks.json sets the JSON path Cursor reads, unnested and snake_case"
+else
+  fail "cursor-hooks.json JSON path (got: ${CURSOR_PATH:-nothing or inconsistent})"
+fi
+
+# Cursor's timeouts are seconds, like hooks.json's and unlike Gemini's.
+if python3 -c "
+import json, sys
+d = json.load(open('$CURSOR'))['hooks']
+t = [h.get('timeout', 0) for hooks in d.values() for h in hooks]
+sys.exit(0 if t and all(1 <= x <= 60 for x in t) else 1)
+" 2>/dev/null; then
+  ok "cursor-hooks.json timeouts are in seconds"
+else
+  fail "cursor-hooks.json timeouts are in seconds"
+fi
+
+# beforeSubmitPrompt is the one laconic hook anywhere that can refuse a user's
+# prompt, so it must never fail closed: a hook that crashes or times out has to
+# let the turn through. Cursor's default is already false, and it is written out
+# here because a default is not a guarantee.
+if python3 -c "
+import json, sys
+d = json.load(open('$CURSOR'))['hooks']
+h = d.get('beforeSubmitPrompt', [])
+sys.exit(0 if h and all(x.get('failClosed') is False for x in h) else 1)
+" 2>/dev/null; then
+  ok "cursor-hooks.json fails open on the event that can block a prompt"
+else
+  fail "cursor-hooks.json fails open on the event that can block a prompt"
+fi
+
+# End to end against the fragment's own commands rather than literals, so the
+# fragment and the hook cannot drift apart silently. This is a schema check and
+# nothing more: per #16, a well-formed object is not evidence that Cursor loads
+# it, and no Cursor install has confirmed it.
+set_level full
+cursor_cmd() { # cursor_cmd <event>
+  python3 -c "
+import json
+d = json.load(open('$CURSOR'))['hooks']
+for h in d.get('$1', []):
+    print(h['command'])
+" 2>/dev/null | sed "s|/absolute/path/to/laconic|$ROOT|"
+}
+
+if cursor_cmd sessionStart | while read -r cmd; do eval "$cmd" </dev/null 2>/dev/null; done \
+   | python3 -c "
+import json, sys
+v = json.load(sys.stdin)['additional_context']
+sys.exit(0 if isinstance(v, str) and 'fewer claims' in v else 1)
+" 2>/dev/null; then
+  ok "sessionStart fills additional_context where Cursor reads it"
+else
+  fail "sessionStart fills additional_context where Cursor reads it"
+fi
+
+out=$(cursor_cmd beforeSubmitPrompt \
+      | while read -r cmd; do printf '{"prompt":"ship it"}' | eval "$cmd" 2>/dev/null; done)
+assert_empty "the fragment's own beforeSubmitPrompt command allows an ordinary prompt" "$out"
+out=$(cursor_cmd beforeSubmitPrompt \
+      | while read -r cmd; do printf '{"prompt":"/laconic lite"}' | eval "$cmd" 2>/dev/null; done)
+assert_has "the fragment's own beforeSubmitPrompt command acknowledges a switch" \
+  '"continue":false' "$out"
+rm -f "$FLAG"
 
 # --- statusline ---
 BADGE="$ROOT/hooks/laconic-statusline.sh"

@@ -230,7 +230,7 @@ $rank = switch -CaseSensitive ($level) {
 if ($rank -eq 0) { exit 0 }
 
 if ($Mode -eq 'remind') {
-  Emit "LACONIC MODE ACTIVE ($level). Make fewer claims and keep normal grammar. Cut content, not words. Would this be the same answer if this were the session's first turn? Earlier turns set the subject, never the length.`n"
+  Emit "LACONIC MODE ACTIVE ($level). Make fewer claims and keep normal grammar. Cut content, not words.`n"
   exit 0
 }
 

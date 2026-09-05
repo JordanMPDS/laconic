@@ -201,7 +201,7 @@ laconic_emit() {
 }
 
 if [ "$MODE" = "remind" ]; then
-  printf "LACONIC MODE ACTIVE (%s). Make fewer claims and keep normal grammar. Cut content, not words. Would this be the same answer if this were the session's first turn? Earlier turns set the subject, never the length.\n" "$LEVEL" | laconic_emit
+  printf 'LACONIC MODE ACTIVE (%s). Make fewer claims and keep normal grammar. Cut content, not words.\n' "$LEVEL" | laconic_emit
   exit 0
 fi
 

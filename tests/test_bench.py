@@ -4397,6 +4397,10 @@ _expected_concurrent = {
     # side's merge reconstructs to the three that produced it, which the
     # declaration covers with room to spare.
     "round-47-control.json", "round-47-edit.json",
+    # Round 48 is the same two-tree, three-shard-per-side design as round 47,
+    # each shard strictly sequential and each declaring --concurrency 6. Each
+    # side's merge reconstructs to the three that produced it.
+    "round-48-control.json", "round-48-edit.json",
 }
 _found = set()
 for _p in sorted((ROOT / "evals" / "snapshots").rglob("*.json")):
@@ -4527,9 +4531,12 @@ try:
                          delivery="plugin", level="full")
     check("plugin sends the slice only on turn 1",
           [c["system_prompt"] for c in _calls] == ["RULES", None, None])
-    check("plugin prepends the reminder to later turns",
-          _calls[1]["prompt"].startswith("LACONIC MODE ACTIVE (full)")
-          and _calls[1]["prompt"].endswith("two"))
+    # Pinned to the whole string, not to its opening words. Round 48 made the
+    # reminder itself the treatment, and every variant of it startswith the same
+    # unchanging prefix - so a prefix check would have passed just as happily on
+    # a round that delivered none of the sentence it was measuring.
+    check("plugin prepends the whole reminder to later turns",
+          _calls[1]["prompt"] == (bench_run.REMINDER % "full") + "\n\n" + "two")
     check("plugin leaves turn 1's prompt alone", _calls[0]["prompt"] == "one")
 
     # A single-turn case must be identical under both modes: the reminder only

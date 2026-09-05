@@ -242,3 +242,151 @@ move" is partly a floor and is read as such.
 [#136]: https://github.com/JordanMPDS/laconic/issues/136
 
 <!-- RESULTS BELOW THIS LINE -->
+
+## Result: the falsifier fired, and the channel was not the problem either
+
+Sonnet, 10 reps a side, **120 runs, 0 failed**, every run five turns. Generated
+2026-09-05 from `evals/pilot` at `cases_cksum` 1852778470 — the pilot's value and
+round 47's, unchanged. Both sides carry `rules_cksum` 136269960, as registered;
+the contrast is `reminder_cksum`, `None` on the control against **3208985445** on
+the edit. Six shards declaring `--concurrency 6`; the timestamps reconstruct to 3
+in flight, so the declaration is conservative rather than false.
+
+### Primary: rejected
+
+| family | n | control | edit | ratio | p |
+|---|--:|--:|--:|--:|--:|
+| **`register-*`** | 30 | **59.5** | **54.5** | **0.916** | **0.6595** |
+| `deep-*` | 30 | 28.5 | 20.5 | 0.719 | 0.4366 |
+
+**The falsifier was "not separating at p < 0.05, or separating upward", and the
+first clause fired.** The registered target does not separate. The interaction
+reads p = 0.9926 on raw words and a ratio of ratios of 1.050 at p = 0.7714 on log
+words, the registered arbiter, so **registered reading 3 obtains**: neither family
+moves, and there is no effect anywhere to attribute.
+
+What movement the point estimates show goes the wrong way for the hypothesis.
+`deep-*`, the specificity control, falls further than the target — 0.719 against
+0.916 — so the scale-free statement the clause was supposed to drive toward 1.0
+goes up rather than down:
+
+| | `deep-*` | `register-*` | ratio | p |
+|---|--:|--:|--:|--:|
+| control | 28.5 | 59.5 | **2.088** | 5e-06 |
+| edit | 20.5 | 54.5 | **2.659** | 5e-06 |
+
+Neither side of that comparison is significant on its own, so this is a direction
+rather than a finding. It is reported because the registered prediction was the
+opposite direction, and a null that also points the wrong way is weaker evidence
+for the edit than a null that points the right way and misses.
+
+### Turn 1 behaved as the negative control it was registered to be
+
+| family | turn | control | edit | p |
+|---|--:|--:|--:|--:|
+| `deep-*` | 1 | 124.5 | 125.5 | 0.6572 |
+| `deep-*` | 2 | 15.0 | 20.0 | 0.0364 |
+| `deep-*` | 3 | 34.0 | 27.5 | 0.3743 |
+| `deep-*` | 4 | 27.0 | 21.5 | 0.4940 |
+| `deep-*` | 5 | 28.5 | 20.5 | 0.4366 |
+| `register-*` | 1 | 125.0 | 138.0 | 0.2113 |
+| `register-*` | 2 | 199.0 | 165.5 | 0.6248 |
+| `register-*` | 3 | 148.0 | 170.5 | 0.6491 |
+| `register-*` | 4 | 245.0 | 218.0 | 0.4680 |
+| `register-*` | 5 | 59.5 | 54.5 | 0.6595 |
+
+The edit cannot reach turn 1 in this instrument, and turn 1 does not move on
+either family. That is the harness confirming it delivered the treatment where it
+said it would and nowhere else, which is the one thing this table was registered
+to check.
+
+**Two cells in the exploratory tables fall under 0.05 and neither survives being
+counted.** `deep-*` turn 2 moves *up* at p = 0.0364 here, and `deep`/`index` moves
+*down* at p = 0.0181 in the by-stem table. Sixteen uncorrected cells across the
+two tables, two under 0.05 in opposite directions, both on the specificity
+control rather than the target: that is what chance produces. Bonferroni over the
+six stem cells asks for 0.0083 and neither reaches it.
+
+### The harm check passes
+
+| family | control | edit | p |
+|---|--:|--:|--:|
+| `register-*` turns 2-4 | 656.0 | 605.0 | 0.5260 |
+| `deep-*` turns 2-4 | 79.0 | 73.5 | 0.9976 |
+
+Registered as fatal, with a prior of harm this round explicitly called higher
+than round 47's: this sentence is prepended to turns 2 to 4 themselves,
+immediately above requests for a complete assessment, the whole argument step by
+step, and a table of evidence. It does not suppress them. The trade [#60] warns
+about did not happen — and, as in round 47, that is the same null as everything
+else, because a clause that changes nothing cannot truncate a requested full form
+either.
+
+**Never-cut keyword, `date_trunc` on the `index` stem, graded turn: 40 of 40**,
+both sides, all four groups. Round 47 read 39/40.
+
+### The carry-forward replicates a third time, in the channel that was supposed to remove it
+
+The control side is a third independent measurement of the
+[register pilot](register-inheritance-136.md), after round 47's.
+
+| | pilot | round 47 control | round 48 control |
+|---|--:|--:|--:|
+| `deep-*` turn 5 | 31.0 | 29.0 | 28.5 |
+| `register-*` turn 5 | 52.0 | 55.5 | 59.5 |
+| `deep-*` turns 2-4 | 77.5 | 72.0 | 79.0 |
+| `register-*` turns 2-4 | 704.0 | 630.5 | 656.0 |
+| ratio | 1.677 | 1.914 | **2.088** |
+
+Round 48's control does not differ from round 47's on either family — `deep-*` at
+p = 1.0000 and `register-*` at p = 0.6037. Pooling both sides of this round, 60
+runs a family, the carry-forward reads **26.0 against 58.0, a ratio of 2.231 at
+p < 0.0001**.
+
+The length licence holds a third time as well: laconic writes **8.3 times** as
+much across turns 2 to 4 when the full form is asked for as when the same three
+questions are asked plainly, against round 47's 8.8 and the pilot's 9.1. The
+edit side reads 8.2, so the clause does not touch that either.
+
+## Verdict: reject, and the edit is reverted in full
+
+Per the stop-at-the-first-failing-step order, the round-wide laconic arm and its
+judgments were not bought. `hooks/laconic.sh`, `hooks/laconic.ps1` and `run.py`'s
+`REMINDER` return to the one-line reminder, byte-identical to `origin/master`.
+
+## What this settles
+
+**The channel was the last untested variable in the over-length cluster, and it
+is not the carrier.** Five rule attempts had put this text, and texts like it,
+into the 1,800-word slice sent once on turn 1. The standing objection was that
+the slice is thousands of tokens and four answers away from the turn where the
+failure happens, so a null there might be a delivery failure rather than a
+finding about the text. This round moved the identical sentence into the one
+channel that arrives immediately before the prompt it governs, more than doubling
+a 14-word line, and got the sixth null.
+
+**So the cluster's nulls are about the sentence, not about where it was put.**
+Round 47 established that the clause does not work when the register exists;
+round 48 establishes that it does not work when delivered on the turn it governs.
+Together they close [#60]'s proposal B: a self-directed pre-send question does not
+shorten a laconic answer, at any depth, through either channel the product has.
+
+**What remains standing is the mechanism, now measured three times.** A laconic
+session whose prior answers ran long under an explicit licence answers the
+identical closed question with roughly twice the words, at 1.677, 1.914 and 2.088
+across three independent batches and 2.231 pooled over this round's 120 runs. It
+is the most reproducible effect in the loop, and nothing written into the rules or
+the reminder has moved it.
+
+**What this round does not say.** It measures the reminder as a *later-turn*
+channel only. Turn 1 receives the reminder in the shipped product and cannot in
+this harness, as registered above, so nothing here bounds what the added sentence
+would do to a first answer. That gap is the instrument's, it predates this round,
+and it stays filed rather than fixed.
+
+**The next thing to try is not a sixth sentence.** Six nulls through two channels
+is a negative result about the intervention class: instructing the model to check
+its own length does not change its length. An intervention that changes what the
+model *sees* — the licence's own wording in [#150], which is the clause the
+register is inherited through — is a different class and is where the cluster's
+remaining value is.

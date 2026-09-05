@@ -182,23 +182,38 @@ the fixture is the [#131] stratum crossing rather than a result.
 
 ```sh
 git worktree add /tmp/laconic-r46-control master
-# edit side, from this branch:
+
+# pass 1, the two sides of `walkthrough`, simultaneously:
 python3 evals/bench/run.py --arms laconic --models sonnet \
   --reps 100 --cases walkthrough --concurrency 2 \
   --snapshot evals/snapshots/loop/round-46-edit.json
-python3 evals/bench/run.py --arms laconic --models sonnet \
-  --reps 30 --cases confirm-rollback --concurrency 2 \
-  --snapshot evals/snapshots/loop/round-46-edit.json
-# control side, from the worktree, writing back to the main tree:
 cd /tmp/laconic-r46-control && python3 evals/bench/run.py --arms laconic \
   --models sonnet --reps 100 --cases walkthrough --concurrency 2 \
   --snapshot <abs>/evals/snapshots/loop/round-46-control.json
+
+# pass 2, the two sides of `confirm-rollback`, after pass 1 finishes:
+python3 evals/bench/run.py --arms laconic --models sonnet \
+  --reps 30 --cases confirm-rollback --concurrency 2 \
+  --snapshot evals/snapshots/loop/round-46-edit-confirm.json
+cd /tmp/laconic-r46-control && python3 evals/bench/run.py --arms laconic \
+  --models sonnet --reps 30 --cases confirm-rollback --concurrency 2 \
+  --snapshot <abs>/evals/snapshots/loop/round-46-control-confirm.json
 ```
 
-260 generations, no judging. Both sides run simultaneously, per round 38.
-`--concurrency 2` is declared on every invocation because two CLI processes are
-genuinely in flight. Control at `rules_cksum` 136269960, edit at
-**2741667431**.
+260 generations, no judging. The two sides of a case run simultaneously, per
+round 38, so era and regime cancel between them rather than confounding them.
+
+**Four snapshots rather than round 45's two, because the two cases run at
+different reps.** `--reps` is per invocation, and a snapshot's `cases_cksum`
+covers exactly the case set it was created with, so resuming
+`round-46-edit.json` with a second case would trip the [#69] guard and need an
+`--allow-case-change` override that would misdescribe what happened. Two files
+per side is the honest shape.
+
+**`--concurrency 2` on all four**, because two CLI processes are in flight at
+any moment and never four: pass 2 starts when pass 1 finishes. The declaration
+describes the file, which is round 42's correction on the same field. Control
+at `rules_cksum` 136269960, edit at **2741667431**.
 
 Both cases are single-turn, so `--turn-delivery` does not apply and the batch
 carries no multi-turn work.
@@ -244,5 +259,6 @@ primary here does not accept the edit: it sends it to step 2, where
 that predicts its own inflation.
 
 [#26]: https://github.com/JordanMPDS/laconic/issues/26
+[#69]: https://github.com/JordanMPDS/laconic/issues/69
 [#131]: https://github.com/JordanMPDS/laconic/issues/131
 [#164]: https://github.com/JordanMPDS/laconic/issues/164

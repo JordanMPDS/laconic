@@ -672,6 +672,39 @@ for groups in d.values():
 done
 rm -f "$FLAG"
 
+# --- no Copilot fragment on the events that drop it (#15) ---
+#
+# Copilot CLI runs shell hooks from .github/hooks/*.json, and its own reference
+# says a config-file command hook's output is dropped on userPromptSubmitted and
+# is not read at all on sessionStart — which is both of laconic's modes. A
+# fragment wiring them would be valid JSON, would load, would run, and would
+# deliver nothing, silently. The recipes in circulation do exactly that, so this
+# guard exists for whoever transcribes one: see docs/other-agents.md.
+#
+# Written as "if such a file appears" rather than asserting a shape, because the
+# finding is that the file must not exist yet.
+COPILOT_BAD=$(python3 -c "
+import glob, json, sys
+dropped = {'sessionstart', 'userpromptsubmitted', 'userpromptsubmit'}
+bad = []
+for path in sorted(glob.glob('$ROOT/hooks/copilot*.json')
+                   + glob.glob('$ROOT/.github/hooks/*.json')):
+    try:
+        events = json.load(open(path)).get('hooks', {})
+    except Exception:
+        bad.append(path + ' (unparseable)')
+        continue
+    for ev in events:
+        if ev.lower() in dropped:
+            bad.append(path + ':' + ev)
+print(' '.join(bad))
+" 2>/dev/null)
+if [ -z "$COPILOT_BAD" ]; then
+  ok "no Copilot fragment wires an event that drops the hook's output"
+else
+  fail "Copilot fragment wires a dropped event: $COPILOT_BAD"
+fi
+
 # --- statusline ---
 BADGE="$ROOT/hooks/laconic-statusline.sh"
 rm -f "$FLAG"

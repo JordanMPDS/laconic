@@ -159,6 +159,84 @@ the PowerShell command in place, JSON-escaped as shown:
   is not evidence of loading. [#13](https://github.com/JordanMPDS/laconic/issues/13)
   stays open until someone confirms it on a real install.
 
+## GitHub Copilot CLI: the hooks cannot carry it
+
+**Copilot CLI has a hook system that runs shell commands, and neither of the two
+events laconic needs reads what the command prints.** A fragment wiring them
+would load, run, exit 0, and deliver nothing — the silent no-op
+[#2](https://github.com/JordanMPDS/laconic/issues/2) exists to eliminate. So
+Copilot takes the static rule file below, and this section records why, because
+the configuration looks like it should work and the recipes in circulation say
+it does.
+
+The [hooks reference](https://docs.github.com/en/copilot/reference/hooks-reference)
+is explicit on the per-turn event:
+
+> `modifiedPrompt` is only honored by SDK programmatic hooks. Command and HTTP
+> config-file `userPromptSubmitted` hooks have their output dropped, including
+> `modifiedPrompt`.
+
+And it documents no output at all for `sessionStart` — the event is input only.
+That is both of laconic's modes:
+
+| Copilot event | laconic mode | Reads the hook's stdout |
+| --- | --- | --- |
+| `sessionStart` | `start` | **No.** Input only; no output processed |
+| `userPromptSubmitted` | `remind` | **No.** Dropped for command hooks |
+| `postToolUse` | — | Yes, `additionalContext` — but per tool call, not per turn |
+| `notification` | — | Yes, `additionalContext` — fires on notifications, not turns |
+
+The two that do read stdout are not delivery points laconic can use. A reminder
+appended after every tool result is not the one-per-turn line the rules
+describe, and `notification` fires on an event the user's prompt does not cause.
+Both also have open injection bugs:
+[#2980](https://github.com/github/copilot-cli/issues/2980) and
+[#2652](https://github.com/github/copilot-cli/issues/2652).
+
+### Why the recipes disagree
+
+Two widely-linked write-ups describe context injection working from a
+config-file command hook, and both predate or omit the restriction above: the
+`awesome-copilot` learning hub lists `additionalContext` as a general hook
+output field, and Ken Muse's [Guaranteed Copilot Context with
+Hooks](https://www.kenmuse.com/blog/guaranteed-copilot-context-with-hooks/)
+ships a `UserPromptSubmit` command hook emitting `modifiedPrompt` — the exact
+shape the reference says is dropped.
+
+It is also not purely a documentation question. Copilot CLI
+[#3727](https://github.com/github/copilot-cli/issues/3727) reports
+`userPromptSubmitted` `additionalContext` reaching the planner on v1.0.59 and
+silently stopping at v1.0.60, still reproducing at v1.0.61 — so the path a
+recipe was written against can close under the reader.
+
+### The one route that survives, and why it is not shipped
+
+`userPromptTransformed` returns `modifiedTransformedPrompt`, which "replaces the
+model-facing content", and the reference does not mark it SDK-only the way it
+marks `userPromptSubmitted`. laconic could prepend the rule slice there.
+
+It is not shipped for two reasons, and the second is the one that decides it:
+
+- **The hook would have to echo the user's prompt back.** `modifiedTransformedPrompt`
+  replaces rather than appends, so the hook becomes responsible for reproducing
+  content it did not author. Every other laconic path only ever adds bytes; a
+  mis-parse there loses the user's question instead of losing the rules.
+- **Nothing confirms a command hook is honored on that event.** Four open bugs
+  upstream sit on sibling injection paths — `preToolUse`
+  ([#2585](https://github.com/github/copilot-cli/issues/2585)), `postToolUse`
+  ([#2980](https://github.com/github/copilot-cli/issues/2980)) and
+  `userPromptSubmitted` ([#2652](https://github.com/github/copilot-cli/issues/2652),
+  [#3727](https://github.com/github/copilot-cli/issues/3727)) — so an unverified
+  fifth is a bet against the observed record. Per
+  [#2](https://github.com/JordanMPDS/laconic/issues/2), a schema-valid
+  configuration is not evidence of loading, and this is the platform where that
+  lesson has the most support.
+
+**Reopen [#15](https://github.com/JordanMPDS/laconic/issues/15) when either
+holds:** upstream restores config-file `userPromptSubmitted` output, or someone
+confirms on a real install that a `userPromptTransformed` command hook's
+`modifiedTransformedPrompt` reaches the model.
+
 ## Everything else: copy a rule file
 
 Agents without a hook system take a static instructions file. `rules/dist/` holds
@@ -206,11 +284,15 @@ A static file is the rule text and nothing else. Specifically:
   guarantee the hook exists to provide.
 - **No per-turn reminder**, so nothing reinforces the rules as context fills.
 
-Copilot and Cursor both have shell-command hooks that could run `laconic.sh` and
-`laconic.ps1` properly, the way Codex CLI and Gemini CLI now do. That work is
-tracked in [#15](https://github.com/JordanMPDS/laconic/issues/15) and
-[#16](https://github.com/JordanMPDS/laconic/issues/16) — until one lands, the
-copied file is what those agents get.
+Copilot and Cursor both have shell-command hooks, and neither can run
+`laconic.sh` and `laconic.ps1` the way Codex CLI and Gemini CLI do. Copilot
+drops a command hook's output on both events laconic needs, which is the section
+above and closed [#15](https://github.com/JordanMPDS/laconic/issues/15). Cursor
+injects at `sessionStart` but has no per-turn injection at all, so the reminder
+has no carrier there either;
+[#16](https://github.com/JordanMPDS/laconic/issues/16) tracks whether a
+start-only port is worth shipping. For both, the copied file is what they get
+today.
 
 Regenerate after editing `rules/laconic.md`:
 

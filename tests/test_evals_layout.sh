@@ -345,5 +345,36 @@ else
   fail "holdout covers at least 2 never-cut cases (found $hsafety)"
 fi
 
+# The #136 register pilot is a matched pair: `register-*` may differ from
+# `deep-*` only in turns 2 to 4. If turn 1 or turn 5 drifts, or if the trap
+# stops being byte-identical, the two cases stop being the same question asked
+# after two different stretches of the model's own output, and the contrast
+# measures the case instead of the register.
+for stem in index metric rollback; do
+  a="$ROOT/evals/cases/deep-$stem"
+  b="$ROOT/evals/pilot/register-$stem"
+  if python3 - "$a" "$b" <<'PYEOF'
+import json, sys
+from pathlib import Path
+a, b = Path(sys.argv[1]), Path(sys.argv[2])
+ta = a.joinpath("prompt.md").read_text().split("<!-- turn -->")
+tb = b.joinpath("prompt.md").read_text().split("<!-- turn -->")
+assert len(ta) == 5 and len(tb) == 5, "both cases must be five turns"
+assert ta[0] == tb[0], "turn 1 differs"
+assert ta[4] == tb[4], "turn 5 differs"
+assert ta[1:4] != tb[1:4], "turns 2-4 are identical, so nothing is manipulated"
+ea, eb = (json.loads(p.joinpath("expect.json").read_text()) for p in (a, b))
+for k in ("trap", "never_cut", "grading"):
+    assert ea[k] == eb[k], "%s differs" % k
+assert a.joinpath("fixture").resolve() == b.joinpath("fixture").resolve(), \
+    "the pair must share one fixture"
+PYEOF
+  then
+    ok "register-$stem is deep-$stem with only turns 2-4 changed"
+  else
+    fail "register-$stem is deep-$stem with only turns 2-4 changed"
+  fi
+done
+
 printf '\n%d failure(s)\n' "$fails"
 [ "$fails" -eq 0 ]

@@ -26,3 +26,36 @@ byte for byte. They differ in where the answer is meant to go:
   one-line reply that usually accompanies it.
 
 [#150]: https://github.com/JordanMPDS/laconic/issues/150
+
+## `register-index`, `register-metric`, `register-rollback`
+
+The matched pair for [#136]'s remaining gap, and the reason `deep-index`,
+`deep-metric` and `deep-rollback` are symlinked in here: `run.py` takes one
+`--cases-dir`, and the two families have to be generated in one interleaved
+pass or era does the comparing. The symlink is not a copy, so the control
+cannot drift from the case the scored suite ships.
+
+Each `register-*` case is its `deep-*` twin with turns 1 and 5 byte-identical
+and turns 2 to 4 asking the same three questions verbatim, plus an explicit
+request for the full form — a complete checklist, the whole argument step by
+step, a table with the evidence for each row. `rules/laconic.md` licenses all
+three at length, so a correct laconic run answers them long. The graded turn is
+then the same closed confirmation asked after four of the model's own answers
+in two different registers, which is the mechanism [#136] reports and which
+`deep-*` alone cannot produce.
+
+`tests/test_evals_layout.sh` holds the pair to that contract. Scored by
+`score_register.py`; the result is in
+[`register-inheritance-136.md`](../results/loop/register-inheritance-136.md).
+
+**The pilot answered its question and the pair stays here.** Laconic's graded
+turn reads 31.0 words after `deep-*`'s short stretch and 52.0 after
+`register-*`'s licensed one, permutation p < 0.00001 on 30 runs a side and
+three stems of three; the baseline arm reads 185.5 against 190.5, p = 0.9135,
+zero stems of three. Promoting to `evals/cases/` is a decision for the rule
+edit that wants to be scored here — [#60]'s persistence clause — because it
+moves `cases_cksum` for every future round and needs a seeded baseline first.
+
+[#60]: https://github.com/JordanMPDS/laconic/issues/60
+
+[#136]: https://github.com/JordanMPDS/laconic/issues/136

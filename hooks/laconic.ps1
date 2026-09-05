@@ -1,8 +1,11 @@
 ﻿#Requires -Version 5.1
 # laconic — emit the active rule set for Claude Code hooks (native Windows).
-# Usage: laconic.ps1 start|remind
+# Usage: laconic.ps1 start|remind|switch
 #   start   print the rule slice for the active level
 #   remind  persist any "/laconic <level> [project]" on stdin, print one line
+#   switch  persist the same switch and acknowledge it by refusing the turn,
+#           for a hook system with no per-turn injection (#16). Prints nothing
+#           at all when the prompt is not a switch.
 # Prints nothing at all unless a valid level is active.
 #
 # There is deliberately no subagent mode; see hooks/laconic.sh and issue #6.
@@ -52,7 +55,7 @@ function Emit([string]$Text) {
 }
 
 # Case-sensitive, like the bash case statement: "Start" is not a mode.
-if (@('start', 'remind') -cnotcontains $Mode) { exit 0 }
+if (@('start', 'remind', 'switch') -cnotcontains $Mode) { exit 0 }
 
 $configDir = if ([string]::IsNullOrEmpty($env:CLAUDE_CONFIG_DIR)) {
   Join-Path $HOME '.claude'
@@ -116,9 +119,10 @@ function Write-Flag([string]$Path, [string]$Dir, [string]$Value) {
 # flip it, and cannot re-enable the mode after the user set off. "status" is
 # absent from the alternation so it cannot be stored. The trailing boundary
 # stops "/laconic fullscreen" from being read as "full".
-if ($Mode -eq 'remind') {
+if ($Mode -eq 'remind' -or $Mode -eq 'switch') {
   $switch = ''
   $scoped = $false
+  $applied = ''
   try {
     $payload = [Console]::In.ReadToEnd()
     $prompt = (ConvertFrom-Json $payload).prompt
@@ -140,9 +144,40 @@ if ($Mode -eq 'remind') {
   # This write precedes the read-path link check below, so it needs its own
   # guard: without it, /laconic ultra against a symlinked flag would write
   # through the link into an attacker-chosen file.
+  #
+  # Only switch mode reads the result: its acknowledgment is a claim that the
+  # level is on disk, so a write that failed, or one refused because the flag is
+  # a link, must not produce one. laconic.sh reads the flag back for the same
+  # reason, its redirect having no status to test.
   if ($switch -ne '' -and -not (Test-IsLink $target)) {
-    Write-Flag $target $targetDir $switch | Out-Null
+    if (Write-Flag $target $targetDir $switch) { $applied = $switch }
   }
+}
+
+# switch mode ends here, before the level whitelist, because the one switch that
+# most needs acknowledging is "off" — and past this point an inactive level is
+# silence by design.
+#
+# Cursor's beforeSubmitPrompt is the only per-turn hook laconic can reach there
+# and it injects nothing: it reads `continue`, and a `user_message` shown to the
+# user only when the submission is blocked. So the one thing that event can do
+# is refuse the /laconic turn and say what happened. That beats writing the flag
+# silently — a switch nothing confirms is a weaker form of the silent no-op #2
+# exists to eliminate, and under Cursor the new level genuinely does not take
+# effect until the next session, which is the part a user has to be told.
+#
+# Anything that is not a switch prints nothing, and an empty stdout blocks
+# nothing. The blast radius of this mode is exactly the prompts that begin
+# "/laconic lite|full|ultra|off". The JSON is written out rather than built with
+# ConvertTo-Json so that it stays byte-identical to the bash side's printf.
+if ($Mode -eq 'switch') {
+  if ($applied -eq '') { exit 0 }
+  $scope = ''
+  if ($scoped) { $scope = ' for this project' }
+  [Console]::Out.Write('{"continue":false,"user_message":"laconic: level set to ' +
+    $applied + $scope +
+    '. Cursor delivers the rules at session start, so open a new chat for it to take effect."}' + "`n")
+  exit 0
 }
 
 # Resolve which flag is in force. The project flag wins so a repository can run

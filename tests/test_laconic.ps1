@@ -799,6 +799,65 @@ if (Test-Path -LiteralPath $Codex) {
   Remove-Item -LiteralPath $Flag -Force -ErrorAction SilentlyContinue
 }
 
+# --- switch mode: the Cursor acknowledgment (#16) ---
+#
+# The bash suite owns the cursor-hooks.json schema checks; this side owns the
+# behaviour, because a native-Windows Cursor runs laconic.ps1 and the two
+# implementations have to emit the same bytes. The acknowledgment is asserted in
+# full rather than by substring: it is a user-visible sentence that exists in two
+# places, and a divergence between them would show up on one platform only.
+$Ack = '{"continue":false,"user_message":"laconic: level set to ultra. ' +
+       'Cursor delivers the rules at session start, so open a new chat for it to take effect."}'
+
+Set-Level 'full'
+Clear-Project
+Invoke-Hook 'switch' '{"prompt":"fix the failing test"}'
+Assert-Silent 'switch says nothing about an ordinary prompt'
+Invoke-Hook 'switch' '{"prompt":"does /laconic off actually work?"}'
+Assert-Silent 'switch says nothing about prose mentioning the command'
+Assert-Has 'switch leaves the level alone on prose' 'full' (Get-FlagText $Flag)
+
+Invoke-Hook 'switch' '{"prompt":"/laconic ultra"}'
+Assert-Has 'switch persists the level' 'ultra' (Get-FlagText $Flag)
+Assert-Lacks 'switch does not emit the rules' 'No preamble' $script:out
+Assert-Lacks 'acknowledgment has no carriage return' "`r" $script:out
+if ($script:out.TrimEnd("`n") -ceq $Ack) {
+  Ok 'the acknowledgment is byte-identical to the bash side'
+} else {
+  Fail "the acknowledgment is byte-identical to the bash side — got: $($script:out)"
+}
+
+# off is the switch that most needs acknowledging, and it is the one the level
+# whitelist would otherwise swallow: past that gate an inactive level is silence.
+Invoke-Hook 'switch' '{"prompt":"/laconic off"}'
+Assert-Has 'switch acknowledges off' 'level set to off' $script:out
+Assert-Has 'off persists through switch mode' 'off' (Get-FlagText $Flag)
+
+Set-Level 'full'
+Invoke-Hook 'switch' '{"prompt":"/laconic lite project"}'
+Assert-Has 'switch names the project scope' 'for this project' $script:out
+Assert-Has 'switch writes the project flag' 'lite' (Get-FlagText $ProjectFlag)
+Clear-Project
+
+# A refused write must not be acknowledged. The link guard already stops the
+# write; without checking its result the mode would still tell the user the level
+# had changed, which is the one thing an acknowledgment exists not to do.
+Remove-Item -LiteralPath $Flag -Force -ErrorAction SilentlyContinue
+$decoy = Join-Path $env:CLAUDE_CONFIG_DIR 'switch-decoy'
+[System.IO.File]::WriteAllText($decoy, 'keep', $Utf8NoBom)
+if (New-Link $Flag $decoy 'linked flag on switch') {
+  Invoke-Hook 'switch' '{"prompt":"/laconic ultra"}'
+  Assert-Silent 'linked flag on switch'
+  Assert-Has 'linked flag not written through on switch' 'keep' (Get-FlagText $decoy)
+}
+Remove-Item -LiteralPath $Flag -Force -ErrorAction SilentlyContinue
+
+Set-Level 'full'
+Invoke-Hook 'switch' '{"prompt":"/laconic fullscreen"}'
+Assert-Silent 'switch does not prefix-match a level word'
+Assert-Has 'fullscreen does not switch under switch mode' 'full' (Get-FlagText $Flag)
+Remove-Item -LiteralPath $Flag -Force -ErrorAction SilentlyContinue
+
 Clear-Project
 Remove-Item -LiteralPath $env:CLAUDE_CONFIG_DIR -Recurse -Force -ErrorAction SilentlyContinue
 Remove-Item -LiteralPath $env:CLAUDE_PROJECT_DIR -Recurse -Force -ErrorAction SilentlyContinue

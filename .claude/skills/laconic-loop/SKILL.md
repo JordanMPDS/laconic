@@ -87,11 +87,24 @@ stderr is a terminal, and under an agent's shell tool the command prints
 nothing at all. The first version of this hook matched that wording and never
 fired once — the merge it was meant to catch produced an empty payload. The
 tool payload carries no exit status either, so the hook parses the PR number
-out of the command and runs `gh pr view <N> --json state`. Truncating or
-discarding the output is therefore harmless.
+out of the command and asks GitHub. Truncating or discarding the output is
+therefore harmless.
+
+**It asks "was this merged just now", not "is this merged".** The hook is
+handed the whole command text, quoted heredocs and JSON payloads included, and
+no reading of that string separates an executed merge from a quoted one. On
+2026-09-05 it stopped two turns inside twenty minutes while merging nothing:
+once on a `gh pr create` whose body quoted a timeline of earlier merges, once
+on a test payload carrying a merge command inside a JSON string. Under
+`tools/loop.sh` a false stop ends an iteration mid-work, so the question had to
+change rather than the matching. `gh pr view <N> --json state,mergedAt` answers
+it, and `MERGE_WINDOW` (120 seconds, symmetric so a GitHub clock running ahead
+still counts) is the width of "just now".
 
 `python3 .claude/hooks/post-merge-stop.py --selftest` drives `main()` with
-GitHub stubbed, so it covers the empty-output case that actually occurs.
+GitHub stubbed — 25 checks covering the empty-output case that actually occurs,
+the two quoted-mention commands that fired falsely, the freshness arithmetic,
+and both branches of the stop message.
 
 Inside a single interactive session the equivalent is a subagent per unit of
 work — a fresh window whose verbose output never reaches this one — but only

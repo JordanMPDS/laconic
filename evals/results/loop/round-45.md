@@ -194,3 +194,102 @@ window rather than an API budget.
 
 [#26]: https://github.com/JordanMPDS/laconic/issues/26
 [#164]: https://github.com/JordanMPDS/laconic/issues/164
+
+## Result: reject — the falsifier fired
+
+160 generations, 0 failed, no judging. Both sides ran simultaneously from
+07:47 to 08:16 UTC on CLI 2.1.261, control at `rules_cksum` 136269960 and edit
+at 1194758662.
+
+| case | side | n | arrows | carrying one | chains | mappings | median words |
+|---|---|--:|--:|--:|--:|--:|--:|
+| `confirm-rollback` | control | 40 | 21 | 21 | 0 | 21 | 86.0 |
+| `confirm-rollback` | **edit** | 40 | **23** | **23** | 0 | 23 | 88.5 |
+| `walkthrough` | control | 40 | 37 | 13 | 15 | 22 | 423.5 |
+| `walkthrough` | **edit** | 40 | **25** | **9** | **0** | 25 | 441.0 |
+
+**The target did not move and leans upward.** `confirm-rollback` reads 21
+arrows against 23, permutation p = 0.8215; responses carrying one 21 of 40
+against 23 of 40, Fisher p = 0.8224. The registered falsifier was "not
+separating at p < 0.05, or separating upward", and the first half of it
+obtains. **Edit reverted in full**, and `rules/laconic.md` is back at
+`rules_cksum` 136269960 in this branch.
+
+`violations_total` moves with the arrows and no further — 21 to 23 on
+`confirm-rollback`, 37 to 26 on `walkthrough` — so nothing else in the
+readability scan changed.
+
+**Both registered harm checks pass.** `walkthrough` names `401` in 40 of 40
+responses on both sides. `confirm-rollback` names `0042` or
+`settlement_currency` in 33 of 40 control against 36 of 40 edit, Fisher
+p = 0.5179, so the load-bearing half of its trap is if anything better
+represented on the edit side. Reading held at 40 of 40 on both cases and both
+sides, so no cell crossed a [#131] stratum and none of this is compression
+bought by not opening the fixture.
+
+## Which registered reading obtains
+
+The third: **flat and flat.** `walkthrough` fell 37 to 25 but at permutation
+p = 0.3722, and its carrying rate 13 of 40 to 9 of 40 at Fisher p = 0.4531 —
+not a separation at the level this round registered. So the exemption is not
+the carrier either, [#26]'s second scored candidate fails, and the queue of
+untried lens mechanisms is three.
+
+**The convergence did not predict success, and that is the finding for [#26].**
+This candidate was the one three of the pilot's five proposers reached
+independently — two lenses plus the unlensed control reader — against round
+44's, which came from one lens. If agreement among proposers carried
+information about whether a candidate works, this is the round where it should
+have shown. Both scored candidates are now rejections, and the second is the
+one the pilot's own evidence ranked highest.
+
+**What is answered for the rule.** The value transition is not licensed by the
+exemption sentence's silence. The model writes ``(`legacy` → `split`)`` at the
+same rate whether or not the paragraph says that quoting the two values does
+not quote the arrow, so whatever produces that idiom is not a reading of the
+carve-out. `arrows.md` finding 4 — no form-shaped hole to aim at — now holds
+for the one form it had never been tested on.
+
+## Unregistered disclosure: the chain component
+
+`walkthrough` chains went **15 to 0** — 5 of 40 responses carrying one against
+0 of 40, permutation p = 0.0556, Fisher on responses p = 0.0547 — while
+mappings went 22 to 25, p = 0.8508. Round 44 disclosed the same split in the
+same direction on the same case, 9 chains to 4 with mappings rising 32 to 41.
+Pooling the two rounds, control responses carrying a chain read 9 of 80 against
+2 of 80, Fisher p = 0.0564, on 24 chain arrows against 4.
+
+**This is a lead and not a result**, for three reasons. It was not registered;
+it is the second look at a batch whose first look was flat, so it carries the
+multiple-comparisons discount [#26] names; and the two rounds pooled are two
+*different* edits, which makes the pooled figure a claim about recent edits in
+general rather than about a mechanism. Round 44 asked that a future round check
+this deliberately. Round 45 is not that round, and the number is recorded here
+so that one can be: **a round targeting chains on `walkthrough`, registered as
+such, at reps sized for a 5-of-40 base rate.** That base rate is the difficulty
+— 40 responses hold about 5 chain-carrying answers, so the cell needs roughly
+100 a side to resolve a halving rather than a disappearance.
+
+## Instrument note: the control cell moved again
+
+This round's control read `confirm-rollback` at 21 of 40 responses carrying an
+arrow. Round 44's control read 26 of 40 five hours earlier at byte-identical
+rules, and the whole archive at this `rules_cksum` reads 46 of 80. Three draws
+of one cell at 52.5%, 65.0% and 57.5%, which is the drift
+[`round-37.md`](round-37.md) documented and the reason the registered baseline
+is the round's own control rather than either of the others.
+
+## What was not bought
+
+The round-wide laconic arm, the fatal counters, judging, `recall-rollback` and
+`deep-rollback` — which carry the same idiom but are multi-turn — and any model
+but sonnet. The staged rule stops at the first step that fails, and this failed
+at step 1.
+
+## Power, restated against the result
+
+The round was sized to detect a halving on the target and it saw an increase,
+so the bound matters only for what it cannot rule out: a fall of about a third
+on `confirm-rollback` would have read as flat here. Nothing in this result
+rules out a small improvement; what it rules out is the effect the candidate
+was proposed to produce.

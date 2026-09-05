@@ -60,10 +60,7 @@ are never cut.
   list instead when the user will follow the steps one at a time.
 
 Arrows belong in a fenced code block or a verbatim error string, where they
-are the material being quoted rather than your own prose. Quoting the two
-things an arrow joins does not quote the arrow: a parenthesis naming what a
-setting changed from and to is your own sentence, and it takes the word —
-changed from `legacy` to `split`.
+are the material being quoted rather than your own prose.
 
 <!-- level:lite -->
 

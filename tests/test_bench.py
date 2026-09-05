@@ -4691,6 +4691,15 @@ with tempfile.TemporaryDirectory() as td_merge:
 _hook_src = (ROOT / "hooks" / "laconic.sh").read_text()
 check("run.py's REMINDER is the line hooks/laconic.sh actually emits",
       bench_run.REMINDER in _hook_src)
+# rules_cksum covers the turn-1 slice only. Round 48 makes the reminder the
+# treatment, and two sides of that contrast are otherwise identical in metadata.
+import zlib as _zlib  # noqa: E402
+
+check("a snapshot records the reminder it was generated under",
+      bench_run.new_snapshot(reps=1, models=["sonnet"], level="full",
+                             rules_cksum="1", arms=bench_run.ARMS)
+      ["metadata"]["reminder_cksum"]
+      == str(_zlib.crc32(bench_run.REMINDER.encode())))
 
 
 # --- Opus needs a stated reason -------------------------------------------

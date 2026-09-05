@@ -1,0 +1,756 @@
+{
+  "arms": {
+    "baseline": {
+      "system_prompt": null
+    },
+    "concise-style": {
+      "output_style": "Concise",
+      "system_prompt": null
+    },
+    "laconic": {
+      "source": "hooks/laconic.sh start @ full",
+      "system_prompt": "# Laconic mode\n\nTerse means fewer claims, not fewer words per claim. Write ordinary English \u2014\ncomplete sentences, real articles, real conjunctions. Delete content, never\ngrammar.\n\nTwo checks before sending:\n\n1. What is the smallest set of claims that fully answers this?\n2. Is anything here something the user did not ask for?\n\n**Length scales to the request, at every level.** A yes/no question gets a word\nor a line. A report, walkthrough, comparison, or explanation the user asked for\ngets full detail. Laconic governs volunteered content; it never truncates\nrequested content.\n\n## Never cut (every level, including ultra)\n\n- Code, config, commands, and error strings \u2014 verbatim and complete. Never\n  abbreviate an identifier, never elide lines with `...`.\n- Security warnings, and the reasoning that makes them actionable.\n- Confirmation before destructive or irreversible actions, naming exactly what\n  will be affected \u2014 read what you were pointed at and name the objects from\n  it. Telling the user to go check for themselves is not a confirmation.\n- Anything the user asked to have explained: \"why\", \"how\", \"walk me through\",\n  \"explain\".\n- Ordered instructions: every step, and the words that fix their order\n  (\"before\", \"after\", \"first\").\n- Bad news: a failure, a broken test, a limit hit, a thing not done. Omitting\n  it is not terseness.\n- Uncertainty that changes what the user should do.\n\nQuestion: *\"Our deploy failed with an OOM kill on the worker. Should I bump the memory limit?\"*\n\n| Level | Response |\n| --- | --- |\n| `lite` | \"Bump it, but check the trend first. An OOM kill at a steady memory ceiling means the limit is too low; a climbing curve means a leak, and a bigger limit only delays the next kill. `kubectl top pod` over a few minutes tells you which one you have.\" |\n| `full` | \"Check the trend first. If memory sits at a steady ceiling, raise the limit; if it is climbing, you have a leak and a bigger limit only delays the next kill. Watch `kubectl top pod` for a few minutes.\" |\n| `ultra` | \"Only if memory is flat, not climbing. Check `kubectl top pod` first.\" |\n\nUltra kept the conditional because dropping it would give wrong advice half the time.\n\n## Never do this\n\nNo dropped articles. No telegraphic fragments. Do not shorten words in running\nprose: write `configuration`, not `config`; `implementation`, not `impl`.\nShorter is not the goal; fewer claims is.\n\n**No arrows inside a sentence.** Never use `\u2192` or `->` in prose: not to chain\nsteps, stages, states or causes, not to show that one thing maps to or becomes\nanother, not after a bold label, not in a \"quick runbook\" line, not inside a\nquoted flow. Sequencing is where an arrow is most tempting and least\nacceptable: an ordered process is exactly the content whose connecting words\nare never cut.\n\n- Wrong: **Request A**: calls `currentToken()` \u2192 token expired \u2192 calls `refresh()`\n- Right: Request A calls `currentToken()`, finds the token expired, and calls `refresh()`.\n- Wrong: Rough runbook: rotate the key \u2192 wait out the old TTL \u2192 remove it.\n- Right: Rotate the key, wait out the old TTL, then remove it. Use a numbered\n  list instead when the user will follow the steps one at a time.\n\nArrows belong in a fenced code block or a verbatim error string, where they\nare the material being quoted rather than your own prose.\n\n\n## Level: lite \u2014 cut ceremony\n\nNo preamble. Do not restate the question, announce what is about to happen, or\nnarrate tool calls the user can already see.\n\n- No pleasantries or performative agreement: no \"Great question\", \"Sure!\",\n  \"You're absolutely right\".\n- No closing offers and no offers to do more work: no \"Let me know if...\",\n  \"Hope this helps\", \"Want me to...?\". Asking the user to confirm a destructive\n  action is never a closing offer; offering to go read something for them is.\n- No stacked hedging. One qualifier or none: \"Probably X\", not \"It might\n  possibly be that X\".\n- No recap of work visible in the diff. Name the file and what changed.\n  Reporting a failure, a skipped step, or a surprise is not a recap \u2014 that is\n  never-cut content and stays.\n\nKeeps full reasoning, context, and trade-offs. Lite is normal professional\nprose with the ceremony stripped.\n\n\n## Level: full \u2014 also cut unrequested substance\n\n- Lead with the answer or the action taken. Reasoning only if the user needs it\n  to act on the answer.\n- One recommendation, not a survey. A real trade-off gets one line per side,\n  then a pick.\n- No unrequested alternatives, no \"you could also\".\n- No teaching a concept the question already shows the user knows.\n- No next-steps list unless they asked what is next.\n- A design question asks for an approach, not a treatise. \"How would that be\n  built?\" is about something that does not exist yet, and what it wants is the\n  recommendation, the one or two decisions that genuinely fork it, and a name\n  for the depth you left out. Ask for the fork that survives reading, not the\n  one reading would settle. Explaining something that already exists is a\n  different request, and it is protected above.\n  - **This licence is earned by reading, not by being brief.** It covers an\n    approach derived from the files the question is about. An approach recalled\n    from general practice has not earned it and stays subject to everything\n    above. Read what the question is about, then be brief about it.\n  - Wrong: \"how would alerting be built?\" answered in eight sections \u2014 a\n    schema, a routing table, dedup rules, a rollout plan.\n  - Right: \"Derive alerts from the log row the loop already writes, in\n    whatever monitoring you already run \u2014 which stack is that? The schema\n    and the dedup rules are the next level down.\"\n\nTypical shape: one to three sentences, or a short list. One sentence is a\ncomplete answer.\n\n"
+    },
+    "terse-control": {
+      "system_prompt": "Answer concisely."
+    },
+    "word-compression": {
+      "system_prompt": "Answer concisely. Drop articles and filler words, abbreviate common terms, and use arrows instead of conjunctions."
+    }
+  },
+  "metadata": {
+    "cases_cksum": "2039457724",
+    "cases_dir": "evals/pilot",
+    "claude_cli_version": "2.1.261 (Claude Code)",
+    "concurrency_declared": 2,
+    "generated_at": "2026-09-05T02:53:10Z",
+    "git_commit": "d43e9b1",
+    "git_dirty": true,
+    "laconic_level": "full",
+    "max_runs_in_flight": 1,
+    "models": [
+      "sonnet"
+    ],
+    "reps": 10,
+    "rules_cksum": "136269960"
+  },
+  "runs": [
+    {
+      "arm": "baseline",
+      "artifacts": {
+        "exporter/ONBOARDING.md": {
+          "bytes": 4086,
+          "new": true,
+          "text": "# Exporter Onboarding\n\nYou own `exporter/` as of this week. This is everything you need before\ntouching it.\n\n## What it does\n\nOnce a night, cron (02:10 UTC) runs `python -m exporter.pipeline`. It finds\nevery billing account that changed since the last run and writes each one to\nits own CSV in `/srv/exports/` for a downstream loader to pick up.\n\n## The five files\n\n- **`pipeline.py`** \u2014 the orchestrator. `run(now, since=None)` is the entry\n  point: read the watermark, advance it, pull changed accounts, write each\n  one.\n- **`db.py`** \u2014 `changed_since(since)`, a single cursor over a read-only\n  replica (`target_session_attrs=read-only` in the DSN \u2014 this process cannot\n  and must not write to billing). Returns every account changed since\n  `since`, across all regions, oldest first. No batching, no per-region\n  ordering.\n- **`models.py`** \u2014 the `Account` shape. Read the module docstring: `slug` is\n  only unique *within* a region. `eu-west`'s \"acme\" and `us-east`'s \"acme\"\n  are different customers with the same slug.\n- **`state.py`** \u2014 the watermark: a timestamp on local disk\n  (`/var/lib/exporter/watermark`), not in the database, because the database\n  is read-only from here.\n- **`writer.py`** \u2014 writes one CSV per account to `OUT / f\"{slug}.csv\"`.\n\nIn this snapshot, `db.changed_since` and `Account.rows()` are stubs\n(`NotImplementedError`). Find wherever the real implementations live (or\nland) before you change anything upstream of them \u2014 the ordering and\nregion-scoping guarantees described in the docstrings are load-bearing for\nthe two issues below.\n\n## Two things that will bite you if you don't know them going in\n\n**1. The watermark is written *before* the export loop runs, on purpose.**\n\n```python\nsince = since if since is not None else read_watermark()\nwrite_watermark(now)\nfor account in changed_since(since):\n    writer.write(account)\n```\n\nThe downstream loader *appends* rows rather than upserting, so re-exporting\nan account it already has duplicates every row of it. If this run crashes\npartway through the loop, any account it hadn't reached yet is simply never\nexported \u2014 the watermark has already moved past it, silently. That's the\naccepted failure mode: **dropped accounts on crash, not duplicated rows.**\n\nDo not \"fix\" this by moving `write_watermark` to after the loop. That flips\nthe failure mode: a crash would then leave the watermark unmoved, and the\n*next* run would re-export everything the crashed run already sent,\nduplicating rows downstream. Silent drops were judged less bad than silent\nduplicates. If you want to change that trade-off, it needs a real\nper-account write log, not a reordering of these two lines.\n\nRecovering a dropped run today is manual: re-run with an explicit\n`since=...` covering the gap.\n\n**2. CSV filenames are built from `slug` alone, with no region.**\n\n```python\npath = OUT / (\"%s.csv\" % account.slug)\n```\n\n`models.py` explicitly documents that slug is only unique per region. Since\n`changed_since` iterates all regions through one unordered-by-region cursor,\ntwo accounts that share a slug (one per region) will overwrite each other's\nexport file \u2014 whichever gets processed last in a given run wins, silently.\nThis is a live landmine in the current code, not a hypothetical. If your\nfirst change touches `writer.py`, this is almost certainly the bug to fix\n(namespace the path by region), but check what the downstream loader expects\nas a filename before you do.\n\n## Before you make your first change\n\n- Find where `pipeline.run()` is actually invoked. `pipeline.py` has no\n  `__main__` guard, so `python -m exporter.pipeline` alone does nothing \u2014\n  the real cron/systemd wrapper that computes `now` and calls `run(now)`\n  lives outside this directory.\n- Confirm what the downstream loader does with these CSVs (append semantics,\n  and how it handles a file it's already seen) \u2014 both landmines above are\n  only landmines because of that append-only assumption.\n- Check `/var/lib/exporter/watermark` on the host before testing locally;\n  it's not version-controlled and there's only one.\n"
+        }
+      },
+      "cache_creation_input_tokens": 10702,
+      "cache_read_input_tokens": 94460,
+      "case": "authored-file",
+      "claude_cli_version": "2.1.261 (Claude Code)",
+      "duration_ms": 62151,
+      "generated_at": "2026-09-05T02:54:13Z",
+      "generator": "20260905T025310Z-1401194",
+      "input_tokens": 8,
+      "model": "sonnet",
+      "num_turns": 8,
+      "ok": true,
+      "output_tokens": 5340,
+      "rep": 0,
+      "session_id": "4525255b-e4b8-440b-a28c-fc6a62513a7c",
+      "text": "Wrote `exporter/ONBOARDING.md`. It covers the nightly flow (cron \u2192 `pipeline.run` \u2192 `db.changed_since` \u2192 `writer.write`) and flags the two real landmines I found while reading the code: the watermark-before-loop ordering (intentional \u2014 trades dropped accounts on crash for no duplicate rows downstream, so don't reorder it), and the slug-only CSV filename colliding across regions since `models.py` documents slug isn't globally unique. Also noted that `pipeline.py` has no `__main__` entry point, so the actual cron wiring lives elsewhere and should be located before making changes.",
+      "tools": [
+        "Bash",
+        "Read",
+        "Read",
+        "Read",
+        "Read",
+        "Read",
+        "Write"
+      ],
+      "total_cost_usd": 0.11613499999999999
+    },
+    {
+      "arm": "laconic",
+      "artifacts": {
+        "exporter/ONBOARDING.md": {
+          "bytes": 3883,
+          "new": true,
+          "text": "# Exporter onboarding\n\n## What it does\n\nOnce a night, dumps every billing account that changed since the last run\ninto a CSV file, one file per account, for a downstream loader to pick up.\nSource is a read-only Postgres replica of billing; output is `/srv/exports/`.\n\n## How the nightly run works\n\nCron fires `python -m exporter.pipeline` at 02:10 UTC, which calls\n`pipeline.run(now)`. In order:\n\n1. Read the watermark \u2014 the timestamp the last successful run covered up to\n   (`state.read_watermark()`, from `/var/lib/exporter/watermark`).\n2. Immediately overwrite the watermark with `now`, *before* exporting\n   anything (`state.write_watermark(now)`).\n3. Open one cursor over the replica for every account with\n   `changed_at > since`, across all regions, oldest first\n   (`db.changed_since`).\n4. For each account, write `/srv/exports/<slug>.csv` with a fixed header\n   (`writer.write`).\n\nThat's the whole pipeline \u2014 five files, no queue, no retry logic.\n\n## Things that will bite you\n\n**The watermark moves before anything is exported, on purpose.** If step 4\ndies halfway through, the accounts it hadn't reached yet are just gone from\nthis run \u2014 the watermark is already past them, so tomorrow's run won't pick\nthem up either. This is a deliberate trade-off, not a bug: the loader on the\nother end appends rows rather than upserting, so if the watermark instead\nmoved *after* the loop, a crash mid-loop would cause the next run to\nre-export accounts it already sent, and the loader would duplicate every row\nof them. Silent skips were judged less bad than silent duplicates. Recovery\nis manual: re-run with an explicit `since=` covering the gap. Don't try to\n\"fix\" the ordering without understanding this \u2014 flipping it reintroduces the\nduplicate-row failure mode.\n\n**`slug` is not a safe filename key.** `writer.write` names the output file\n`<slug>.csv`. Per `models.py`, slug is only unique *within* a region \u2014\n`eu-west` and `us-east` can each have an account slugged `acme`, and they are\ndifferent customers. As written, exporting both in the same run has the\nsecond one silently clobber the first's file. There's no test or guard\nagainst this today. If you touch `writer.py`, this is the first thing to fix\nor at least not make worse \u2014 consider namespacing by region or using\n`account_id` (the actually-global key) in the path instead.\n\n**The DB connection is read-only, deliberately.** `db.DSN` targets a replica\nwith `target_session_attrs=read-only`. The watermark lives in a local file\n(`/var/lib/exporter/watermark`) instead of in the database specifically\nbecause the database being exported can't be written to. Don't add any\nwrite-back logic (e.g. \"mark account as exported\") against this connection.\n\n**Two core pieces are still stubs.** `db.changed_since` and\n`Account.rows()` both currently `raise NotImplementedError`. The pipeline as\nchecked in cannot actually run end to end yet \u2014 check with the team on\nwhether that's in flight elsewhere before assuming it's your bug.\n\n**`pipeline.py`'s own docstring may be ahead of the code.** It documents cron\ninvoking `python -m exporter.pipeline`, but there is no `if __name__ ==\n\"__main__\":` block in the file that calls `run()`. Either that entry point\nlives somewhere not in this directory, or it's missing \u2014 worth confirming\nbefore you assume the module is wired up the way the comment says.\n\n## Before your first change\n\n- Read `models.py`'s docstring on `slug` vs `account_id` \u2014 it's short and\n  explains the one landmine most likely to cause a customer-visible bug.\n- Know which failure mode you're protecting against (skipped accounts vs.\n  duplicated rows) before reordering anything in `pipeline.run`.\n- There's no test suite here yet \u2014 if you add one, `db.changed_since` and\n  `Account.rows` are the two seams that need fakes/mocks, since they're the\n  only things that talk to the replica.\n"
+        }
+      },
+      "cache_creation_input_tokens": 10036,
+      "cache_read_input_tokens": 132197,
+      "case": "authored-file",
+      "claude_cli_version": "2.1.261 (Claude Code)",
+      "duration_ms": 53721,
+      "generated_at": "2026-09-05T02:55:08Z",
+      "generator": "20260905T025310Z-1401194",
+      "input_tokens": 10,
+      "model": "sonnet",
+      "num_turns": 9,
+      "ok": true,
+      "output_tokens": 4455,
+      "rep": 0,
+      "session_id": "f394233e-e69b-4aff-a3d4-bf6953aab270",
+      "text": "Wrote `exporter/ONBOARDING.md`. It covers the nightly run sequence, and flags the three real landmines: the deliberate watermark-before-write ordering (skips beat duplicates), the `slug`-based filename collision risk across regions, and the read-only replica constraint \u2014 plus notes that `db.changed_since`/`Account.rows` are still stubs and that `pipeline.py` has no `__main__` actually wired to cron despite its docstring.",
+      "tools": [
+        "Bash",
+        "Read",
+        "Read",
+        "Read",
+        "Read",
+        "Read",
+        "Bash",
+        "Write"
+      ],
+      "total_cost_usd": 0.11217239999999999
+    },
+    {
+      "arm": "baseline",
+      "artifacts": {
+        "exporter/ONBOARDING.md": {
+          "bytes": 4547,
+          "new": true,
+          "text": "# Onboarding: `exporter/`\n\nYou own the nightly account export. This is what it does, how it's wired\ntogether, and the sharp edges that aren't obvious from a quick read.\n\n## What it does\n\nOnce a night, this job finds every billing account that changed since the\nlast run and writes each one to a CSV file for a downstream loader to pick\nup. That's the whole job: read changes from a replica, write CSV files\nsomewhere a loader can find them.\n\n## How it runs\n\nCron fires at 02:10 UTC:\n\n```\npython -m exporter.pipeline\n```\n\nThat calls `pipeline.run(now)`, which does, in order:\n\n1. `read_watermark()` \u2014 load the timestamp of the last successful run from\n   `/var/lib/exporter/watermark` (`state.py`).\n2. `write_watermark(now)` \u2014 immediately overwrite that file with *now*,\n   before exporting a single account.\n3. `changed_since(since)` \u2014 open one cursor over the read replica\n   (`db.py`) and iterate every account with `changed_at > since`, oldest\n   first, across all regions.\n4. `writer.write(account)` \u2014 for each account, write a CSV to\n   `/srv/exports/<slug>.csv`.\n\n## The pieces\n\n- **`pipeline.py`** \u2014 orchestration only. No batching, no retries, no\n  parallelism.\n- **`db.py`** \u2014 one function, `changed_since`, over a read-only replica DSN\n  (`target_session_attrs=read-only`). The exporter never writes to this\n  database. **As of today this function is a stub** (`raise\n  NotImplementedError`) \u2014 same for `Account.rows()` in `models.py`. Confirm\n  whether that's genuinely unbuilt or was cut for this snapshot before you\n  assume the pipeline runs end-to-end.\n- **`models.py`** \u2014 `Account` is a plain data holder. Read the module\n  docstring: `slug` is unique *within a region only*. `eu-west` and\n  `us-east` can each have an account called `acme`, and they are unrelated\n  customers.\n- **`state.py`** \u2014 the watermark. It lives in a file, not the database,\n  because the database being exported is read-only from here. There is no\n  record of which accounts a given run actually wrote \u2014 only \"everything\n  before this instant is considered done.\"\n- **`writer.py`** \u2014 CSV writer. Fixed column order: `account_id`, `name`,\n  `plan`, `seats`, `mrr_cents`, `renewed_on`. Output path is\n  `/srv/exports/<slug>.csv`.\n\n## Before you touch anything, understand these two things\n\n**1. The watermark advances *before* the export loop runs, on purpose.**\n\nThis is the load-bearing design decision in this package (see the\ndocstrings in `pipeline.py` and `state.py`). The downstream loader\n*appends* rows rather than upserting, so re-exporting an account it\nalready has duplicates every row of it. That means \"retry the accounts we\nmissed\" is not safe by default \u2014 so the watermark is written first, and if\nthe run dies partway through, the accounts it hadn't reached yet are just\nskipped, not retried on the next run.\n\nPractically:\n- A crash mid-run causes **silent data loss** for whatever accounts hadn't\n  been written yet that night, not duplication.\n- Recovering those accounts is a manual step: re-run with an explicit\n  `since`, e.g. `exporter.pipeline.run(now, since=<timestamp before the\n  crash>)`. There's no automation for this today \u2014 you have to notice the\n  run failed and pick the timestamp yourself.\n- If you're tempted to \"fix\" this by moving the watermark write to *after*\n  the loop, don't, without also solving the duplicate-row problem on the\n  loader side. The current ordering is a deliberate tradeoff (lose\n  unexported accounts on crash vs. duplicate rows downstream), not an\n  oversight.\n\n**2. Filenames are keyed on `slug` alone, and `slug` isn't globally\nunique.**\n\n`writer.write` names the output file `<slug>.csv` with no region in the\npath. Per `models.py`, `slug` is only unique *within* a region. Two\naccounts named `acme` in different regions will write to the same path in\n`/srv/exports/`, and whichever one runs later in the cursor's oldest-first\nordering wins \u2014 the other's export silently vanishes for that night. If\nyour first change touches `writer.py` or anything about output paths,\nthis is almost certainly the thing worth fixing or at least not making\nworse.\n\n## Quick facts to keep straight\n\n- Export runs oldest-changed-account-first, single cursor, no batching.\n- The replica DSN is read-only; there's no path from this code back into\n  the billing DB.\n- No tests or `__init__.py` exist in this directory yet.\n- No config file \u2014 the watermark path (`/var/lib/exporter/watermark`) and\n  output dir (`/srv/exports`) are hardcoded constants in `state.py` and\n  `writer.py`.\n"
+        }
+      },
+      "cache_creation_input_tokens": 10700,
+      "cache_read_input_tokens": 123318,
+      "case": "authored-file",
+      "claude_cli_version": "2.1.261 (Claude Code)",
+      "duration_ms": 63090,
+      "generated_at": "2026-09-05T02:56:12Z",
+      "generator": "20260905T025310Z-1401194",
+      "input_tokens": 10,
+      "model": "sonnet",
+      "num_turns": 9,
+      "ok": true,
+      "output_tokens": 5026,
+      "rep": 1,
+      "session_id": "d055811e-7f7c-4534-8d1c-9256c7b9f9c2",
+      "text": "Wrote `exporter/ONBOARDING.md`. It covers the nightly flow (cron \u2192 watermark read \u2192 watermark write \u2192 cursor over the replica \u2192 per-account CSV write), a file-by-file rundown, and the two things that'll bite a newcomer fastest: the watermark-advances-before-export design (crash = silent skip, not duplication, because the downstream loader appends) and the `slug`-only filename that can collide across regions since slugs are only region-unique. It also flags that `db.changed_since` and `Account.rows()` are currently stubs, worth confirming before assuming the pipeline runs end-to-end.",
+      "tools": [
+        "Bash",
+        "Read",
+        "Read",
+        "Read",
+        "Read",
+        "Read",
+        "Bash",
+        "Write"
+      ],
+      "total_cost_usd": 0.11876260000000002
+    },
+    {
+      "arm": "laconic",
+      "artifacts": {
+        "exporter/ONBOARDING.md": {
+          "bytes": 3273,
+          "new": true,
+          "text": "# exporter/ onboarding\n\n## What it does\n\nOnce a night, dumps every billing account that changed since the last run to\na CSV file, one file per account, for a downstream loader to pick up.\n\n## How the nightly run works\n\nCron fires `python -m exporter.pipeline` at 02:10 UTC, which calls\n`pipeline.run(now)`. Four steps, in this order:\n\n1. Read the watermark (`state.read_watermark()`) \u2014 the timestamp the last\n   successful run covered up to. Stored as a single ISO timestamp in\n   `/var/lib/exporter/watermark`, not in the database, because the database\n   being exported is a read-only replica and can't hold it.\n2. **Immediately write the new watermark as `now`**, before exporting\n   anything (`state.write_watermark(now)`).\n3. Query `db.changed_since(since)` for every account with `changed_at` after\n   the old watermark, across all regions, oldest first, as a single cursor\n   over the replica (`DSN` in `db.py`, `target_session_attrs=read-only`).\n4. For each account, `writer.write(account)` renders one CSV to\n   `/srv/exports/<slug>.csv` with a fixed column set (`writer.COLUMNS`).\n\nFiles: `pipeline.py` wires the above together, `db.py` is the replica query,\n`models.py` is the `Account` shape the replica cursor produces, `writer.py`\nis the CSV output, `state.py` is the watermark file.\n\n## The two things that will bite you\n\n**The watermark moves before anything is written, on purpose.** This makes\nthe exporter *at-most-once*, not *at-least-once*: if the run dies halfway\nthrough the account loop, the watermark already points past the accounts it\nnever reached, and the next scheduled run will not pick them up \u2014 they're\njust gone until someone notices. This is deliberate, not an oversight: the\nloader downstream **appends rather than upserts**, so the alternative\n(writing the watermark after) would mean a crash-and-retry re-sends accounts\nit already sent, duplicating every row of theirs. Recovering from a dropped\nrun means diagnosing the gap by hand and calling `pipeline.run(now, since=...)`\nwith an explicit `since` covering exactly what was missed \u2014 never just rerun\nthe export to \"catch up,\" since that duplicates rows for anything already\ndelivered on the other end.\n\n**`slug` is not a safe filename key.** `writer.write` names the output file\n`<slug>.csv`, but `models.py` is explicit that slug is unique only *within*\na region \u2014 `eu-west` and `us-east` can each have an account slugged \"acme,\"\nand they're different customers (`account_id` is the globally unique one).\nSince `changed_since` iterates across all regions in one pass, two\nsame-slug accounts from different regions changing on the same night will\nwrite the same path and one export silently clobbers the other. There's no\nregion in the output filename today \u2014 worth confirming with whoever owns\nthe loader before you touch `writer.py`, since fixing this changes the\noutput filenames the loader already depends on.\n\n## What's actually unfinished\n\n`db.changed_since` and `Account.rows()` both currently `raise\nNotImplementedError`. There's no test suite in this directory either.\nBefore making a real change, confirm with the team whether these are\nmid-migration stubs or dead code paths \u2014 don't assume the pipeline as\nchecked in here is the one running in prod at 02:10.\n"
+        }
+      },
+      "cache_creation_input_tokens": 9401,
+      "cache_read_input_tokens": 131086,
+      "case": "authored-file",
+      "claude_cli_version": "2.1.261 (Claude Code)",
+      "duration_ms": 47942,
+      "generated_at": "2026-09-05T02:57:01Z",
+      "generator": "20260905T025310Z-1401194",
+      "input_tokens": 10,
+      "model": "sonnet",
+      "num_turns": 9,
+      "ok": true,
+      "output_tokens": 3917,
+      "rep": 1,
+      "session_id": "9437f97a-f092-4ce8-9a10-99d6806f777d",
+      "text": "Wrote `exporter/ONBOARDING.md`, covering the nightly run's four-step flow, the two real landmines (watermark-moves-first causing silent skips on crash, and `slug`-based filenames colliding across regions), and a flag that `db.changed_since`/`Account.rows` are still stubs worth confirming with the team before their first change.",
+      "tools": [
+        "Bash",
+        "Read",
+        "Read",
+        "Read",
+        "Read",
+        "Read",
+        "Bash",
+        "Write"
+      ],
+      "total_cost_usd": 0.10403019999999999
+    },
+    {
+      "arm": "baseline",
+      "artifacts": {
+        "exporter/ONBOARDING.md": {
+          "bytes": 5262,
+          "new": true,
+          "text": "# Onboarding: `exporter/`\n\n## What it does\n\nOnce a night, cron runs `python -m exporter.pipeline` at 02:10 UTC. It reads\nevery billing account that changed since the last successful run off a\nread-only Postgres replica, and writes one CSV per account to\n`/srv/exports/<slug>.csv` for a downstream loader to pick up.\n\n## Call chain\n\n```\ncron (02:10 UTC)\n  -> exporter.pipeline.run(now)\n       -> state.read_watermark()          # last covered instant\n       -> state.write_watermark(now)      # watermark moves NOW, before any export\n       -> db.changed_since(since)         # cursor over the read replica\n            -> writer.write(account)      # one CSV per account, for each row\n```\n\nFive files, no tests, no `__init__.py`, nothing else in this repo yet:\n\n- `pipeline.py` \u2014 orchestrates a run.\n- `state.py` \u2014 the watermark (a single timestamp in `/var/lib/exporter/watermark`).\n- `db.py` \u2014 the replica query. **Currently a stub** (`raise NotImplementedError`).\n- `models.py` \u2014 the `Account` shape. `.rows()` is also **currently a stub**.\n- `writer.py` \u2014 turns an account's rows into a CSV file.\n\n## Three things to understand before changing anything\n\n### 1. The watermark moves *before* anything is exported \u2014 on purpose\n\n`pipeline.run()` calls `write_watermark(now)` before it loops over accounts.\nThat looks backwards, but it's deliberate: the downstream loader **appends,\nit doesn't upsert**. If a crashed run were retried from the same `since`,\nevery account it had already written would get re-sent and duplicated\ndownstream \u2014 silently, and downstream, where it's much harder to clean up.\n\nThe cost of that choice: if the pipeline dies partway through the loop, the\naccounts it hadn't reached yet are just skipped. Tomorrow's run starts from\n`now` of the run that crashed, not from wherever it died. There is no record\nof which accounts a given run actually wrote (see `state.py`'s docstring).\n\n**What this means for you:** if a run crashes, don't just re-run it and\nexpect it to pick up where it left off \u2014 it won't, and re-running it naively\ncan duplicate rows on the accounts that *did* get exported before the crash.\nRecovering a partial run is a manual step: figure out which accounts were\nmissed and call `pipeline.run(now, since=<a timestamp before the crash>)` by\nhand with intent. Don't \"fix\" the ordering in `pipeline.run()` without\nunderstanding this trade-off \u2014 swapping the two lines trades silent skips for\nsilent duplicates, it doesn't remove the risk.\n\n### 2. Output files are keyed by `slug`, not `account_id` \u2014 and slugs collide across regions\n\n`writer.write()` names each file `<slug>.csv`. Per `models.py`'s docstring,\n`slug` is unique **within a region only** \u2014 `eu-west` and `us-east` can both\nhave an account slugged `acme`, and they are different customers. As written,\nif `db.changed_since()` ever returns accounts from multiple regions with the\nsame slug, one will silently overwrite the other's export file on disk. This\nis a live landmine, not a hypothetical: `changed_since` is documented to\nreturn accounts \"across all regions.\" Anything you do here \u2014 adding a region,\nchanging the query, touching `writer.py` \u2014 should account for this before it\nships, e.g. by namespacing the filename with region or using `account_id`.\n\n### 3. `db.py` and `models.py` are unfinished\n\n`changed_since()` and `Account.rows()` both currently raise\n`NotImplementedError`. The pipeline does not run end-to-end yet. Whoever\nimplements them needs to preserve the contracts already documented in the\ndocstrings:\n\n- `changed_since(since)`: every account with `changed_at > since`, across\n  **all** regions, **oldest first**, as **one cursor** \u2014 no batching, no\n  ordering by region. (Oldest-first matters: combined with the watermark\n  logic above, if this is ever paginated or batched, a failure partway\n  through will skip differently than expected.)\n- `Account.rows()`: must yield rows keyed by the columns `writer.py` expects:\n  `account_id, name, plan, seats, mrr_cents, renewed_on`.\n\n## Other things worth knowing\n\n- **No `--since` CLI wiring exists yet.** `state.py`'s docstring refers to\n  recovering \"by hand with an explicit `--since`,\" and `pipeline.run()`\n  accepts a `since=` kwarg for exactly that, but `pipeline.py` has no\n  `if __name__ == \"__main__\"` block. As written, `python -m exporter.pipeline`\n  (the command cron is documented to run) doesn't actually invoke `run()`.\n  You'll need to add that entry point \u2014 including how `now` gets supplied \u2014\n  before this can run unattended.\n- **The DSN is pinned to a replica on purpose:**\n  `db.DSN` includes `target_session_attrs=read-only`. That's not incidental \u2014\n  the export must never touch the primary. Don't repoint this at a\n  read-write DSN even temporarily for testing.\n- **Watermark vs. replication lag:** the watermark is wall-clock `now` at the\n  start of the run, not the `changed_at` of the last row actually seen. If a\n  change lands on the primary just before `now` but hasn't replicated to the\n  replica yet by query time, it can fall permanently below tomorrow's\n  `since` and never get exported. Nothing currently detects or corrects for\n  this \u2014 worth keeping in mind if accounts are ever reported \"missing\" from\n  an export.\n"
+        }
+      },
+      "cache_creation_input_tokens": 12789,
+      "cache_read_input_tokens": 122069,
+      "case": "authored-file",
+      "claude_cli_version": "2.1.261 (Claude Code)",
+      "duration_ms": 85119,
+      "generated_at": "2026-09-05T02:58:27Z",
+      "generator": "20260905T025310Z-1401194",
+      "input_tokens": 10,
+      "model": "sonnet",
+      "num_turns": 9,
+      "ok": true,
+      "output_tokens": 7079,
+      "rep": 2,
+      "session_id": "63a75fc8-12c9-4206-a7a3-66a0c58e139c",
+      "text": "I wrote `exporter/ONBOARDING.md`. It covers the call chain (cron \u2192 `pipeline.run` \u2192 watermark \u2192 replica cursor \u2192 per-account CSV), and flags the three things that matter most before a first change:\n\n1. **Watermark-before-write ordering** \u2014 deliberate (append-only downstream loader means retries would duplicate), but it means crashed runs silently skip un-exported accounts and recovery is a manual `since=` re-run.\n2. **Filenames keyed by `slug`, not `account_id`** \u2014 slugs are only unique per-region, so two regions' accounts can collide and overwrite each other's export file.\n3. **`db.py` and `models.py` are still stubs** (`NotImplementedError`) \u2014 the pipeline doesn't run end-to-end yet, and I documented the contracts (`changed_since`, `Account.rows()`) they need to satisfy.\n\nI also noted two gaps I found while reading: there's no `__main__` entry point in `pipeline.py`, so `python -m exporter.pipeline` (what the docstring says cron runs) currently does nothing \u2014 that'll need wiring up along with the `--since` recovery flag `state.py` alludes to; and a subtler watermark-vs-replication-lag risk worth being aware of.",
+      "tools": [
+        "Bash",
+        "Read",
+        "Read",
+        "Read",
+        "Read",
+        "Read",
+        "Bash",
+        "Write"
+      ],
+      "total_cost_usd": 0.1473988
+    },
+    {
+      "arm": "laconic",
+      "artifacts": {
+        "exporter/ONBOARDING.md": {
+          "bytes": 5438,
+          "new": true,
+          "text": "# Exporter onboarding\n\n## What it does\n\nEvery night at 02:10 UTC, cron runs `python -m exporter.pipeline`. It exports\nevery billing account that changed since the last successful run to a CSV\nfile, one file per account, for a downstream loader to pick up.\n\nFive files, no tests, no `__main__` entry point wired up yet:\n\n- `pipeline.py` \u2014 `run(now, since=None)`: the orchestration. Reads the\n  watermark, advances it, then writes out every changed account.\n- `db.py` \u2014 `changed_since(since)`: pulls accounts from the read replica.\n  **Currently a stub** (`raise NotImplementedError`). Whoever wrote this\n  hasn't filled in the actual cursor query yet.\n- `models.py` \u2014 `Account`. `rows()` (the actual row data to export) is also\n  **unimplemented**.\n- `writer.py` \u2014 writes one CSV per account to `/srv/exports/<slug>.csv`.\n- `state.py` \u2014 the watermark: a timestamp on local disk at\n  `/var/lib/exporter/watermark`, read at the start of a run and overwritten\n  before the export loop starts.\n\nBecause `db.changed_since` and `Account.rows` both raise `NotImplementedError`,\n**the pipeline does not run end-to-end today.** If your first change is meant\nto build on working code, check whether that's already been picked up\nelsewhere or whether it's next on your plate.\n\n## The two things that will bite you if you don't know them going in\n\n### 1. The watermark moves *before* anything is written, on purpose\n\n`pipeline.run()` calls `write_watermark(now)` before it loops over accounts,\nnot after. That's deliberate, not a bug: the downstream loader **appends**\nCSV rows rather than upserting, so if a crashed run were retried by re-reading\nthe old watermark, every account it already wrote would get duplicated\ndownstream.\n\nThe trade-off: if the loop dies partway through (bad row, network blip,\nprocess killed), the accounts it hadn't reached yet are **silently skipped\nforever** \u2014 the watermark is already past them, and tomorrow's run starts\nfrom `now`, not from where the crash left off. There is no record anywhere\nof which accounts a given run actually wrote.\n\nRecovery is manual: re-run with an explicit `since` (`run(since=<timestamp\nbefore the crash>)`), which will re-export a wider window and will duplicate\nrows for anything that already made it out. That's considered the lesser\nevil, but it means someone has to notice the run failed and go do this by\nhand \u2014 check whatever alerting exists on this job before you assume a failed\nrun is self-healing. It isn't.\n\nIf you're touching `pipeline.py`, preserve the ordering (watermark write,\nthen loop) unless you're deliberately changing this failure mode \u2014 and if you\ndo change it, you need an answer for both halves: how does a crash avoid\nduplicating already-sent accounts, *and* how does it avoid losing\nnot-yet-reached ones. The current code picks \"duplicate on manual replay,\nskip silently on crash\" and only handles the first half automatically.\n\n### 2. `slug` is not a safe filename key across regions\n\n`writer.py` names each export `<slug>.csv`. But `models.py` says explicitly:\n`slug` is unique **within a region only** \u2014 `eu-west` and `us-east` can each\nhave an account slugged `acme`, and they're different customers. `db.py`'s\ndocstring confirms `changed_since` pulls **across all regions** on one\ncursor.\n\nPut those two facts together and two accounts with the same slug in\ndifferent regions will write to the same path in `/srv/exports/`, and\nwhichever one runs later in the cursor order wins \u2014 the other's export is\nsilently lost for that night. Nothing in the current code guards against\nthis. If your change touches `writer.py` or how accounts get named on disk,\nthis is almost certainly the bug you're either about to fix or about to make\nworse. `account_id` is the field that's actually globally unique; `slug` is\nonly for humans.\n\n## Other things worth knowing\n\n- **The DB connection is read-only, on purpose.** `db.DSN` points at a\n  replica with `target_session_attrs=read-only`. The exporter can never write\n  back to billing, which is also why the watermark lives in a local file\n  (`state.py`) instead of a row in that database \u2014 there's nowhere in the\n  source DB to put it.\n- **No batching, no per-region ordering.** `changed_since` is documented as\n  one cursor over the replica, oldest-changed-first, across every region\n  mixed together. Don't assume you can process \"one region at a time\" without\n  changing that contract.\n- **Output lands in `/srv/exports`, watermark in `/var/lib/exporter/watermark`**\n  \u2014 both plain paths on local disk, not configurable via env var or argument\n  today. If you need this to run somewhere else (staging, a container with a\n  different mount), that's a real change, not a config flag.\n\n## Before you make a change\n\n1. Confirm whether `db.changed_since` / `Account.rows` are still stubs or\n   whether someone has since implemented them elsewhere \u2014 don't build on top\n   of `NotImplementedError` by accident.\n2. If you touch `pipeline.run`, re-read the watermark-ordering comment above\n   and make sure your change still answers \"what happens if this dies on\n   account 500 of 1000.\"\n3. If you touch `writer.write` or anything that derives a filename or\n   destination key from an `Account`, use `account_id`, not `slug`, unless\n   you're intentionally scoping by region too.\n4. There are no tests in this directory yet \u2014 if you add logic, you're also\n   the one deciding how it gets covered.\n"
+        }
+      },
+      "cache_creation_input_tokens": 9500,
+      "cache_read_input_tokens": 131577,
+      "case": "authored-file",
+      "claude_cli_version": "2.1.261 (Claude Code)",
+      "duration_ms": 49615,
+      "generated_at": "2026-09-05T03:08:39Z",
+      "generator": "20260905T030748Z-1412601",
+      "input_tokens": 10,
+      "model": "sonnet",
+      "num_turns": 9,
+      "ok": true,
+      "output_tokens": 3943,
+      "rep": 2,
+      "session_id": "1c4c476d-689a-450a-83c5-0be6475b357e",
+      "text": "Wrote `exporter/ONBOARDING.md`. It covers what the nightly job does, flags that `db.changed_since` and `Account.rows` are still unimplemented stubs, and calls out the two real landmines before a first change: the watermark being written *before* the export loop (deliberate, but means a mid-run crash silently drops unprocessed accounts) and `writer.py` keying filenames on `slug`, which per `models.py` is only unique per-region \u2014 so same-slug accounts in different regions can silently overwrite each other's export.",
+      "tools": [
+        "Bash",
+        "Read",
+        "Read",
+        "Read",
+        "Read",
+        "Read",
+        "Bash",
+        "Write"
+      ],
+      "total_cost_usd": 0.1047844
+    },
+    {
+      "arm": "baseline",
+      "artifacts": {
+        "exporter/ONBOARDING.md": {
+          "bytes": 5526,
+          "new": true,
+          "text": "# Onboarding: `exporter/`\n\nFive files, no tests, no CLI wrapper beyond a module docstring. Read this\nbefore touching anything \u2014 the interesting behavior is in the *ordering* of\na few lines, not in any one function.\n\n## What it does\n\nEvery night at 02:10 UTC, cron runs `python -m exporter.pipeline`. It exports\nevery billing account that changed since the last successful run to a CSV\nfile, one file per account, for a downstream loader to pick up.\n\nCall chain:\n\n```\npipeline.run(now)\n  since = state.read_watermark()          # last covered instant\n  state.write_watermark(now)              # advance the watermark FIRST\n  for account in db.changed_since(since): # one cursor, all regions, oldest first\n      writer.write(account)               # -> /srv/exports/<slug>.csv\n```\n\n- `db.py` \u2014 read-only cursor over the billing replica (`target_session_attrs=read-only`).\n- `models.py` \u2014 `Account`: `account_id` (globally unique), `slug` (unique\n  only *within* a region), `region`, `changed_at`, and a `rows()` method\n  that yields the export rows.\n- `writer.py` \u2014 writes one CSV per account to `/srv/exports/`, columns\n  fixed as `account_id, name, plan, seats, mrr_cents, renewed_on`.\n- `state.py` \u2014 the watermark: an ISO-8601 timestamp in a single file,\n  `/var/lib/exporter/watermark`. Not in the database, because the database\n  being exported is a read-only replica and can't hold it.\n\n## The one invariant you must not break\n\n**The watermark is written *before* the export loop runs, not after.**\n\nThis is deliberate, not a bug. The downstream loader *appends* rather than\nupserts, so:\n\n- If a crashed run were retried from the *old* watermark, already-sent\n  accounts get sent again \u2192 duplicated rows on the loader's side, for every\n  account already processed.\n- Instead, the code accepts the opposite failure mode: if a run dies\n  partway through the loop, the accounts it hadn't reached yet are simply\n  **skipped**. The watermark already moved past them, and the next night's\n  run starts from `now`, not from where the crash happened.\n\nThere is no record of which accounts a given run actually finished writing.\nRecovery from a partial run is manual: call `run(now, since=<explicit\ntimestamp>)` by hand to re-cover the missed window. That re-covers by\n*time*, not by account, so expect some duplication for accounts that were\nin fact reached before the crash \u2014 that's the accepted tradeoff.\n\n**Before you change pipeline.py:** if you're tempted to move the watermark\nwrite to after the loop \"to be safer,\" don't \u2014 that flips the system from\nskip-on-crash to duplicate-on-crash, and the loader's append-only behavior\nmeans duplicates are the worse failure mode here. If you need to change this\ncontract, that's a conversation with whoever owns the loader, not a local\nfix.\n\n## The landmine in `writer.py`\n\nOutput files are named `<slug>.csv`. But `models.py` is explicit that\n`slug` is unique **only within a region** \u2014 `eu-west` and `us-east` can each\nhave an account slugged `acme`, and they are different customers. As\nwritten, two accounts with the same slug in different regions will export\nto the same path and **overwrite each other's file**, silently, whichever\none `changed_since` yields last.\n\nThis isn't exercised today only if regions happen not to collide in\npractice. Before adding a region, running a backfill across regions, or\ntouching `writer.write`, check whether this collision is still latent or\nalready biting someone \u2014 don't assume the current filename scheme is safe\nto build on. If you fix it, the natural key is `account_id`, not `slug`.\n\n## Other things worth knowing\n\n- **No batching.** `changed_since` is one cursor, oldest-`changed_at`-first,\n  across all regions, with no pagination. A first run, or a manual\n  recovery after a long outage, pulls everything in one pass. Keep that in\n  mind before changing the query shape.\n- **Local CSV writes are overwrites, not appends** (`writer.py` opens with\n  `\"w\"`). Only the downstream loader's append behavior is what makes the\n  watermark-ordering tradeoff above matter \u2014 the local files themselves are\n  always a full rewrite of that account's current state.\n- **The watermark file is a single point of state**, on local disk, outside\n  the database. If it's lost or corrupted, there's no automatic way to\n  recover the correct `since` \u2014 someone has to pick one by hand, trading off\n  missed data against duplicates.\n- **`db.changed_since` and `Account.rows` are currently stubs** (they\n  `raise NotImplementedError`). Confirm with the team what's actually\n  deployed in production before assuming this file tree is the whole\n  story \u2014 you may be looking at a skeleton with the real query logic living\n  elsewhere, or a job that isn't live yet. Don't take \"cron, 02:10 UTC\" in\n  the docstring as proof it's currently running end-to-end.\n\n## Before your first change\n\n1. Find out whether `db.py` / `models.py` as shown here are actually what's\n   deployed, or whether there's a fuller version elsewhere \u2014 the stubs\n   above need an answer before you can reason about current behavior.\n2. Confirm with the loader's owners what \"duplicate row\" actually costs\n   them today \u2014 that's the number that justifies the watermark ordering,\n   and you'll want it if you ever revisit the tradeoff.\n3. Check whether the `slug` filename collision is purely theoretical or has\n   already caused a silent overwrite in `/srv/exports/`.\n4. Know the manual recovery command (`run(now, since=...)`) before you need\n   it at 2am.\n"
+        }
+      },
+      "cache_creation_input_tokens": 10959,
+      "cache_read_input_tokens": 121205,
+      "case": "authored-file",
+      "claude_cli_version": "2.1.261 (Claude Code)",
+      "duration_ms": 64223,
+      "generated_at": "2026-09-05T03:09:44Z",
+      "generator": "20260905T030748Z-1412601",
+      "input_tokens": 10,
+      "model": "sonnet",
+      "num_turns": 9,
+      "ok": true,
+      "output_tokens": 5403,
+      "rep": 3,
+      "session_id": "418772fd-b62b-4dc0-bfb9-d650a65c9a9a",
+      "text": "Wrote `exporter/ONBOARDING.md`. It covers the call flow (pipeline \u2192 db \u2192 writer, watermark), the crash-safety tradeoff behind the watermark-before-loop ordering (skip-on-crash to avoid duplicate-on-crash, since the loader appends), and two concrete landmines to know before changing anything: the `slug`-based filename collision across regions in `writer.py`, and that `db.changed_since`/`Account.rows` are currently stub `NotImplementedError`s, so the real production behavior needs confirming before assuming this tree is the full story.",
+      "tools": [
+        "Bash",
+        "Read",
+        "Read",
+        "Read",
+        "Read",
+        "Read",
+        "Bash",
+        "Write"
+      ],
+      "total_cost_usd": 0.123141
+    },
+    {
+      "arm": "laconic",
+      "artifacts": {
+        "exporter/ONBOARDING.md": {
+          "bytes": 3368,
+          "new": true,
+          "text": "# Exporter onboarding\n\nYou own this now. It's small \u2014 five files, no tests, no `__init__.py` \u2014 but two\nof its behaviors will bite you if you don't know about them going in.\n\n## What it does\n\nOnce a night, cron runs `python -m exporter.pipeline` at 02:10 UTC\n(`pipeline.py:3`). It exports every billing account that changed since the\nlast run, one CSV per account, to `/srv/exports/`.\n\n## How a run works\n\n`pipeline.run(now, since=None)` (`pipeline.py:10`):\n\n1. Reads the watermark \u2014 the timestamp of the last successful run \u2014 from\n   `/var/lib/exporter/watermark` (`state.py`). This is a plain file, not a DB\n   row, because the source database is a read-only replica and can't hold it.\n2. **Writes the new watermark (`now`) immediately, before exporting\n   anything.**\n3. Opens one cursor over the read replica (`db.py:6`, DSN has\n   `target_session_attrs=read-only`) for every account with\n   `changed_at > since`, across all regions, oldest first. No batching, no\n   per-region ordering.\n4. For each account, `writer.write()` (`writer.py:9`) opens\n   `/srv/exports/<slug>.csv` in `\"w\"` mode (full overwrite) and dumps its rows\n   under a fixed column set: `account_id, name, plan, seats, mrr_cents,\n   renewed_on`.\n\n## The two things you must know before changing this\n\n**The watermark moves before the export loop runs, not after.** If the\nprocess dies partway through step 4, the watermark is already past every\naccount in that run \u2014 including the ones it never got to. They are not\nretried on the next run; they're just gone from the export stream. The only\nrecovery is noticing the gap and re-running by hand with an explicit\n`since`, which is why `run()` takes that parameter at all\n(`pipeline.py:10-17`). Don't \"fix\" this by moving the watermark write to the\nend without also handling the next point \u2014 that trade produces the opposite\nbug.\n\n**The downstream loader appends, it does not upsert.** Re-exporting an\naccount it has already ingested duplicates every one of that account's rows\non the receiving end. This is *why* the watermark writes early: an\nat-least-once retry model would double-count revenue on the loader's side.\nAny change you make has to preserve \"each account is sent at most once,\"\neven if that means occasionally sending it zero times (see above).\n\nNet effect: this pipeline is designed to under-export on crash, never to\nover-export. Keep that asymmetry when you touch it.\n\n## Other things worth knowing\n\n- **`slug` is unique per region, not globally** (`models.py:3-6`) \u2014 `eu-west`\n  and `us-east` can both have an account slugged `acme`, and they're\n  different customers. `writer.py` names output files by slug alone\n  (`OUT / (\"%s.csv\" % account.slug)`), so if a run ever processes both\n  same-slug accounts, the second write silently clobbers the first one's\n  file. Nothing in this codebase currently guards against that.\n- `db.changed_since()` and `models.Account.rows()` both currently raise\n  `NotImplementedError` \u2014 the actual replica cursor isn't implemented in\n  this checkout. Find out where the real implementation lives (or whether\n  it's genuinely missing) before you assume you can run this end to end.\n- There's no test suite and no `__init__.py` here. If you add either, check\n  how the cron invocation (`python -m exporter.pipeline`) and any deploy\n  tooling expect the package to be laid out first.\n"
+        }
+      },
+      "cache_creation_input_tokens": 9678,
+      "cache_read_input_tokens": 131570,
+      "case": "authored-file",
+      "claude_cli_version": "2.1.261 (Claude Code)",
+      "duration_ms": 49482,
+      "generated_at": "2026-09-05T03:10:35Z",
+      "generator": "20260905T030748Z-1412601",
+      "input_tokens": 10,
+      "model": "sonnet",
+      "num_turns": 9,
+      "ok": true,
+      "output_tokens": 4090,
+      "rep": 3,
+      "session_id": "7fda8108-1b71-42db-b799-5c0b785578eb",
+      "text": "Wrote `exporter/ONBOARDING.md`, covering the run sequence (watermark read \u2192 early watermark write \u2192 replica cursor \u2192 per-account CSV write), the two load-bearing invariants \u2014 watermark-before-write means crashes under-export rather than duplicate, and the downstream loader appends so re-sends double-count \u2014 the per-region `slug` collision risk in `writer.py`, and that `db.changed_since()`/`Account.rows()` are still stubs (`NotImplementedError`) in this checkout.",
+      "tools": [
+        "Bash",
+        "Read",
+        "Read",
+        "Read",
+        "Read",
+        "Read",
+        "Bash",
+        "Write"
+      ],
+      "total_cost_usd": 0.10696499999999999
+    },
+    {
+      "arm": "baseline",
+      "artifacts": {
+        "exporter/ONBOARDING.md": {
+          "bytes": 5026,
+          "new": true,
+          "text": "# Onboarding: `exporter/`\n\nYou own this now. It's small (five files, no tests, no `__init__.py`), but two\nof its design decisions are easy to get wrong on a first change. Read this\nbefore touching anything.\n\n## What it does\n\nOnce a night, this job reads every billing account that changed since the\nlast run and writes each one to a CSV file for a downstream loader to pick\nup. Per `pipeline.py`'s docstring, cron runs it at 02:10 UTC as:\n\n```\npython -m exporter.pipeline\n```\n\n**Verify this still works before relying on it.** `pipeline.py` defines\n`run(now, since=None)` but the file has no `if __name__ == \"__main__\":`\nblock and nothing else in the directory calls `run()`. As written today,\n`python -m exporter.pipeline` imports the module and does nothing. Either\nthe real entry point lives somewhere outside this directory (a wrapper\nscript, a scheduler config) or this is broken \u2014 find out which before you\nassume the docstring is current.\n\n## The flow\n\n1. `pipeline.run(now)` reads the watermark (`state.read_watermark()`) \u2014\n   the timestamp through which the last run is considered complete.\n2. It immediately writes a new watermark of `now` (`state.write_watermark`),\n   **before exporting a single account**.\n3. It calls `db.changed_since(since)`, which is supposed to open one cursor\n   over the read replica and yield every account (any region) changed after\n   `since`, oldest first. **This is currently a stub** \u2014 `db.py` raises\n   `NotImplementedError`. Nothing runs end-to-end today.\n4. For each account, `writer.write(account)` dumps its rows to\n   `/srv/exports/<slug>.csv`.\n\n## The watermark: read this twice\n\nThe watermark moves to `now` *before* any account is exported (`pipeline.py`\nlines 18-19). This is deliberate, not a bug:\n\n- The downstream loader **appends, it does not upsert**. If an account gets\n  exported twice, its rows are duplicated on the other end.\n- So the tradeoff here is: on a crash partway through the loop, prefer\n  **silently skipping** the accounts not yet reached over ever re-sending\n  one that already went out. The watermark has already moved past them by\n  the time the crash happens.\n- There is no record of which accounts a given run actually finished\n  writing. You cannot tell from this code alone whether last night's run\n  got through all of them.\n- **Recovery is manual.** If you know (or suspect) a run died early, you\n  re-run by hand with an explicit `since` \u2014 that's what the `since=`\n  parameter on `run()` is for. There's no `--since` CLI flag wired up yet\n  (see the entry-point gap above), so today that means calling\n  `exporter.pipeline.run(now, since=...)` yourself, e.g. from a shell.\n\nIf you're changing anything about ordering, batching, or retries in\n`db.changed_since` or `pipeline.run`, this at-most-once-per-crash contract\nis the thing you must not accidentally flip to at-least-once (or vice versa)\nwithout knowing which one you mean to have.\n\n## The landmine: `slug` is not globally unique\n\n`writer.write` names each output file `<slug>.csv`. `models.py` spells out\nwhy that's dangerous:\n\n> `slug` is the human-facing short name. It is unique within a region, not\n> globally: eu-west and us-east each have an \"acme\", and they are different\n> customers.\n\n`db.changed_since` is documented to return accounts \"across all regions.\"\nPut those two facts together: **two different customers can produce the\nsame output filename**, and whichever one `writer.write` processes second\nsilently overwrites the first customer's export. There is currently nothing\nin `writer.py` that namespaces by region.\n\nIf your first change touches `writer.py`, `db.changed_since`, or the output\npath, decide explicitly what should key the filename (region+slug?\naccount_id?) rather than assuming `slug` alone is safe \u2014 it's the one field\nin this codebase explicitly documented not to be.\n\n## Where things live\n\n| What | Where |\n|---|---|\n| Entry point (per docstring, unverified) | `python -m exporter.pipeline` |\n| Cron schedule | 02:10 UTC nightly |\n| Watermark file | `/var/lib/exporter/watermark` (ISO timestamp, plain text) |\n| Output CSVs | `/srv/exports/<slug>.csv` |\n| Source DB | read replica only \u2014 `db.DSN` sets `target_session_attrs=read-only` |\n| CSV columns | `account_id, name, plan, seats, mrr_cents, renewed_on` (`writer.COLUMNS`) |\n\n## Before your first change\n\n- Confirm how the job is actually invoked in production (cron entry, systemd\n  timer, whatever runs `python -m exporter.pipeline`) \u2014 don't trust the\n  docstring alone given the missing `__main__` block.\n- Confirm `db.changed_since` is really unimplemented in production, or if\n  this checkout is just missing something local (a private module, a\n  different branch, etc.).\n- Don't change the watermark-before-write ordering without re-reading\n  `state.py`'s docstring and confirming the downstream loader's\n  append-only behavior hasn't changed.\n- Don't change `writer.write`'s filename scheme without fixing the\n  slug-collision issue at the same time, or you'll make it worse.\n"
+        }
+      },
+      "cache_creation_input_tokens": 10609,
+      "cache_read_input_tokens": 122821,
+      "case": "authored-file",
+      "claude_cli_version": "2.1.261 (Claude Code)",
+      "duration_ms": 63657,
+      "generated_at": "2026-09-05T03:11:39Z",
+      "generator": "20260905T030748Z-1412601",
+      "input_tokens": 10,
+      "model": "sonnet",
+      "num_turns": 9,
+      "ok": true,
+      "output_tokens": 5249,
+      "rep": 4,
+      "session_id": "bb54b616-c2bd-4fc9-83ac-40bd389d6641",
+      "text": "Wrote `exporter/ONBOARDING.md`. Key points it covers for the new owner:\n\n- **How the pipeline runs**: `pipeline.run()` \u2192 `db.changed_since()` \u2192 `writer.write()` per account, nightly via cron at 02:10 UTC \u2014 but flags that `pipeline.py` has no `__main__` guard, so the documented `python -m exporter.pipeline` entry point doesn't actually call `run()` as the code stands.\n- **Watermark semantics**: it advances *before* any writes, a deliberate at-most-once tradeoff (since the downstream loader appends rather than upserts), meaning a crash silently skips unsent accounts and recovery is a manual re-run with `since=`.\n- **The big landmine**: `writer.write` names output files by `slug` alone, but `models.py` explicitly documents that slugs are only unique per-region \u2014 so two accounts in different regions can collide and overwrite each other's export, and nothing currently guards against it.\n- Also notes `db.changed_since` is currently just a stub (`NotImplementedError`), so nothing runs end-to-end yet \u2014 worth confirming against production before assuming this checkout is complete.",
+      "tools": [
+        "Bash",
+        "Read",
+        "Read",
+        "Read",
+        "Read",
+        "Read",
+        "Bash",
+        "Write"
+      ],
+      "total_cost_usd": 0.12052920000000002
+    },
+    {
+      "arm": "laconic",
+      "artifacts": {
+        "exporter/ONBOARDING.md": {
+          "bytes": 3536,
+          "new": true,
+          "text": "# Exporter onboarding\n\n## What it does\n\nEvery night at 02:10 UTC, cron runs `python -m exporter.pipeline`. It reads\nevery billing account that changed since the last successful run, and writes\neach one as a CSV to `/srv/exports/`. A separate loader (not in this repo)\npicks those files up afterward.\n\n## The five files\n\n- `pipeline.py` \u2014 orchestrates the run: read watermark, advance watermark,\n  fetch changed accounts, write each one.\n- `db.py` \u2014 `changed_since(since)`, a single cursor over the read-only\n  billing replica, oldest-changed first, across all regions. **Currently a\n  stub that raises `NotImplementedError`** \u2014 there's no working query yet.\n  Don't assume the pipeline runs end-to-end until this is filled in.\n- `models.py` \u2014 `Account`, as the replica presents it. `rows()` is likewise\n  a stub, meant to be backed by the replica cursor.\n- `state.py` \u2014 the watermark: a single timestamp in\n  `/var/lib/exporter/watermark`, not in the database (the database being\n  exported is read-only, so it can't hold its own watermark).\n- `writer.py` \u2014 writes one CSV per account to `/srv/exports/<slug>.csv`.\n\n## The two things that will bite you\n\n**1. The watermark moves *before* anything is written.**\n\n`pipeline.run()` calls `write_watermark(now)` first, then loops over\naccounts. That's deliberate, not a bug: the downstream loader *appends*\nrather than upserts, so if a crashed run were retried from the same `since`,\nevery account it already sent would be duplicated. Moving the watermark\nfirst prevents duplicates at the cost of the opposite failure: if the run\ndies partway through the loop, the accounts it hadn't reached yet are simply\nnever exported on a future run \u2014 the watermark has already passed them, and\nthere's no record anywhere of which accounts a given run actually wrote.\n\nRecovery is manual: find out how far the run actually got, then call\n`pipeline.run(now, since=<that point>)` yourself. There is no automatic\nretry and no partial-progress tracking. If you're touching this code, know\nwhere the \"did we actually cover this range\" question would need to be\nanswered by hand.\n\n**2. The output filename is the account's `slug`, not its `account_id`.**\n\n`writer.py` writes to `<slug>.csv`. But per `models.py`, slug is unique only\n*within* a region \u2014 `eu-west` and `us-east` can each have an account called\n`acme`, and they are different customers. Since `db.changed_since` iterates\n**across all regions** in one cursor, two same-named accounts from different\nregions changing on the same night will write to the same file, and one\nwill silently clobber the other. This isn't hypothetical edge-case\nparanoia \u2014 it's the exact scenario the `models.py` docstring warns about.\nIf you change the writer, this is the bug to fix or at least not make\nworse.\n\n## Before you make a change\n\n- There's no test suite and no other files beyond these five \u2014 treat\n  anything you add carefully, since nothing currently guards regressions.\n- `db.py` and the `rows()` half of `models.py` aren't implemented. If your\n  change depends on either actually running against the replica, you're\n  probably implementing that for the first time, not modifying existing\n  behavior.\n- The replica DSN (`db.py`) is `target_session_attrs=read-only` \u2014 this code\n  must never write to that connection.\n- If you change anything about ordering, batching, or per-account\n  granularity in `db.py`, re-check both landmines above: they both depend on\n  the current \"one cursor, oldest first, no per-region grouping\" shape.\n"
+        }
+      },
+      "cache_creation_input_tokens": 9594,
+      "cache_read_input_tokens": 132458,
+      "case": "authored-file",
+      "claude_cli_version": "2.1.261 (Claude Code)",
+      "duration_ms": 49667,
+      "generated_at": "2026-09-05T03:12:30Z",
+      "generator": "20260905T030748Z-1412601",
+      "input_tokens": 10,
+      "model": "sonnet",
+      "num_turns": 9,
+      "ok": true,
+      "output_tokens": 4067,
+      "rep": 4,
+      "session_id": "38ea8559-85b1-445e-a98a-553f6242a9a5",
+      "text": "Wrote `exporter/ONBOARDING.md`, covering the nightly flow (cron \u2192 `pipeline.run` \u2192 `db.changed_since` \u2192 `writer.write`), and flagging the two real landmines: the watermark advancing before writes (duplicate-vs-silent-skip tradeoff, with no per-account record, so recovery is manual `since=`), and the `slug`-based output filename colliding across regions since slugs aren't globally unique. Also noted `db.py`'s `changed_since` and `models.Account.rows()` are currently unimplemented stubs, so the pipeline doesn't run end-to-end yet.",
+      "tools": [
+        "Bash",
+        "Read",
+        "Read",
+        "Read",
+        "Read",
+        "Read",
+        "Bash",
+        "Write"
+      ],
+      "total_cost_usd": 0.1065716
+    },
+    {
+      "arm": "baseline",
+      "artifacts": {
+        "exporter/ONBOARDING.md": {
+          "bytes": 4625,
+          "new": true,
+          "text": "# Onboarding: `exporter/`\n\nYou own this now. It's small (5 files, ~85 lines) but every line is load-bearing \u2014\nread the docstrings in `pipeline.py` and `state.py` before changing anything; they\nexplain *why*, not just *what*.\n\n## What it does\n\nOnce a night, export every billing account that changed since the last run to a\nCSV file, for a downstream loader to pick up.\n\n- **Schedule:** cron, 02:10 UTC, runs `python -m exporter.pipeline`.\n- **Source:** a read-only Postgres replica of the billing DB (`db.py`, DSN has\n  `target_session_attrs=read-only` \u2014 this must never write to billing).\n- **Output:** one CSV per account at `/srv/exports/<slug>.csv` (`writer.py`).\n- **Downstream:** a loader reads those CSVs and **appends** rows \u2014 it does not\n  upsert. Sending it an account twice duplicates every row of that account.\n\n## How a run actually flows\n\n1. `pipeline.run(now)` reads the watermark (the timestamp of the last successful\n   run) from `state.py`.\n2. It **immediately writes the new watermark (`now`)**, before exporting anything.\n3. It asks `db.changed_since(since)` for every account changed since that\n   watermark, oldest first, across all regions \u2014 one cursor, no batching.\n4. For each account, `writer.write(account)` fetches its rows and writes the CSV.\n\nThat ordering in step 2 is deliberate, not a bug \u2014 see the next section.\n\n## The invariant you must not casually \"fix\"\n\n**The watermark moves before any account is exported.** There is no record of\nwhich accounts a given run actually wrote. If the run dies halfway through the\nloop, the accounts it hadn't reached yet are just skipped \u2014 the watermark is\nalready past them \u2014 and they are *not* picked up by the next run.\n\nThis is a deliberate tradeoff, forced by the loader appending instead of\nupserting: the alternative (write the watermark after a successful run) would\nmean a crash causes the *next* run to re-export accounts that already went out,\nduplicating their rows downstream. Silently skipping is judged safer than\nsilently duplicating.\n\nIf you touch `pipeline.py`, keep this tradeoff in mind \u2014 don't reorder\n`write_watermark` after the loop \"to be safer\" without understanding you'd be\ntrading one failure mode for a worse one.\n\n**Recovering skipped accounts is manual:** re-run with an explicit\n`since=` argument to `run()` covering the gap. There's no CLI flag wired up for\nthis yet \u2014 it's a \"call it by hand\" operation. Confirm with the team what the\nactual runbook is before you need it at 2am.\n\n## A landmine in `writer.py` you should know about\n\n`models.py` documents that `slug` is **unique only within a region**, not\nglobally \u2014 `eu-west` and `us-east` can both have an account slugged `\"acme\"`,\nand they're different customers.\n\n`writer.write()` names the output file `OUT / f\"{account.slug}.csv\"` with no\nregion in the path. Two accounts with the same slug in different regions will\nwrite to the *same file* and clobber each other's export. Nothing in the\ncurrent code prevents this. If your first change touches `writer.py` (or you're\ndebugging a \"missing data\" report), check this first.\n\n## Things that are stubs, not working code\n\n`db.changed_since()` and `Account.rows()` both currently `raise\nNotImplementedError`. The real replica cursor isn't implemented in this\ncheckout \u2014 don't assume `pipeline.run()` works end-to-end as-is, and don't\ntrust a quick read of the code to tell you what the query actually looks like\nin production. Find out where the real implementation lives (or confirm it's\nstill being built) before you rely on it for testing.\n\nThere's also no `if __name__ == \"__main__\":` entry point in `pipeline.py`\ndespite the module-level docstring saying cron calls `python -m\nexporter.pipeline` \u2014 ask how that's actually wired (a wrapper script,\nsomething injected at deploy time, etc.) rather than assuming.\n\n## No tests here\n\nThere is no test suite in this directory. Verify changes by reasoning through\nthe watermark/append invariants above and by checking with whoever owns the\ndownstream loader before changing output format, timing, or retry behavior \u2014\nmistakes here show up as either duplicate or missing billing rows for a\ncustomer, not as a stack trace.\n\n## Before your first change, confirm you can answer\n\n- What happens operationally when a run is skipped (do accounts silently\n  disappear, or does someone re-run with `since=`)?\n- Where the real `changed_since()` / `rows()` implementation lives.\n- Whether the loader has any duplicate-detection at all, or whether \"append\"\n  really means \"no safety net.\"\n- Whether the slug-collision issue above is already known/tracked.\n"
+        }
+      },
+      "cache_creation_input_tokens": 10189,
+      "cache_read_input_tokens": 121566,
+      "case": "authored-file",
+      "claude_cli_version": "2.1.261 (Claude Code)",
+      "duration_ms": 57600,
+      "generated_at": "2026-09-05T03:13:28Z",
+      "generator": "20260905T030748Z-1412601",
+      "input_tokens": 10,
+      "model": "sonnet",
+      "num_turns": 9,
+      "ok": true,
+      "output_tokens": 4618,
+      "rep": 5,
+      "session_id": "36621f1a-cbd5-4dd3-a03e-9d074e1cc7dd",
+      "text": "I wrote `exporter/ONBOARDING.md`. It covers the nightly flow (cron \u2192 watermark read \u2192 watermark write \u2192 replica cursor \u2192 per-account CSV write), and flags the things that will actually bite a newcomer:\n\n- **The watermark-before-write ordering** \u2014 deliberate tradeoff (skip-on-crash vs. duplicate-on-crash, since the downstream loader appends rather than upserts), not something to \"fix.\"\n- **A real landmine in `writer.py`**: output files are named by `slug` alone, but `models.py` documents slug is only unique *within* a region \u2014 same-slug accounts in different regions will overwrite each other's export.\n- **`db.changed_since()` and `Account.rows()` are stubs** (`NotImplementedError`), and `pipeline.py` has no `__main__` entry despite the docstring describing a cron invocation \u2014 both worth confirming with the team rather than assuming.\n- No test suite exists, so verification has to be by reasoning through the invariants above.",
+      "tools": [
+        "Bash",
+        "Read",
+        "Read",
+        "Read",
+        "Read",
+        "Read",
+        "Bash",
+        "Write"
+      ],
+      "total_cost_usd": 0.1122882
+    },
+    {
+      "arm": "laconic",
+      "artifacts": {
+        "exporter/ONBOARDING.md": {
+          "bytes": 3454,
+          "new": true,
+          "text": "# exporter/ onboarding\n\nNightly job that exports every changed billing account to a CSV per account,\nfor a downstream loader to pick up. Runs via cron, 02:10 UTC:\n`python -m exporter.pipeline`.\n\n## How a run works\n\n1. `pipeline.run(now)` reads the watermark (`state.read_watermark()`) \u2014 the\n   timestamp of the last successful run.\n2. It immediately **writes the new watermark** (`now`), before doing any\n   export work.\n3. It asks `db.changed_since(since)` for every account changed since that\n   watermark, across all regions, oldest first, as a single cursor over the\n   read replica (no batching).\n4. For each account, `writer.write(account)` renders one CSV to\n   `/srv/exports/<slug>.csv`.\n\n## Things you need to know before touching this\n\n**The watermark moves before the export loop runs, on purpose.** The\ndownstream loader appends rather than upserts, so re-exporting an account it\nalready has duplicates every row of it. Moving the watermark first guarantees\na crash never causes a re-send/duplicate. The cost: if a run dies partway,\nwhatever it hadn't reached yet is silently skipped forever \u2014 the watermark\nalready covers it. There's no per-account record of what actually got\nwritten. Recovering lost accounts means re-running by hand with an explicit\n`since=` argument to `pipeline.run`. If you change this ordering (e.g. to\n\"fix\" the skip-on-crash behavior), you will introduce duplicate rows on the\nloader side instead \u2014 that's a strictly worse failure mode for this\npipeline, so don't reorder it without understanding why it's this way.\n\n**`slug` is not a safe filename key.** `writer.write` names each file\n`<slug>.csv`, but `models.Account` documents that `slug` is unique only\n*within a region* \u2014 `eu-west` and `us-east` can each have an \"acme\", and\nthey're different customers. Since `db.changed_since` explicitly returns\naccounts across all regions with no ordering/grouping by region, two\nsame-slug accounts from different regions will write to the same path and\noverwrite each other. This is a live landmine, not a hypothetical: check for\nit before you rely on filenames being unique, and don't \"clean up\" the\nregion field thinking it's redundant with slug.\n\n**Two pieces are stubs, not finished code.** `db.changed_since` and\n`Account.rows()` both currently `raise NotImplementedError`. The replica\ncursor and per-account row shape aren't implemented in this checkout \u2014 don't\nassume you can run the pipeline end-to-end as-is. Find out where the real\nimplementation lives (or is expected to land) before your first change,\nrather than assuming these are dead code.\n\n**The watermark lives in a file, not the database**\n(`/var/lib/exporter/watermark`), deliberately \u2014 the source database is a\nread-only replica (`db.DSN` has `target_session_attrs=read-only`) and can't\nhold exporter state.\n\n**Output goes to a fixed path**, `/srv/exports/`, as plain CSV\n(`writer.COLUMNS` fixes the column order/set). No file rotation or cleanup\nhappens here \u2014 if that matters, it's handled outside this package.\n\n## Before your first change\n\n- Read `exporter/state.py` and `exporter/pipeline.py` docstrings in full \u2014\n  they carry the reasoning above in more detail than this file.\n- Know which failure mode you'd rather have (skip vs. duplicate) before\n  changing anything about watermark timing.\n- If you touch `writer.write`, decide what should happen for a same-slug\n  collision across regions \u2014 today it silently overwrites.\n"
+        }
+      },
+      "cache_creation_input_tokens": 9056,
+      "cache_read_input_tokens": 131854,
+      "case": "authored-file",
+      "claude_cli_version": "2.1.261 (Claude Code)",
+      "duration_ms": 41617,
+      "generated_at": "2026-09-05T03:14:11Z",
+      "generator": "20260905T030748Z-1412601",
+      "input_tokens": 10,
+      "model": "sonnet",
+      "num_turns": 9,
+      "ok": true,
+      "output_tokens": 3491,
+      "rep": 5,
+      "session_id": "884116c1-a650-4787-8fe9-0a49fc0491fb",
+      "text": "Wrote `exporter/ONBOARDING.md`, covering the run sequence and the three things most likely to bite a first change: the watermark-before-write ordering (crash-skips vs. duplicate-on-loader tradeoff), the cross-region slug collision in `writer.write`, and that `db.changed_since`/`Account.rows()` are still `NotImplementedError` stubs.",
+      "tools": [
+        "Bash",
+        "Read",
+        "Read",
+        "Read",
+        "Read",
+        "Read",
+        "Bash",
+        "Write"
+      ],
+      "total_cost_usd": 0.0985438
+    },
+    {
+      "arm": "baseline",
+      "artifacts": {
+        "exporter/ONBOARDING.md": {
+          "bytes": 4459,
+          "new": true,
+          "text": "# Exporter onboarding\n\nYou own this now. It's small (5 files) but the design has a couple of\nnon-obvious tradeoffs baked in \u2014 read this before touching `pipeline.py` or\n`writer.py`.\n\n## What it does\n\nOnce a night, export every billing account that changed since the last run\nto a CSV file, one file per account, for some downstream loader to pick up.\n\n## How the nightly run works\n\nEntry point: `python -m exporter.pipeline`, run by cron at 02:10 UTC.\n\n1. **`pipeline.run(now, since=None)`** reads the watermark \u2014 the timestamp\n   of the last successful run \u2014 from disk (`state.read_watermark()`), unless\n   a `since` is passed explicitly (used for manual recovery, see below).\n2. It immediately writes `now` as the new watermark, **before exporting\n   anything**. This ordering is deliberate \u2014 see \"Watermark moves first\"\n   below.\n3. It calls `db.changed_since(since)`, which opens a single cursor over the\n   read-only billing replica (`replica.internal`) and yields every `Account`\n   with `changed_at > since`, across all regions, oldest first. No batching.\n4. For each account, `writer.write(account)` pulls `account.rows()` and\n   writes `/srv/exports/<slug>.csv` (columns: `account_id`, `name`, `plan`,\n   `seats`, `mrr_cents`, `renewed_on`), fully overwriting the file each time.\n\n## Things you need to know before changing this\n\n**Watermark moves before the first write, on purpose.** The downstream\nloader appends rather than upserts, so re-sending an account it already has\nduplicates every row of it. The tradeoff chosen here is: if a run dies\npartway through the loop, the accounts it hadn't reached yet are silently\nskipped rather than retried \u2014 because retrying them risks duplicating rows\nfor accounts it *did* reach. There is no per-run record of which accounts\nactually got written. If you need to recover a failed run, you do it by\nhand: call `run(since=<timestamp from before the failed run>)` with an\nexplicit `since`. Don't \"fix\" the ordering to write the watermark after the\nloop without also solving the duplicate-row problem \u2014 that's trading one bug\nfor a worse one.\n\n**The watermark lives in a file, not the database, on purpose** \u2014\n`/var/lib/exporter/watermark`, read/written by `state.py`. The database\nbeing exported is a read-only replica and has nowhere to put it. Practical\nconsequences: there's no locking around that file, so don't run two\nexports concurrently (nothing stops them from racing on the watermark), and\nlosing the file loses your place (recover with an explicit `--since`/`since=`\nbased on whatever's in your logs).\n\n**`slug` collides across regions \u2014 the output path doesn't account for\nit.** Per `models.py`, `slug` is unique only within a region: `eu-west` and\n`us-east` can each have an \"acme\" account, and they're different customers.\nBut `writer.py` names the output file `<slug>.csv` in a single flat\ndirectory (`/srv/exports`), with no region in the path. Two accounts with\nthe same slug in different regions will overwrite each other's export. This\nis the sharpest edge in the current code \u2014 if your first change touches\n`writer.py`, or if a second region gets added to whatever `changed_since`\nqueries, fix this before it bites someone.\n\n**The replica is read-only and can lag.** The DSN\n(`postgresql://replica.internal/billing?target_session_attrs=read-only`)\nenforces read-only at the connection level. Don't expect to write through\nit, and keep replication lag in mind \u2014 an account's `changed_at` may not be\nvisible here yet even though it's committed on the primary.\n\n**Each write is a full overwrite, not an append.** `writer.write()` opens\nits CSV in `\"w\"` mode and rewrites the header and all rows every time, so\nwriting the same account twice in one run is harmless by itself \u2014 the\ndanger described above is specifically about the downstream loader ingesting\nthe same file twice across *separate* nightly runs.\n\n## What's not here yet\n\n- `db.changed_since()` and `Account.rows()` both currently raise\n  `NotImplementedError` \u2014 the replica query and row-extraction logic aren't\n  filled in. Confirm with the team whether this is mid-migration or genuinely\n  not wired up before assuming the nightly job runs end-to-end today.\n- There are no tests anywhere in this repo. If you're changing behavior,\n  you're on your own for verifying it \u2014 consider adding coverage for the\n  watermark-ordering and slug-collision cases above, since both are easy to\n  regress silently.\n"
+        }
+      },
+      "cache_creation_input_tokens": 11090,
+      "cache_read_input_tokens": 94339,
+      "case": "authored-file",
+      "claude_cli_version": "2.1.261 (Claude Code)",
+      "duration_ms": 68072,
+      "generated_at": "2026-09-05T03:15:20Z",
+      "generator": "20260905T030748Z-1412601",
+      "input_tokens": 8,
+      "model": "sonnet",
+      "num_turns": 8,
+      "ok": true,
+      "output_tokens": 5756,
+      "rep": 6,
+      "session_id": "86897b4a-2e0f-48e4-8122-e9e335d1e738",
+      "text": "Wrote `exporter/ONBOARDING.md`, covering how the nightly run flows (cron \u2192 watermark \u2192 replica cursor \u2192 per-account CSV write) and the landmines a newcomer needs before their first change: the deliberate watermark-before-write ordering (and why \"fixing\" it would reintroduce duplicate rows), the file-based watermark with no locking, the slug-collision-across-regions bug in `writer.py`'s output path, the read-only/lag-prone replica, and the fact that `db.changed_since()` and `Account.rows()` are currently unimplemented stubs with no test coverage anywhere.",
+      "tools": [
+        "Bash",
+        "Read",
+        "Read",
+        "Read",
+        "Read",
+        "Read",
+        "Write"
+      ],
+      "total_cost_usd": 0.1218228
+    },
+    {
+      "arm": "laconic",
+      "artifacts": {
+        "exporter/ONBOARDING.md": {
+          "bytes": 5699,
+          "new": true,
+          "text": "# Exporter onboarding\n\nFive files, no tests, no `__main__`, no logging. Read this before touching\nanything \u2014 the design has a couple of sharp edges that are not obvious from\nany single file.\n\n## What it does\n\nEvery night, export every billing account that changed since the last run,\none CSV per account, for some downstream loader to pick up.\n\nCron fires `python -m exporter.pipeline` at 02:10 UTC (per the docstring in\n`pipeline.py` \u2014 there's no `if __name__ == \"__main__\"` block or entrypoint\nscript in this directory, so the actual process wiring lives somewhere\noutside `exporter/`; find it before assuming this module runs itself).\n\n## The flow\n\n1. **`state.read_watermark()`** \u2014 read the last instant the exporter claims\n   to have fully covered, from a plain file at `/var/lib/exporter/watermark`\n   (not the database \u2014 the database is a read-only replica and can't hold\n   this).\n2. **`state.write_watermark(now)`** \u2014 immediately overwrite that file with\n   `now`, *before exporting anything*. This ordering is deliberate, not a\n   bug \u2014 see \"The watermark moves early\" below.\n3. **`db.changed_since(since)`** \u2014 one cursor over the read replica\n   (`DSN` in `db.py`), every account with `changed_at > since`, across all\n   regions, oldest first. No batching, no per-region ordering. As of this\n   reading it's a stub (`raise NotImplementedError`) \u2014 the real query lives\n   wherever this got wired up for production use; don't assume the\n   docstring's contract is enforced until you've checked.\n4. **`writer.write(account)`** \u2014 for each account, pull `account.rows()`\n   (also a stub in `models.py`, \"provided by the replica cursor\") and write\n   `/srv/exports/<slug>.csv`, columns `account_id, name, plan, seats,\n   mrr_cents, renewed_on`.\n\nThat's the whole pipeline (`pipeline.py:run`). No retries, no per-account\nerror handling \u2014 an exception from `writer.write` on one account propagates\nstraight out of the loop and kills the run for every account after it.\n\n## Things that will bite you\n\n### The watermark moves before the first write\n\n`run()` calls `write_watermark(now)` *before* the export loop starts. That's\nintentional: the loader downstream appends rather than upserts, so\nre-exporting an account it already received duplicates every row of it.\nMoving the watermark early guarantees a re-run never re-sends an account\nfrom a completed night.\n\nThe cost: if the run dies partway through the loop, every account it hadn't\nreached yet is silently skipped \u2014 not just that night, forever. The\nwatermark already points past them, so tomorrow's run starts from tonight's\n`now`, not from wherever the crash happened. There is no record of which\naccounts a given run actually wrote (see `state.py`'s docstring).\n\nRecovery is manual: call `run(now, since=<explicit timestamp>)` for the\ngap. There's no CLI flag for this in `pipeline.py` \u2014 no argparse, no\n`--since` handling \u2014 despite `state.py`'s docstring referencing one, so\neither it's wired up outside this directory or it doesn't exist yet. Check\nbefore you tell someone \"just pass `--since`.\"\n\nIf you change anything about ordering in `run()`, keep the \"advance\nwatermark, then export\" sequence, or you reopen the duplicate-row problem\nthis was built to avoid.\n\n### `writer.write` files by slug, not by account_id \u2014 and slug isn't unique\n\n`models.py` says this outright: slug is unique *within a region*, not\nglobally. `eu-west` and `us-east` can each have an account slugged `acme`,\nand they're different customers. `writer.write` names the output file\n`<slug>.csv` with no region in the path, and opens it in `\"w\"` mode\n(truncate-and-overwrite).\n\nSo if two accounts with the same slug in different regions both change on\nthe same night, whichever one `writer.write` processes second silently\noverwrites the first one's export \u2014 no error, no warning, just a missing\ncustomer's data. This is live today given `changed_since` doesn't order by\nregion. Don't add features to `writer.py` without fixing this, and don't\nassume today's output directory has one file per changed account.\n\n### The two stubs are the real integration points\n\n`db.changed_since` and `Account.rows()` both `raise NotImplementedError`.\nTheir docstrings describe the intended contract, but the contract isn't\nenforced by anything in this directory. If your first change touches\neither, confirm what actually backs them in the deployed version before\ntrusting the docstring \u2014 the two could have drifted.\n\n### No safety net\n\nNo tests, no logging, no alerting, nothing that would tell you the export\nsilently stopped early. If you change the pipeline, the only signal you'll\nget that something broke is a customer noticing a stale or missing CSV. Add\nwhatever visibility you need as you go \u2014 don't assume it exists elsewhere.\n\n## Before your first change\n\n- Read `state.py`'s docstring twice \u2014 the watermark-before-write ordering\n  is the one invariant everything else depends on.\n- If your change touches `writer.write`, decide what to do about the\n  slug-collision bug above; don't make it worse.\n- Don't add per-account retry/skip logic without also updating the\n  watermark story \u2014 right now \"watermark advanced\" and \"account exported\"\n  are two different claims that the code conflates.\n- Find where `changed_since` and `Account.rows()` are actually implemented\n  outside this directory before relying on their docstrings.\n- Find the real entrypoint/cron wiring outside this directory \u2014 it's not\n  here despite the docstring in `pipeline.py`.\n- There's no test suite to run before shipping \u2014 verify behavior manually\n  (e.g. dry-run against a scratch watermark file) rather than assuming CI\n  will catch a regression.\n"
+        }
+      },
+      "cache_creation_input_tokens": 12042,
+      "cache_read_input_tokens": 132383,
+      "case": "authored-file",
+      "claude_cli_version": "2.1.261 (Claude Code)",
+      "duration_ms": 80981,
+      "generated_at": "2026-09-05T03:16:42Z",
+      "generator": "20260905T030748Z-1412601",
+      "input_tokens": 10,
+      "model": "sonnet",
+      "num_turns": 9,
+      "ok": true,
+      "output_tokens": 6497,
+      "rep": 6,
+      "session_id": "8538b739-1cb8-42ff-ba76-454ade45019c",
+      "text": "Wrote `exporter/ONBOARDING.md`, covering the pipeline flow (`pipeline.py` \u2192 `state.py` \u2192 `db.py` \u2192 `writer.py`) and four landmines found while reading: the watermark-advances-before-write ordering (intentional, but means a crash silently drops accounts forever), `writer.write` filing output by `slug` alone even though `models.py` documents slugs as only region-unique (cross-region collisions overwrite each other's CSV), the two `NotImplementedError` stubs being unverified contracts, and the missing `__main__`/CLI/test wiring in this directory.",
+      "tools": [
+        "Bash",
+        "Read",
+        "Read",
+        "Read",
+        "Read",
+        "Read",
+        "Bash",
+        "Write"
+      ],
+      "total_cost_usd": 0.1406536
+    },
+    {
+      "arm": "baseline",
+      "artifacts": {
+        "exporter/ONBOARDING.md": {
+          "bytes": 6103,
+          "new": true,
+          "text": "# Onboarding: `exporter/`\n\nYou own this now. It's small (5 files, no tests, no `__init__.py`) but two of\nits behaviors are load-bearing in ways that aren't obvious from a skim. Read\nthis whole doc before your first change.\n\n## What it's supposed to do\n\nOnce a night, export every account that changed since the last run to a CSV\nfile, one file per account, for some downstream loader to pick up.\n\nIntended invocation, per the docstring in `pipeline.py`:\n\n```\ncron, 02:10 UTC:  python -m exporter.pipeline\n```\n\n**This doesn't actually work yet.** There's no `if __name__ == \"__main__\"`\nblock anywhere and no `__init__.py`, so `python -m exporter.pipeline` runs the\nmodule and does nothing \u2014 `run()` is never called. Whoever wires up the real\ncron job needs to add an entry point first. Don't assume the job is live just\nbecause the docstring describes a schedule.\n\nIt also can't run end-to-end even with an entry point: `db.changed_since()`\nand `Account.rows()` are both stubs (`raise NotImplementedError`). Someone\nstill owes this a real replica cursor implementation.\n\n## The data flow\n\n```\nstate.read_watermark()          -- last covered instant, from a local file\n       |\ndb.changed_since(since)         -- cursor over the read replica, oldest first,\n       |                            all regions interleaved, no batching\n       v\n   for each account:\n       writer.write(account)    -- one CSV per account, in /srv/exports\n```\n\n`state.write_watermark(now)` is called **before** the loop runs, not after.\nThat's the single most important thing to understand before touching this\ncode \u2014 see below.\n\n## Files, one line each\n\n- `pipeline.py` \u2014 orchestrates: read watermark, advance watermark, loop and\n  write.\n- `db.py` \u2014 read-only replica cursor (`changed_since`), currently a stub.\n- `models.py` \u2014 `Account`, plus the region/slug distinction (see below).\n- `state.py` \u2014 the watermark file. Read this file's docstring in full; it\n  explains the failure model.\n- `writer.py` \u2014 writes one CSV per account to `/srv/exports/<slug>.csv`.\n\n## Things you need to know before changing anything\n\n### 1. The watermark moves *before* anything is written, on purpose\n\n`pipeline.run()` calls `write_watermark(now)` before it writes a single row.\nThis is intentional, not a bug: there's no record of which accounts a run\nactually finished, so the only way to guarantee a crash never causes\n*duplicate* exports is to guarantee it can only cause *skipped* ones. If the\njob dies halfway through the loop, every account it hadn't reached yet is\nsimply never exported for that window \u2014 the watermark is already past them,\nand next night's run starts from `now`, not from where it crashed.\n\nConsequences for you:\n\n- If a run crashes or you know it missed accounts, there is no automatic\n  retry. You recover by hand: call `pipeline.run(now, since=<explicit start>)`\n  covering the missed window.\n- Don't \"fix\" this into a race where the watermark advances after the loop.\n  That trades silent skips for duplicate exports, which is worse \u2014 see next\n  point.\n- If you ever add per-account tracking of what was actually sent (to make\n  recovery automatic), that's a real improvement, but it's a design change,\n  not a bug fix. Don't do it as a drive-by.\n\n### 2. The downstream loader appends, it does not upsert\n\nRe-exporting an account it already has duplicates every row of that account.\nThis is why point 1 matters: the whole pipeline is built around \"skip is\nrecoverable, duplicate is not.\" Any change you make has to preserve that\nasymmetry, or coordinate a change with whoever owns the loader.\n\n### 3. `slug` is not globally unique \u2014 and `writer.py` uses it as the filename\n\nFrom `models.py`: `slug` is unique *within a region only*. `eu-west` and\n`us-east` can both have an account slugged `\"acme\"`, and they're different\ncustomers. But `db.changed_since` pulls accounts across all regions into one\nstream, and `writer.write` names the output file `<slug>.csv` with no region\nin the path. Two different accounts with the same slug in different regions\nwill collide and overwrite each other's export.\n\nThis looks like an existing landmine, not a documented tradeoff \u2014 `models.py`\nwarns about exactly this distinction and `writer.py` doesn't use it. Confirm\nwith the team whether this has already bitten someone before you build\nanything on top of `writer.py`, and don't copy the `<slug>.csv` pattern into\nnew code without namespacing by region (e.g. `<region>/<slug>.csv` or\n`<account_id>.csv`).\n\n### 4. The DB connection is read-only, deliberately\n\n`db.py`'s DSN has `target_session_attrs=read-only` and points at a replica.\nThat's why the watermark lives in a local file (`/var/lib/exporter/watermark`)\ninstead of a table: the exporter is not allowed to write to the thing it's\nexporting. Don't add a table to track run state without first checking\nwhether this process is even allowed to write to that database.\n\n### 5. No batching, single cursor, oldest-first\n\n`changed_since` is documented as one cursor over the whole replica, not\npaginated or chunked, not ordered by region. For now that's simple and fine;\nif account volume grows, this is the place a nightly run starts taking too\nlong or holding a replica cursor open too long. Worth knowing before you're\nasked \"why is the export slow\" at 3am.\n\n## Before your first change\n\n1. Read the docstrings in `state.py` and `models.py` in full \u2014 they carry\n   real constraints, not filler.\n2. Figure out whether `db.changed_since` / `Account.rows()` have been\n   implemented elsewhere/since this doc was written, or if you're the one\n   implementing them.\n3. If your change touches ordering, retries, or when the watermark advances,\n   re-read point 1 and 2 above and make sure you're not turning a\n   skip-on-crash into a duplicate-on-crash.\n4. If your change touches `writer.py` or filenames, resolve the slug\n   collision (point 3) rather than building on top of it.\n5. There are no tests in this package yet. If you add the first ones, the\n   watermark ordering and the slug-collision case are the two most valuable\n   things to cover.\n"
+        }
+      },
+      "cache_creation_input_tokens": 10937,
+      "cache_read_input_tokens": 122162,
+      "case": "authored-file",
+      "claude_cli_version": "2.1.261 (Claude Code)",
+      "duration_ms": 63872,
+      "generated_at": "2026-09-05T03:17:47Z",
+      "generator": "20260905T030748Z-1412601",
+      "input_tokens": 10,
+      "model": "sonnet",
+      "num_turns": 9,
+      "ok": true,
+      "output_tokens": 5223,
+      "rep": 7,
+      "session_id": "57384524-bb5b-4638-9e55-14b440a133c3",
+      "text": "Wrote `exporter/ONBOARDING.md`. It covers the data flow (watermark \u2192 replica cursor \u2192 per-account CSV write), and five things that aren't obvious from skimming the code but matter for a first change:\n\n1. **The pipeline doesn't actually run yet** \u2014 no `__main__` entry point despite the cron docstring, and `db.changed_since`/`Account.rows()` are still `NotImplementedError` stubs.\n2. **Watermark advances before writes happen**, intentionally \u2014 crashes cause silent skips, never duplicates, because the downstream loader appends rather than upserts. Recovery is manual via `run(since=...)`.\n3. **A likely landmine**: `slug` is only unique per-region (per `models.py`'s own docstring), but `writer.py` names files by slug alone across all regions \u2014 same-slug accounts in different regions will overwrite each other's export.\n4. **Why the watermark is a file, not a DB row**: the connection is explicitly read-only (replica DSN).\n5. **No batching** \u2014 single unpaginated cursor, a scaling concern for later.",
+      "tools": [
+        "Bash",
+        "Read",
+        "Read",
+        "Read",
+        "Read",
+        "Read",
+        "Bash",
+        "Write"
+      ],
+      "total_cost_usd": 0.12144940000000001
+    },
+    {
+      "arm": "laconic",
+      "artifacts": {
+        "exporter/ONBOARDING.md": {
+          "bytes": 4571,
+          "new": true,
+          "text": "# exporter/ onboarding\n\n## What it does\n\nEvery night, exports each billing account that changed since the last run to\na CSV file for a downstream loader to pick up. Triggered by cron at 02:10 UTC:\n\n```\npython -m exporter.pipeline\n```\n\n## Walkthrough\n\n`pipeline.run(now, since=None)` (pipeline.py) is the entry point:\n\n1. Reads the watermark (the timestamp the last successful run covered up to)\n   from `state.read_watermark()`, unless `since` is passed explicitly.\n2. Writes the new watermark (`now`) to disk **immediately, before exporting\n   anything**.\n3. Calls `db.changed_since(since)`, which cursors over a read-only replica\n   and yields every `Account` with `changed_at > since`, across all regions,\n   oldest first.\n4. For each account, calls `writer.write(account)`, which pulls the account's\n   rows and writes them to `/srv/exports/<slug>.csv`.\n\n## The watermark moves before the writes \u2014 this is intentional\n\nThis is the one thing you must understand before changing anything in\npipeline.py or state.py.\n\nThe downstream loader **appends, it does not upsert**. If the exporter ever\nsends an account twice, every row of that account is duplicated on the other\nend. To guarantee an account is never re-sent, the watermark is advanced\n*before* the export loop runs, not after it succeeds.\n\nThe consequence: if the pipeline crashes partway through the loop, the\naccounts it hadn't reached yet are **silently skipped**, not retried on the\nnext scheduled run \u2014 the watermark is already past them. There is no record\nin the exporter of which accounts a given run actually wrote (see\nstate.py's docstring). Recovering a missed range means noticing it happened\n(via logs or a downstream gap) and re-running by hand with an explicit\n`since`, e.g. `run(now, since=<explicit timestamp>)`.\n\nIf you're tempted to \"fix\" this by moving the watermark write to after the\nloop, don't \u2014 that trades silent skips for duplicate rows downstream, which\nis the worse failure mode here. Any real fix (e.g. per-account tracking)\nneeds to change the append-only assumption on the loader side too.\n\n## Slugs are not globally unique \u2014 and the writer keys files by slug alone\n\nFrom models.py: `slug` is unique **within a region**, not globally. `eu-west`\nand `us-east` can each have an account called `acme`, and they're different\ncustomers.\n\n`writer.write()` (writer.py) names the output file `OUT / f\"{account.slug}.csv\"`\nand opens it in truncate mode (`\"w\"`). `changed_since` iterates accounts\nacross *all* regions in one stream. That means if two regions both have a\nchanged `acme` account in the same run, the second one's file **overwrites**\nthe first's \u2014 one of them silently never reaches the loader. There's\ncurrently nothing disambiguating by region or `account_id` in the output\npath. Know this going in; it's the kind of bug that only shows up in\nproduction with the right two customer names.\n\n## Why the watermark lives in a file, not the database\n\nDSN in db.py points at a **read-only** replica\n(`target_session_attrs=read-only`) \u2014 the exporter cannot write to the thing\nit's exporting from. So the watermark is a plain file at\n`/var/lib/exporter/watermark`, read/written as an ISO timestamp\n(state.py). If that file is missing or corrupt, `read_watermark()` will\nthrow; there's no default.\n\n## Current state of the code: two core pieces are stubs\n\nBoth of these currently `raise NotImplementedError`:\n\n- `db.changed_since()` \u2014 the replica cursor itself isn't written yet.\n- `models.Account.rows()` \u2014 pulling a given account's export rows isn't\n  written yet.\n\nIn other words, the pipeline as it stands does not run end-to-end. Don't\nassume \"nightly export\" describes working, deployed behavior \u2014 it describes\nthe intended design that pipeline.py, state.py, and writer.py already\nimplement around those two missing pieces. Check with the team on which of\nthese is actually next before building on top of them.\n\n## Before your first change\n\n- Read pipeline.py's docstring and state.py's docstring in full \u2014 they carry\n  the \"why,\" not just the \"what.\"\n- Assume any change touching watermark timing or `changed_since` ordering\n  affects the append-only/duplicate-rows tradeoff above. Ask before changing\n  that behavior.\n- If your change touches `writer.write()`'s output path, fix the slug\n  collision (region or `account_id` in the filename) rather than working\n  around it \u2014 it will otherwise resurface for you.\n- There are no tests in this directory yet. If you implement `changed_since`\n  or `rows()`, that's the natural place to add the first ones.\n"
+        }
+      },
+      "cache_creation_input_tokens": 9816,
+      "cache_read_input_tokens": 131401,
+      "case": "authored-file",
+      "claude_cli_version": "2.1.261 (Claude Code)",
+      "duration_ms": 52054,
+      "generated_at": "2026-09-05T03:18:40Z",
+      "generator": "20260905T030748Z-1412601",
+      "input_tokens": 10,
+      "model": "sonnet",
+      "num_turns": 9,
+      "ok": true,
+      "output_tokens": 4227,
+      "rep": 7,
+      "session_id": "0c5ba394-efd9-4692-b3df-e26c9ca4a950",
+      "text": "Wrote `exporter/ONBOARDING.md`. It covers the nightly cron flow, the watermark-before-write ordering and why it's deliberate (append-only loader downstream), the slug-not-globally-unique filename collision in `writer.py`, why the watermark lives in a file instead of the DB, and \u2014 importantly \u2014 that `db.changed_since()` and `Account.rows()` are still stubs, so the pipeline doesn't actually run end-to-end yet.",
+      "tools": [
+        "Bash",
+        "Read",
+        "Read",
+        "Read",
+        "Read",
+        "Read",
+        "Bash",
+        "Write"
+      ],
+      "total_cost_usd": 0.10885319999999998
+    },
+    {
+      "arm": "baseline",
+      "artifacts": {
+        "exporter/ONBOARDING.md": {
+          "bytes": 6067,
+          "new": true,
+          "text": "# Onboarding: `exporter/`\n\nFive files, no tests, no `__init__.py`. Read this whole thing before touching\n`pipeline.py` or `writer.py` \u2014 the design has two sharp edges that are easy to\nbreak without noticing, because nothing will error when you do.\n\n## What it does\n\nOnce a night, export every billing account that changed since the last run\nto a CSV file, one file per account, for a downstream loader to pick up.\n\n- **Trigger**: cron at 02:10 UTC, `python -m exporter.pipeline` (per the\n  docstring in `pipeline.py`). Note there is no `if __name__ == \"__main__\":`\n  block in this file \u2014 `run(now, since=None)` is never called from within\n  the module itself. Find out how it's actually invoked (a wrapper script\n  elsewhere, an entry point in packaging config, etc.) before you assume the\n  docstring is the whole story.\n- **Source**: a read-only Postgres replica (`db.py`, DSN pins\n  `target_session_attrs=read-only`). This code cannot write to the billing\n  DB and never should.\n- **Sink**: one CSV per account at `/srv/exports/<slug>.csv` (`writer.py`).\n- **Progress tracking**: a single watermark file at\n  `/var/lib/exporter/watermark` (`state.py`), not a DB table \u2014 because the\n  DB being exported is read-only from here.\n\n## The flow (`pipeline.py`)\n\n```\nsince = read_watermark()       # last time this pipeline claims to have covered\nwrite_watermark(now)           # <-- moves BEFORE any export happens\nfor account in changed_since(since):\n    writer.write(account)\n```\n\nThat ordering is deliberate, not a bug. Read the docstring in `pipeline.py`\nand `state.py` \u2014 the short version:\n\n## Design decision #1: at-most-once, not at-least-once\n\nThe downstream loader **appends, it does not upsert**. If this pipeline ever\nre-sends an account it already sent, every row for that account is\nduplicated in the destination, permanently.\n\nTo guarantee that never happens, the watermark is advanced *before* the\nexport loop runs. The consequence: if the process dies partway through the\nloop (account #500 of 800, say), accounts 500\u2013800 are silently never\nexported this run. The watermark has already moved past them, so the next\nscheduled run will not retry them either \u2014 as far as the pipeline is\nconcerned, they're covered.\n\nThere is no error, no alert, and no record of which accounts a given run\nactually reached (see `state.py`'s docstring). If you need to recover a\nmissed range, you do it by hand: rerun with an explicit `since=` older than\nthe gap. **There is currently no CLI flag wired up for this** \u2014 `since` is\njust a parameter on `run()`.\n\nImplication for your first change: anything you do that makes the loop more\nlikely to raise partway through (a stricter validation, a new network call\nper account, etc.) directly widens the blast radius of silent gaps. If you\nwant at-least-once instead of at-most-once semantics, that's a real design\nchange, not a tweak \u2014 it also requires the loader to become idempotent\nfirst.\n\n## Design decision #2 (landmine): `slug` is not a safe file key\n\nFrom `models.py`:\n\n> `slug` is the human-facing short name. It is unique within a region, not\n> globally: eu-west and us-east each have an \"acme\", and they are different\n> customers.\n\n`writer.py` names the output file `\"%s.csv\" % account.slug` \u2014 **region is\nnot part of the filename.** `db.py`'s `changed_since` pulls accounts \"across\nall regions, oldest first\" from one cursor, with no batching or grouping by\nregion.\n\nPut together: if `eu-west/acme` and `us-east/acme` both changed since the\nlast run, one export silently overwrites the other on disk. Whichever\naccount sorts later by `changed_at` wins; the other's data for that night is\njust gone, with no error. This is not hypothetical edge-case territory \u2014\nit's the normal case any night two regions both touch a same-named account.\n\nBefore you change anything in `writer.py` or `models.py`, know that this\nexists. If you're fixing it, the fix is keying the output path on `(region,\nslug)` or `account_id`, not `slug` alone \u2014 but check who/what downstream\nparses the current `<slug>.csv` filename convention first, since changing it\nis a breaking change for the loader.\n\n## Other things worth knowing\n\n- **Replica lag vs. the watermark**: `write_watermark(now)` stores wall-clock\n  `now`, not the max `changed_at` actually seen in this run's results. If\n  the replica lags behind the primary, a change that landed on the primary\n  just before `now` might not have replicated yet, so `changed_since` won't\n  return it \u2014 and because the watermark already moved to `now`, no future\n  run will ever pick it up either. Worth confirming with whoever owns the\n  replica whether there's a lag safety margin you're supposed to apply\n  (there currently isn't one in this code).\n- **`db.changed_since` and `Account.rows()` both currently `raise\n  NotImplementedError`.** Confirm with the team whether the real\n  implementations live elsewhere (a subclass, a different branch) or whether\n  this is genuinely unfinished, before you assume today's behavior in\n  production matches what's in this directory.\n- **No tests, no fixtures.** There's nothing here to run to check you didn't\n  break the two things above \u2014 you'll need to reason through them by hand or\n  test against a non-production replica/export directory.\n\n## Before your first change\n\n1. Confirm how `run()` is actually invoked in production (the missing\n   `__main__` block above).\n2. Don't key any per-account artifact by `slug` alone \u2014 use `account_id` or\n   `(region, slug)`.\n3. Don't reorder the `write_watermark` / export loop relationship without\n   re-reading the at-most-once rationale above and checking whether the\n   loader has become idempotent since this was written.\n4. If you're touching `changed_since`, remember its output order (oldest\n   `changed_at` first, across all regions, unbatched) is load-bearing for\n   which account wins the slug collision \u2014 changing the order changes which\n   data silently disappears.\n5. Ask who consumes `/srv/exports/*.csv` downstream before changing format,\n   naming, or columns.\n"
+        }
+      },
+      "cache_creation_input_tokens": 12081,
+      "cache_read_input_tokens": 124135,
+      "case": "authored-file",
+      "claude_cli_version": "2.1.261 (Claude Code)",
+      "duration_ms": 78381,
+      "generated_at": "2026-09-05T03:19:59Z",
+      "generator": "20260905T030748Z-1412601",
+      "input_tokens": 10,
+      "model": "sonnet",
+      "num_turns": 9,
+      "ok": true,
+      "output_tokens": 6387,
+      "rep": 8,
+      "session_id": "08e3973a-4716-4eb8-8d64-aff6c770619f",
+      "text": "I read all five files in `exporter/` and wrote `exporter/ONBOARDING.md`. It covers the nightly flow (cron \u2192 watermark \u2192 replica query \u2192 per-account CSV), and flags the two things that will bite a newcomer silently:\n\n1. **At-most-once semantics** \u2014 the watermark advances *before* the export loop runs, so a mid-run crash permanently skips the rest of that night's accounts with no error or alert (traded off deliberately because the downstream loader appends rather than upserts).\n2. **A slug-collision landmine** \u2014 `writer.py` names files by `slug` alone, but `models.py`'s own docstring says slug is only unique *per region*; two same-named accounts in different regions will silently overwrite each other's export.\n\nIt also notes two gaps worth confirming with the team before relying on this: `pipeline.py` has no `__main__` entry despite the cron docstring, and `db.changed_since`/`Account.rows()` currently raise `NotImplementedError`.",
+      "tools": [
+        "Bash",
+        "Read",
+        "Read",
+        "Read",
+        "Read",
+        "Read",
+        "Bash",
+        "Write"
+      ],
+      "total_cost_usd": 0.13806000000000002
+    },
+    {
+      "arm": "laconic",
+      "artifacts": {
+        "exporter/ONBOARDING.md": {
+          "bytes": 3238,
+          "new": true,
+          "text": "# Exporter onboarding\n\n## What it does\n\nOnce a night, every account that changed since the last run gets re-exported\nas a CSV to `/srv/exports/<slug>.csv`, for a downstream loader to pick up.\n\n## How it runs\n\nCron fires `python -m exporter.pipeline` at 02:10 UTC (see the module\ndocstring in `pipeline.py`). That calls `run(now)`, which:\n\n1. Reads the watermark (the timestamp the last successful run covered up to).\n2. Writes `now` as the new watermark, **before** exporting anything.\n3. Pulls every account changed since the old watermark from the read replica\n   (`db.changed_since`), oldest first, and writes each one (`writer.write`).\n\n## The files\n\n- `pipeline.py` \u2014 the orchestration above.\n- `db.py` \u2014 one cursor over the read-only billing replica (`changed_since`).\n  No batching, no per-region ordering.\n- `models.py` \u2014 `Account`, as the replica presents it.\n- `state.py` \u2014 the watermark, kept in a local file\n  (`/var/lib/exporter/watermark`), not in the database. It has to live\n  outside the DB because the DB being exported is read-only.\n- `writer.py` \u2014 one CSV per account, named by `slug`, columns fixed by\n  `writer.COLUMNS`.\n\n## Before you touch this, know these three things\n\n**The watermark moves before the writes happen, on purpose.** The downstream\nloader appends rather than upserts, so re-sending an account it already has\nduplicates every row of it. Moving the watermark first means a crash mid-run\nloses the remaining accounts for that night instead of risking duplicates on\nretry. There is no record of which accounts a given run actually finished\nwriting \u2014 if it dies partway, everything after the last account it reached is\njust skipped, silently, until someone notices and re-runs by hand with an\nexplicit `since`. Don't \"fix\" this by moving the watermark write to the end;\nthat swaps silent gaps for silent duplicates, which is worse for this loader.\n\n**`slug` is not a globally unique key \u2014 `account_id` is.** Per `models.py`,\ntwo different customers in two different regions can both be `acme`.\n`writer.write` names the output file after `slug`. If a run ever exports two\naccounts that share a slug across regions, the second write silently\nclobbers the first one's file. This isn't handled anywhere today \u2014 it's a\nlandmine, not a solved problem. If your change touches which accounts get\nexported in a single run, or the output path, check whether it can make two\nsame-slugged accounts collide.\n\n**Two pieces are still stubs, and the cron entry point isn't wired up.**\n`db.changed_since` and `Account.rows` both just `raise NotImplementedError`.\n`pipeline.py` also has no `if __name__ == \"__main__\":` guard calling `run()`,\nso `python -m exporter.pipeline` as described in its own docstring\ncurrently does nothing. Confirm with your team whether this is genuinely\nunimplemented in production or whether you're looking at a stripped-down\ncopy \u2014 don't assume the nightly job is currently working.\n\n## Recovering a failed run\n\nThere's no automatic replay. Re-run by hand: `pipeline.run(now, since=<the\nold watermark or earlier>)`. Check `state.py`'s docstring and the watermark\nfile before picking a value \u2014 going too far back re-sends (and duplicates)\naccounts the loader already has.\n"
+        }
+      },
+      "cache_creation_input_tokens": 9234,
+      "cache_read_input_tokens": 131881,
+      "case": "authored-file",
+      "claude_cli_version": "2.1.261 (Claude Code)",
+      "duration_ms": 46562,
+      "generated_at": "2026-09-05T03:20:47Z",
+      "generator": "20260905T030748Z-1412601",
+      "input_tokens": 10,
+      "model": "sonnet",
+      "num_turns": 9,
+      "ok": true,
+      "output_tokens": 3695,
+      "rep": 8,
+      "session_id": "1907d74e-3f69-4d7f-997b-2c1c845c0368",
+      "text": "Wrote `exporter/ONBOARDING.md`. It covers the nightly flow (cron \u2192 `pipeline.run` \u2192 watermark \u2192 `changed_since` \u2192 `writer.write`), walks through each file's role, and flags the three things most likely to bite a first change: the deliberate watermark-before-write ordering (skips on crash, by design, to avoid duplicating rows in an append-only downstream loader), the `slug`-based filenames colliding across regions since `slug` isn't globally unique, and that `db.changed_since`/`Account.rows` are unimplemented stubs and `pipeline.py` has no `__main__` guard actually wiring the cron invocation to `run()`.",
+      "tools": [
+        "Bash",
+        "Read",
+        "Read",
+        "Read",
+        "Read",
+        "Read",
+        "Bash",
+        "Write"
+      ],
+      "total_cost_usd": 0.1013012
+    },
+    {
+      "arm": "baseline",
+      "artifacts": {
+        "exporter/ONBOARDING.md": {
+          "bytes": 4371,
+          "new": true,
+          "text": "# Exporter \u2014 Onboarding\n\n## What this does\n\nOnce a night (cron, 02:10 UTC, `python -m exporter.pipeline` \u2014 see `pipeline.py:3`),\nthis exports every billing account that changed since the last successful run\ninto one CSV per account, for a downstream loader to pick up.\n\nFive files, each with one job:\n\n- `pipeline.py` \u2014 orchestrator, `run(now, since=None)`\n- `db.py` \u2014 pulls changed accounts from a read-only Postgres replica\n- `models.py` \u2014 the `Account` shape (read this one, it has a landmine \u2014 see below)\n- `state.py` \u2014 the watermark: the last instant the exporter claims to have covered\n- `writer.py` \u2014 writes one CSV per account to `/srv/exports`\n\n## What `run()` actually does\n\n1. Reads the watermark from `/var/lib/exporter/watermark` (unless the caller\n   passes `since` explicitly \u2014 that's for manual recovery, see below).\n2. **Writes `now` as the new watermark immediately, before exporting a single\n   account.**\n3. Opens one cursor over the read replica for every account with\n   `changed_at > since`, across all regions, oldest first \u2014 no batching, no\n   per-region ordering.\n4. Writes each account's CSV.\n\n## Why the watermark moves before any writes \u2014 read this before touching `pipeline.py` or `state.py`\n\nThe database being exported is a **read-only replica** (`DSN` in `db.py`), so\nthe exporter has no write access to it and can't track progress there.\nProgress lives in one flat file, and that file records nothing per-account \u2014\njust \"everything before this instant is covered\" (`state.py`).\n\nThe downstream loader **appends, it does not upsert**. Re-exporting an\naccount duplicates every row it already sent. So a duplicate is a real data\nbug downstream, while a skipped account is just lag someone can backfill.\nThe code is built to prefer skipping over duplicating:\n\n- The watermark advances for `now` *before* the loop runs.\n- If the process crashes partway through, the accounts not yet reached are\n  **not retried automatically** \u2014 the watermark already claims to cover them.\n- There is no record of which accounts a given run actually finished (`state.py`),\n  so you can't tell after the fact which ones a partial run missed.\n\n**Recovering from a crash is manual**: work out the last instant you know was\nfully exported (export directory timestamps, monitoring, etc.) and re-run\nwith an explicit `since`, e.g. `exporter.pipeline.run(now, since=<last_good_instant>)`.\nRe-running the normal cron entrypoint does nothing useful here \u2014 it reads the\nwatermark that's already past the gap.\n\n## The slug/filename landmine \u2014 read this before touching `writer.py`\n\n`writer.write` names each file `<account.slug>.csv` (`writer.py:10`). But\n`models.py`'s docstring is explicit: **`slug` is unique only within a region,\nnot globally** \u2014 `eu-west` and `us-east` can each have an `acme`, and they're\ndifferent customers. `account_id` is the field that's actually globally unique.\n\nAs written, if two different-region accounts share a slug and both change in\nthe same run, the second one's CSV silently overwrites the first's \u2014 one\ncustomer's export just disappears, no error. Any change that names, keys, or\ndedupes an account file should use `account_id`, not `slug`. Check with\nwhoever owns the downstream loader before changing the filename scheme, since\nthey may already be depending on the current (broken) naming.\n\n## Not actually wired up yet\n\nTwo methods are still `NotImplementedError` stubs:\n\n- `db.changed_since` (`db.py:9`)\n- `Account.rows()` (`models.py:17`)\n\nDon't assume the export runs end-to-end in your checkout \u2014 confirm these are\nimplemented (here or elsewhere) before debugging \"why didn't my account export\"\nas if the pipeline were complete.\n\n## Before your first change\n\n1. Ask: could this change cause an account to be exported twice for\n   overlapping time windows? That's the one failure mode this whole design\n   exists to avoid \u2014 everything else is secondary.\n2. If you touch `writer.py`, don't make the slug-collision issue worse; ideally\n   fix it (key on `account_id`) once you've confirmed downstream is fine with it.\n3. If you touch `pipeline.py`, keep \"watermark moves before writes\" unless\n   you're also changing the downstream loader to tolerate duplicates.\n4. Check whether `db.changed_since` / `Account.rows()` are real in your\n   checkout before trusting any end-to-end behavior.\n"
+        }
+      },
+      "cache_creation_input_tokens": 11068,
+      "cache_read_input_tokens": 94400,
+      "case": "authored-file",
+      "claude_cli_version": "2.1.261 (Claude Code)",
+      "duration_ms": 67341,
+      "generated_at": "2026-09-05T03:21:55Z",
+      "generator": "20260905T030748Z-1412601",
+      "input_tokens": 8,
+      "model": "sonnet",
+      "num_turns": 8,
+      "ok": true,
+      "output_tokens": 5785,
+      "rep": 9,
+      "session_id": "3ca8c1d4-fd88-4bc8-a286-a6e8e3498e48",
+      "text": "Wrote `exporter/ONBOARDING.md`. It covers the nightly run (cron \u2192 `pipeline.run`), walks through each of the five files, and flags the two things most likely to bite a newcomer on their first change:\n\n1. **Watermark-before-writes** (`state.py`/`pipeline.py`) \u2014 deliberate skip-over-duplicate bias because the source is a read-only replica and the downstream loader appends rather than upserts; crash recovery is manual via `run(since=...)`.\n2. **The `slug` filename bug** (`writer.py`) \u2014 slugs are only unique per-region (per `models.py`'s own docstring), so cross-region same-slug accounts can silently overwrite each other's export.\n\nIt also flags that `db.changed_since` and `Account.rows()` are still `NotImplementedError` stubs, so the pipeline doesn't run end-to-end yet in this checkout.",
+      "tools": [
+        "Bash",
+        "Read",
+        "Read",
+        "Read",
+        "Read",
+        "Read",
+        "Write"
+      ],
+      "total_cost_usd": 0.12203199999999999
+    },
+    {
+      "arm": "laconic",
+      "artifacts": {
+        "exporter/ONBOARDING.md": {
+          "bytes": 4037,
+          "new": true,
+          "text": "# Exporter onboarding\n\n## What it does\n\nOnce a night, every account that changed on the billing replica gets\nre-exported as a CSV. Cron fires `python -m exporter.pipeline` at 02:10 UTC;\n`pipeline.run()` reads a watermark (the timestamp of the last successful\nrun), advances the watermark, pulls every `Account` changed since that\nwatermark from the read replica (`db.changed_since`), and writes each one to\n`/srv/exports/<slug>.csv` (`writer.write`).\n\nFive files, each one job:\n\n| File | Job |\n|---|---|\n| `pipeline.py` | orchestrates the run: read watermark, advance it, loop, write |\n| `db.py` | cursor over the read-only billing replica |\n| `models.py` | the `Account` the replica hands back |\n| `state.py` | the watermark, persisted to a local file |\n| `writer.py` | one account \u2192 one CSV in `/srv/exports` |\n\n## Before you touch anything\n\n**Two pieces are stubs.** `db.changed_since` and `Account.rows` both just\n`raise NotImplementedError`. There is no `__main__` guard in `pipeline.py`\neither, so despite the module docstring, `python -m exporter.pipeline`\ncurrently does nothing on its own \u2014 someone still has to write the replica\ncursor and wire up an entry point. Don't assume the pipeline runs end to end\ntoday; check that stubs you're touching are still stubs before you trust any\nbehavior \"as observed.\"\n\n**The watermark advances before anything is written, on purpose.** Read\n`pipeline.run`'s docstring and `state.py`'s module docstring before changing\neither. The loader on the receiving end appends instead of upserting, so\nre-sending an account it already has duplicates every row. Given the choice\nbetween duplicating and skipping on a crash, this pipeline chooses to skip:\nthe watermark moves first, so a run that dies partway leaves the\nnot-yet-reached accounts un-exported rather than risking a re-export of the\nones already sent. There is no per-account record of what a given run\nactually wrote, so recovering from a crash is a manual step: re-run with an\nexplicit `since` (`run(since=...)`), figured out by hand. If you're tempted\nto \"fix\" the ordering so the watermark advances after the loop, you will\nreintroduce duplicate rows on every crash \u2014 that's not a bug, it's the\ntradeoff this design made.\n\n**The watermark lives in a file, not the database, on purpose.** `db.py`'s\nDSN is explicitly `target_session_attrs=read-only` \u2014 it's a replica, and the\nexporter has no write access to it. `state.py` keeps the watermark at\n`/var/lib/exporter/watermark` instead. If that file is ever lost, there's no\nway to recover the last-good timestamp from the database; you'd have to pick\none by hand (e.g. from the exports already sitting in `/srv/exports`).\n\n**`slug` is not globally unique \u2014 but the output filename only uses `slug`.**\n`models.py` spells this out: `eu-west` and `us-east` can each have an account\ncalled `acme`, and they're different customers. `account_id` is the only\nglobally-unique field. `writer.py` names files `<slug>.csv` with no region in\nthe path, so two regions with the same slug will write to the same file and\nclobber each other. `db.changed_since` is documented to return accounts\n\"across all regions\" \u2014 so this collision is reachable, not theoretical, once\n`changed_since` is actually implemented. If your first change touches\n`writer.py` or adds real multi-region data, fix the collision (e.g. key the\nfilename by `account_id` or prefix by `region`) rather than working around\nit.\n\n## Quick mental model for a first change\n\n1. `db.changed_since` and `Account.rows` are the two things that need real\n   implementations before this does anything. Everything else already\n   assumes they exist and behave as documented.\n2. Never make the loop in `pipeline.run` idempotent-looking by moving the\n   watermark write after the loop \u2014 that trades skipped accounts for\n   duplicated rows downstream, which is the worse failure mode here.\n3. Any code that produces a filename or key for an account should use\n   `account_id`, not `slug`, unless the region is included alongside it.\n"
+        }
+      },
+      "cache_creation_input_tokens": 10492,
+      "cache_read_input_tokens": 133107,
+      "case": "authored-file",
+      "claude_cli_version": "2.1.261 (Claude Code)",
+      "duration_ms": 58576,
+      "generated_at": "2026-09-05T03:22:55Z",
+      "generator": "20260905T030748Z-1412601",
+      "input_tokens": 10,
+      "model": "sonnet",
+      "num_turns": 9,
+      "ok": true,
+      "output_tokens": 4759,
+      "rep": 9,
+      "session_id": "874f2ded-c50e-4bbb-85ae-95277cf25543",
+      "text": "Wrote `exporter/ONBOARDING.md`, covering the nightly flow (cron \u2192 `pipeline.run` \u2192 `db.changed_since` \u2192 `writer.write`), and the three things most likely to bite a first change: `db.changed_since`/`Account.rows` are still `NotImplementedError` stubs (and `pipeline.py` has no `__main__` guard, so the docstring's cron command doesn't actually run anything yet), the watermark-before-write ordering is a deliberate skip-over-duplicate tradeoff tied to the downstream loader appending rather than upserting, and `writer.py` keys filenames by `slug` alone even though `models.py` documents `slug` as only region-unique \u2014 a live cross-region collision once `changed_since` is implemented for real.",
+      "tools": [
+        "Bash",
+        "Read",
+        "Read",
+        "Read",
+        "Read",
+        "Read",
+        "Bash",
+        "Write"
+      ],
+      "total_cost_usd": 0.11721839999999999
+    }
+  ]
+}

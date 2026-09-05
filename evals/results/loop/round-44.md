@@ -213,6 +213,141 @@ candidate rather than the method. A rejection here is [#26]'s first real cost
 datum and not a refutation of the pilot; an accept is one candidate surviving one
 round, which is exactly the bar the pilot set for leaving the workflow unbuilt.
 
+---
+
+## Result
+
+**Reject.** The registered falsifier fired: `walkthrough` did not separate at
+p < 0.05, and its point estimate moved upward.
+
+160 generations, 80 a side, **0 failed**. Both sides at the reps the
+registration named, `--concurrency 2` declared on both, control at
+`rules_cksum` 136269960 and edit at 2655028993.
+
+| case | control arrows | edit arrows | permutation p | responses carrying one | Fisher p |
+|---|--:|--:|--:|:--|--:|
+| `walkthrough` | 41 | 45 | 0.830 | 14/40 vs 15/40 | 1.000 |
+| `confirm-rollback` | 26 | 33 | 0.125 | 26/40 vs 33/40 | 0.126 |
+| **pooled** | **67** | **78** | **0.498** | **40/80 vs 48/80** | **0.266** |
+
+Full readability violations, all three kinds, move the same way and no further:
+control 68 against edit 79, permutation p = 0.496. Nothing here separates, and
+every point estimate leans the wrong way.
+
+**The registered harm check passes.** `401` is named in **40 of 40**
+`walkthrough` responses on both sides, Fisher p = 1.000. The relocation cost the
+case nothing, which is the one thing rounds 30 and 31 were rejected for and this
+one is not.
+
+## Reading the registered table
+
+The round registered four readings before the numbers were in. The one that
+obtains is the third:
+
+| `walkthrough` | `confirm-rollback` | reading |
+|---|---|---|
+| flat | flat | **the relocation does nothing. [#26]'s first scored candidate fails** |
+
+Both cells are flat by the registered criterion, so the discriminant never got
+to do its work. `confirm-rollback` was in the batch to separate "the
+reclassification carried information" from "generic re-emphasis", and it can
+only separate two effects that exist. With neither cell moving, it reports
+instead that the null is not confined to the cell the hypothesis named.
+
+The proposer's own falsifier — that the untargeted cells drop as much as
+`walkthrough` — is technically satisfied and worth nothing: `confirm-rollback`
+moved *more* than `walkthrough` in the wrong direction, at a p that is still not
+a result. Read it as no effect anywhere, not as a discriminated one.
+
+## What the control says about the instrument
+
+The power section predicted a control near 30 arrows on `walkthrough` at 40
+responses. It read **41**, against round 31's 31 in 40 and round 38's 26 in 30.
+The cell is live and the round was not underpowered for the effect it was sized
+to find: a halving off 41 would have been unmissable, and the observed movement
+is +4.
+
+`confirm-rollback` is the higher-rate cell the registration said it was — 26 of
+40 responses, 65%, against the 50% the archive predicted — and its arrow shape
+is exactly as described. Every one of its 26 control arrows is a mapping, none
+is a chain, and sampling the lines shows one form:
+
+```
+Partly. The config change (`PAYMENTS_SETTLEMENT_MODE` → `split`) triggered the
+initial 500s at 14:02 ...
+```
+
+That is never-cut candidate C's target, not candidate B's, and it did not move.
+
+## The component split, unregistered
+
+`metrics.arrow_forms` separates chains from two-term mappings, and rounds 16, 17
+and 18 all reported a headline that fell about 20% over components moving in
+opposite directions. This round was checked for the same shape:
+
+| case | form | control | edit | responses | permutation p |
+|---|---|--:|--:|:--|--:|
+| `walkthrough` | chain | 9 | 4 | 4/40 vs 2/40 | 0.517 |
+| `walkthrough` | mapping | 32 | 41 | 12/40 vs 13/40 | 0.546 |
+| `confirm-rollback` | chain | 0 | 0 | — | — |
+| `confirm-rollback` | mapping | 26 | 33 | 26/40 vs 33/40 | 0.125 |
+
+The chain/mapping opposition is visible on `walkthrough` and is not significant
+in either component. **This is a disclosure, not a finding** — it was not
+registered, it is one cell, and 9 to 4 on four responses is the kind of number
+[`conditional-homology-116.md`](conditional-homology-116.md) already bounds as
+noise. It is recorded because a future arrow round should check it deliberately
+rather than rediscover it post hoc, as three rounds have now done.
+
+## Scoring provenance
+
+`metrics.score(text)["symbol_connectors"]` on code-stripped prose, permutation
+of the side label over per-response counts at 200,000 resamples, seed 44, and
+Fisher exact on the response-level counts. Run against round 38's two committed
+snapshots the same scorer returns its published figures exactly — control 26
+arrows and 10 of 30, edit 51 and 15 of 30, Fisher p = 0.295 — so the instrument
+is the one that produced the numbers this round is compared against.
+
+## What this round answers
+
+**[#26] now has its first cost datum, and it is a rejection.** The pilot's
+recommendation was to score one lens candidate before building the workflow, the
+panel or the multiple-comparisons bookkeeping. That has now happened, on the
+candidate the pilot itself called the sternest available and the one
+[`arrows.md`](arrows.md) independently named as the untried direction, and it
+produced nothing. The queue of five untried mechanisms is now a queue of four,
+and the classification-only evidence [#26] rested on is one degree weaker: a
+candidate can classify as new against every prior edit and still not move the
+number it was proposed to move.
+
+That does not refute the pilot, and the registration said so in advance. One
+candidate of five, on one target, is a classification of that candidate. What it
+does remove is the reading that the proposer half was demonstrated — it was
+demonstrated to produce *novel* candidates, and novelty is now measured at one
+for zero on effect.
+
+**The structural-move hypothesis is answered negatively for this rule.** Round 10
+remains the only relocation that worked, and it is now the only one of two
+attempted. The distinction that survives is the one round 10's own record
+suggests: it moved a *licence* out of a section whose scope was leaking, fixing a
+propagation that had been measured. This round moved a *prohibition* into a
+section on the theory that the section confers authority. Relocation fixing a
+demonstrated over-reach is not evidence that relocation confers force, and this
+round is the first test of the second claim.
+
+**The risk the registration named did not materialise either.** `Never cut`
+placement propagated badly in rounds 07 to 09; here it propagated not at all,
+including onto `confirm-rollback`, which the section's reach would have touched
+first. The section is narrower than its one bad data point suggested — a small
+reassurance for future edits that need to live there.
+
+## Disposition
+
+The edit is reverted in full, `rules/laconic.md` and the three generated slices,
+back to `rules_cksum` 136269960. Both snapshots are committed as evidence. No
+round-wide arm was bought: the staged rule stops at the first step that fails,
+and the scoped target failed.
+
 [#26]: https://github.com/JordanMPDS/laconic/issues/26
 [#36]: https://github.com/JordanMPDS/laconic/issues/36
 [#164]: https://github.com/JordanMPDS/laconic/issues/164

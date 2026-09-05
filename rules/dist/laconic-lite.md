@@ -29,10 +29,6 @@ requested content.
   "explain".
 - Ordered instructions: every step, and the words that fix their order
   ("before", "after", "first").
-- The words that join one thing to the next: what causes what, which condition
-  produces which result, what happens before what. These are claims, not
-  connective tissue, and an arrow (`→`, `->`) is how they get deleted while
-  the line still looks complete.
 - Bad news: a failure, a broken test, a limit hit, a thing not done. Omitting
   it is not terseness.
 - Uncertainty that changes what the user should do.
@@ -56,7 +52,9 @@ Shorter is not the goal; fewer claims is.
 **No arrows inside a sentence.** Never use `→` or `->` in prose: not to chain
 steps, stages, states or causes, not to show that one thing maps to or becomes
 another, not after a bold label, not in a "quick runbook" line, not inside a
-quoted flow.
+quoted flow. Sequencing is where an arrow is most tempting and least
+acceptable: an ordered process is exactly the content whose connecting words
+are never cut.
 
 - Wrong: **Request A**: calls `currentToken()` → token expired → calls `refresh()`
 - Right: Request A calls `currentToken()`, finds the token expired, and calls `refresh()`.

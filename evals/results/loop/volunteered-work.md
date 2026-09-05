@@ -173,18 +173,30 @@ editing the user's file.
 
 ### The registered secondary: it was a draw, not drift
 
-Laconic's rate at byte-identical rules across four dates:
+> **Corrected 2026-09-05 in [`conditional-homology-116.md`](conditional-homology-116.md).**
+> Every row of the table as first published was miscounted, and the caption said
+> "byte-identical rules" of two cells that were not. The 08-28 and 08-31 rows each
+> summed a round's control snapshot with that round's **rules-edit treatment**
+> snapshot, which carries a different `rules_cksum` (`3191525351` and `2407259766`);
+> the 09-02 row counted the same five runs twice, because
+> `opus-model-set-sonnet-a` is a shard that was merged into `opus-model-set`. The
+> corrected table is below. **The conclusion is unchanged** — no drift is
+> demonstrated — but see the correction for what the corrected series says once
+> 09-05 is added to it.
+
+Laconic's rate at byte-identical rules, one row per snapshot at `rules_cksum`
+136269960, sonnet, `laconic`, `conditional`:
 
 | date | rate | source |
 |---|--:|---|
-| 2026-08-28 | 40/80, 50.0% | `round-30-nevercut-control` |
-| 2026-08-31 | 31/80, 38.8% | `round-31-control` |
-| 2026-09-02 | 2/10, 20.0% | `opus-model-set-sonnet-a` |
+| 2026-08-28 | 19/40, 47.5% | `round-30-nevercut-control` |
+| 2026-08-31 | 16/40, 40.0% | `round-31-control` |
+| 2026-09-02 | 1/5, 20.0% | `opus-model-set` |
 | **2026-09-03** | **14/40, 35.0%** | this batch |
 
-Today lands between the two large cells — p = 0.8417 against 08-31 and p = 0.1727
+Today lands between the two large cells — p = 0.8176 against 08-31 and p = 0.3638
 against 08-28. **No drift is demonstrated over six days**, and the 09-02 reading
-of 20.0% was a ten-run draw. Worth recording against round 37, where the same
+of 20.0% was a five-run draw. Worth recording against round 37, where the same
 kind of check found a syntactic rate moving 4.7x in five days: drift is a hazard
 to test for, not a background assumption.
 

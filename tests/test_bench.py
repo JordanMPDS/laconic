@@ -4943,14 +4943,27 @@ check("the overflow is disclosed with the real count and the omitted names",
 for _d in (_ws, _ws2, _ws3):
     shutil.rmtree(_d, ignore_errors=True)
 
-# Nothing scores this field yet, deliberately: it is absent on every stored
-# round, so a gate built on it could not be re-scored against one. Same reason
-# the #142 tool list has stayed unscored.
-check("no stored snapshot carries artifacts, so nothing can be gating on it",
-      not any(r.get("artifacts")
-              for f in glob.glob(str(ROOT / "evals/snapshots/loop/*.json"))
-              for r in (json.load(open(f)).get("runs", [])
-                        if isinstance(json.load(open(f)), dict) else [])))
+# Nothing scores this field on the scored suite, deliberately, so a gate built
+# on it could not be re-scored against a stored round. Same reason the #142 tool
+# list has stayed unscored.
+#
+# This check used to assert the field was absent from every stored snapshot.
+# That held only while no snapshot had been generated since #231 shipped the
+# capture; `conditional-homology-master.json` is the first that has, and its 31
+# recorded `db.js` diffs are evidence the #116 probe turns on, so absence is no
+# longer available as a proxy. Assert the property it stood for instead, over
+# the real records: a stored run carrying artifacts still grades on its response
+# alone, because the opt-in is per case and the scored suite does not take it.
+_stored_runs = [r
+                for f in glob.glob(str(ROOT / "evals/snapshots/loop/*.json"))
+                for r in (json.load(open(f)).get("runs", [])
+                          if isinstance(json.load(open(f)), dict) else [])
+                if r.get("artifacts")]
+check("the archive now carries artifacts, so the property is testable on it",
+      len(_stored_runs) > 0)
+check("a stored run with artifacts still grades on its response alone",
+      all(bench_metrics.graded_text(r, {"never_cut": []}) == (r.get("text") or "")
+          for r in _stored_runs))
 
 # ---------------------------------------------------------------------------
 # Grading what the model wrote, not only what it said (#150). run.py has

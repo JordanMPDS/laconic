@@ -45,6 +45,26 @@
 set -uo pipefail
 cd "$(dirname "$0")/.."
 
+# A usage limit names the time it clears: "resets 6:20am (UTC)". Backing off
+# exponentially past a time we were told is waste — on 2026-09-05 a limit that
+# reset at 12:00 was retried at 09:44, 10:04, 10:44, 11:44 and finally 12:44,
+# so the loop idled 45 minutes after it could have run. Turn the stated time
+# into a deadline and sleep to it instead. Empty output means "not parseable",
+# and the caller keeps its exponential backoff.
+limit_reset_epoch() { # <time> [tz] -> epoch on stdout
+  local t=$1 tz=${2:-UTC} now target
+  [ -n "$t" ] || return 1
+  now=$(date +%s)
+  target=$(TZ="$tz" date -d "$t" +%s 2>/dev/null) || return 1
+  [ -n "$target" ] || return 1
+  # A time that has already passed today is tomorrow's reset.
+  if [ "$target" -le "$now" ]; then
+    target=$(TZ="$tz" date -d "$t tomorrow" +%s 2>/dev/null) || return 1
+    [ -n "$target" ] || return 1
+  fi
+  printf '%s' "$target"
+}
+
 # `bash tools/loop.sh --selftest` — drives this script against a stub `claude`.
 # The bug it exists to catch shipped once: a usage limit ended the loop for
 # good, and nothing in the log said the loop was gone rather than idle.
@@ -97,11 +117,30 @@ STUB
     STUB_MESSAGE='TypeError: broke' LOOP_MAX_FAILURES=1 bash "$0" 2>&1)
   check "a real error is named by exit code" 'exit 3 — 1 consecutive' "$out"
 
+  # The deadline arithmetic, called directly: sleeping to a real reset in a
+  # selftest is not something a test can afford to do.
+  _now=$(date +%s)
+  _later=$(TZ=UTC date -u -d "@$((_now + 3600))" +%-I:%M%P)
+  _earlier=$(TZ=UTC date -u -d "@$((_now - 3600))" +%-I:%M%P)
+  _t=$(limit_reset_epoch "$_later" UTC)
+  check "a reset later today is a deadline within the hour" \
+    "^1$" "$([ -n "$_t" ] && [ "$_t" -gt "$_now" ] && [ $((_t - _now)) -le 3660 ] && echo 1)"
+  _t=$(limit_reset_epoch "$_earlier" UTC)
+  check "a reset already past today rolls to tomorrow" \
+    "^1$" "$([ -n "$_t" ] && [ $((_t - _now)) -gt 82000 ] && echo 1)"
+  check "an unparseable reset yields nothing, so the caller backs off" \
+    "^EMPTY$" "$(limit_reset_epoch "half past soon" UTC || echo EMPTY)"
+
+  # A parseable reset beyond LOOP_RESET_MAX_WAIT must not be slept to.
+  out=$(STUB_STATE=$tmp/e STUB_FAILS=99 LOOP_MAX_FAILURES=2 LOOP_RESET_MAX_WAIT=1 \
+    STUB_MESSAGE="You've hit your session limit · resets 11:59pm (UTC)" bash "$0" 2>&1)
+  check "a reset past the cap falls back to the backoff" 'retrying in 1s' "$out"
+
   out=$(STUB_STATE=$tmp/d STUB_TOUCH=$tmp/stop bash "$0" 2>&1)
   check "the stop file ends the loop" 'stop present, stopping' "$out"
   [ -e "$tmp/stop" ] && { failed=$((failed + 1)); echo "FAIL stop file left behind"; }
 
-  [ "$failed" -eq 0 ] && echo "loop.sh selftest: 8/8 passed" || echo "loop.sh selftest: $failed failed"
+  [ "$failed" -eq 0 ] && echo "loop.sh selftest: 12/12 passed" || echo "loop.sh selftest: $failed failed"
   exit $([ "$failed" -eq 0 ] && echo 0 || echo 1)
 fi
 
@@ -173,8 +212,22 @@ while :; do
   failures=$((failures + 1))
   # Worth distinguishing in the log: a limit is expected and self-clearing,
   # anything else is a bug someone has to read.
+  wait_s=$backoff
+  waited_to_reset=
   if grep -qiE 'usage limit|session limit|rate limit' "$transcript"; then
     reason="usage limit ($(grep -oiE 'resets[^)]*\)?' "$transcript" | head -1))"
+    # Sleep to the time the limit named, rather than doubling blindly past it.
+    reset_t=$(grep -oiE 'resets +[0-9]{1,2}(:[0-9]{2})? *[ap]m' "$transcript" \
+      | head -1 | sed -E 's/^resets +//I; s/ +//g')
+    reset_tz=$(grep -oE '\(([A-Z]{2,5})\)' "$transcript" | head -1 | tr -d '()')
+    target=$(limit_reset_epoch "$reset_t" "${reset_tz:-UTC}") || target=
+    if [ -n "$target" ]; then
+      d=$((target + 60 - $(date +%s)))
+      if [ "$d" -gt 0 ] && [ "$d" -le "${LOOP_RESET_MAX_WAIT:-21600}" ]; then
+        wait_s=$d
+        waited_to_reset=" — sleeping to the stated reset"
+      fi
+    fi
   else
     reason="exit $status"
   fi
@@ -183,8 +236,8 @@ while :; do
     echo "loop: $reason — $failures consecutive failures, stopping"
     break
   fi
-  echo "loop: $reason — retrying in ${backoff}s ($failures/$MAX_FAILURES)"
-  sleep "$backoff"
+  echo "loop: $reason — retrying in ${wait_s}s ($failures/$MAX_FAILURES)$waited_to_reset"
+  sleep "$wait_s"
   backoff=$((backoff * 2))
   [ "$backoff" -gt "$RETRY_CAP" ] && backoff=$RETRY_CAP
 done

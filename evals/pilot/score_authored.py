@@ -22,15 +22,24 @@ CASES = Path(__file__).resolve().parent
 
 
 def deliverable(run):
-    """(words in the deliverable, words in the reply) for one run."""
+    """(words in the deliverable, words in the reply) for one run.
+
+    Prose words, by metrics.score, so fenced code and inline spans are out of
+    the count on both halves of the pair. #150 is about prose.
+
+    A run of the file half that wrote nothing has no deliverable, and returns
+    None rather than 0: a zero would pull the median of the answers that do
+    exist toward a run that did not produce one. The caller reports how many.
+    """
     reply = metrics.score(run.get("text", ""))["words"]
     expect = json.loads((CASES / run["case"] / "expect.json").read_text())
     if not expect.get("grade_artifacts"):
         return reply, reply
-    wrote = sum(metrics.score(e["text"])["words"]
-                for e in (run.get("artifacts") or {}).values()
-                if e.get("text"))
-    return wrote, reply
+    bodies = [e["text"] for e in (run.get("artifacts") or {}).values()
+              if e.get("text")]
+    if not bodies:
+        return None, reply
+    return sum(metrics.score(b)["words"] for b in bodies), reply
 
 
 def main():
@@ -49,19 +58,19 @@ def main():
                                          r["rep"])),
                            bool(r.get("artifacts"))))
 
-    print("| case | arm | n | deliverable words | reply words | wrote a file | trap |")
+    print("| case | arm | n | wrote a file | deliverable words | reply words | trap |")
     print("|---|---|--:|--:|--:|--:|--:|")
     med = {}
     for key in sorted(cells):
         rows = cells[key]
-        d = statistics.median(r[0] for r in rows)
-        med[key] = d
+        sized = [r[0] for r in rows if r[0] is not None]
+        med[key] = statistics.median(sized) if sized else 0.0
         passes = sum(1 for r in rows if r[2] == "pass")
         graded = sum(1 for r in rows if r[2] in ("pass", "fail"))
-        print("| %s | %s | %d | %.1f | %.1f | %d/%d | %s |"
-              % (key[0], key[1], len(rows), d,
+        print("| %s | %s | %d | %d/%d | %.1f | %.1f | %s |"
+              % (key[0], key[1], len(rows),
+                 sum(1 for r in rows if r[3]), len(rows), med[key],
                  statistics.median(r[1] for r in rows),
-                 sum(1 for r in rows if r[3]), len(rows),
                  ("%d/%d" % (passes, graded)) if graded else "-"))
 
     print()

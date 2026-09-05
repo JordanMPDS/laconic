@@ -78,13 +78,16 @@ def findings(snap, judg, prefs, rules_text):
     for r in bench_run.usable(snap.get("runs", [])):
         if r["arm"] != "laconic":
             continue
-        case = r["case"]
+        case, text = r["case"], r.get("text", "")
         expect = _case_expect(case)
-        # The graded response is what the model said plus, for a case whose
-        # deliverable is a file, what it wrote (#150).
-        text = metrics.graded_text(r, expect)
 
-        for kw in metrics.never_cut_missing(text, expect.get("never_cut", [])):
+        # The never-cut check reads what the model said plus, for a case whose
+        # deliverable is a file, what it wrote (#150). The readability scan
+        # below stays on the response alone, because violations_total is a
+        # fatal counter in report.py and it reads `text`; a second definition
+        # of "the response" between the two tools is drift.
+        for kw in metrics.never_cut_missing(metrics.graded_text(r, expect),
+                                            expect.get("never_cut", [])):
             out.append(_finding("never-cut", case, r["model"], r["rep"],
                                 "missing: %s" % kw,
                                 governing_rule(rules_text, "never_cut")))

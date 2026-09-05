@@ -29,7 +29,20 @@ than an approximation of one. So:
   returns `{"continue": false}`, ending the turn at the merge.
 - `tools/loop.sh` starts the next `claude` process. Its prompt says to take
   **exactly one issue** end to end and then stop — the restart is the loop, not
-  a `while` inside one context.
+  a `while` inside one context. It exports `LACONIC_LOOP_SUPERVISOR=1`, which
+  is how the hook knows a restart is coming; `tools/loop.sh --selftest` checks
+  that the name still reaches `claude`, because the hook reads that exact name.
+
+**Do not drive the backlog with `/loop`.** Claude Code's built-in `/loop` keeps
+itself alive by calling `ScheduleWakeup` as the **last action of a turn**.
+`post-merge-stop.py` returns `{"continue": false}` the moment a merge succeeds,
+which ends the turn first — so a `/loop` iteration that merges can never
+schedule its successor. Every successful iteration ends in a merge, so the
+first one kills the loop. On 2026-09-04 that stopped the backlog for five and a
+half hours after PR #231 merged, and nothing in the transcript distinguished a
+dead loop from a working one. The hook now names the missing half in its stop
+message when `LACONIC_LOOP_SUPERVISOR` is absent, but the fix is to run the
+supervisor: the stop is only a loop if something restarts from it.
 
 Continuity is the repository, not a context window: the open issues,
 [`LEDGER.md`](../../../evals/results/loop/LEDGER.md), and master's log. That is
@@ -63,10 +76,10 @@ loop: usage limit (resets 6:20am (UTC)) — retrying in 600s (1/8)
 loop: exit 3 — retrying in 600s (1/8)
 ```
 
-`bash tools/loop.sh --selftest` drives the script against a stub `claude`: six
-checks over the retry, the failure cap, the two log labels, and the stop file.
-Five of the six fail against the version that shipped, which is the point of
-having it.
+`bash tools/loop.sh --selftest` drives the script against a stub `claude`:
+seven checks over the retry, the failure cap, the two log labels, the stop
+file, and the `LACONIC_LOOP_SUPERVISOR` marker the hook reads. Five of them
+fail against the version that shipped, which is the point of having it.
 
 **The hook asks GitHub; it does not read `gh`'s output.** It cannot: `gh pr
 merge` prints its "✓ Squashed and merged pull request #N" line only when
@@ -74,11 +87,24 @@ stderr is a terminal, and under an agent's shell tool the command prints
 nothing at all. The first version of this hook matched that wording and never
 fired once — the merge it was meant to catch produced an empty payload. The
 tool payload carries no exit status either, so the hook parses the PR number
-out of the command and runs `gh pr view <N> --json state`. Truncating or
-discarding the output is therefore harmless.
+out of the command and asks GitHub. Truncating or discarding the output is
+therefore harmless.
+
+**It asks "was this merged just now", not "is this merged".** The hook is
+handed the whole command text, quoted heredocs and JSON payloads included, and
+no reading of that string separates an executed merge from a quoted one. On
+2026-09-05 it stopped two turns inside twenty minutes while merging nothing:
+once on a `gh pr create` whose body quoted a timeline of earlier merges, once
+on a test payload carrying a merge command inside a JSON string. Under
+`tools/loop.sh` a false stop ends an iteration mid-work, so the question had to
+change rather than the matching. `gh pr view <N> --json state,mergedAt` answers
+it, and `MERGE_WINDOW` (120 seconds, symmetric so a GitHub clock running ahead
+still counts) is the width of "just now".
 
 `python3 .claude/hooks/post-merge-stop.py --selftest` drives `main()` with
-GitHub stubbed, so it covers the empty-output case that actually occurs.
+GitHub stubbed — 25 checks covering the empty-output case that actually occurs,
+the two quoted-mention commands that fired falsely, the freshness arithmetic,
+and both branches of the stop message.
 
 Inside a single interactive session the equivalent is a subagent per unit of
 work — a fresh window whose verbose output never reaches this one — but only

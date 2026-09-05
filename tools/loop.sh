@@ -111,11 +111,24 @@ MAX_FAILURES=${LOOP_MAX_FAILURES:-8}
 RETRY_GAP=${LOOP_RETRY_GAP:-600}
 RETRY_CAP=${LOOP_RETRY_CAP:-3600}
 
+# "wait for CI" as one item in a list is a phrase a model can satisfy by saying
+# it. On 2026-09-05 iteration 1 printed "PR #236 opened; CI running. Waiting on
+# the checks before merging." and exited 0 without merging, leaving the pull
+# request open and the issue unfinished — and the supervisor started the next
+# issue, because a stopped-short iteration exits exactly like a finished one.
+# So the wait is named as a blocking command rather than left as an intention.
 PROMPT='Work the laconic backlog: pick the highest-value open issue and take it
 end to end — design, implement, test, a round document if it is a loop round,
-branch, pull request, wait for CI, merge. Do exactly one issue, then stop; the
-next one gets its own process and its own empty context. Never ask permission
-and never offer next steps.'
+branch, pull request, then merge. Do exactly one issue, then stop; the next one
+gets its own process and its own empty context. Never ask permission and never
+offer next steps.
+
+Waiting for CI is a command, not an intention. Run `gh pr checks <N> --watch`,
+which blocks until every check has finished, and merge only after it returns.
+Saying that you are waiting and then ending the turn does not wait: it abandons
+the pull request open, and nothing downstream can tell that from a clean finish.
+If the checks fail, fix them and wait again. The issue is not done until its
+pull request is merged.'
 
 transcript=$(mktemp)
 trap 'rm -f "$transcript"' EXIT

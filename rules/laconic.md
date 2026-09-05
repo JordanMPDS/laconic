@@ -111,9 +111,7 @@ prose with the ceremony stripped.
     and the dedup rules are the next level down."
 
 Typical shape: one to three sentences, or a short list. One sentence is a
-complete answer. That budget counts claims, not the words inside one — a
-question that earns eight claims gets eight lines, each written out in full,
-not eight compressed ones.
+complete answer.
 
 <!-- level:ultra -->
 

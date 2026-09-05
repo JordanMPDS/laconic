@@ -266,6 +266,156 @@ primary here does not accept the edit: it sends it to step 2, where
 `output_tokens` and the four fatal counters would have to hold against an edit
 that predicts its own inflation.
 
+## Result: reject — the falsifier fired, and so did the fatal harm check
+
+260 generations, 0 failed at the end, no judging. Control at `rules_cksum`
+136269960 and edit at 2741667431, CLI 2.1.261 throughout.
+
+| case | side | n | arrows | carrying one | chains | chain-carrying | mappings | median words | read |
+|---|---|--:|--:|--:|--:|--:|--:|--:|--:|
+| `walkthrough` | control | 100 | 93 | 29 | 15 | 4 | 78 | 431.5 | 100 |
+| `walkthrough` | **edit** | 100 | **84** | **30** | **29** | **9** | **55** | **433.0** | 100 |
+| `confirm-rollback` | control | 30 | 17 | 17 | 0 | 0 | 17 | 75.5 | 30 |
+| `confirm-rollback` | **edit** | 30 | **14** | **14** | 0 | **0** | **14** | **86.0** | 30 |
+
+**The registered falsifier fired on both of its halves.** Chain-carrying
+responses on `walkthrough` read 4 of 100 against 9 of 100, Fisher p = 0.2507:
+no separation at p < 0.05, and the point estimate moved upward. Chain arrow
+count went 15 to 29, permutation p = 0.3336, the same direction.
+
+**Registered harm check 1 fired, and it rejects on its own.**
+`confirm-rollback` median words rose 75.5 to 86.0, permutation on the median
+p = 0.0260. This is the candidate's own stated failure mode, quoted in the
+registration: length rising in a case that should stay short means the edit was
+bought with padding.
+
+**Edit reverted in full**, and `rules/laconic.md` is back at `rules_cksum`
+136269960 in this branch.
+
+## The length readings are the inverse of what the candidate predicted
+
+The candidate's honesty about its own cost was one of the two reasons this
+round preferred it — *"It predicts its own cost honestly — response length
+should rise."* The rise was expected on the long, claim-rich answers where a
+shape budget bites. It did not happen there, and it happened instead on the
+86-word confirmation the round registered as the case that must stay short.
+
+| case | median words | mean | quartiles | permutation p |
+|---|---|---|---|--:|
+| `walkthrough` control | 431.5 | 434.4 | 396 / 431 / 475 | — |
+| `walkthrough` **edit** | 433.0 | 435.4 | 393 / 433 / 470 | **0.9323** |
+| `confirm-rollback` control | 75.5 | 80.6 | 69 / 76 / 92 | — |
+| `confirm-rollback` **edit** | 86.0 | 88.0 | 79 / 86 / 98 | **0.0260** |
+
+`walkthrough` is unmoved at every quartile, not merely at the median. So the
+sentence did not relax the length budget on the case whose answers are 430
+words long; it read as a licence to expand the case whose answers are 76.
+
+**That is a mechanism failure and not only an outcome failure.** The claim
+under test was that the shape budget creates word-level compression pressure
+and that relieving it would stop the compression. The budget was rewritten and
+the length behaviour of the pressured case did not move at all, so the
+downstream arrow prediction was never given its premise. What this round scores
+is the pilot's sentence, not the incentive theory behind it.
+
+## Power, restated against the control this round actually drew
+
+The round was sized against the pooled 11% chain-carrying rate from the
+controls of rounds 44 and 45 — 9 of 80. **Its own control read 4 of 100.**
+Against a 4% control, 100 reps a side resolves nothing:
+
+| edit side | Fisher p against control 4/100 |
+|---|--:|
+| 0 of 100 (disappearance) | 0.1212 |
+| 1 of 100 | 0.3687 |
+| 2 of 100 | 0.6827 |
+| 3 of 100 | 1.0000 |
+
+**Not even a complete disappearance would have reached alpha.** The rejection
+on the primary is therefore a null result and not evidence against the
+mechanism: no fall of any size was detectable. The harm check is what carries
+this round's rejection, and it is a measurement rather than a null.
+
+The two control readings differ at Fisher p = 0.0826 — 4 of 100 against 9 of
+80 — which is the [round 37](round-37.md) drift again, on a third cell and now
+in the one place the registered-baseline rule cannot protect. **That rule fixes
+the number a hypothesis is scored against; it cannot fix a power calculation,
+which has to be done before the round's own control exists.** A round on a
+low-base-rate cell should size against the lowest control in the archive rather
+than the pooled one, and this round did not.
+
+## Which registered reading obtains
+
+The third: **flat and flat.** Neither case separated on any arrow statistic —
+`walkthrough` total arrows 93 to 84 at permutation p = 0.7162, responses
+carrying one 29 of 100 against 30 of 100 at Fisher p = 1.0000; `confirm-rollback`
+17 to 14, p = 0.6048. The registered reading for that row is that the incentive
+is not the carrier either, [#26]'s third scored candidate fails, and the queue
+is two.
+
+**That conclusion holds for the edit and is weaker than it reads for the
+theory**, for the two reasons above: the round could not detect a fall, and the
+length manipulation the theory runs through did not occur on the target case.
+What is established is that this sentence does not lower chains, not that a
+working length-incentive edit could not.
+
+## The chain lead of rounds 44 and 45 does not reproduce
+
+Round 44 read `walkthrough` chains 9 to 4 and round 45 read 15 to 0, pooling to
+9 of 80 control responses carrying one against 2 of 80. This round is the first
+to move the file without touching the arrow paragraph, and its edit side reads
+**9 of 100 against a control 4 of 100** — the opposite direction.
+
+That is the discriminating observation the lead needed. Both prior edits were
+edits *to the arrow rule*; this one never says "arrow". Chains fell under the
+two that did and did not fall under the one that did not, which leaves standing
+the reading round 38 and round 45 both flagged: what moves chains is the
+recency of a newly added arrow example, not any property of the chain form. It
+is a third datum for [`arrows.md`](arrows.md) finding 4 — there is no
+form-shaped hole to aim at.
+
+## Registered harm checks 2 and 3 pass
+
+`walkthrough` names `401` in 100 of 100 responses on both sides. 
+`confirm-rollback` names `0042` or `settlement_currency` in 27 of 30 on both
+sides, Fisher p = 1.0000, so the load-bearing half of its trap is equally
+represented. `violations_total` moves with the arrows and no further — 94 to 85
+on `walkthrough`, 17 to 14 on `confirm-rollback` — so nothing else in the
+readability scan changed.
+
+**Reading held at 100 of 100 and 30 of 30 on every cell**, so no cell crossed a
+[#131] stratum and none of these numbers is compression bought by not opening
+the fixture.
+
+## Instrument note: the `confirm-rollback` batch ran in two windows
+
+Both `confirm-rollback` passes stopped short on their first attempt — the
+control at 25 of 30 and the edit at 22 of 30, on consecutive trailing reps,
+which is the usage-limit signature `run.py`'s consecutive-failure stop is built
+for. Both sides were resumed simultaneously three hours later, and each
+snapshot records two generators for the day.
+
+The rise is present inside the first window on its own and the control is flat
+across the two, so the era mix is not what produced it:
+
+| side | first window | median | second window | median |
+|---|--:|--:|--:|--:|
+| control | 25 | 76.0 | 5 | 75.0 |
+| **edit** | 22 | **83.5** | 8 | **88.0** |
+
+Scored on the first window alone the rise is the same size and does not reach
+alpha at that n (p = 0.1284); at the registered 30 a side it does. Both sides
+were resumed together, so the exposure round 38 warns about — hours between the
+two halves of a comparison — does not apply between the sides.
+`python3 evals/bench/concurrency.py` does not flag any of the four snapshots:
+each reconstructs to one invocation in flight against the declared 2.
+
+## What was not bought
+
+The round-wide laconic arm, the fatal counters, judging, `cold-service` — which
+the candidate also names — and any model but sonnet. The staged rule stops at
+the first step that fails, and this failed at step 1 on two registered grounds.
+
 [#26]: https://github.com/JordanMPDS/laconic/issues/26
 [#69]: https://github.com/JordanMPDS/laconic/issues/69
 [#131]: https://github.com/JordanMPDS/laconic/issues/131

@@ -54,9 +54,9 @@ def governing_rule(rules_text, kind):
     return None
 
 
-def _never_cut_keywords(case):
+def _case_expect(case):
     p = CASES / case / "expect.json"
-    return json.loads(p.read_text()).get("never_cut", []) if p.exists() else []
+    return json.loads(p.read_text()) if p.exists() else {}
 
 
 def _optimizable(case):
@@ -78,9 +78,13 @@ def findings(snap, judg, prefs, rules_text):
     for r in bench_run.usable(snap.get("runs", [])):
         if r["arm"] != "laconic":
             continue
-        case, text = r["case"], r.get("text", "")
+        case = r["case"]
+        expect = _case_expect(case)
+        # The graded response is what the model said plus, for a case whose
+        # deliverable is a file, what it wrote (#150).
+        text = metrics.graded_text(r, expect)
 
-        for kw in metrics.never_cut_missing(text, _never_cut_keywords(case)):
+        for kw in metrics.never_cut_missing(text, expect.get("never_cut", [])):
             out.append(_finding("never-cut", case, r["model"], r["rep"],
                                 "missing: %s" % kw,
                                 governing_rule(rules_text, "never_cut")))

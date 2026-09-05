@@ -19,6 +19,7 @@ from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
+import metrics  # noqa: E402
 import run as bench_run  # noqa: E402
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -512,7 +513,8 @@ def main():
         case_dir = CASES / r["case"]
         expect = json.loads((case_dir / "expect.json").read_text())
         prompt = build_judge_prompt((case_dir / "prompt.md").read_text(),
-                                    expect["trap"], r["text"])
+                                    expect["trap"],
+                                    metrics.graded_text(r, expect))
         res = _call_blind(claude_bin, args.model, prompt)
         v = parse_verdict(res.get("text", "")) if res.get("ok") else \
             {"verdict": "not_exercised", "quote": "", "reason": REASON_JUDGE_CALL_FAILED}

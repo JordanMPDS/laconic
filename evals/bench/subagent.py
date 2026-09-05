@@ -251,11 +251,12 @@ def _never_cut(runs):
     checked = failures = 0
     for r in runs:
         p = CASES / r["case"] / "expect.json"
-        tokens = json.loads(p.read_text())["never_cut"] if p.exists() else []
+        expect = json.loads(p.read_text()) if p.exists() else {}
+        tokens = expect.get("never_cut", [])
         if not tokens:
             continue
         checked += 1
-        if metrics.never_cut_missing(r.get("text", ""), tokens):
+        if metrics.never_cut_missing(metrics.graded_text(r, expect), tokens):
             failures += 1
     return checked, failures
 

@@ -1707,9 +1707,8 @@ def aggregate(snap):
     agg = {}
     for key, runs in buckets.items():
         case = key[0]
-        expect_path = CASES / case / "expect.json"
-        never_cut = json.loads(expect_path.read_text())["never_cut"] \
-            if expect_path.exists() else []
+        expect = _expect(case)
+        never_cut = expect.get("never_cut", [])
         scored = [metrics.score(r.get("text", "")) for r in runs]
         tokens = [r.get("output_tokens", 0) for r in runs]
         agg[key] = {
@@ -1813,7 +1812,8 @@ def aggregate(snap):
             "never_cut_checked": len(never_cut) > 0,
             "never_cut_failures": sum(
                 1 for r in runs
-                if metrics.never_cut_missing(r.get("text", ""), never_cut)
+                if metrics.never_cut_missing(
+                    metrics.graded_text(r, expect), never_cut)
             ),
             # A response the model produced without calling a single tool, so
             # it never opened a file (#46). On sonnet this is a clean proxy:

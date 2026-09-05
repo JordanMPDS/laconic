@@ -104,11 +104,18 @@ def main():
     sides = {"control": control, "edit": edit}
 
     for name, s in sides.items():
-        print("%-8s runs %3d   turn_delivery: %s   rules_cksum: %s"
+        print("%-8s runs %3d   turn_delivery: %s   rules_cksum: %s   "
+              "reminder_cksum: %s"
               % (name, s["n"], s["meta"].get("turn_delivery"),
-                 s["meta"].get("rules_cksum")))
-    if control["meta"].get("rules_cksum") == edit["meta"].get("rules_cksum"):
-        print("\n!! both snapshots carry the same rules_cksum - this is not a contrast")
+                 s["meta"].get("rules_cksum"), s["meta"].get("reminder_cksum")))
+    # Round 47's treatment was the rules slice; round 48's is the reminder line,
+    # which rules_cksum cannot see. Either one differing is a contrast, and
+    # neither differing is not.
+    same = [k for k in ("rules_cksum", "reminder_cksum")
+            if control["meta"].get(k) == edit["meta"].get(k)]
+    if len(same) == 2:
+        print("\n!! the two snapshots agree on rules_cksum and reminder_cksum "
+              "- this is not a contrast")
 
     print("\n## Primary: prose words on the graded turn (turn 5), laconic arm")
     print("%-10s %5s %9s %8s %8s %8s"

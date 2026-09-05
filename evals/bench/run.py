@@ -476,6 +476,11 @@ def new_snapshot(reps, models, level, rules_cksum, arms, claude_bin="claude",
             "concurrency_declared": concurrency_declared,
             "laconic_level": level,
             "max_runs_in_flight": 0,
+            # rules_cksum covers the slice sent on turn 1 and nothing else, so
+            # two snapshots generated from the same rules under two different
+            # UserPromptSubmit reminders are identical in metadata. Round 48
+            # makes that line the treatment, so the file has to record it.
+            "reminder_cksum": str(zlib.crc32(REMINDER.encode())),
             "rules_cksum": rules_cksum,
             "reps": reps,
             "models": models,

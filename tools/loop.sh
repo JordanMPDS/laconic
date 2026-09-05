@@ -19,6 +19,14 @@
 #   LOOP_MAX=3 bash tools/loop.sh       # three issues, then exit
 #   touch .claude/loop-stop             # finish the current issue, then exit
 #
+# It also exports CLAUDE_CODE_PRINT_BG_WAIT_CEILING_MS=0. A round drives run.py
+# for hours through a background task, and print mode otherwise waits a default
+# 600s for one, terminates it, and exits 0. On 2026-09-05 that killed iteration 1
+# mid-pass at "Master tree at 39 of 80", left a half-generated snapshot in the
+# tree, and the supervisor read the exit as clean and started the next issue. A
+# truncated round reporting success is worse than a failed one, because the
+# retry path above never sees it. 0 waits indefinitely.
+#
 # LOOP_PERMISSION_MODE defaults to `auto`, the same mode an interactive session
 # uses. A genuinely unattended overnight run wants `bypassPermissions`, which
 # skips every permission check — set it deliberately, per run.
@@ -56,6 +64,7 @@ if [ "$c" -le "${STUB_FAILS:-0}" ]; then
   exit "${STUB_STATUS:-1}"
 fi
 echo "supervisor=${LACONIC_LOOP_SUPERVISOR:-unset}"
+echo "bgceiling=${CLAUDE_CODE_PRINT_BG_WAIT_CEILING_MS:-unset}"
 echo "did work (call $c)"
 STUB
   chmod +x "$tmp/stub/claude"
@@ -75,6 +84,10 @@ STUB
   # Paired with .claude/hooks/post-merge-stop.py, which reads this name to tell
   # a supervised stop from the loop quietly dying. Drift breaks the message.
   check "the supervisor marker reaches claude" 'supervisor=1' "$out"
+  # Paired with the export below, for the same reason the marker is checked: a
+  # round drives run.py for hours in a background task, and losing this lets
+  # print mode kill the pass and still exit 0.
+  check "the background-wait ceiling is lifted" 'bgceiling=0' "$out"
 
   out=$(STUB_STATE=$tmp/b STUB_FAILS=99 LOOP_MAX_FAILURES=3 bash "$0" 2>&1)
   check "consecutive failures stop the loop" '3 consecutive failures, stopping' "$out"
@@ -88,7 +101,7 @@ STUB
   check "the stop file ends the loop" 'stop present, stopping' "$out"
   [ -e "$tmp/stop" ] && { failed=$((failed + 1)); echo "FAIL stop file left behind"; }
 
-  [ "$failed" -eq 0 ] && echo "loop.sh selftest: 7/7 passed" || echo "loop.sh selftest: $failed failed"
+  [ "$failed" -eq 0 ] && echo "loop.sh selftest: 8/8 passed" || echo "loop.sh selftest: $failed failed"
   exit $([ "$failed" -eq 0 ] && echo 0 || echo 1)
 fi
 
@@ -125,6 +138,7 @@ while :; do
   printf '\n=== loop iteration %d — %s ===\n' "$((n + 1))" "$(date -Is)"
 
   LACONIC_LOOP_SUPERVISOR=1 \
+  CLAUDE_CODE_PRINT_BG_WAIT_CEILING_MS=0 \
   claude -p "$PROMPT" --permission-mode "${LOOP_PERMISSION_MODE:-auto}" \
     2>&1 | tee "$transcript"
   status=${PIPESTATUS[0]}

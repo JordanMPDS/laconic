@@ -221,9 +221,13 @@ It is not shipped for two reasons, and the second is the one that decides it:
   replaces rather than appends, so the hook becomes responsible for reproducing
   content it did not author. Every other laconic path only ever adds bytes; a
   mis-parse there loses the user's question instead of losing the rules.
-- **Nothing confirms a command hook is honored on that event.** Four sibling
-  injection paths are open bugs upstream, so an unverified fifth is a bet
-  against the observed record. Per
+- **Nothing confirms a command hook is honored on that event.** Four open bugs
+  upstream sit on sibling injection paths — `preToolUse`
+  ([#2585](https://github.com/github/copilot-cli/issues/2585)), `postToolUse`
+  ([#2980](https://github.com/github/copilot-cli/issues/2980)) and
+  `userPromptSubmitted` ([#2652](https://github.com/github/copilot-cli/issues/2652),
+  [#3727](https://github.com/github/copilot-cli/issues/3727)) — so an unverified
+  fifth is a bet against the observed record. Per
   [#2](https://github.com/JordanMPDS/laconic/issues/2), a schema-valid
   configuration is not evidence of loading, and this is the platform where that
   lesson has the most support.

@@ -231,6 +231,14 @@ line) and mappings (one), and whose components always sum to the total.
 - **Disclosure, registered here so the second look is not a new one:** total
   arrows, mappings, and median words on both cases.
 
+Median words is `metrics.score(text)["words"]`, which is what rounds 44 and 45
+published and what `review.py` reads — it strips fenced code before counting,
+so a response is not credited with the fixture it quotes. The scorer was
+checked against `round-45-{control,edit}.json` before this batch was scored and
+reproduces every figure round 45 published, to the last digit on the Fisher
+tests and within one part in 5,000 on the permutations, which is the resampling
+noise of 200,000 draws.
+
 ## Power, stated before the numbers
 
 Against a control at 11 of 100 — the pooled rate above — this round reads a

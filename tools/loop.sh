@@ -11,6 +11,10 @@
 # the open issues, evals/results/loop/LEDGER.md, master's log — not in a
 # context window, which is why throwing the window away costs nothing.
 #
+# It exports LACONIC_LOOP_SUPERVISOR=1 into each `claude`, which is how the hook
+# knows a restart is coming. Merging without it leaves the session idle, and the
+# hook says so rather than printing the same message either way.
+#
 #   bash tools/loop.sh                  # run until stopped
 #   LOOP_MAX=3 bash tools/loop.sh       # three issues, then exit
 #   touch .claude/loop-stop             # finish the current issue, then exit
@@ -51,6 +55,7 @@ if [ "$c" -le "${STUB_FAILS:-0}" ]; then
   echo "$msg"
   exit "${STUB_STATUS:-1}"
 fi
+echo "supervisor=${LACONIC_LOOP_SUPERVISOR:-unset}"
 echo "did work (call $c)"
 STUB
   chmod +x "$tmp/stub/claude"
@@ -67,6 +72,9 @@ STUB
   out=$(STUB_STATE=$tmp/a STUB_FAILS=2 LOOP_MAX=1 bash "$0" 2>&1)
   check "a limit retries, then the iteration runs" 'retrying in 1s \(2/8\)' "$out"
   check "a retry is not counted as an iteration" 'did work \(call 3\)' "$out"
+  # Paired with .claude/hooks/post-merge-stop.py, which reads this name to tell
+  # a supervised stop from the loop quietly dying. Drift breaks the message.
+  check "the supervisor marker reaches claude" 'supervisor=1' "$out"
 
   out=$(STUB_STATE=$tmp/b STUB_FAILS=99 LOOP_MAX_FAILURES=3 bash "$0" 2>&1)
   check "consecutive failures stop the loop" '3 consecutive failures, stopping' "$out"
@@ -80,7 +88,7 @@ STUB
   check "the stop file ends the loop" 'stop present, stopping' "$out"
   [ -e "$tmp/stop" ] && { failed=$((failed + 1)); echo "FAIL stop file left behind"; }
 
-  [ "$failed" -eq 0 ] && echo "loop.sh selftest: 6/6 passed" || echo "loop.sh selftest: $failed failed"
+  [ "$failed" -eq 0 ] && echo "loop.sh selftest: 7/7 passed" || echo "loop.sh selftest: $failed failed"
   exit $([ "$failed" -eq 0 ] && echo 0 || echo 1)
 fi
 
@@ -116,6 +124,7 @@ while :; do
 
   printf '\n=== loop iteration %d — %s ===\n' "$((n + 1))" "$(date -Is)"
 
+  LACONIC_LOOP_SUPERVISOR=1 \
   claude -p "$PROMPT" --permission-mode "${LOOP_PERMISSION_MODE:-auto}" \
     2>&1 | tee "$transcript"
   status=${PIPESTATUS[0]}

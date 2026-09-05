@@ -29,7 +29,20 @@ than an approximation of one. So:
   returns `{"continue": false}`, ending the turn at the merge.
 - `tools/loop.sh` starts the next `claude` process. Its prompt says to take
   **exactly one issue** end to end and then stop — the restart is the loop, not
-  a `while` inside one context.
+  a `while` inside one context. It exports `LACONIC_LOOP_SUPERVISOR=1`, which
+  is how the hook knows a restart is coming; `tools/loop.sh --selftest` checks
+  that the name still reaches `claude`, because the hook reads that exact name.
+
+**Do not drive the backlog with `/loop`.** Claude Code's built-in `/loop` keeps
+itself alive by calling `ScheduleWakeup` as the **last action of a turn**.
+`post-merge-stop.py` returns `{"continue": false}` the moment a merge succeeds,
+which ends the turn first — so a `/loop` iteration that merges can never
+schedule its successor. Every successful iteration ends in a merge, so the
+first one kills the loop. On 2026-09-04 that stopped the backlog for five and a
+half hours after PR #231 merged, and nothing in the transcript distinguished a
+dead loop from a working one. The hook now names the missing half in its stop
+message when `LACONIC_LOOP_SUPERVISOR` is absent, but the fix is to run the
+supervisor: the stop is only a loop if something restarts from it.
 
 Continuity is the repository, not a context window: the open issues,
 [`LEDGER.md`](../../../evals/results/loop/LEDGER.md), and master's log. That is
@@ -63,10 +76,10 @@ loop: usage limit (resets 6:20am (UTC)) — retrying in 600s (1/8)
 loop: exit 3 — retrying in 600s (1/8)
 ```
 
-`bash tools/loop.sh --selftest` drives the script against a stub `claude`: six
-checks over the retry, the failure cap, the two log labels, and the stop file.
-Five of the six fail against the version that shipped, which is the point of
-having it.
+`bash tools/loop.sh --selftest` drives the script against a stub `claude`:
+seven checks over the retry, the failure cap, the two log labels, the stop
+file, and the `LACONIC_LOOP_SUPERVISOR` marker the hook reads. Five of them
+fail against the version that shipped, which is the point of having it.
 
 **The hook asks GitHub; it does not read `gh`'s output.** It cannot: `gh pr
 merge` prints its "✓ Squashed and merged pull request #N" line only when

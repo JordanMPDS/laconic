@@ -12,6 +12,17 @@ makes the supervisor spawn a fresh `claude`, which is a true clear. Run
 interactively it just stops cleanly at the right moment, and you type `/clear`
 yourself.
 
+**The stop is only half a loop, so it says which half is missing.**
+`tools/loop.sh` exports `LACONIC_LOOP_SUPERVISOR=1` into the `claude` it
+spawns; without it, nothing is going to start the next issue and the stop
+leaves the session idle rather than working. That is not hypothetical. On
+2026-09-04 the backlog was being driven by Claude Code's built-in `/loop`,
+which stays alive by calling `ScheduleWakeup` as the last action of a turn.
+This hook ends the turn first, so the `/loop` iteration that merged PR #231
+never scheduled its successor, and the loop sat dead for five and a half hours
+with nothing in the transcript distinguishing that from working. Every
+successful iteration ends in a merge, so under `/loop` the first one is fatal.
+
 **Do not detect the merge from `gh` output.** `gh pr merge` writes its "✓
 Squashed and merged pull request #N" confirmation only when stderr is a
 terminal. Under an agent's shell tool it is not, and the command prints
@@ -24,6 +35,7 @@ Reads the PostToolUse payload on stdin.
 """
 
 import json
+import os
 import re
 import subprocess
 import sys
@@ -63,6 +75,43 @@ def is_merged(number):
     return done.returncode == 0 and done.stdout.strip() == "MERGED"
 
 
+def supervised():
+    """Is something going to start the next issue after this stop?"""
+    return os.environ.get("LACONIC_LOOP_SUPERVISOR") == "1"
+
+
+def stop_reason():
+    if supervised():
+        return (
+            "Pull request merged. Stopping so the next issue starts on an "
+            "empty context; tools/loop.sh restarts from here."
+        )
+    return (
+        "Pull request merged, and this turn ends here. No loop supervisor is "
+        "running, so nothing will start the next issue: this session is now "
+        "idle, not working. Run `bash tools/loop.sh` to work the backlog "
+        "unattended, or `/clear` and carry on by hand. Claude Code's built-in "
+        "`/loop` cannot drive this repository — it stays alive by calling "
+        "ScheduleWakeup as the last action of a turn, and this hook ends the "
+        "turn first, so a `/loop` iteration that merges never schedules its "
+        "successor."
+    )
+
+
+def system_message():
+    if supervised():
+        return (
+            "Merged. Context stop: state lives in the open issues, "
+            "evals/results/loop/LEDGER.md and master's log, not in this "
+            "window."
+        )
+    return (
+        "Merged, and the loop is now idle: no supervisor is running to start "
+        "the next issue. `bash tools/loop.sh` is the driver; `/loop` cannot "
+        "survive this stop."
+    )
+
+
 def main() -> int:
     try:
         payload = json.load(sys.stdin)
@@ -89,16 +138,8 @@ def main() -> int:
     json.dump(
         {
             "continue": False,
-            "stopReason": (
-                "Pull request merged. Stopping so the next issue starts on an "
-                "empty context — tools/loop.sh restarts from here, or run "
-                "/clear and carry on."
-            ),
-            "systemMessage": (
-                "Merged. Context stop: state lives in the open issues, "
-                "evals/results/loop/LEDGER.md and master's log, not in this "
-                "window."
-            ),
+            "stopReason": stop_reason(),
+            "systemMessage": system_message(),
         },
         sys.stdout,
     )
@@ -142,12 +183,12 @@ def selftest() -> int:
     ]
 
     def run(payload):
-        """Feed one payload through main(), returning whether it emitted."""
+        """Feed one payload through main(), returning whatever it emitted."""
         stdin_was, stdout_was = sys.stdin, sys.stdout
         sys.stdin, sys.stdout = io.StringIO(payload), io.StringIO()
         try:
             main()
-            return sys.stdout.getvalue().strip() != ""
+            return sys.stdout.getvalue().strip()
         finally:
             sys.stdin, sys.stdout = stdin_was, stdout_was
 
@@ -156,11 +197,11 @@ def selftest() -> int:
     try:
         for command, stdout, interrupted, merged, want in cases:
             globals()["is_merged"] = lambda _n, m=merged: m
-            got = run(json.dumps({
+            got = bool(run(json.dumps({
                 "tool_input": {"command": command},
                 "tool_response": {"stdout": stdout, "stderr": "",
                                   "interrupted": interrupted},
-            }))
+            })))
             if got != want:
                 failed += 1
                 print(f"FAIL want={want} got={got}: {command!r}")
@@ -169,6 +210,28 @@ def selftest() -> int:
         if run("not json"):
             failed += 1
             print("FAIL malformed payload fired")
+
+        # A supervised stop is the design; an unsupervised one is the loop
+        # dying, and the message is the only thing that tells them apart.
+        merge = json.dumps({
+            "tool_input": {"command": "gh pr merge 1 -s"},
+            "tool_response": {"stdout": "", "stderr": "", "interrupted": False},
+        })
+        marker_was = os.environ.get("LACONIC_LOOP_SUPERVISOR")
+        for marker, wanted in (("1", "tools/loop.sh restarts from here"),
+                               (None, "No loop supervisor is running")):
+            if marker is None:
+                os.environ.pop("LACONIC_LOOP_SUPERVISOR", None)
+            else:
+                os.environ["LACONIC_LOOP_SUPERVISOR"] = marker
+            reason = json.loads(run(merge))["stopReason"]
+            if wanted not in reason:
+                failed += 1
+                print(f"FAIL supervisor={marker!r} wanted {wanted!r} in {reason!r}")
+        if marker_was is None:
+            os.environ.pop("LACONIC_LOOP_SUPERVISOR", None)
+        else:
+            os.environ["LACONIC_LOOP_SUPERVISOR"] = marker_was
     finally:
         globals()["is_merged"] = real_is_merged
 
@@ -178,7 +241,7 @@ def selftest() -> int:
             failed += 1
             print(f"FAIL pr_number want={want!r} got={got!r}: {command!r}")
 
-    total = len(cases) + len(numbers) + 1
+    total = len(cases) + len(numbers) + 3
     print(f"{total - failed}/{total} passed")
     return 1 if failed else 0
 

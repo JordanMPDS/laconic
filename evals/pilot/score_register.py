@@ -27,7 +27,14 @@ SEED = 136
 
 
 def permutation(a, b, seed, resamples=200000):
-    """Two-sided permutation of the group label over per-response counts."""
+    """Two-sided permutation of the group label over per-response counts.
+
+    Returns None when either side is empty, which is what a partial snapshot
+    looks like while a shard is still generating. A p-value invented from one
+    group is worse than no p-value.
+    """
+    if not a or not b:
+        return None
     obs = abs(sum(b) / len(b) - sum(a) / len(a))
     pool = list(a) + list(b)
     n = len(a)
@@ -54,6 +61,9 @@ def interaction(groups, seed, resamples=200000):
                  - sum(g[("laconic", "deep")]) / len(g[("laconic", "deep")]))
                 - (sum(g[("baseline", "register")]) / len(g[("baseline", "register")])
                    - sum(g[("baseline", "deep")]) / len(g[("baseline", "deep")])))
+    if any(not groups[k] for k in (("laconic", "register"), ("laconic", "deep"),
+                                   ("baseline", "register"), ("baseline", "deep"))):
+        return None
     obs = abs(stat(groups))
     rng = random.Random(seed)
     hits = 0
@@ -68,6 +78,10 @@ def interaction(groups, seed, resamples=200000):
         if abs(stat(shuffled)) >= obs - 1e-9:
             hits += 1
     return (hits + 1) / (resamples + 1)
+
+
+def fmt(p):
+    return "-" if p is None else "%.4f" % p
 
 
 def turn_words(run, idx):
@@ -114,9 +128,9 @@ def main():
     print("%-9s %8s %8s %8s" % ("arm", "deep", "register", "p"))
     for arm in ("baseline", "laconic"):
         d, g = middle[(arm, "deep")], middle[(arm, "register")]
-        print("%-9s %8.1f %8.1f %8.4f"
+        print("%-9s %8.1f %8.1f %8s"
               % (arm, metrics.median(d), metrics.median(g),
-                 permutation(d, g, seed)))
+                 fmt(permutation(d, g, seed))))
 
     print("\n## Primary: prose words on the graded turn (turn 5)")
     print("%-9s %5s %8s %8s %8s %8s"
@@ -124,12 +138,12 @@ def main():
     for arm in ("baseline", "laconic"):
         d, g = graded[(arm, "deep")], graded[(arm, "register")]
         md, mg = metrics.median(d), metrics.median(g)
-        print("%-9s %5d %8.1f %8.1f %8.3f %8.4f"
+        print("%-9s %5d %8.1f %8.1f %8.3f %8s"
               % (arm, len(d), md, mg, (mg / md) if md else float("nan"),
-                 permutation(d, g, seed)))
+                 fmt(permutation(d, g, seed))))
 
-    print("\n   interaction (laconic rise minus baseline rise), p = %.4f"
-          % interaction(graded, seed))
+    print("\n   interaction (laconic rise minus baseline rise), p = %s"
+          % fmt(interaction(graded, seed)))
 
     print("\n## By stem, median words on the graded turn")
     print("%-9s %-9s %8s %8s" % ("arm", "stem", "deep", "register"))

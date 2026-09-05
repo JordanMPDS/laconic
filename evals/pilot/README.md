@@ -26,3 +26,26 @@ byte for byte. They differ in where the answer is meant to go:
   one-line reply that usually accompanies it.
 
 [#150]: https://github.com/JordanMPDS/laconic/issues/150
+
+## `register-index`, `register-metric`, `register-rollback`
+
+The matched pair for [#136]'s remaining gap, and the reason `deep-index`,
+`deep-metric` and `deep-rollback` are symlinked in here: `run.py` takes one
+`--cases-dir`, and the two families have to be generated in one interleaved
+pass or era does the comparing. The symlink is not a copy, so the control
+cannot drift from the case the scored suite ships.
+
+Each `register-*` case is its `deep-*` twin with turns 1 and 5 byte-identical
+and turns 2 to 4 asking the same three questions verbatim, plus an explicit
+request for the full form — a complete checklist, the whole argument step by
+step, a table with the evidence for each row. `rules/laconic.md` licenses all
+three at length, so a correct laconic run answers them long. The graded turn is
+then the same closed confirmation asked after four of the model's own answers
+in two different registers, which is the mechanism [#136] reports and which
+`deep-*` alone cannot produce.
+
+`tests/test_evals_layout.sh` holds the pair to that contract. Scored by
+`score_register.py`; the result is in
+[`register-inheritance-136.md`](../results/loop/register-inheritance-136.md).
+
+[#136]: https://github.com/JordanMPDS/laconic/issues/136

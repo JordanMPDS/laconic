@@ -4952,5 +4952,47 @@ check("no stored snapshot carries artifacts, so nothing can be gating on it",
               for r in (json.load(open(f)).get("runs", [])
                         if isinstance(json.load(open(f)), dict) else [])))
 
+# ---------------------------------------------------------------------------
+# Grading what the model wrote, not only what it said (#150). run.py has
+# captured authored files since #231 and nothing read them: a run whose
+# deliverable is a document records `text` of one word, which output_tokens
+# scores as maximally terse and the judge grades against a trap the response
+# never engages.
+
+_doc = {"text": "Wrote ONBOARDING.md.",
+        "artifacts": {"ONBOARDING.md": {"new": True, "text": "# Onboarding\n"},
+                      "old.py": {"deleted": True},
+                      "logo.png": {"binary": True, "bytes": 4}}}
+
+check("a case that does not opt in is graded on its response alone",
+      bench_metrics.graded_text(_doc, {"never_cut": []}) == "Wrote ONBOARDING.md.")
+check("an opt-in case is graded on the response and the file it wrote",
+      bench_metrics.graded_text(_doc, {"grade_artifacts": True})
+      == "Wrote ONBOARDING.md.\n\n[file written by the response: ONBOARDING.md]\n# Onboarding\n")
+check("a deleted or binary entry contributes no body to grade",
+      "logo.png" not in bench_metrics.graded_text(_doc, {"grade_artifacts": True}))
+check("an opt-in run that wrote nothing still grades its response",
+      bench_metrics.graded_text({"text": "hi"}, {"grade_artifacts": True}) == "hi")
+check("the judge prompt carries the document for an opt-in case",
+      "# Onboarding" in bench_judge.build_judge_prompt(
+          "q", "trap", bench_metrics.graded_text(_doc, {"grade_artifacts": True})))
+
+# The opt-in is per case and nothing in the scored suite takes it. `conditional`
+# is the one case whose runs edit a fixture file, and it is graded on whether
+# the diagnosis reached the response - showing its diff to the judge would
+# redefine that criterion under 80 stored runs. A case whose files are meant to
+# be graded says so, in evals/pilot until it has a pilot behind it.
+check("no scored case grades artifacts, so no stored verdict moves",
+      not [f for f in glob.glob(str(ROOT / "evals/cases/*/expect.json"))
+           if json.load(open(f)).get("grade_artifacts")])
+check("the #150 pilot pair does opt in on the file half and not the reply half",
+      json.load(open(ROOT / "evals/pilot/authored-file/expect.json"))
+      .get("grade_artifacts") is True
+      and not json.load(open(ROOT / "evals/pilot/authored-reply/expect.json"))
+      .get("grade_artifacts"))
+check("the pilot pair shares one trap, so the two halves are graded alike",
+      json.load(open(ROOT / "evals/pilot/authored-file/expect.json"))["trap"]
+      == json.load(open(ROOT / "evals/pilot/authored-reply/expect.json"))["trap"])
+
 print("\n%d failure(s)" % fails)
 sys.exit(1 if fails else 0)

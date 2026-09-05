@@ -426,3 +426,36 @@ def preamble(text, window=160):
 def never_cut_missing(text, keywords):
     low = text.lower()
     return [k for k in keywords if k.lower() not in low]
+
+
+# The grader's view of one response, for a case whose deliverable is a file.
+#
+# Every metric the loop has ever scored reads `text`. #150 reports its harm in
+# an authored document: 1,335 words across 26 paragraphs, roughly 17% of it
+# restating claims the document had already made. A run like that records
+# `text` of one word - "done" - which output_tokens scores as maximally terse
+# and the judge grades against a trap the response never engages.
+#
+# run.py has captured what the model wrote since #231, but nothing read it.
+# This is what reads it, and it is opt-in per case rather than universal on
+# purpose. `conditional` is the one case in the archive whose runs edit a
+# fixture file, and it is graded on whether the diagnosis reached the response:
+# showing its diff to the judge would silently redefine 80 stored runs' worth
+# of criterion. A case that means its files to be graded says so.
+def graded_text(run, expect):
+    """`run`'s response, with its authored files appended when the case opts in.
+
+    Returns `text` unchanged for every case that does not set
+    `grade_artifacts`, which is all of them under evals/cases today - so no
+    stored verdict and no future round moves because this exists.
+    """
+    text = run.get("text", "") or ""
+    if not (expect or {}).get("grade_artifacts"):
+        return text
+    parts = [text]
+    for rel, entry in sorted((run.get("artifacts") or {}).items()):
+        body = entry.get("text")
+        if body is None:  # deleted, binary or unreadable: nothing to grade
+            continue
+        parts.append("[file written by the response: %s]\n%s" % (rel, body))
+    return "\n\n".join(p for p in parts if p.strip())

@@ -360,3 +360,36 @@ reason and were measured to be: their fixtures' identifiers —
 `settlement_currency` at 7%, `chk-047` at 0%, `0042` at 60% — are all avoidable
 by a correct answer, because what those traps protect is an argument rather than
 a name.
+
+### A case whose deliverable is a file: `grade_artifacts`
+
+Both graders read the response text. `never_cut` is a substring check over it
+and the judge is handed it as "the response to grade", so a case whose
+deliverable is a **file the model authors** was ungradable even after
+[#150]'s capture change started keeping one. Such a run records a `text` of a
+sentence or two — "Wrote ONBOARDING.md." — which `output_tokens` scores as
+maximally terse and the judge grades against a trap that sentence never
+engages.
+
+A case that sets `"grade_artifacts": true` is graded on the response **plus**
+the files the run wrote, which `metrics.graded_text()` appends under a
+`[file written by the response: <path>]` header. Both graders route through
+that one function, so they cannot disagree about what the response was.
+
+**The flag is per case and off everywhere else, deliberately.** `conditional`
+is the one case in the archive whose runs edit a fixture file, at 39 of 80 on
+sonnet, and it is graded on whether the diagnosis reached the *response* —
+[`volunteered-work.md`](results/loop/volunteered-work.md) measures the pass
+rate of an editing answer against a non-editing one on exactly that basis.
+Showing the judge its diff would silently redefine that criterion under 80
+stored runs. `tests/test_bench.py` asserts that no case under `evals/cases/`
+sets the flag, so no stored verdict and no future round can move because the
+mechanism exists.
+
+The pair that exercises it lives in [`evals/pilot/`](pilot/README.md), which is
+outside the default case glob: a new case in `evals/cases/` changes
+`cases_cksum` for every round that follows and reads as a rise on every counter
+it touches until a baseline is seeded for it. See
+[`results/loop/authored-deliverable-150.md`](results/loop/authored-deliverable-150.md).
+
+[#150]: https://github.com/JordanMPDS/laconic/issues/150

@@ -264,7 +264,14 @@ FORBIDDEN = ("terse", "concise", "brief", "shorter", "length", "verbose",
              "padding", "hedg", "pleasantr", "recap", "arrow", "article",
              "word count", "one recommendation")
 
-for d in sorted(p for p in (root / "evals" / "cases").iterdir() if p.is_dir()):
+# evals/pilot holds cases under test, outside the scored suite. They are held
+# to the same expect.json contract: a pilot is where a criterion is decided,
+# so it is exactly where a trap that grades form would be written by accident.
+dirs = [p for p in (root / "evals" / "cases").iterdir() if p.is_dir()]
+dirs += [p for p in (root / "evals" / "pilot").iterdir()
+         if p.is_dir() and (p / "expect.json").exists()]
+
+for d in sorted(dirs):
     e = json.loads((d / "expect.json").read_text())
     g = e.get("grading")
     print(("ok   " if g in VALID else "FAIL ")

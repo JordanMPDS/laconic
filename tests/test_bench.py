@@ -4391,6 +4391,12 @@ _expected_concurrent = {
     # reconstructs to three in flight, and the guard below checks the
     # declaration covers it.
     "register-136.json",
+    # Same case again, and doubled because round 47 is a two-tree round: three
+    # shards per side, one per stem, each strictly sequential and each
+    # declaring --concurrency 6 for the six invocations really in flight. Each
+    # side's merge reconstructs to the three that produced it, which the
+    # declaration covers with room to spare.
+    "round-47-control.json", "round-47-edit.json",
 }
 _found = set()
 for _p in sorted((ROOT / "evals" / "snapshots").rglob("*.json")):

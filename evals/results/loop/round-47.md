@@ -199,3 +199,142 @@ move" is partly a floor and is read as such.
 [#136]: https://github.com/JordanMPDS/laconic/issues/136
 
 <!-- RESULTS BELOW THIS LINE -->
+
+## Result: the falsifier fired on both of its clauses, and the edit moves nothing anywhere
+
+Sonnet, 10 reps a side, **120 runs, 0 failed**, every run five turns. Generated
+2026-09-05 from `evals/pilot` at `cases_cksum` 1852778470 — the pilot's value,
+unchanged — with the control at `rules_cksum` 136269960 and the edit at
+1135334847, which is the checksum the ledger records for round 40. The edit is
+byte-identical to it, and the checksum is the proof rather than my word for it.
+Six shards declaring `--concurrency 6`; the timestamps reconstruct to 3 in
+flight, so the declaration is conservative rather than false.
+
+### Primary: rejected
+
+| family | n | control | edit | ratio | p |
+|---|--:|--:|--:|--:|--:|
+| **`register-*`** | 30 | **55.5** | **58.0** | **1.045** | **0.9815** |
+| `deep-*` | 30 | 29.0 | 28.0 | 0.966 | 0.4699 |
+
+**The falsifier was "not separating at p < 0.05, or separating upward", and both
+clauses of it fired.** The registered target does not separate, and the point
+estimate is in the wrong direction. Means agree: 55.5 to 55.7 on `register-*`,
+28.1 to 30.6 on `deep-*`. The interaction reads p = 0.7257 on raw words and a
+ratio of ratios of 0.904 at p = 0.5402 on log words, so registered reading 3
+obtains — neither family moves, and there is no effect anywhere to attribute.
+
+**The carry-forward survives the edit intact:**
+
+| | `deep-*` | `register-*` | ratio | p |
+|---|--:|--:|--:|--:|
+| control | 29.0 | 55.5 | **1.914** | 5e-06 |
+| edit | 28.0 | 58.0 | **2.071** | 1e-05 |
+
+That is the finding stated as the pilot states it. The clause was supposed to
+drive that ratio toward 1.0. It is 1.914 without the clause and 2.071 with it.
+
+### The edit moves nothing on any of the ten turn positions
+
+Registered analysis is above; this table is not registered and is the reason the
+round is worth its 600 calls.
+
+| family | turn | control | edit | p |
+|---|--:|--:|--:|--:|
+| `deep-*` | 1 | 137.5 | 129.0 | 0.5356 |
+| `deep-*` | 2 | 13.5 | 14.0 | 0.8705 |
+| `deep-*` | 3 | 28.0 | 31.0 | 0.4749 |
+| `deep-*` | 4 | 20.5 | 24.0 | 0.4233 |
+| `deep-*` | 5 | 29.0 | 28.0 | 0.4680 |
+| `register-*` | 1 | 129.0 | 130.5 | 0.8898 |
+| `register-*` | 2 | 197.5 | 188.5 | 0.6229 |
+| `register-*` | 3 | 151.5 | 145.0 | 0.9957 |
+| `register-*` | 4 | 251.0 | 227.0 | 0.1924 |
+| `register-*` | 5 | 55.5 | 58.0 | 0.9811 |
+
+Ten positions, two families, 120 runs, and the smallest p in the table is
+0.1924. **Turn 1 is the row that matters.** It carries no inherited register at
+all, and it is the turn on which the whole rule slice has just been sent, so a
+third item in the pre-send checks is at its most legible there. It does not
+move either, on either family.
+
+So the failure is not the one the round was designed to find. This is not a
+persistence clause that fails to persist — **it is a checklist item that does not
+change the answer at any depth, including the depth at which it was just
+read.** Round 40 could not distinguish those two, because it had no cell where
+the register existed; this round can, and the answer is the less flattering one.
+
+### The harm check passes, and it passes for the same reason
+
+| family | control | edit | p |
+|---|--:|--:|--:|
+| `register-*` turns 2-4 | 630.5 | 613.5 | 0.4733 |
+| `deep-*` turns 2-4 | 72.0 | 82.0 | 0.4112 |
+
+Registered as fatal: a significant fall would have rejected the edit whatever
+the primary did. It does not fall. The trade [#60] warns about did not happen,
+which is good news and is also the same null as everything else in the round —
+a clause that changes nothing cannot suppress a requested full form either.
+
+**Never-cut keyword, `date_trunc` on the `index` stem, graded turn: 39 of 40.**
+The one miss is `control`/`deep`, so it is on master rules and not on the edit.
+
+### The pilot replicates, in an independent batch
+
+The control side is a second, independently generated measurement of the
+[register pilot](register-inheritance-136.md), and it was not registered as one —
+it is simply what a control arm is.
+
+| | pilot | round 47 control | p |
+|---|--:|--:|--:|
+| `deep-*` turn 5 | 31.0 | 29.0 | 0.4651 |
+| `register-*` turn 5 | 52.0 | 55.5 | 0.3217 |
+| `deep-*` turns 2-4 | 77.5 | 72.0 | — |
+| `register-*` turns 2-4 | 704.0 | 630.5 | — |
+| ratio | 1.677 | 1.914 | — |
+
+Neither turn-5 figure differs. The pilot's own limits section said "one batch,
+one date, three stems, ten reps" and that nothing in it replicated; one of those
+two is now false. Pooling both sides of this round, 60 runs a family, the
+carry-forward reads **28.0 against 56.5, a ratio of 2.018 at p = 5e-06**.
+
+The length licence also holds a second time: laconic writes **8.8 times** as much
+across turns 2 to 4 when the full form is asked for as when the same three
+questions are asked plainly, against the pilot's 9.1.
+
+## Verdict: reject, and the edit is reverted in full
+
+Per the stop-at-the-first-failing-step order, the round-wide laconic arm and its
+judgments were not bought. `rules/laconic.md` returns to two pre-send checks and
+`rules/dist/` is regenerated from it.
+
+## What this settles, and what it costs
+
+**Round 40's null was not an instrument failure.** That was this round's
+premise, and it is wrong. The clause reads the same on a session that spent 630
+words under an explicit licence as on one that spent 72, which is the contrast
+round 40 could not construct. [#60]'s proposal B is now answered negatively on
+an instrument that could have seen it, which is the first time anything in the
+cluster can say that.
+
+**What is left standing is the mechanism, twice measured, with nothing that
+moves it.** The carry-forward is real at 1.9x to 2.1x across four independent
+generations of it. Five rule attempts have now been made at the over-length
+cluster and all five are nulls, four of them bounding a licence with another
+sentence and this one adding a step to the checklist instead.
+
+**The next thing to try is not another sentence in `rules/laconic.md`, and this
+round is the evidence for that.** Under the shipped wiring turn 5 receives the
+slice once, thousands of tokens and four of its own answers ago, plus a
+one-line reminder that names the level and nothing else. The one channel that
+actually reaches the turn where the failure happens has never been edited. That
+is `hooks/laconic.sh`'s `REMINDER`, mirrored in `hooks/laconic.ps1` and in
+`run.py`, and moving it is a three-file change with a bash/PowerShell parity
+requirement rather than a one-line rule edit — which is presumably why four
+rounds went to the rules file first. The instrument to score it on now exists
+and has a control measured four times.
+
+**Turn 1 is the caveat on that recommendation.** The clause did not move turn 1
+either, where delivery cannot be the explanation, so "the reminder is the
+channel" is the next hypothesis and not the established reason. A round on the
+reminder line has to keep turn 1 in scope for exactly that reason.

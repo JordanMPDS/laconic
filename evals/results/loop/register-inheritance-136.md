@@ -176,6 +176,162 @@ reads, and this control has been read three times.
 
 <!-- RESULTS BELOW THIS LINE -->
 
+## Result: the falsifier did not fire, and the registered arbiter is unusable
+
+Sonnet, 10 reps a side, **120 runs, 0 failed**, every run five turns. Generated
+2026-09-05 from `evals/pilot` at `rules_cksum` 136269960, `cases_cksum`
+1852778470, `--turn-delivery plugin`, three shards declaring `--concurrency 3`
+and reconstructing to three in flight.
+
+### The manipulation landed, and it is a finding in its own right
+
+Prose words summed over turns 2 to 4, per run:
+
+| arm | `deep-*` | `register-*` | p |
+|---|--:|--:|--:|
+| baseline | 924.5 | 2446.0 | < 0.00001 |
+| laconic | **77.5** | **704.0** | < 0.00001 |
+
+**Laconic honours the length licence, and it is the sharpest measurement of that
+anywhere in the archive.** Asked for the full form it writes **9.1 times** as
+much as when asked the same three questions plainly. Whatever else the ruleset
+does, "Length scales to the request" is not decorative.
+
+Two things about that row are worth having on the record, neither registered:
+
+- **On `deep-*` laconic spends 77.5 words across all three middle turns**, one
+  of which begins `walk me through`, against baseline's 924.5 — a ratio of
+  0.084. That is the scored suite's own multi-turn family, and a walkthrough
+  answered in about 26 words is close to the [#46] failure mode inverted.
+- **Even when the request is explicit, laconic delivers 0.29 of baseline.**
+  704 words against 2446, on prompts asking in as many words for a complete
+  assessment, the whole argument step by step, and a table with the evidence
+  for each row.
+
+### Primary: prose words on the graded turn
+
+| arm | n | `deep-*` | `register-*` | ratio | p |
+|---|--:|--:|--:|--:|--:|
+| baseline | 30 | 185.5 | 190.5 | 1.027 | 0.9135 |
+| **laconic** | 30 | **31.0** | **52.0** | **1.677** | **< 0.00001** |
+
+Means move the same way and no further: laconic 30.5 to 50.6, baseline 195.2 to
+**193.9**, which is a fall.
+
+**The falsifier did not fire.** It was "not separating at p < 0.05, or
+separating upward", and the laconic arm separates upward at p < 0.00001.
+
+**Every stem agrees, and the control's stems agree in the other direction:**
+
+| stem | laconic | p | baseline | p |
+|---|--:|--:|--:|--:|
+| `index` | 31.0 to **59.0** | 0.0001 | 176.5 to 180.5 | 0.9588 |
+| `metric` | 44.0 to **57.0** | < 0.00001 | 234.0 to 234.0 | 0.4067 |
+| `rollback` | 20.0 to **28.5** | 0.0002 | 176.0 to **150.0** | 0.0830 |
+
+Three of three on the treatment arm, each significant on its own. Zero of three
+on the control, and the one that moves most moves **down**.
+
+### The registered interaction test failed, and the reason is my own design error
+
+The registration made the arm contrast the arbiter: *"the effect is credited to
+the rules only if the laconic rise exceeds the baseline rise, tested as the
+difference of differences by permuting the arm label inside each family."*
+
+    interaction on absolute words, as registered:  p = 0.4899
+
+**It does not clear, and it is not evidence against the result — it is a broken
+test, and round 42 already wrote down why.** Its instrument note:
+
+> Permuting arm labels within a cell builds each group as a 50/50 mixture of
+> two well-separated modes, and a median lands in whichever mode draws more
+> than half the values, so the statistic has enormous variance. Reducing to the
+> within-cell difference first removes the mixture. **A median under a
+> permutation that creates bimodality is broken rather than conservative.**
+
+That is this exact defect. Shuffling the arm label mixes a group whose mean is
+195 with one whose mean is 30, so the null distribution of the difference of
+differences is dominated by which arm happens to draw the long answers, and a
+20-word effect on the short arm cannot be seen through it. Round 42 removed the
+mixture by reducing to a within-cell difference first; here the two families are
+different cases, so there is no run-level pairing to reduce to.
+
+**Unregistered and post-hoc**, the same permutation on log words — where the
+statistic is a ratio of ratios and the arms are on comparable scales — reads a
+ratio of ratios of **1.782 at p = 0.0844**. Closer, still not clearing, and it
+is post-hoc, so it is reported and not leaned on. `score_register.py` prints it
+beside the registered one, so both are reproducible from the snapshot rather
+than recomputed by hand.
+
+**What rules out the "it is just a longer case" reading is the control's own
+null, not the interaction.** Registered reading 2 was "both arms rise by similar
+proportions". The baseline arm does not rise at all: p = 0.9135 pooled, a mean
+that falls, zero of three stems rising and one falling at p = 0.083 — on the
+same six prompts, in the same interleaved batch, at ten times the answer length
+where a rise would be easiest to see. Reading 1 obtains.
+
+**Recording the error as an error.** The registration should have specified the
+interaction on the log scale, or specified no interaction at all and rested on
+the two within-arm tests. Round 42 had already published the lesson and this
+registration reproduced the mistake anyway. The primary endpoint, its falsifier
+and the control were all registered correctly and all three are unambiguous, so
+nothing about the finding turns on the broken arbiter — but a registration is
+worth nothing if its failures are quietly reread, so the failed test stays in
+the table above.
+
+### The scale-free statement of the finding
+
+| | `deep-*` | `register-*` |
+|---|--:|--:|
+| laconic median / baseline median, turn 5 | **0.167** | **0.273** |
+
+**After four answers written at a length the rules licensed, the rule binds
+about 1.6 times less hard on the turn that follows** — on a question that is
+byte-identical, in a session of identical depth, against a fixture that has not
+changed.
+
+### Harm check: passes
+
+`date_trunc` present on the graded turn, `index` stem, the pair's one
+`never_cut` keyword: **10/10 in all four groups.** The other two stems carry no
+keyword, so the check covers a third of the batch, as the registration said.
+
+## What this establishes, and what it does not
+
+**[#136]'s mechanism reproduces on the instrument for the first time.** The
+cluster has spent five rounds on this family and every one of them measured
+depth. This measures what [#60] actually described — the licence not expiring —
+and it is the first thing in the archive that makes laconic go **up**.
+
+**[#60]'s persistence clause is now testable.** Its proposal B was parked in
+2026-08-08 with "no view yet … it is hard to instrument: the benchmark runs one
+prompt per session, so nothing in it can exhibit the multi-turn drift you
+describe." That is no longer true. A clause telling the model that a turn where
+length was correct does not license the next one has a cell to move: laconic on
+`register-*` turn 5, with `deep-*` as the case control and the baseline arm as
+the era control.
+
+**The magnitude gap is not closed and is the honest limit.** [#136] reports
+about 400 words; this reads 52. The mechanism reproduces at roughly an eighth of
+the reported size, so it is a mechanism finding and not a reproduction of the
+report. The cluster's second candidate — a session that interleaves work with
+questions — is untouched and remains the candidate for the rest.
+
+**Nothing was judged.** Whether the extra 21 words carry anything is unmeasured
+here. [Round 43](round-43.md) graded `deep-*` at 120 of 120 across both arms, so
+the follow-up an effect earns is a judged batch on `register-*`; a rise from a
+ceiling that high is what [#94] says a cell like this can show.
+
+**One batch, one date, three stems, ten reps.** The within-arm contrasts are
+generated in one interleaved pass so era cancels between them, which is what
+[round 37](round-37.md) requires; nothing here replicates across days.
+
+**No rule edit is proposed, as registered.** The pair stays in `evals/pilot`.
+Promoting it to `evals/cases/` would move `cases_cksum` for every future round
+and needs a seeded baseline, and the case for doing that is a rule edit that
+wants to be scored on it — which is [#60]'s next unit, not this one.
+
+
 [#60]: https://github.com/JordanMPDS/laconic/issues/60
 [#94]: https://github.com/JordanMPDS/laconic/issues/94
 [#113]: https://github.com/JordanMPDS/laconic/issues/113

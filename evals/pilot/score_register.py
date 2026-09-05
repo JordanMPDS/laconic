@@ -13,6 +13,7 @@ Words are prose words by `metrics.score`, so fenced code and inline spans are
 out of the count on both families. #136 is about prose.
 """
 import json
+import math
 import random
 import sys
 from collections import defaultdict
@@ -48,21 +49,40 @@ def permutation(a, b, seed, resamples=200000):
     return (hits + 1) / (resamples + 1)
 
 
+CELLS = (("laconic", "register"), ("laconic", "deep"),
+         ("baseline", "register"), ("baseline", "deep"))
+
+
+def difference_of_differences(g):
+    """How much more the laconic arm rises from deep to register than baseline.
+
+    On raw words this is a difference of word counts. On logged words it is a
+    log ratio of ratios, so exponentiating it gives the factor by which the
+    laconic rise exceeds the baseline one.
+    """
+    def mean(key):
+        return sum(g[key]) / len(g[key])
+    return ((mean(("laconic", "register")) - mean(("laconic", "deep")))
+            - (mean(("baseline", "register")) - mean(("baseline", "deep"))))
+
+
 def interaction(groups, seed, resamples=200000):
     """Permute the arm label within each family, preserving family sizes.
 
-    The statistic is the difference of differences: how much more the laconic
-    arm rises from deep to register than the baseline arm does. Runs are not
-    paired across families - the two families are different cases - so the
-    label that can be shuffled is the arm's, inside a family.
+    The statistic is the difference of differences. Runs are not paired across
+    families - the two families are different cases - so the label that can be
+    shuffled is the arm's, inside a family.
+
+    On raw words this test is known to be broken rather than conservative: the
+    arms are an order of magnitude apart, so shuffling the arm label builds
+    each group as a mixture of two well-separated modes and the null
+    distribution is dominated by which arm drew the long answers. Round 42
+    recorded that defect. It is computed here because the #136 registration
+    named it, and reported beside the log-scale version where the arms are on
+    comparable scales.
     """
-    def stat(g):
-        return ((sum(g[("laconic", "register")]) / len(g[("laconic", "register")])
-                 - sum(g[("laconic", "deep")]) / len(g[("laconic", "deep")]))
-                - (sum(g[("baseline", "register")]) / len(g[("baseline", "register")])
-                   - sum(g[("baseline", "deep")]) / len(g[("baseline", "deep")])))
-    if any(not groups[k] for k in (("laconic", "register"), ("laconic", "deep"),
-                                   ("baseline", "register"), ("baseline", "deep"))):
+    stat = difference_of_differences
+    if any(not groups[k] for k in CELLS):
         return None
     obs = abs(stat(groups))
     rng = random.Random(seed)
@@ -78,6 +98,19 @@ def interaction(groups, seed, resamples=200000):
         if abs(stat(shuffled)) >= obs - 1e-9:
             hits += 1
     return (hits + 1) / (resamples + 1)
+
+
+def log_words(groups):
+    """The same cells on a log scale, or None if any run scored zero words.
+
+    Returns None rather than dropping the run, because silently shrinking a
+    group changes the test being reported without saying so.
+    """
+    if any(not groups[k] for k in CELLS):
+        return None
+    if any(v <= 0 for k in CELLS for v in groups[k]):
+        return None
+    return {k: [math.log(v) for v in groups[k]] for k in CELLS}
 
 
 def fmt(p):
@@ -144,14 +177,22 @@ def main():
 
     print("\n   interaction (laconic rise minus baseline rise), p = %s"
           % fmt(interaction(graded, seed)))
+    logged = log_words(graded)
+    if logged is None:
+        print("   same on log words: - (a run scored zero words)")
+    else:
+        print("   same on log words, a ratio of ratios of %.3f, p = %s"
+              % (math.exp(difference_of_differences(logged)),
+                 fmt(interaction(logged, seed))))
 
     print("\n## By stem, median words on the graded turn")
-    print("%-9s %-9s %8s %8s" % ("arm", "stem", "deep", "register"))
+    print("%-9s %-9s %8s %8s %8s" % ("arm", "stem", "deep", "register", "p"))
     for arm in ("baseline", "laconic"):
         for stem in STEMS:
-            print("%-9s %-9s %8.1f %8.1f"
-                  % (arm, stem, metrics.median(cell[(arm, "deep", stem)]),
-                     metrics.median(cell[(arm, "register", stem)])))
+            d, g = cell[(arm, "deep", stem)], cell[(arm, "register", stem)]
+            print("%-9s %-9s %8.1f %8.1f %8s"
+                  % (arm, stem, metrics.median(d), metrics.median(g),
+                     fmt(permutation(d, g, seed))))
 
     print("\n## Harm check: never-cut keyword present on the graded turn")
     for (arm, family, stem), vals in sorted(kept.items()):

@@ -48,4 +48,14 @@ in two different registers, which is the mechanism [#136] reports and which
 `score_register.py`; the result is in
 [`register-inheritance-136.md`](../results/loop/register-inheritance-136.md).
 
+**The pilot answered its question and the pair stays here.** Laconic's graded
+turn reads 31.0 words after `deep-*`'s short stretch and 52.0 after
+`register-*`'s licensed one, permutation p < 0.00001 on 30 runs a side and
+three stems of three; the baseline arm reads 185.5 against 190.5, p = 0.9135,
+zero stems of three. Promoting to `evals/cases/` is a decision for the rule
+edit that wants to be scored here — [#60]'s persistence clause — because it
+moves `cases_cksum` for every future round and needs a seeded baseline first.
+
+[#60]: https://github.com/JordanMPDS/laconic/issues/60
+
 [#136]: https://github.com/JordanMPDS/laconic/issues/136

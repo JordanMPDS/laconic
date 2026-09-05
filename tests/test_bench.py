@@ -4386,6 +4386,11 @@ _expected_concurrent = {
     # undeclared one. The shard files are each strictly sequential; it is the
     # merge that describes a regime no single process produced.
     "opus-model-set.json",
+    # Same case: the #136 register pilot ran three shards, one per stem, each
+    # strictly sequential and each declaring --concurrency 3. The merge is what
+    # reconstructs to three in flight, and the guard below checks the
+    # declaration covers it.
+    "register-136.json",
 }
 _found = set()
 for _p in sorted((ROOT / "evals" / "snapshots").rglob("*.json")):

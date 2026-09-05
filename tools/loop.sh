@@ -150,10 +150,16 @@ while :; do
 
   printf '\n=== loop iteration %d — %s ===\n' "$((n + 1))" "$(date -Is)"
 
+  # `< /dev/null` because print mode reads stdin for piped input and waits on
+  # it. An unattended supervisor is started from whatever stdin its caller
+  # happened to have: on 2026-09-05 a restart handed the child a pipe nothing
+  # wrote to, and every iteration opened with "no stdin data received in 3s,
+  # proceeding without it". It proceeded, but a caller whose stdin stays open
+  # is a hang rather than a warning, and the prompt is passed with -p anyway.
   LACONIC_LOOP_SUPERVISOR=1 \
   CLAUDE_CODE_PRINT_BG_WAIT_CEILING_MS=0 \
   claude -p "$PROMPT" --permission-mode "${LOOP_PERMISSION_MODE:-auto}" \
-    2>&1 | tee "$transcript"
+    < /dev/null 2>&1 | tee "$transcript"
   status=${PIPESTATUS[0]}
 
   if [ "$status" -eq 0 ]; then

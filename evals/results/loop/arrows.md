@@ -1,15 +1,15 @@
-# The arrow work: six rounds, five edits, and what is left
+# The arrow work: nine rounds, eight edits, and what is left
 
-Six rounds have been spent on one prohibition — *"No arrows inside a sentence"* —
-and none of the five rule edits was accepted. This is the index for that line of
-work, so a seventh attempt starts from what the six established rather than from
+Nine rounds have been spent on one prohibition — *"No arrows inside a sentence"* —
+and none of the eight rule edits was accepted. This is the index for that line of
+work, so a tenth attempt starts from what the nine established rather than from
 the issue that opened them.
 
 Issues: [#20] (located them), [#34] (asked whether an enumerated prohibition can
 close), [#36] (asked for the instrument), [#164] (asked whether the rule's own
 `Wrong:` line is the carrier). **All four are closed.**
 
-## The five edits, in order
+## The eight edits, in order
 
 | round | the edit | target | verdict |
 |---|---|---|---|
@@ -19,6 +19,9 @@ close), [#36] (asked for the instrument), [#164] (asked whether the rule's own
 | [30](round-30.md) | close the licence the "use a numbered list instead" remedy grants: a bullet is prose, so moving a chain into one relocates the arrow | `violations_total` on `walkthrough` | **reject** — never-cut 9 → 16, on `destructive`/haiku **2 → 8**. **The target passed decisively: 108 → 58, p = 0.016** |
 | [31](round-31.md) | a mapping `Wrong:`/`Right:` pair whose remedy keeps the bullet | `violations_total` on `walkthrough`, sonnet | **reject** — target moved the wrong way, 31 → 33, and round-wide rose 60 → 63 |
 | [38](round-38.md) | **no enumeration**: replace both rendered arrow specimens with prose descriptions of the same error | arrows on three cases, two trees simultaneously | **reject** — arrows did not fall: control 36, edit **62**, p = 0.341 |
+| [44](round-44.md) | [#26]'s first lens candidate: move the connecting-words claim into `Never cut` | arrows on `walkthrough`, sonnet | **reject** — 41 → 45, p = 0.830. **The `Never cut` section is inert as a destination** |
+| [45](round-45.md) | [#26]'s second: close the quotation exemption, naming the value transition | arrows on `confirm-rollback`, sonnet | **reject** — 21 → 23, p = 0.8215. The exemption's silence is not what licenses ``(`legacy` → `split`)`` |
+| [46](round-46.md) | [#26]'s third, and **the only edit here that never says "arrow"**: rewrite the `full` shape budget to count claims, not words | chain-carrying responses on `walkthrough`, sonnet | **reject** — 4/100 → **9/100**, p = 0.2507, and the fatal harm check fired: `confirm-rollback` grew 75.5 → 86.0 words, p = 0.0260 |
 
 ## What the six established
 
@@ -65,13 +68,22 @@ moving the wrong way. What survives is the narrower reading that a *newly added*
 example's recency may matter rather than a standing one's presence, which is
 untested.
 
+Round 46 is the third datum for that reading and the first from outside the arrow
+paragraph. Rounds 44 and 45 both edited the arrow rule and both disclosed chains
+falling on `walkthrough`, pooling to 9 of 80 control responses carrying one
+against 2 of 80. Round 46 moved the `full` level's shape budget instead, never
+mentioning arrows at all, and chains did not fall — 4 of 100 against 9 of 100,
+the other direction. Chains fell under the edits that touched the rule and held
+under the one that did not, which is what recency-of-a-new-example predicts and
+what a property of the chain form does not.
+
 **6. Round 30 is the one that hurts.** Its target passed at p = 0.016, the
 largest movement the loop has measured on a named target, and the round rejected
 anyway — on `destructive`/haiku going 2 → 8 on never-cut. An arrow edit that
 works on `walkthrough` has twice now damaged a case its hypothesis never named.
 That propagation, not the target, is what has actually been blocking this line.
 
-## What a seventh attempt would have to be
+## What a tenth attempt would have to be
 
 Not another position in the enumeration. The three things the evidence leaves
 open, in order of what it would cost:
@@ -79,7 +91,13 @@ open, in order of what it would cost:
 - **A structural move rather than an additive one.** Round 10 remains the only
   accepted edit in the loop's history that worked by *relocating* a rule rather
   than bounding it in prose, and the over-length cluster records four wording
-  attempts failing where one relocation succeeded. Nothing has tried that here.
+  attempts failing where one relocation succeeded. Rounds 44 and 45 have now
+  tried it twice here and both failed, which is what makes the `Never cut`
+  section look inert as a destination rather than makes relocation look wrong.
+- **A working length-incentive edit.** Round 46 tested the theory that the shape
+  budget creates word-level compression pressure and could not manipulate it: its
+  edit left `walkthrough` unmoved at every quartile while lengthening the 76-word
+  case it was registered to leave short. The theory is untested, not refuted.
 - **A propagation-aware design.** Rounds 30 and 31 both damaged a case outside
   their scope. The skill now pre-registers the cells that carry a demonstrated
   form ([#164] item 2), which makes the damage visible; it does not prevent it.
@@ -96,4 +114,5 @@ sides interleaved in one batch.
 [#20]: https://github.com/JordanMPDS/laconic/issues/20
 [#34]: https://github.com/JordanMPDS/laconic/issues/34
 [#36]: https://github.com/JordanMPDS/laconic/issues/36
+[#26]: https://github.com/JordanMPDS/laconic/issues/26
 [#164]: https://github.com/JordanMPDS/laconic/issues/164

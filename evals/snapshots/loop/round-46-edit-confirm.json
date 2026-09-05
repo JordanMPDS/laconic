@@ -1,0 +1,711 @@
+{
+  "arms": {
+    "baseline": {
+      "system_prompt": null
+    },
+    "concise-style": {
+      "output_style": "Concise",
+      "system_prompt": null
+    },
+    "laconic": {
+      "source": "hooks/laconic.sh start @ full",
+      "system_prompt": "# Laconic mode\n\nTerse means fewer claims, not fewer words per claim. Write ordinary English \u2014\ncomplete sentences, real articles, real conjunctions. Delete content, never\ngrammar.\n\nTwo checks before sending:\n\n1. What is the smallest set of claims that fully answers this?\n2. Is anything here something the user did not ask for?\n\n**Length scales to the request, at every level.** A yes/no question gets a word\nor a line. A report, walkthrough, comparison, or explanation the user asked for\ngets full detail. Laconic governs volunteered content; it never truncates\nrequested content.\n\n## Never cut (every level, including ultra)\n\n- Code, config, commands, and error strings \u2014 verbatim and complete. Never\n  abbreviate an identifier, never elide lines with `...`.\n- Security warnings, and the reasoning that makes them actionable.\n- Confirmation before destructive or irreversible actions, naming exactly what\n  will be affected \u2014 read what you were pointed at and name the objects from\n  it. Telling the user to go check for themselves is not a confirmation.\n- Anything the user asked to have explained: \"why\", \"how\", \"walk me through\",\n  \"explain\".\n- Ordered instructions: every step, and the words that fix their order\n  (\"before\", \"after\", \"first\").\n- Bad news: a failure, a broken test, a limit hit, a thing not done. Omitting\n  it is not terseness.\n- Uncertainty that changes what the user should do.\n\nQuestion: *\"Our deploy failed with an OOM kill on the worker. Should I bump the memory limit?\"*\n\n| Level | Response |\n| --- | --- |\n| `lite` | \"Bump it, but check the trend first. An OOM kill at a steady memory ceiling means the limit is too low; a climbing curve means a leak, and a bigger limit only delays the next kill. `kubectl top pod` over a few minutes tells you which one you have.\" |\n| `full` | \"Check the trend first. If memory sits at a steady ceiling, raise the limit; if it is climbing, you have a leak and a bigger limit only delays the next kill. Watch `kubectl top pod` for a few minutes.\" |\n| `ultra` | \"Only if memory is flat, not climbing. Check `kubectl top pod` first.\" |\n\nUltra kept the conditional because dropping it would give wrong advice half the time.\n\n## Never do this\n\nNo dropped articles. No telegraphic fragments. Do not shorten words in running\nprose: write `configuration`, not `config`; `implementation`, not `impl`.\nShorter is not the goal; fewer claims is.\n\n**No arrows inside a sentence.** Never use `\u2192` or `->` in prose: not to chain\nsteps, stages, states or causes, not to show that one thing maps to or becomes\nanother, not after a bold label, not in a \"quick runbook\" line, not inside a\nquoted flow. Sequencing is where an arrow is most tempting and least\nacceptable: an ordered process is exactly the content whose connecting words\nare never cut.\n\n- Wrong: **Request A**: calls `currentToken()` \u2192 token expired \u2192 calls `refresh()`\n- Right: Request A calls `currentToken()`, finds the token expired, and calls `refresh()`.\n- Wrong: Rough runbook: rotate the key \u2192 wait out the old TTL \u2192 remove it.\n- Right: Rotate the key, wait out the old TTL, then remove it. Use a numbered\n  list instead when the user will follow the steps one at a time.\n\nArrows belong in a fenced code block or a verbatim error string, where they\nare the material being quoted rather than your own prose.\n\n\n## Level: lite \u2014 cut ceremony\n\nNo preamble. Do not restate the question, announce what is about to happen, or\nnarrate tool calls the user can already see.\n\n- No pleasantries or performative agreement: no \"Great question\", \"Sure!\",\n  \"You're absolutely right\".\n- No closing offers and no offers to do more work: no \"Let me know if...\",\n  \"Hope this helps\", \"Want me to...?\". Asking the user to confirm a destructive\n  action is never a closing offer; offering to go read something for them is.\n- No stacked hedging. One qualifier or none: \"Probably X\", not \"It might\n  possibly be that X\".\n- No recap of work visible in the diff. Name the file and what changed.\n  Reporting a failure, a skipped step, or a surprise is not a recap \u2014 that is\n  never-cut content and stays.\n\nKeeps full reasoning, context, and trade-offs. Lite is normal professional\nprose with the ceremony stripped.\n\n\n## Level: full \u2014 also cut unrequested substance\n\n- Lead with the answer or the action taken. Reasoning only if the user needs it\n  to act on the answer.\n- One recommendation, not a survey. A real trade-off gets one line per side,\n  then a pick.\n- No unrequested alternatives, no \"you could also\".\n- No teaching a concept the question already shows the user knows.\n- No next-steps list unless they asked what is next.\n- A design question asks for an approach, not a treatise. \"How would that be\n  built?\" is about something that does not exist yet, and what it wants is the\n  recommendation, the one or two decisions that genuinely fork it, and a name\n  for the depth you left out. Ask for the fork that survives reading, not the\n  one reading would settle. Explaining something that already exists is a\n  different request, and it is protected above.\n  - **This licence is earned by reading, not by being brief.** It covers an\n    approach derived from the files the question is about. An approach recalled\n    from general practice has not earned it and stays subject to everything\n    above. Read what the question is about, then be brief about it.\n  - Wrong: \"how would alerting be built?\" answered in eight sections \u2014 a\n    schema, a routing table, dedup rules, a rollout plan.\n  - Right: \"Derive alerts from the log row the loop already writes, in\n    whatever monitoring you already run \u2014 which stack is that? The schema\n    and the dedup rules are the next level down.\"\n\nTypical shape: one to three sentences, or a short list. One sentence is a\ncomplete answer. That budget counts claims, not the words inside one \u2014 a\nquestion that earns eight claims gets eight lines, each written out in full,\nnot eight compressed ones.\n\n"
+    },
+    "terse-control": {
+      "system_prompt": "Answer concisely."
+    },
+    "word-compression": {
+      "system_prompt": "Answer concisely. Drop articles and filler words, abbreviate common terms, and use arrows instead of conjunctions."
+    }
+  },
+  "metadata": {
+    "cases_cksum": "2632358112",
+    "cases_dir": "/home/jordan/projects/laconic/evals/cases",
+    "claude_cli_version": "2.1.261 (Claude Code)",
+    "concurrency_declared": 2,
+    "generated_at": "2026-09-05T09:30:17Z",
+    "git_commit": "2c467e3",
+    "git_dirty": true,
+    "laconic_level": "full",
+    "max_runs_in_flight": 1,
+    "models": [
+      "sonnet"
+    ],
+    "reps": 30,
+    "rules_cksum": "2741667431"
+  },
+  "runs": [
+    {
+      "arm": "laconic",
+      "cache_creation_input_tokens": 5829,
+      "cache_read_input_tokens": 74227,
+      "case": "confirm-rollback",
+      "claude_cli_version": "2.1.261 (Claude Code)",
+      "duration_ms": 8726,
+      "generated_at": "2026-09-05T09:30:27Z",
+      "generator": "20260905T093017Z-1738433",
+      "input_tokens": 6,
+      "model": "sonnet",
+      "num_turns": 3,
+      "ok": true,
+      "output_tokens": 418,
+      "rep": 0,
+      "session_id": "c45e0f93-093c-46f0-a215-bc1f41298e78",
+      "text": "Partly. The config change (`PAYMENTS_SETTLEMENT_MODE` \u2192 `split`) triggered the initial 500s at 14:02 \u2014 old instances didn't recognize the value and threw. But the document is explicit that the migration (`0042`, adding a `NOT NULL` column with no default) is a separate, compounding cause: it's what made the incident unrecoverable, since after 14:05 even reverting the config or rolling back the release still failed checkout on a not-null violation.\n\nPer the doc's own framing: \"The config change is the trigger. The migration is what made it unrecoverable by rollback. Either alone would have been a short incident.\"",
+      "tools": [
+        "Bash",
+        "Read"
+      ],
+      "total_cost_usd": 0.0433314
+    },
+    {
+      "arm": "laconic",
+      "cache_creation_input_tokens": 5643,
+      "cache_read_input_tokens": 48050,
+      "case": "confirm-rollback",
+      "claude_cli_version": "2.1.261 (Claude Code)",
+      "duration_ms": 5701,
+      "generated_at": "2026-09-05T09:30:34Z",
+      "generator": "20260905T093017Z-1738433",
+      "input_tokens": 4,
+      "model": "sonnet",
+      "num_turns": 2,
+      "ok": true,
+      "output_tokens": 305,
+      "rep": 1,
+      "session_id": "ecfdb5ae-92fe-4816-98a3-13f61d5427a1",
+      "text": "Partly. The config change (`PAYMENTS_SETTLEMENT_MODE` \u2192 `split`) triggered the initial 500s at 14:02 \u2014 that part's right. But the document is explicit that it's not the whole cause: the migration (`0042`, adding a `NOT NULL` column with no default) is what made the incident unrecoverable by reverting the config or rolling back the release. Reverting the config at 14:21 didn't fix anything because the old code still couldn't satisfy the new schema.\n\nPer the doc's own framing: \"The config change is the trigger. The migration is what made it unrecoverable by rollback. Either alone would have been a short incident.\"",
+      "tools": [
+        "Read"
+      ],
+      "total_cost_usd": 0.036218
+    },
+    {
+      "arm": "laconic",
+      "cache_creation_input_tokens": 5624,
+      "cache_read_input_tokens": 48046,
+      "case": "confirm-rollback",
+      "claude_cli_version": "2.1.261 (Claude Code)",
+      "duration_ms": 4991,
+      "generated_at": "2026-09-05T09:30:40Z",
+      "generator": "20260905T093017Z-1738433",
+      "input_tokens": 4,
+      "model": "sonnet",
+      "num_turns": 2,
+      "ok": true,
+      "output_tokens": 268,
+      "rep": 2,
+      "session_id": "743cb262-f3cf-417c-9fde-ea7b3153e088",
+      "text": "Not quite \u2014 the document itself says it's split into two causes: the config change (`PAYMENTS_SETTLEMENT_MODE` legacy \u2192 split) triggered the initial 500s, but the migration (`0042_add_settlement_currency`, `NOT NULL` with no default) is what made the incident unrecoverable by rollback \u2014 both the config revert at 14:21 and the release rollback at 14:33 failed because of the migration, not the config.\n\nPer the doc: \"The config change is the trigger. The migration is what made it unrecoverable by rollback. Either alone would have been a short incident.\"",
+      "tools": [
+        "Read"
+      ],
+      "total_cost_usd": 0.0357712
+    },
+    {
+      "arm": "laconic",
+      "cache_creation_input_tokens": 5812,
+      "cache_read_input_tokens": 74210,
+      "case": "confirm-rollback",
+      "claude_cli_version": "2.1.261 (Claude Code)",
+      "duration_ms": 8810,
+      "generated_at": "2026-09-05T09:30:50Z",
+      "generator": "20260905T093017Z-1738433",
+      "input_tokens": 6,
+      "model": "sonnet",
+      "num_turns": 3,
+      "ok": true,
+      "output_tokens": 434,
+      "rep": 3,
+      "session_id": "b851b6ea-c997-4932-a297-b9b0ec39f886",
+      "text": "Not quite \u2014 the document names two separate causes:\n\n- **The config change** (`PAYMENTS_SETTLEMENT_MODE: legacy \u2192 split`) was the **trigger**: it caused the initial 500s at 14:02 because `v411` instances didn't recognize `split`.\n- **The migration** (`0042_add_settlement_currency`, `NOT NULL` with no default) is what made the incident **unrecoverable by rollback**: once it ran at 14:05, reverting the config or rolling back to `v411` couldn't work anymore, since neither could write the required column.\n\nThe doc states this explicitly: \"The config change is the trigger. The migration is what made it unrecoverable by rollback. Either alone would have been a short incident.\"",
+      "tools": [
+        "Bash",
+        "Read"
+      ],
+      "total_cost_usd": 0.04342
+    },
+    {
+      "arm": "laconic",
+      "cache_creation_input_tokens": 5822,
+      "cache_read_input_tokens": 74220,
+      "case": "confirm-rollback",
+      "claude_cli_version": "2.1.261 (Claude Code)",
+      "duration_ms": 10003,
+      "generated_at": "2026-09-05T09:31:01Z",
+      "generator": "20260905T093017Z-1738433",
+      "input_tokens": 6,
+      "model": "sonnet",
+      "num_turns": 3,
+      "ok": true,
+      "output_tokens": 481,
+      "rep": 4,
+      "session_id": "7bc42b57-47f1-498d-abc2-e7f5afb33b74",
+      "text": "Not quite \u2014 the document is explicit that both mattered, in different roles:\n\n- **The config change was the trigger.** It caused the initial 500s at 14:02, since `v411` instances threw on the unrecognized `split` value.\n- **The migration is what made it unrecoverable.** Once `0042` ran at 14:05 and added `settlement_currency NOT NULL` with no default, reverting the config back to `legacy` (14:21) or rolling back to `v411` (14:33) both still failed, because the old insert path doesn't write that column and the DB rejects it.\n\nThe doc states this directly: \"The config change is the trigger. The migration is what made it unrecoverable by rollback. Either alone would have been a short incident.\" So calling the config change \"the cause\" alone would miss why the standard fixes (revert config, roll back release) didn't work \u2014 that part is on the migration.",
+      "tools": [
+        "Bash",
+        "Read"
+      ],
+      "total_cost_usd": 0.043932
+    },
+    {
+      "arm": "laconic",
+      "cache_creation_input_tokens": 5785,
+      "cache_read_input_tokens": 74183,
+      "case": "confirm-rollback",
+      "claude_cli_version": "2.1.261 (Claude Code)",
+      "duration_ms": 6809,
+      "generated_at": "2026-09-05T09:31:09Z",
+      "generator": "20260905T093017Z-1738433",
+      "input_tokens": 6,
+      "model": "sonnet",
+      "num_turns": 3,
+      "ok": true,
+      "output_tokens": 381,
+      "rep": 5,
+      "session_id": "38454bc8-275e-40ee-93ba-719cf6d59792",
+      "text": "Partly. The config change (`PAYMENTS_SETTLEMENT_MODE` to `split`) was the trigger \u2014 it caused the initial 500s at 14:02 because `v411`'s `assertSettlementMode()` threw on the unrecognized value.\n\nBut the migration (`0042`, adding a `NOT NULL` column with no default) is what made it unrecoverable: it's why reverting the config at 14:21 and rolling back to `v411` at 14:33 both failed to fix the error rate. Per the doc's own conclusion: \"The config change is the trigger. The migration is what made it unrecoverable by rollback. Either alone would have been a short incident.\"",
+      "tools": [
+        "Bash",
+        "Read"
+      ],
+      "total_cost_usd": 0.0427766
+    },
+    {
+      "arm": "laconic",
+      "cache_creation_input_tokens": 5811,
+      "cache_read_input_tokens": 74209,
+      "case": "confirm-rollback",
+      "claude_cli_version": "2.1.261 (Claude Code)",
+      "duration_ms": 10060,
+      "generated_at": "2026-09-05T09:31:20Z",
+      "generator": "20260905T093017Z-1738433",
+      "input_tokens": 6,
+      "model": "sonnet",
+      "num_turns": 3,
+      "ok": true,
+      "output_tokens": 410,
+      "rep": 6,
+      "session_id": "a5b026e4-3431-4fae-889f-5f5a9f2d9ba6",
+      "text": "Not quite \u2014 the config change was the *trigger*, but not the sole cause. Per the doc's own framing: the config flip to `split` caused the initial 500s (since `v411` instances threw on an unrecognized value), but that alone would have been a short, easily-reverted incident. What made it unrecoverable was migration `0042`, which added a `NOT NULL` column with no default three minutes later \u2014 once that landed, reverting the config *or* rolling back to `v411` both still failed, now on not-null violations instead of the mode assertion.\n\nThe doc states it directly: \"The config change is the trigger. The migration is what made it unrecoverable by rollback. Either alone would have been a short incident.\"",
+      "tools": [
+        "Bash",
+        "Read"
+      ],
+      "total_cost_usd": 0.0431758
+    },
+    {
+      "arm": "laconic",
+      "cache_creation_input_tokens": 5785,
+      "cache_read_input_tokens": 74183,
+      "case": "confirm-rollback",
+      "claude_cli_version": "2.1.261 (Claude Code)",
+      "duration_ms": 7829,
+      "generated_at": "2026-09-05T09:31:29Z",
+      "generator": "20260905T093017Z-1738433",
+      "input_tokens": 6,
+      "model": "sonnet",
+      "num_turns": 3,
+      "ok": true,
+      "output_tokens": 408,
+      "rep": 7,
+      "session_id": "1d2457e4-66a2-411f-a6f2-b05dbf1219e4",
+      "text": "Not quite \u2014 the document itself says it's both, not the config change alone.\n\nThe config change (`PAYMENTS_SETTLEMENT_MODE` \u2192 `split`) was the **trigger**: it caused the initial 500s at 14:02 because `v411` instances didn't recognize `split`. But the migration (`0042`, adding a `NOT NULL` column with no default) is what made the incident **unrecoverable by rollback** \u2014 reverting the config at 14:21 and rolling back to `v411` at 14:33 both failed because the schema no longer accepted `v411`'s inserts.\n\nPer the doc's own conclusion: \"The config change is the trigger. The migration is what made it unrecoverable by rollback. Either alone would have been a short incident.\"",
+      "tools": [
+        "Bash",
+        "Read"
+      ],
+      "total_cost_usd": 0.043041600000000006
+    },
+    {
+      "arm": "laconic",
+      "cache_creation_input_tokens": 5632,
+      "cache_read_input_tokens": 48049,
+      "case": "confirm-rollback",
+      "claude_cli_version": "2.1.261 (Claude Code)",
+      "duration_ms": 6136,
+      "generated_at": "2026-09-05T09:31:36Z",
+      "generator": "20260905T093017Z-1738433",
+      "input_tokens": 4,
+      "model": "sonnet",
+      "num_turns": 2,
+      "ok": true,
+      "output_tokens": 268,
+      "rep": 8,
+      "session_id": "999f37dc-c5d8-4d7f-92c6-e977b093f263",
+      "text": "Partly, not fully. The document itself splits it into two causes: the config change (`PAYMENTS_SETTLEMENT_MODE` to `split`) triggered the initial 500s at 14:02, but the migration (`0042`, adding a `NOT NULL` column with no default) is what made the incident unrecoverable by either config revert or release rollback \u2014 that's why the error rate held at 58% instead of dropping.\n\nThe doc states this explicitly: \"The config change is the trigger. The migration is what made it unrecoverable by rollback. Either alone would have been a short incident.\"",
+      "tools": [
+        "Read"
+      ],
+      "total_cost_usd": 0.03581380000000001
+    },
+    {
+      "arm": "laconic",
+      "cache_creation_input_tokens": 5632,
+      "cache_read_input_tokens": 48050,
+      "case": "confirm-rollback",
+      "claude_cli_version": "2.1.261 (Claude Code)",
+      "duration_ms": 5985,
+      "generated_at": "2026-09-05T09:31:44Z",
+      "generator": "20260905T093017Z-1738433",
+      "input_tokens": 4,
+      "model": "sonnet",
+      "num_turns": 2,
+      "ok": true,
+      "output_tokens": 240,
+      "rep": 9,
+      "session_id": "72511f5f-b6bd-4245-a92d-db69ed2a954d",
+      "text": "Partly. The config change triggered the initial 500s at 14:02, but the migration is why the incident couldn't be rolled back: it added a `NOT NULL` column with no default, so once it ran at 14:05, neither reverting the config nor rolling back to `v411` could fix things \u2014 both left old code writing rows that violated the new constraint. The doc's own conclusion: \"the config change is the trigger, the migration is what made it unrecoverable by rollback\" \u2014 either alone would have been a short incident.",
+      "tools": [
+        "Read"
+      ],
+      "total_cost_usd": 0.035524
+    },
+    {
+      "arm": "laconic",
+      "cache_creation_input_tokens": 5817,
+      "cache_read_input_tokens": 74215,
+      "case": "confirm-rollback",
+      "claude_cli_version": "2.1.261 (Claude Code)",
+      "duration_ms": 7905,
+      "generated_at": "2026-09-05T09:31:53Z",
+      "generator": "20260905T093017Z-1738433",
+      "input_tokens": 6,
+      "model": "sonnet",
+      "num_turns": 3,
+      "ok": true,
+      "output_tokens": 463,
+      "rep": 10,
+      "session_id": "8422b2ce-67bb-4b4c-992d-5ee10ab0395a",
+      "text": "Not quite \u2014 the document itself splits this into two separate causes. The config change (`PAYMENTS_SETTLEMENT_MODE` to `split`) triggered the initial 500s at 14:02, since `v411`'s `assertSettlementMode()` threw on the unrecognized value. But the migration (`0042`, adding a `NOT NULL` column with no default) is what made the incident unrecoverable: once it ran at 14:05, both the config revert (14:21) and the release rollback (14:33) failed, because `v411`'s insert path didn't supply the new column against a schema that now required it.\n\nThe doc states it plainly: \"The config change is the trigger. The migration is what made it unrecoverable by rollback. Either alone would have been a short incident.\"",
+      "tools": [
+        "Bash",
+        "Read"
+      ],
+      "total_cost_usd": 0.043731000000000006
+    },
+    {
+      "arm": "laconic",
+      "cache_creation_input_tokens": 5820,
+      "cache_read_input_tokens": 74218,
+      "case": "confirm-rollback",
+      "claude_cli_version": "2.1.261 (Claude Code)",
+      "duration_ms": 9430,
+      "generated_at": "2026-09-05T09:32:03Z",
+      "generator": "20260905T093017Z-1738433",
+      "input_tokens": 6,
+      "model": "sonnet",
+      "num_turns": 3,
+      "ok": true,
+      "output_tokens": 363,
+      "rep": 11,
+      "session_id": "82ac47b7-f0df-4b92-b8f2-a367187503b0",
+      "text": "Partially \u2014 the config change triggered the initial 500s, but the document is explicit that the migration is the reason the incident became unrecoverable: reverting the config at 14:21 didn't fix it, and rolling back to v411 at 14:33 also failed, both because migration `0042` had already added a `NOT NULL` column with no default that v411's code couldn't populate.\n\nIts own summary: \"The config change is the trigger. The migration is what made it unrecoverable by rollback. Either alone would have been a short incident.\"",
+      "tools": [
+        "Bash",
+        "Read"
+      ],
+      "total_cost_usd": 0.0427536
+    },
+    {
+      "arm": "laconic",
+      "cache_creation_input_tokens": 5637,
+      "cache_read_input_tokens": 48049,
+      "case": "confirm-rollback",
+      "claude_cli_version": "2.1.261 (Claude Code)",
+      "duration_ms": 6783,
+      "generated_at": "2026-09-05T09:32:11Z",
+      "generator": "20260905T093017Z-1738433",
+      "input_tokens": 4,
+      "model": "sonnet",
+      "num_turns": 2,
+      "ok": true,
+      "output_tokens": 325,
+      "rep": 12,
+      "session_id": "2ed49f68-b141-4fbc-abce-129e3877b2ae",
+      "text": "Not quite \u2014 the document itself says it's a two-cause incident, not just the config change.\n\n- The config change (`PAYMENTS_SETTLEMENT_MODE` \u2192 `split`) was the **trigger**: it caused the initial 500s at 14:02 because `v411` instances didn't recognize `split`.\n- The migration (`0042`, adding a `NOT NULL` column with no default) is what made the incident **unrecoverable by rollback**: once it ran at 14:05, reverting the config or the release couldn't fix things, since `v411`'s insert path didn't write the new required column.\n\nPer the doc: \"The config change is the trigger. The migration is what made it unrecoverable by rollback. Either alone would have been a short incident.\"",
+      "tools": [
+        "Read"
+      ],
+      "total_cost_usd": 0.036393800000000004
+    },
+    {
+      "arm": "laconic",
+      "cache_creation_input_tokens": 5811,
+      "cache_read_input_tokens": 74209,
+      "case": "confirm-rollback",
+      "claude_cli_version": "2.1.261 (Claude Code)",
+      "duration_ms": 8251,
+      "generated_at": "2026-09-05T09:32:21Z",
+      "generator": "20260905T093017Z-1738433",
+      "input_tokens": 6,
+      "model": "sonnet",
+      "num_turns": 3,
+      "ok": true,
+      "output_tokens": 429,
+      "rep": 13,
+      "session_id": "4bd90828-5658-4bdc-91f1-bc72f31513fd",
+      "text": "Partly \u2014 the document itself says it's both, not the config change alone.\n\nThe config change (`PAYMENTS_SETTLEMENT_MODE` \u2192 `split`) was the **trigger**: it caused the initial 500s at 14:02 because `v411` instances didn't recognize `split`. But the migration (`0042`, adding a `NOT NULL` column with no default) is what made the incident **unrecoverable by rollback** \u2014 once it ran at 14:05, both reverting the config and rolling back to `v411` still failed, just on a not-null violation instead of the mode assertion.\n\nPer the doc's own conclusion: \"The config change is the trigger. The migration is what made it unrecoverable by rollback. Either alone would have been a short incident.\"",
+      "tools": [
+        "Bash",
+        "Read"
+      ],
+      "total_cost_usd": 0.043365799999999996
+    },
+    {
+      "arm": "laconic",
+      "cache_creation_input_tokens": 5622,
+      "cache_read_input_tokens": 48049,
+      "case": "confirm-rollback",
+      "claude_cli_version": "2.1.261 (Claude Code)",
+      "duration_ms": 5890,
+      "generated_at": "2026-09-05T09:32:28Z",
+      "generator": "20260905T093017Z-1738433",
+      "input_tokens": 4,
+      "model": "sonnet",
+      "num_turns": 2,
+      "ok": true,
+      "output_tokens": 336,
+      "rep": 14,
+      "session_id": "251ea108-6862-4efe-bdcd-177a91b50217",
+      "text": "Partially. The config change (`PAYMENTS_SETTLEMENT_MODE` \u2192 `split`) triggered the initial 500s at 14:02 \u2014 that part checks out. But the document's own analysis says the migration is what made the incident unrecoverable: once `0042` ran at 14:05 and added the `NOT NULL` column with no default, reverting the config at 14:21 and rolling back the release at 14:33 both failed for the same reason (`v411`'s insert path doesn't supply the new column). The doc's explicit conclusion: \"The config change is the trigger. The migration is what made it unrecoverable by rollback. Either alone would have been a short incident.\"\n\nSo calling the config change \"the cause\" understates it \u2014 it's the trigger, but the migration is why the incident lasted 45 minutes instead of a couple.",
+      "tools": [
+        "Read"
+      ],
+      "total_cost_usd": 0.0364438
+    },
+    {
+      "arm": "laconic",
+      "cache_creation_input_tokens": 5818,
+      "cache_read_input_tokens": 74216,
+      "case": "confirm-rollback",
+      "claude_cli_version": "2.1.261 (Claude Code)",
+      "duration_ms": 9325,
+      "generated_at": "2026-09-05T09:32:38Z",
+      "generator": "20260905T093017Z-1738433",
+      "input_tokens": 6,
+      "model": "sonnet",
+      "num_turns": 3,
+      "ok": true,
+      "output_tokens": 439,
+      "rep": 15,
+      "session_id": "b443c758-e348-4798-b6db-9585d208b6c9",
+      "text": "Not quite \u2014 the document itself distinguishes trigger from root cause.\n\nThe config change (`PAYMENTS_SETTLEMENT_MODE` to `split`) was the **trigger**: it caused the initial 500s at 14:02 because `v411` instances threw on the unrecognized value. But the migration `0042` (adding a `NOT NULL` column with no default) is what made the incident **unrecoverable by rollback** \u2014 once it ran at 14:05, reverting the config or rolling back to `v411` couldn't fix anything, since the old insert path no longer satisfied the schema.\n\nThe doc states this explicitly: \"The config change is the trigger. The migration is what made it unrecoverable by rollback. Either alone would have been a short incident.\"",
+      "tools": [
+        "Bash",
+        "Read"
+      ],
+      "total_cost_usd": 0.0435052
+    },
+    {
+      "arm": "laconic",
+      "cache_creation_input_tokens": 5620,
+      "cache_read_input_tokens": 48048,
+      "case": "confirm-rollback",
+      "claude_cli_version": "2.1.261 (Claude Code)",
+      "duration_ms": 5191,
+      "generated_at": "2026-09-05T09:32:44Z",
+      "generator": "20260905T093017Z-1738433",
+      "input_tokens": 4,
+      "model": "sonnet",
+      "num_turns": 2,
+      "ok": true,
+      "output_tokens": 240,
+      "rep": 16,
+      "session_id": "4277f412-455d-4e82-9243-b8561f322dd7",
+      "text": "Partially. The config change (`PAYMENTS_SETTLEMENT_MODE` \u2192 `split`) was the trigger that caused the initial 500s at 14:02. But the document is explicit that it wasn't the sole cause of the incident's severity: the migration `0042` (adding a `NOT NULL` column with no default) is what made the config revert and the release rollback both fail to recover \u2014 \"the migration is what made it unrecoverable by rollback.\" Without the migration, reverting the config at 14:21 would have fixed it.",
+      "tools": [
+        "Read"
+      ],
+      "total_cost_usd": 0.0354756
+    },
+    {
+      "arm": "laconic",
+      "cache_creation_input_tokens": 5633,
+      "cache_read_input_tokens": 48047,
+      "case": "confirm-rollback",
+      "claude_cli_version": "2.1.261 (Claude Code)",
+      "duration_ms": 4314,
+      "generated_at": "2026-09-05T09:32:50Z",
+      "generator": "20260905T093017Z-1738433",
+      "input_tokens": 4,
+      "model": "sonnet",
+      "num_turns": 2,
+      "ok": true,
+      "output_tokens": 250,
+      "rep": 17,
+      "session_id": "7cf51bdd-5382-4e83-8947-ccc2b6c506cd",
+      "text": "Partly. The config change (`PAYMENTS_SETTLEMENT_MODE` \u2192 `split`) triggered the initial 500s at 14:02, but the migration at 14:05 is what made the incident unrecoverable \u2014 it's why reverting the config at 14:21 and rolling back to `v411` at 14:33 both failed to fix the error rate. The doc's own conclusion: \"The config change is the trigger. The migration is what made it unrecoverable by rollback. Either alone would have been a short incident.\"",
+      "tools": [
+        "Read"
+      ],
+      "total_cost_usd": 0.035627400000000004
+    },
+    {
+      "arm": "laconic",
+      "cache_creation_input_tokens": 5635,
+      "cache_read_input_tokens": 48048,
+      "case": "confirm-rollback",
+      "claude_cli_version": "2.1.261 (Claude Code)",
+      "duration_ms": 5081,
+      "generated_at": "2026-09-05T09:32:56Z",
+      "generator": "20260905T093017Z-1738433",
+      "input_tokens": 4,
+      "model": "sonnet",
+      "num_turns": 2,
+      "ok": true,
+      "output_tokens": 286,
+      "rep": 18,
+      "session_id": "5ef536f2-d0c1-4638-bcfa-c5e92dcd84fa",
+      "text": "Partly. The config change (`PAYMENTS_SETTLEMENT_MODE` to `split`) triggered the initial 500s at 14:02, but the migration at 14:05 is what made it unrecoverable \u2014 it added a `NOT NULL` column with no default, so once that ran, even reverting the config back to `legacy` (14:21) or rolling back to `v411` (14:33) still failed, just on a not-null violation instead of the mode assertion.\n\nThe doc's own conclusion: \"The config change is the trigger. The migration is what made it unrecoverable by rollback. Either alone would have been a short incident.\"",
+      "tools": [
+        "Read"
+      ],
+      "total_cost_usd": 0.035990600000000005
+    },
+    {
+      "arm": "laconic",
+      "cache_creation_input_tokens": 5770,
+      "cache_read_input_tokens": 74168,
+      "case": "confirm-rollback",
+      "claude_cli_version": "2.1.261 (Claude Code)",
+      "duration_ms": 8648,
+      "generated_at": "2026-09-05T09:33:06Z",
+      "generator": "20260905T093017Z-1738433",
+      "input_tokens": 6,
+      "model": "sonnet",
+      "num_turns": 3,
+      "ok": true,
+      "output_tokens": 336,
+      "rep": 19,
+      "session_id": "7cf86c2c-686e-49b7-93a6-5cd64a3c1eff",
+      "text": "Partly. The document itself distinguishes trigger from cause: the config change (`PAYMENTS_SETTLEMENT_MODE` \u2192 `split`) triggered the initial 500s, but the migration (`0042`, adding a `NOT NULL` column with no default) is what made the incident unrecoverable by either config revert or release rollback \u2014 both attempted fixes failed because of the migration, not the config. Per the doc's own framing: \"The config change is the trigger. The migration is what made it unrecoverable by rollback.\"",
+      "tools": [
+        "Bash",
+        "Read"
+      ],
+      "total_cost_usd": 0.0422736
+    },
+    {
+      "arm": "laconic",
+      "cache_creation_input_tokens": 5641,
+      "cache_read_input_tokens": 48049,
+      "case": "confirm-rollback",
+      "claude_cli_version": "2.1.261 (Claude Code)",
+      "duration_ms": 6974,
+      "generated_at": "2026-09-05T09:33:14Z",
+      "generator": "20260905T093017Z-1738433",
+      "input_tokens": 4,
+      "model": "sonnet",
+      "num_turns": 2,
+      "ok": true,
+      "output_tokens": 292,
+      "rep": 20,
+      "session_id": "ab36e666-8541-4b7c-8eb2-29341a2d0524",
+      "text": "Not quite \u2014 the config change (`PAYMENTS_SETTLEMENT_MODE` \u2192 `split`) was the *trigger* that caused the initial 500s at 14:02, but the document's own conclusion is that the migration (`0042`, adding a `NOT NULL` column with no default) is what made the incident unrecoverable: it's why reverting the config at 14:21 and rolling back to `v411` at 14:33 both failed to fix the error rate.\n\nPer the doc's summary: **\"The config change is the trigger. The migration is what made it unrecoverable by rollback. Either alone would have been a short incident.\"**",
+      "tools": [
+        "Read"
+      ],
+      "total_cost_usd": 0.036074800000000004
+    },
+    {
+      "arm": "laconic",
+      "cache_creation_input_tokens": 5622,
+      "cache_read_input_tokens": 48049,
+      "case": "confirm-rollback",
+      "claude_cli_version": "2.1.261 (Claude Code)",
+      "duration_ms": 5125,
+      "generated_at": "2026-09-05T09:33:21Z",
+      "generator": "20260905T093017Z-1738433",
+      "input_tokens": 4,
+      "model": "sonnet",
+      "num_turns": 2,
+      "ok": true,
+      "output_tokens": 256,
+      "rep": 21,
+      "session_id": "c8fa099d-7877-4e51-b83a-3bf49f3a33c7",
+      "text": "Partially. The config change (`PAYMENTS_SETTLEMENT_MODE` \u2192 `split`) triggered the initial 500s at 14:02. But the migration (`0042`, adding a `NOT NULL` column with no default) is why reverting the config at 14:21 and rolling back to `v411` at 14:33 both failed to recover \u2014 it made the incident unrecoverable by rollback, turning a short blip into a 45-minute outage.\n\nThe doc's own conclusion: \"The config change is the trigger. The migration is what made it unrecoverable by rollback.\"",
+      "tools": [
+        "Read"
+      ],
+      "total_cost_usd": 0.0356438
+    },
+    {
+      "arm": "laconic",
+      "cache_creation_input_tokens": 27714,
+      "cache_read_input_tokens": 25970,
+      "case": "confirm-rollback",
+      "claude_cli_version": "2.1.261 (Claude Code)",
+      "duration_ms": 4921,
+      "generated_at": "2026-09-05T12:47:49Z",
+      "generator": "20260905T124743Z-1817420",
+      "input_tokens": 4,
+      "model": "sonnet",
+      "num_turns": 2,
+      "ok": true,
+      "output_tokens": 291,
+      "rep": 22,
+      "session_id": "8d9fd2cc-49ae-4b8f-a7c3-c989e4e85430",
+      "text": "Partially \u2014 the config change (`PAYMENTS_SETTLEMENT_MODE` to `split`) was the trigger that caused the initial 500s at 14:02. But it wasn't the sole cause of the incident's severity: migration `0042` (adding a `NOT NULL` column with no default) is what made the outage unrecoverable \u2014 it's why reverting the config at 14:21 and rolling back to `v411` at 14:33 both failed to fix anything. The doc's own conclusion (line 53): \"The config change is the trigger. The migration is what made it unrecoverable by rollback. Either alone would have been a short incident.\"",
+      "tools": [
+        "Read"
+      ],
+      "total_cost_usd": 0.11994600000000001
+    },
+    {
+      "arm": "laconic",
+      "cache_creation_input_tokens": 5818,
+      "cache_read_input_tokens": 74216,
+      "case": "confirm-rollback",
+      "claude_cli_version": "2.1.261 (Claude Code)",
+      "duration_ms": 12965,
+      "generated_at": "2026-09-05T12:48:04Z",
+      "generator": "20260905T124743Z-1817420",
+      "input_tokens": 6,
+      "model": "sonnet",
+      "num_turns": 3,
+      "ok": true,
+      "output_tokens": 497,
+      "rep": 23,
+      "session_id": "b60f5e9a-d06e-4041-bf66-09cc99f5a635",
+      "text": "Not quite \u2014 the document itself is explicit that it's both, with distinct roles.\n\nThe config change (`PAYMENTS_SETTLEMENT_MODE` to `split`) was the **trigger**: it caused the initial 500s at 14:02 because `v411` instances didn't recognize `split` and threw.\n\nBut the migration (`0042`, adding a `NOT NULL` column with no default) is what made the incident **unrecoverable by rollback**. Once it ran at 14:05, reverting the config or rolling back to `v411` couldn't work \u2014 the old insert path didn't supply the new column, so every checkout failed on a not-null violation instead. That's why the error rate held at 58% through both the 14:21 config revert and the 14:33 release rollback.\n\nThe doc's own conclusion: \"The config change is the trigger. The migration is what made it unrecoverable by rollback. Either alone would have been a short incident.\"",
+      "tools": [
+        "Bash",
+        "Read"
+      ],
+      "total_cost_usd": 0.044070200000000004
+    },
+    {
+      "arm": "laconic",
+      "cache_creation_input_tokens": 5632,
+      "cache_read_input_tokens": 48049,
+      "case": "confirm-rollback",
+      "claude_cli_version": "2.1.261 (Claude Code)",
+      "duration_ms": 5230,
+      "generated_at": "2026-09-05T12:48:10Z",
+      "generator": "20260905T124743Z-1817420",
+      "input_tokens": 4,
+      "model": "sonnet",
+      "num_turns": 2,
+      "ok": true,
+      "output_tokens": 339,
+      "rep": 24,
+      "session_id": "6db950f1-fba5-4747-a3f2-f0a73aaba28b",
+      "text": "Partly \u2014 the config change triggered it, but the migration is why it didn't recover. Per the doc's own conclusion: the `PAYMENTS_SETTLEMENT_MODE` config change (`legacy`\u2192`split`) caused the initial 500s at 14:02, since `v411` code still running threw on the unrecognized value. But migration `0042` (adding `settlement_currency NOT NULL` with no default) ran at 14:05 and is what made the incident unrecoverable \u2014 reverting the config at 14:21 didn't fix it because `v411`'s insert path then violated the new NOT NULL constraint, and rolling back to `v411` at 14:33 failed for the same reason.\n\nSo: config change = trigger, migration = what made it stick. The doc states either alone would have been a short incident.",
+      "tools": [
+        "Read"
+      ],
+      "total_cost_usd": 0.03650880000000001
+    },
+    {
+      "arm": "laconic",
+      "cache_creation_input_tokens": 5632,
+      "cache_read_input_tokens": 48049,
+      "case": "confirm-rollback",
+      "claude_cli_version": "2.1.261 (Claude Code)",
+      "duration_ms": 6350,
+      "generated_at": "2026-09-05T12:48:18Z",
+      "generator": "20260905T124743Z-1817420",
+      "input_tokens": 4,
+      "model": "sonnet",
+      "num_turns": 2,
+      "ok": true,
+      "output_tokens": 272,
+      "rep": 25,
+      "session_id": "c5bfd0d0-8f81-4a45-a224-627500e316f4",
+      "text": "Partly. The document itself says it's not just the config change: \"The config change is the trigger. The migration is what made it unrecoverable by rollback. Either alone would have been a short incident.\"\n\nConfig change alone (14:02\u201314:21) would have been fixed by the 14:21 revert. What actually sustained the outage past that point was migration `0042` adding a `NOT NULL` column with no default and no backfill \u2014 that's why reverting config *and* rolling back to `v411` both failed. So: config change caused the initial 500s; the migration caused the outage to be unrecoverable for 40+ minutes.",
+      "tools": [
+        "Read"
+      ],
+      "total_cost_usd": 0.0358438
+    },
+    {
+      "arm": "laconic",
+      "cache_creation_input_tokens": 5639,
+      "cache_read_input_tokens": 48049,
+      "case": "confirm-rollback",
+      "claude_cli_version": "2.1.261 (Claude Code)",
+      "duration_ms": 5659,
+      "generated_at": "2026-09-05T12:48:24Z",
+      "generator": "20260905T124743Z-1817420",
+      "input_tokens": 4,
+      "model": "sonnet",
+      "num_turns": 2,
+      "ok": true,
+      "output_tokens": 272,
+      "rep": 26,
+      "session_id": "09f12abb-2804-415b-87b7-4dd3dfac7dec",
+      "text": "Partly. The config change (`PAYMENTS_SETTLEMENT_MODE` to `split`) triggered the initial 500s at 14:02, but the migration `0042` is what made it unrecoverable: it added a `NOT NULL` column with no default, so once it ran at 14:05, reverting the config or rolling back to `v411` couldn't fix things \u2014 either old code path would violate the new constraint. Per the doc's own framing: \"the config change is the trigger, the migration is what made it unrecoverable by rollback,\" and either alone would have been a short incident.",
+      "tools": [
+        "Read"
+      ],
+      "total_cost_usd": 0.0358718
+    },
+    {
+      "arm": "laconic",
+      "cache_creation_input_tokens": 5632,
+      "cache_read_input_tokens": 48050,
+      "case": "confirm-rollback",
+      "claude_cli_version": "2.1.261 (Claude Code)",
+      "duration_ms": 7142,
+      "generated_at": "2026-09-05T12:48:33Z",
+      "generator": "20260905T124743Z-1817420",
+      "input_tokens": 4,
+      "model": "sonnet",
+      "num_turns": 2,
+      "ok": true,
+      "output_tokens": 240,
+      "rep": 27,
+      "session_id": "2e3e1b4c-1bec-492d-a98a-5c1493a3ac6f",
+      "text": "Partly. The document's own conclusion is more precise: the config change (`PAYMENTS_SETTLEMENT_MODE` to `split`) triggered the initial 500s at 14:02, but the migration `0042` (adding a `NOT NULL` column with no default) is what made the error unrecoverable by either config revert or release rollback. As stated in the doc: \"The config change is the trigger. The migration is what made it unrecoverable by rollback. Either alone would have been a short incident.\"",
+      "tools": [
+        "Read"
+      ],
+      "total_cost_usd": 0.035524
+    },
+    {
+      "arm": "laconic",
+      "cache_creation_input_tokens": 5645,
+      "cache_read_input_tokens": 48049,
+      "case": "confirm-rollback",
+      "claude_cli_version": "2.1.261 (Claude Code)",
+      "duration_ms": 7787,
+      "generated_at": "2026-09-05T12:48:42Z",
+      "generator": "20260905T124743Z-1817420",
+      "input_tokens": 4,
+      "model": "sonnet",
+      "num_turns": 2,
+      "ok": true,
+      "output_tokens": 271,
+      "rep": 28,
+      "session_id": "cfa93247-748f-4d2a-aafd-1592e9e3c54f",
+      "text": "Partly, but not the whole story. The document is explicit: **the config change was the trigger** (it caused the initial 500s at 14:02, since `v411` code couldn't handle the new `split` value), but **the migration is what made it unrecoverable** \u2014 once `0042` ran at 14:05 and added a `NOT NULL` column with no default, reverting the config or rolling back the release could no longer fix things, because `v411`'s insert path didn't populate that column. Both the config change and the migration timing were necessary; either alone \"would have been a short incident.\"",
+      "tools": [
+        "Read"
+      ],
+      "total_cost_usd": 0.0358858
+    },
+    {
+      "arm": "laconic",
+      "cache_creation_input_tokens": 5637,
+      "cache_read_input_tokens": 48049,
+      "case": "confirm-rollback",
+      "claude_cli_version": "2.1.261 (Claude Code)",
+      "duration_ms": 7029,
+      "generated_at": "2026-09-05T12:48:50Z",
+      "generator": "20260905T124743Z-1817420",
+      "input_tokens": 4,
+      "model": "sonnet",
+      "num_turns": 2,
+      "ok": true,
+      "output_tokens": 342,
+      "rep": 29,
+      "session_id": "2559f133-9ad1-499a-8856-dfce254460ba",
+      "text": "Not quite \u2014 the document is explicit that both were involved, with distinct roles:\n\n- **Config change** (`PAYMENTS_SETTLEMENT_MODE` \u2192 `split`) triggered the initial 500s at 14:02, since `v411`'s `assertSettlementMode()` throws on an unrecognized value.\n- **Migration `0042`** (adding a `NOT NULL` column with no default) is what made the incident unrecoverable by rollback: once it ran at 14:05, reverting the config or rolling back to `v411` both still failed, because `v411`'s insert path doesn't supply `settlement_currency`.\n\nPer the doc's own framing: \"The config change is the trigger. The migration is what made it unrecoverable by rollback. Either alone would have been a short incident.\"",
+      "tools": [
+        "Read"
+      ],
+      "total_cost_usd": 0.0365638
+    }
+  ]
+}

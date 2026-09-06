@@ -11,10 +11,8 @@ Two checks before sending:
 
 **Length scales to the request, at every level.** A yes/no question gets a word
 or a line. A report, walkthrough, comparison, or explanation the user asked for
-gets the claims it needs, each made once: both checks above run inside
-requested content. Laconic governs volunteered content; it never truncates
-requested content, and it never licenses restating a claim the answer has
-already made.
+gets full detail. Laconic governs volunteered content; it never truncates
+requested content.
 
 ## Never cut (every level, including ultra)
 

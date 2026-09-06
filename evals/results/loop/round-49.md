@@ -246,3 +246,165 @@ move" is partly a floor and is read as such.
 [#150]: https://github.com/JordanMPDS/laconic/issues/150
 
 <!-- RESULTS BELOW THIS LINE -->
+
+## Result: the falsifier fired on both clauses, and the licence is not the carrier either
+
+Sonnet, 10 reps a side, **120 runs, 0 failed**, every run five turns. Generated
+2026-09-06 from `evals/pilot` at `cases_cksum` 1852778470 — the pilot's value and
+rounds 47 and 48's, unchanged. The two sides are separated by `rules_cksum`,
+136269960 on the control against **3990961107** on the edit, which is round 29's
+value: the text really is byte-identical. `reminder_cksum` is 1027894636 on both,
+since the reminder is untouched. Six shards declaring `--concurrency 6`; the
+timestamps reconstruct to 3 in flight, so the declaration is conservative rather
+than false.
+
+### Primary: rejected
+
+| family | n | control | edit | ratio | p |
+|---|--:|--:|--:|--:|--:|
+| **`register-*`** | 30 | **60.5** | **62.5** | **1.033** | **0.7410** |
+| `deep-*` | 30 | 29.5 | 26.5 | 0.898 | 0.7893 |
+
+**The falsifier was "not separating at p < 0.05, or separating upward", and both
+clauses fired.** The registered target does not separate, and its point estimate
+moves up rather than down. The interaction reads p = 0.6780 on raw words and a
+ratio of ratios of 1.109 at p = 0.5203 on log words, the registered arbiter, so
+**registered reading 3 obtains**: neither family moves.
+
+The scale-free statement the edit was supposed to drive toward 1.0 goes the other
+way, as in round 48:
+
+| | `deep-*` | `register-*` | ratio |
+|---|--:|--:|--:|
+| control | 29.5 | 60.5 | **2.051** |
+| edit | 26.5 | 62.5 | **2.358** |
+
+Both sides separate register from deep at p < 0.00001 on 30 runs each, so the
+carry-forward is intact on the edited rules.
+
+### By stem, all six cells
+
+| family | stem | control | edit | p |
+|---|---|--:|--:|--:|
+| `register` | index | 64.5 | 64.5 | 0.9759 |
+| `register` | metric | 69.5 | 75.5 | 1.0000 |
+| `register` | rollback | 31.0 | 36.0 | 0.2629 |
+| `deep` | index | 31.5 | 31.0 | 0.7824 |
+| `deep` | metric | 32.0 | 28.0 | 0.4791 |
+| `deep` | rollback | 19.5 | 15.0 | 0.8408 |
+
+No cell reaches 0.05 in either direction. Unlike round 48 there is not even a
+chance cell to discount.
+
+### The harm checks pass, and one of them is the round's real finding
+
+| check | control | edit | bound | verdict |
+|---|--:|--:|---|---|
+| `register-*` words, turns 2-4 | 658.0 | 591.5 | fatal below 394.8 | **passes** at 0.899 of control |
+| licence delivery, register / deep on turns 2-4 | **9.40x** | **7.58x** | fatal below 5.0x | **passes** |
+| never-cut `date_trunc`, graded turn | 10/10, 10/10 | 10/10, 10/10 | fatal on any loss | **passes**, 40/40 |
+
+The significance test rounds 47 and 48 registered as fatal, kept here as
+disclosure: `register-*` turns 2-4 p = 0.8036, `deep-*` p = 0.7708.
+
+**The licensed turns are the only place in this round where a point estimate
+moves in the predicted direction.** A 10.1% fall on `register-*` turns 2 to 4 is
+close to the 17% [#150] audited by hand, and the licence's delivery falls with it,
+from 9.40x to 7.58x. Neither is significant and neither is claimed. What matters
+is that the graded turn did not follow, and the round can say by how much it
+should have.
+
+### Why the null is exactly what the round's own data predicts
+
+Within a single run, the length of the licensed stretch **does** predict the
+graded turn. Pooling both sides, 60 `register-*` runs:
+
+- Spearman rho over all 60 runs: **0.647**, permutation p < 0.0001. Much of that
+  is the stem, which sets both levels.
+- Within stem: rho 0.482 (`index`), 0.303 (`metric`), 0.419 (`rollback`) —
+  positive on all three.
+- Within-stem log-log elasticity: **0.44** (r = 0.380, n = 60).
+
+So the carry-forward is real at the level of an individual run, and it is
+**inelastic**. At 0.44, the 10.1% fall this edit bought on the licensed stretch
+predicts **4.5% off the graded turn** — about 3 words on a 60-word median. This
+round is powered for 21 to 31 words. The primary null is not evidence that
+tightening the licence does nothing to the graded turn; it is evidence that this
+much tightening does far less than the instrument can see.
+
+**And that is what closes the route rather than extending it.** Running the
+arithmetic the other way, at an elasticity of 0.44:
+
+| wanted on turn 5 | licensed stretch must fall to |
+|---|---|
+| 60.5 to 48.3 words (the 0.60 fatal bound) | 60% — the most this round permits |
+| 60.5 to 45.4 words (0.75) | 52% |
+| 60.5 to 35.3 words (the pilot's `deep-*` level) | **29%** |
+
+Removing the carry-forward by tightening the licence means cutting the licensed
+stretch to under a third of its words — a 71% cut, past this round's fatal bound
+and well past anything [#150] describes as redundancy. **The effect size and the
+harm bound are in direct conflict, and the elasticity is the number that puts
+them there.** An edit that bought the full effect would not be a licence that had
+been tightened; it would be a licence that had been removed.
+
+### The carry-forward replicates a fourth time
+
+The control side is a fourth independent measurement of the
+[register pilot](register-inheritance-136.md).
+
+| | pilot | round 47 control | round 48 control | round 49 control |
+|---|--:|--:|--:|--:|
+| `deep-*` turn 5 | 31.0 | 29.0 | 28.5 | 29.5 |
+| `register-*` turn 5 | 52.0 | 55.5 | 59.5 | 60.5 |
+| `deep-*` turns 2-4 | 77.5 | 72.0 | 79.0 | 70.0 |
+| `register-*` turns 2-4 | 704.0 | 630.5 | 656.0 | 658.0 |
+| ratio | 1.677 | 1.914 | 2.088 | **2.051** |
+
+Round 49's control does not differ from round 48's on anything: turn 5 p = 0.8982
+on `register-*` and 0.8476 on `deep-*`, turns 2-4 p = 0.9491 and 0.4670. Pooling
+both sides of this round, 60 runs a family, the carry-forward reads **28.0
+against 61.5, a ratio of 2.196 at p < 0.00001**.
+
+The licence delivers **9.4 times** as much across turns 2 to 4 when the full form
+is asked for as when the same three questions are asked plainly, against 8.2, 8.8
+and 9.1 in the three prior batches.
+
+## Verdict: reject, and the edit is reverted in full
+
+Per the stop-at-the-first-failing-step order, the round-wide laconic arm and its
+judgments were not bought. `rules/laconic.md` and `rules/dist/*.md` return to
+master, byte-identical.
+
+## What this settles
+
+**Seven nulls, three intervention classes.** Rounds 40 and 47 put a self-directed
+pre-send question in the rules slice, round 48 put the identical sentence in the
+`UserPromptSubmit` reminder, and this round edited the licence the register is
+inherited through. Nothing has moved the graded turn.
+
+**But this null is not the same kind as the six before it**, and the difference
+is worth keeping. Those six were nulls about a sentence that had no measurable
+effect on anything. This one is a null with a measured mechanism attached: the
+edit did move the licensed stretch, in the predicted direction, by roughly the
+amount [#150] describes — and the carry-forward's 0.44 elasticity means that
+movement was worth about three words on the turn being graded.
+
+**The route is closed by arithmetic rather than by a p-value.** Any licence edit
+that removes the carry-forward on this instrument has to cut the licensed stretch
+to under a third, which is a licence removed rather than tightened, and which
+this round's own fatal bound refuses. So the remaining moves are not further
+edits to that paragraph.
+
+**What survives, measured four times.** A laconic session whose prior answers ran
+long under an explicit licence answers the identical closed question with roughly
+twice the words, at 1.677, 1.914, 2.088 and 2.051, and 2.196 pooled over this
+round's 120 runs. It is the loop's most reproducible effect, and nothing written
+into the rules, the reminder, or the licence itself has moved it.
+
+**What this round does not say.** The elasticity is estimated from 60 runs at one
+rules revision on three stems, within stem, and it is a local slope rather than a
+law: it says what a 10% shift buys, not what a 70% shift would. It is reported
+because the primary null is uninterpretable without it, and because it is the
+first quantitative statement the cluster has about *how* the register carries
+rather than *that* it does.

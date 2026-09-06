@@ -4401,6 +4401,8 @@ _expected_concurrent = {
     # each shard strictly sequential and each declaring --concurrency 6. Each
     # side's merge reconstructs to the three that produced it.
     "round-48-control.json", "round-48-edit.json",
+    # Round 49, the same design a third time.
+    "round-49-control.json", "round-49-edit.json",
 }
 _found = set()
 for _p in sorted((ROOT / "evals" / "snapshots").rglob("*.json")):

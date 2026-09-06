@@ -150,7 +150,121 @@ their bound.
 
 ## Results
 
-*Not yet computed. Generation had not started when this file was committed.*
+**Reject on the target. Both bounds pass, and the edit is reverted in full** —
+`rules/` is byte-identical to master.
+
+240 runs, 120 a side, 0 failed. No judging bought, per the standing order to
+stop at the first step that fails.
+
+| quantity | control | edit | p |
+|---|--:|--:|--:|
+| **`edited`** (target, down) | 26/120 (21.7%) | 19/120 (15.8%) | **0.3211** |
+| `locates_defect` given it did not edit (bound) | 94/94 (100%) | 101/101 (100%) | 1.0000 |
+| read the fixture (bound) | 120/120 (100%) | 120/120 (100%) | 1.0000 |
+
+The point estimate moves in the predicted direction — a 27% relative fall — and
+does not come close to separating. Both bounds are perfect on both sides, so
+nothing here is the cheap win the two extra clauses were written to refuse: no
+run stopped reading `db.js`, and no run that answered instead of editing failed
+to say what was wrong.
+
+## The round's finding is about the instrument, not the edit
+
+**`conditional`'s edit rate has been falling for nine days at byte-identical
+master rules, and this round's control is the lowest reading ever taken.**
+Every archived laconic/sonnet run on the case that carries a tool list:
+
+| date | runs | edited | rate |
+|---|--:|--:|--:|
+| 2026-08-28 | 80 | 40 | 50.0% |
+| 2026-08-31 | 80 | 31 | 38.8% |
+| 2026-09-02 | 10 | 2 | 20.0% |
+| 2026-09-03 | 40 | 14 | 35.0% |
+| 2026-09-05 | 80 | 22 | 27.5% |
+| **2026-09-06 (this round's control)** | **120** | **26** | **21.7%** |
+
+Archive pooled is 109 of 290, 37.6%, against this control's 21.7% at Fisher
+**p = 0.0018**. The rules text has not changed across any of it.
+
+This is [round 37](round-37.md)'s drift, on a counter nobody had watched for
+it. Round 37 measured a syntactic behaviour moving 4.7x in five days at fixed
+`rules_cksum`; `edited` is syntactic in exactly the same way, being a read of a
+tool list, and it has now done the same thing at half the amplitude. The
+registered-baseline rule is what saved the round from reporting it as an
+effect: scored against the archive's 37.6% the edit would read 19/120 against
+109/290, **p = 0.0001**, and this document would be claiming a large win for a
+sentence that produced a null.
+
+**What it cost is the round's power, and that was decided before the round
+began.** The sizing in
+[`volunteered-trap-116.md`](volunteered-trap-116.md) used the archive's 35%,
+which was already stale when it was written:
+
+| assumed base rate | power at 120 a side to detect a halving |
+|---|--:|
+| 35%, the figure the round was sized on | 0.84 |
+| **21.7%, what the control actually read** | **0.56** |
+| the observed 21.7% to 15.8% | 0.17 |
+
+A halving of 21.7% needs about **200 runs a side** to reach 0.8. So the round
+is a null at 0.56 power rather than at the 0.8 it was bought for, and it cannot
+distinguish a sentence that does nothing from one that halves the rate.
+
+**[Round 46](round-46.md) wrote this rule down and this round did not apply
+it**: size a low-base-rate cell against the archive's *lowest* control, not its
+pooled one. The lowest here was the 20.0% of 2026-09-02, and sizing against it
+would have called for 200 a side before anything was spent. The registered
+baseline fixes the number a hypothesis is scored against and cannot fix a power
+calculation, because the power calculation precedes the control.
+
+## The unregistered disclosure, which is a lead and not a claim
+
+**The edit is a compression edit.** It was registered against the edit rate,
+which it did not move; it moved prose length hard, in both strata:
+
+| stratum | control median words | edit median words | permutation p |
+|---|--:|--:|--:|
+| all 120 runs a side | 78.0 | 58.5 | < 0.00001 |
+| answered, did not edit | 83.0 (n=94) | 62.0 (n=101) | < 0.00001 |
+| edited | 27.5 (n=26) | 15.0 (n=19) | < 0.00001 |
+
+**This is not the [#209] artifact and the strata are what rule it out.** The
+Simpson's reversal that case produces comes from a cell mixing two populations
+whose medians differ threefold; here the fall is present *inside* the answering
+stratum, on 94 against 101 runs, with `locates_defect` at 101 of 101. Reading
+is 120/120 on both sides, so no [#131] stratum was crossed either. A 25%
+shorter answer that still names the defect every time is a real effect on this
+case.
+
+It is disclosed and not credited, for the reason the ledger exists: a
+hypothesis written after the numbers are in is indistinguishable from a story
+about whatever happened to move. A round wanting it has to register it, and has
+two obstacles worth naming in advance. `conditional` is `rule-adherence`, so
+the case is admissible only for counters that do not read its criterion — which
+a word count does not. And `report.py` will refuse the cell for `output_tokens`
+under the [#209] mixture rule, since it holds both editing and non-editing
+runs, so such a round has to score the answering stratum directly the way this
+table does.
+
+## What [#116] has after this round
+
+The issue's proposal has now been tested rather than argued, which is what
+three prior units said it deserved. The result is a null at 0.56 power, and the
+honest summary is that **the third pre-send check does not detectably suppress
+the behaviour, and this round could not have detected a halving anyway.**
+
+Three things a successor needs, in order:
+
+1. **200 runs a side**, sized against the lowest control the archive holds and
+   not the pooled one.
+2. **The drift measured rather than absorbed.** `edited` fell 50.0% to 21.7% in
+   nine days at fixed rules. A counter moving that much between rounds cannot
+   support a carried comparison at all, and the interleaved design is now
+   load-bearing on this case rather than merely preferable.
+3. **A decision about which endpoint the issue is really about.** This round
+   found a large effect on the length of the answer and none on whether work
+   displaced it. [#116] reports the second; the instrument responded on the
+   first.
 
 [#116]: https://github.com/JordanMPDS/laconic/issues/116
 [#209]: https://github.com/JordanMPDS/laconic/issues/209

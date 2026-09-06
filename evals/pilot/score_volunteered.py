@@ -2,6 +2,7 @@
 """[#116]'s instrument: did the answer do the work, and did it say what was wrong?
 
     python3 evals/pilot/score_volunteered.py <snapshot> [<snapshot> ...]
+    python3 evals/pilot/score_volunteered.py <edit> --against <control>
 
 Two deterministic counters over `conditional` runs, and neither reads a judge.
 
@@ -39,6 +40,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "bench"))
 import run as bench_run  # noqa: E402
+import subagent  # noqa: E402
 
 MUTATING = ("Edit", "Write", "MultiEdit", "NotebookEdit")
 
@@ -111,9 +113,79 @@ def score(runs):
             table)
 
 
+def grounded(run):
+    """True when the response called a tool, which on `conditional` means it
+    opened `db.js` or `pool.log`. Same definition report.py's reading strata
+    use, so the rate is comparable to every other round's."""
+    return (run.get("num_turns") or 0) > 1
+
+
+def compare(edit_runs, control_runs):
+    """The three quantities a round on [#116] registers, edit against control.
+
+    `edited` is the target and only a fall counts. The other two are bounds:
+    suppressing the edit is worth nothing if the answer stops naming the
+    defect, and worth less than nothing if it stops reading the fixture -
+    laconic's whole quality axis is the reading rate, and a check written
+    "don't do the work" could plausibly cut both. Every clause of the edit
+    maps to exactly one row here.
+
+    p is two-sided throughout. A bound is directional in what it means, not in
+    how it is tested: a bound that spent half its alpha proving an improvement
+    would be reporting the target twice.
+    """
+    def rates(runs):
+        rows = [r for r in runs if r.get("case") == "conditional"]
+        answered = [r for r in rows if not edited(r)]
+        return {
+            "n": len(rows),
+            "edited": (sum(1 for r in rows if edited(r)), len(rows)),
+            "locates_answered": (sum(1 for r in answered
+                                     if locates_defect(r.get("text", ""))),
+                                 len(answered)),
+            "grounded": (sum(1 for r in rows if grounded(r)), len(rows)),
+        }
+
+    e, c = rates(edit_runs), rates(control_runs)
+    out = []
+    for key, label, direction in (
+            ("edited", "edited (target, down)", "down"),
+            ("locates_answered", "locates_defect | did not edit (bound)", "hold"),
+            ("grounded", "read the fixture (bound)", "hold")):
+        (ek, en), (ck, cn) = e[key], c[key]
+        p = subagent.fisher_exact(ek, en - ek, ck, cn - ck)
+        out.append((label, direction, ek, en, ck, cn, p))
+    return out
+
+
+def render_compare(edit_path, control_path):
+    def runs(path):
+        return bench_run.usable(json.loads(Path(path).read_text())["runs"])
+
+    rows = compare(runs(edit_path), runs(control_path))
+    print("edit    %s" % Path(edit_path).name)
+    print("control %s\n" % Path(control_path).name)
+    print("  %-42s %-16s %-16s %s" % ("quantity", "edit", "control", "p"))
+    for label, direction, ek, en, ck, cn, p in rows:
+        print("  %-42s %-16s %-16s %.4f"
+              % (label,
+                 "%d/%d (%.1f%%)" % (ek, en, 100.0 * ek / en) if en else "-",
+                 "%d/%d (%.1f%%)" % (ck, cn, 100.0 * ck / cn) if cn else "-",
+                 p))
+    print("\n  Target accepts on a fall at p < 0.05. Either bound falling at"
+          "\n  p < 0.05 rejects the round whatever the target did.")
+    return rows
+
+
 def main():
     if len(sys.argv) < 2:
         sys.exit(__doc__)
+    if "--against" in sys.argv:
+        i = sys.argv.index("--against")
+        if i != 2 or len(sys.argv) != 4:
+            sys.exit(__doc__)
+        render_compare(sys.argv[1], sys.argv[3])
+        return
     for path in sys.argv[1:]:
         snap = json.loads(Path(path).read_text())
         runs = bench_run.usable(snap["runs"])

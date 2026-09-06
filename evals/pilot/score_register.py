@@ -27,26 +27,10 @@ STEMS = ("index", "metric", "rollback")
 SEED = 136
 
 
-def permutation(a, b, seed, resamples=200000):
-    """Two-sided permutation of the group label over per-response counts.
-
-    Returns None when either side is empty, which is what a partial snapshot
-    looks like while a shard is still generating. A p-value invented from one
-    group is worse than no p-value.
-    """
-    if not a or not b:
-        return None
-    obs = abs(sum(b) / len(b) - sum(a) / len(a))
-    pool = list(a) + list(b)
-    n = len(a)
-    rng = random.Random(seed)
-    hits = 0
-    for _ in range(resamples):
-        rng.shuffle(pool)
-        d = abs(sum(pool[n:]) / (len(pool) - n) - sum(pool[:n]) / n)
-        if d >= obs - 1e-9:
-            hits += 1
-    return (hits + 1) / (resamples + 1)
+#: Two-sided permutation of the group label over per-response counts, on
+#: means. Lived here until round 51 needed the same test on medians; one
+#: implementation in metrics keeps the two scorers from drifting apart.
+permutation = metrics.permutation
 
 
 CELLS = (("laconic", "register"), ("laconic", "deep"),

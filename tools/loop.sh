@@ -65,6 +65,22 @@ limit_reset_epoch() { # <time> [tz] -> epoch on stdout
   printf '%s' "$target"
 }
 
+# An iteration inherits whatever branch the last one left checked out. That is
+# deliberate — a round too long for one iteration continues on its branch, which
+# is how round 48 finished what round 48 started. But a branch whose work is
+# already merged is not continuity, it is debris, and a fresh child with no
+# memory of the merge re-opens a pull request for it: on 2026-09-06 iteration 8
+# inherited `volunteered-check-116` after iteration 7 had merged it, and shipped
+# PR #251 as a byte-identical duplicate of #250 that merged as an empty commit.
+#
+# So: tidy back to master only when the branch adds nothing to origin/master and
+# the tree is clean. A round in flight fails both tests and is never touched.
+branch_is_merged() {
+  [ -z "$(git status --porcelain 2>/dev/null)" ] || return 1
+  git rev-parse --verify -q origin/master >/dev/null 2>&1 || return 1
+  git merge-base --is-ancestor HEAD origin/master 2>/dev/null
+}
+
 # `bash tools/loop.sh --selftest` — drives this script against a stub `claude`.
 # The bug it exists to catch shipped once: a usage limit ended the loop for
 # good, and nothing in the log said the loop was gone rather than idle.
@@ -88,7 +104,12 @@ echo "bgceiling=${CLAUDE_CODE_PRINT_BG_WAIT_CEILING_MS:-unset}"
 echo "did work (call $c)"
 STUB
   chmod +x "$tmp/stub/claude"
-  export PATH="$tmp/stub:$PATH" LOOP_STOP_FILE="$tmp/stop"
+  # LOOP_RESET_MAX_WAIT=0 refuses every deadline, so the stub's "resets 6:20am"
+  # can never be slept to. Without it this selftest passes or hangs depending on
+  # the hour it runs: before 6:20am UTC the reset is still ahead, and the run
+  # sleeps to it for real. The cap itself is exercised deliberately below.
+  export PATH="$tmp/stub:$PATH" LOOP_STOP_FILE="$tmp/stop" LOOP_TIDY=0 \
+         LOOP_RESET_MAX_WAIT=0
   export LOOP_RETRY_GAP=1 LOOP_RETRY_CAP=1 LOOP_GAP=1
 
   failed=0
@@ -136,11 +157,20 @@ STUB
     STUB_MESSAGE="You've hit your session limit · resets 11:59pm (UTC)" bash "$0" 2>&1)
   check "a reset past the cap falls back to the backoff" 'retrying in 1s' "$out"
 
+  # The guard that matters: a tree with work in it is never tidied away. The
+  # merged case is not asserted here because CI checks out a detached merge ref,
+  # so what "merged" means depends on the checkout rather than on the code.
+  _probe=".loop-tidy-probe-$$"
+  touch "$_probe"
+  check "a dirty tree is never tidied" "^DIRTY$" \
+    "$(branch_is_merged || echo DIRTY)"
+  rm -f "$_probe"
+
   out=$(STUB_STATE=$tmp/d STUB_TOUCH=$tmp/stop bash "$0" 2>&1)
   check "the stop file ends the loop" 'stop present, stopping' "$out"
   [ -e "$tmp/stop" ] && { failed=$((failed + 1)); echo "FAIL stop file left behind"; }
 
-  [ "$failed" -eq 0 ] && echo "loop.sh selftest: 12/12 passed" || echo "loop.sh selftest: $failed failed"
+  [ "$failed" -eq 0 ] && echo "loop.sh selftest: 13/13 passed" || echo "loop.sh selftest: $failed failed"
   exit $([ "$failed" -eq 0 ] && echo 0 || echo 1)
 fi
 
@@ -188,6 +218,16 @@ while :; do
   fi
 
   printf '\n=== loop iteration %d — %s ===\n' "$((n + 1))" "$(date -Is)"
+
+  # LOOP_TIDY=0 for the selftest, which runs inside this very repository and has
+  # no business moving its HEAD.
+  if [ "${LOOP_TIDY:-1}" = 1 ]; then
+    git fetch -q origin master 2>/dev/null
+    if branch_is_merged && [ "$(git branch --show-current)" != master ]; then
+      echo "loop: $(git branch --show-current) is already merged — returning to master"
+      git checkout -q master 2>/dev/null && git merge --ff-only -q origin/master 2>/dev/null
+    fi
+  fi
 
   # `< /dev/null` because print mode reads stdin for piped input and waits on
   # it. An unattended supervisor is started from whatever stdin its caller

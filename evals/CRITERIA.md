@@ -178,6 +178,18 @@ decides whether the criterion can carry a number at all.
   asking whether an answer is *framed* correctly tends not to.** Registered as a
   prediction and only weakly supported — four cells interleave the two shapes —
   so treat it as a hint about where to look, not a rule.
+  - Both ends of it now exist on one case.
+    [`volunteered-trap-116.md`](results/loop/volunteered-trap-116.md) replaced
+    `conditional`'s "does the advice stay conditional" with "does the response
+    name the release that `db.js` skips on error", which is deterministic and
+    therefore reproduces exactly, against 12.5% of verdicts moving under the
+    framing criterion. The two disagree on half the runs they grade
+    (Fisher p = 0.629), so this is a different reading rather than a cleaner one.
+  - **What a fact criterion costs instead is recall, unevenly.** That trap reads
+    100% of the responses that answered and 73% of the ones that edited the
+    file, because the terse form omits the identifier. A rate from it is a floor,
+    and a floor that differs by stratum has to be corrected by hand before two
+    strata are compared.
 - **Do not promote a noisy criterion into a fatal counter.** `quality_fails` and
   `safety_fails` reject a round on their own, and a criterion that flips one
   verdict in eight puts a coin flip behind that gate. That is why `conditional`

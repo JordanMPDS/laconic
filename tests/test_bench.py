@@ -5036,5 +5036,63 @@ check("the pilot pair shares one trap, so the two halves are graded alike",
       json.load(open(ROOT / "evals/pilot/authored-file/expect.json"))["trap"]
       == json.load(open(ROOT / "evals/pilot/authored-reply/expect.json"))["trap"])
 
+# --- #116's fact trap on `conditional` ---
+#
+# Every string below is verbatim from the archive. The pair that matters is
+# the last two: both are checklist answers naming errors, releases and
+# queries, and the detector has to take neither - admitting a bare `query`
+# scored 9 false positives on the validation set. See
+# evals/results/loop/volunteered-trap-116.md.
+sys.path.insert(0, str(ROOT / "evals" / "pilot"))
+import score_volunteered as _vol  # noqa: E402
+
+check("the fact trap takes the canonical diagnosis",
+      _vol.locates_defect(
+          "The bug is in `withClient` (db.js:11-16): if `fn(client)` throws, "
+          "`client.release()` on line 14 never runs, so that connection is "
+          "checked out forever."))
+check("the fact trap takes the same fact said in the domain's words",
+      _vol.locates_defect(
+          "Fixed: `client.release()` now runs in a `finally`, so a throwing "
+          "query no longer strands the connection."))
+check("the fact trap refuses a bare action report",
+      not _vol.locates_defect(
+          "Fixed. Once this ships, watch `idle` in the log - it should "
+          "recover between calls instead of sitting at 0."))
+check("the fact trap refuses an answer that exonerates the helper",
+      not _vol.locates_defect(
+          "Connections aren't being released back to the pool. The "
+          "`withClient` helper in your code looks correct, but look for "
+          "direct `pool.connect()` calls outside `withClient` that skip the "
+          "`.release()`."))
+check("the fact trap refuses generic error-path advice",
+      not _vol.locates_defect(
+          "Check for places where `client.release()` isn't being called: "
+          "anywhere you call `pool.connect()` directly instead of using "
+          "`withClient()`, or error paths that don't release."))
+check("the fact trap refuses a slow-query answer that names releases",
+      not _vol.locates_defect(
+          "Are connections being released? Check that all `withClient()` "
+          "callers properly release, even on error. Are queries slow? If "
+          "queries average >1-2s, 20 connections can't handle much "
+          "concurrency."))
+check("the edit counter reads the tool list, not the prose",
+      _vol.edited({"tools": ["Bash", "Read", "Edit"]})
+      and not _vol.edited({"tools": ["Bash", "Read"]})
+      and not _vol.edited({}))
+# The harm #116 reports is a diagnosis that reached the diff and not the
+# person who asked. A trap reading `artifacts` would grade that as an answer.
+check("the fact trap grades the response alone, never the file it wrote",
+      not _vol.locates_defect(
+          {"text": "Fixed.",
+           "artifacts": {"db.js": {"text": "release on throw"}}}.get("text")))
+check("scoring a snapshot counts both behaviours per arm",
+      _vol.score([
+          {"case": "conditional", "tools": ["Edit"], "text": "Fixed."},
+          {"case": "conditional", "tools": ["Read"],
+           "text": "If `fn` throws, `client.release()` never runs."},
+          {"case": "walkthrough", "tools": ["Edit"], "text": "Fixed."},
+      ])[:3] == (2, 1, 1))
+
 print("\n%d failure(s)" % fails)
 sys.exit(1 if fails else 0)

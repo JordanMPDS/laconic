@@ -218,6 +218,17 @@ published 62.5% to 35.0% arm gap was detectable at 40 because it is 27.5
 points. A round that opens at 40 and reads a null has measured very little,
 which is worth knowing before it is run rather than after.
 
+> **Corrected by [round 50](round-50.md): the 35% this paragraph sizes against
+> was already stale, and a round was bought on it.** The rate is not stable. On
+> laconic/sonnet it reads 50.0%, 38.8%, 20.0%, 35.0% and 27.5% across
+> 2026-08-28 to 09-05 at byte-identical master rules, and round 50's own
+> control read **21.7%**, against the 37.6% these snapshots pool to at Fisher
+> p = 0.0018. At 21.7% the 120 a side recommended here carries **0.56** power
+> for a halving rather than 0.8, and 0.8 needs about 200. Size against the
+> archive's *lowest* control, per [round 46](round-46.md); a registered
+> baseline fixes the number a hypothesis is scored against and cannot fix a
+> power calculation, because the power calculation precedes the control.
+
 ## What this does not establish
 
 - **No rule edit is proposed here, and none is scored.** This is an instrument.

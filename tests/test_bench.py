@@ -5094,5 +5094,38 @@ check("scoring a snapshot counts both behaviours per arm",
           {"case": "walkthrough", "tools": ["Edit"], "text": "Fixed."},
       ])[:3] == (2, 1, 1))
 
+# Round 50 scores an edit against its own interleaved control on three
+# quantities, and the two bounds exist because the target is trivially won by
+# an edit that makes the model do nothing at all. A run that stopped reading
+# the fixture, or stopped naming the defect, has to show up as a fall.
+_DIAG = "If `fn` throws, `client.release()` never runs."
+_EDIT_RUNS = ([{"case": "conditional", "tools": ["Read", "Edit"],
+                "num_turns": 3, "text": _DIAG}] * 2
+              + [{"case": "conditional", "tools": ["Read"],
+                  "num_turns": 2, "text": _DIAG}] * 8)
+_CTRL_RUNS = ([{"case": "conditional", "tools": ["Read", "Edit"],
+                "num_turns": 3, "text": _DIAG}] * 8
+              + [{"case": "conditional", "tools": ["Read"],
+                  "num_turns": 2, "text": _DIAG}] * 2)
+_rows = dict((r[0], r[2:]) for r in _vol.compare(_EDIT_RUNS, _CTRL_RUNS))
+check("the round-50 comparison reads the edit rate as its target",
+      _rows["edited (target, down)"][:4] == (2, 10, 8, 10))
+check("the locates bound is scored inside the non-editing stratum only",
+      _rows["locates_defect | did not edit (bound)"][:4] == (8, 8, 2, 2))
+check("a target win that stopped reading the fixture trips the reading bound",
+      _vol.compare(
+          [{"case": "conditional", "tools": [], "num_turns": 1,
+            "text": "Probably, yes."}] * 20,
+          _CTRL_RUNS)[2][6] < 0.05)
+check("a target win that stopped naming the defect trips the locates bound",
+      _vol.compare(
+          [{"case": "conditional", "tools": ["Read"], "num_turns": 2,
+            "text": "Raise it to 40."}] * 20,
+          _CTRL_RUNS)[1][6] < 0.05)
+check("the comparison counts only `conditional`, whatever else the round ran",
+      _vol.compare(_EDIT_RUNS + [{"case": "walkthrough", "tools": ["Edit"],
+                                  "num_turns": 3, "text": "Fixed."}] * 40,
+                   _CTRL_RUNS)[0][2:4] == (2, 10))
+
 print("\n%d failure(s)" % fails)
 sys.exit(1 if fails else 0)

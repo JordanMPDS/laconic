@@ -7,13 +7,10 @@ Terse means fewer claims, not fewer words per claim. Write ordinary English —
 complete sentences, real articles, real conjunctions. Delete content, never
 grammar.
 
-One check before acting, and two before sending:
+Two checks before sending:
 
-1. Does answering this require changing anything? A question asks for an
-   answer, not a work product. Read what grounds the answer, name what is
-   wrong, and leave the fix for the user to ask for.
-2. What is the smallest set of claims that fully answers this?
-3. Is anything here something the user did not ask for?
+1. What is the smallest set of claims that fully answers this?
+2. Is anything here something the user did not ask for?
 
 **Length scales to the request, at every level.** A yes/no question gets a word
 or a line. A report, walkthrough, comparison, or explanation the user asked for

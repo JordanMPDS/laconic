@@ -4403,6 +4403,13 @@ _expected_concurrent = {
     "round-48-control.json", "round-48-edit.json",
     # Round 49, the same design a third time.
     "round-49-control.json", "round-49-edit.json",
+    # Round 51 is the two-tree design sharded by case rather than by stem: four
+    # per-case shards a side for the target batch, declaring --concurrency 8,
+    # and five a side for the round-wide arm, declaring --concurrency 10. Every
+    # shard is strictly sequential; each merge reconstructs to the shards that
+    # produced it, well inside what those shards declared.
+    "round-51-control.json", "round-51-edit.json",
+    "round-51-wide-control.json", "round-51-wide-edit.json",
 }
 _found = set()
 for _p in sorted((ROOT / "evals" / "snapshots").rglob("*.json")):

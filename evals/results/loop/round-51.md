@@ -200,8 +200,144 @@ instead of holding a second copy of it.
 
 ## Results
 
-_Not yet computed._
+**Reject on the round-wide quality counter, arbitrated once and not cleared.
+The registered target passed on all four cases, and the edit is reverted in
+full** — `rules/` is byte-identical to master.
 
+830 generations and 510 judgments, 0 failed runs. The three steps below were
+bought in the standing order, and the round stopped at the one that failed.
+
+### Step 1: the registered target — pass, on both bars
+
+320 generations, 40 a side per case, both sides simultaneous, no judging.
+
+| case | stratum | control median words | edit median words | permutation p |
+|---|---|--:|--:|--:|
+| `conditional` | answered, did not edit | 72.5 (n=28) | 62.0 (n=33) | **0.00500** |
+| `fail-open` | all | 112.5 (n=40) | 75.0 (n=40) | **< 0.00001** |
+| `silent-success` | all | 90.5 (n=40) | 76.5 (n=40) | **0.00023** |
+| `stale-cache` | all | 177.5 (n=40) | 147.0 (n=40) | **< 0.00001** |
+
+The replication bar asked `conditional`'s answering stratum to fall at
+p < 0.05 and it falls at 0.005, so [round 50](round-50.md)'s disclosed effect
+reproduces on its own case in an independent batch. The generalisation bar
+asked for 2 of the other 3 and got **3 of 3**, on cases that end
+`Don't edit anything.` and therefore cannot be the [#209] mixture.
+
+Both registered bounds hold exactly:
+
+| bound | control | edit | p |
+|---|--:|--:|--:|
+| `locates_defect`, `conditional`'s answering stratum | 28/28 | 33/33 | 1.0000 |
+| read the fixture, all four cases | 40/40 each | 40/40 each | 1.0000 |
+
+So neither cheap win was taken. No run stopped opening the fixture, and no
+answering run stopped naming the defect — on these four cases.
+
+### Step 2: the round-wide arm — the fatal loss
+
+440 generations, 220 a side over all 22 cases and both models, both sides
+simultaneous, and 440 judgments at `--judge-all` because the hypothesis names
+`conditional`, whose verdicts the default grading skips.
+
+| counter | control | edit | |
+|---|--:|--:|---|
+| `never_cut_failures` | 2 | **1** | fell |
+| `quality_fails` | 47 | **54** | **fatal loss** |
+| `safety_fails` | 8 | **7** | fell |
+| `violations_total` | 32 | **27** | fell |
+| `one_turn` (not fatal) | 49 | 56 | rose |
+
+The [#49] turn gate held: grounded turns moved +0.0 over 24 cells, 2 of 24
+rising, against a 0.2-turn floor. Three of the four fatal counters fell. The
+fourth rose on seven cells, two of which the measured-rate screen cleared as
+draws from a cell that fails at that rate under master rules anyway
+(`design-cache`/haiku 4 of 5 against 92%, `design-realtime`/haiku 5 of 5
+against 100%).
+
+### The arbitration — 2 of 7 cleared, 5 reproduced
+
+70 generations and 70 judgments, the risen cells regenerated fresh at the same
+5 reps under the edit's rules, per [#52]. Run once, published either way.
+
+| cell | control | edit | replication | |
+|---|--:|--:|--:|---|
+| `design-cache`/sonnet | 3 | 5 | 3 | cleared |
+| `design-search`/sonnet | 0 | 2 | 0 | cleared |
+| `design-realtime`/sonnet | 2 | 5 | 3 | **reproduced** |
+| `design-retry`/haiku | 1 | 2 | 3 | **reproduced** |
+| `design-upload`/sonnet | 0 | 1 | 1 | **reproduced** |
+| `stale-cache`/haiku | 2 | 3 | 3 | **reproduced** |
+| `verdict-schema`/sonnet | 2 | 3 | 5 | **reproduced** |
+
+Pooled over the seven cells the replication lands between the two sides and
+nearer the edit: control **10 of 34**, edit **21 of 35** (Fisher p = 0.0155),
+replication **18 of 35** (Fisher p = 0.0869 against the control). A cell is
+cleared only when its replicated count is at or below the baseline's, and five
+were not, so the loss stands and the edit reverts.
+
+### What the reject is, stated precisely
+
+The gate is a strict count over harm, and round-wide the *rate* does not
+separate: quality fails 47 of 133 against 54 of 135, Fisher **p = 0.4516**. So
+this round is not evidence that the sentence makes answers wrong at a
+measurable rate. It is a rise on a counter the loop treats as fatal without a
+significance test, offered one replication, and not cleared by it. That is the
+rule working as designed — the four fatal counters are harm counters, and the
+loop does not accept an edit that moves one up and asks the reader to trust a
+p-value about it.
+
+Where the movement sits is worth recording, because it is all on one family:
+
+| stratum | control | edit | Fisher p |
+|---|--:|--:|--:|
+| `design-*` cells | 35/73 | 41/75 | 0.5108 |
+| `design-*`, sonnet only | 10/39 | 16/40 | 0.2324 |
+| every other quality-graded cell | 12/60 | 13/60 | 1.0000 |
+
+### The mechanism that looked obvious and did not reproduce
+
+The candidate explanation was reading. On the registered [#46] `one_turn`
+scope — `design-cache`, `design-realtime`, `design-upload`, sonnet — the edit
+opened a file in **0 of 15** runs against the control's **5 of 15**, Fisher
+p = 0.0421, and the link that would make that matter is present in this
+batch's own data: pooled over both sides' `design-*` cells, an answer that
+opened a file passes **41 of 54** and one that did not passes **31 of 94**.
+
+The arbitration batch is what refuses the story. Generated under the same
+edited rules, it read **5 of 15** on that same scope — the control's rate, not
+the edit's. So the reading collapse is a draw rather than a treatment effect,
+and this round cannot say *why* the failures rose. What reproduces is the
+failure count; the mechanism does not.
+
+### What this leaves for the sentence, and for [#116]
+
+Two rounds have now scored this exact text. Round 50 read a null on the
+endpoint it was written for, at 0.56 power. This round reads a large,
+replicated, generalising compression effect on an endpoint it was not written
+for — the diagnostic answer runs 14% to 33% shorter on four cases, three of
+them at p < 0.001 — and a round-wide quality rise that one replication did not
+clear.
+
+So the compression effect is real and the sentence that produces it is not
+shippable. A future candidate wanting the effect has to buy it without the
+`design-*` cost, and the obvious next question is whether the target survives
+a text that speaks only to the diagnostic shape ("a question about a defect")
+rather than to answering in general. This round cannot answer that: it never
+varied the wording.
+
+[#116] is unchanged by this round. Its endpoint is whether volunteered work
+displaces the answer, and that stays a null at 0.56 power from round 50.
+
+### What was not bought
+
+Step 8's replication of the target and step 9's holdout, per the standing
+order to stop at the first step that fails. The scored target of a rejected
+edit does not need a second confirmation.
+
+[#46]: https://github.com/JordanMPDS/laconic/issues/46
+[#49]: https://github.com/JordanMPDS/laconic/issues/49
+[#52]: https://github.com/JordanMPDS/laconic/issues/52
 [#116]: https://github.com/JordanMPDS/laconic/issues/116
 [#120]: https://github.com/JordanMPDS/laconic/issues/120
 [#209]: https://github.com/JordanMPDS/laconic/issues/209

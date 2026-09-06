@@ -1,0 +1,1270 @@
+{
+  "judgments": [
+    {
+      "arm": "laconic",
+      "case": "design-cache",
+      "model": "haiku",
+      "quote": "Cache the query results (or full rendered page) in memory\u2014Redis or similar\u2014with event-driven invalidation.",
+      "reason": "The response designs a new Redis-based cache layer without checking whether a CDN already exists or that middleware/security.js's no-store header is blocking it.",
+      "rep": 0,
+      "usage": {
+        "cache_creation_input_tokens": 4573,
+        "cache_read_input_tokens": 20044,
+        "duration_ms": 4561,
+        "input_tokens": 2,
+        "num_turns": 1,
+        "output_tokens": 106,
+        "total_cost_usd": 0.0248468
+      },
+      "verdict": "fail"
+    },
+    {
+      "arm": "laconic",
+      "case": "design-cache",
+      "model": "sonnet",
+      "quote": "Cache the DB query results (or rendered page fragments) in Redis/Memcached, keyed by product ID, loaded lazily on miss (cache-aside), with a short TTL as a backstop.",
+      "reason": "The response designs a new Redis/Memcached cache layer without ever checking or acknowledging the existing middleware/security.js no-store header or the already-deployed CDN described in CDN.md.",
+      "rep": 0,
+      "usage": {
+        "cache_creation_input_tokens": 4650,
+        "cache_read_input_tokens": 20044,
+        "duration_ms": 3191,
+        "input_tokens": 2,
+        "num_turns": 1,
+        "output_tokens": 149,
+        "total_cost_usd": 0.0256468
+      },
+      "verdict": "fail"
+    },
+    {
+      "arm": "laconic",
+      "case": "design-realtime",
+      "model": "haiku",
+      "quote": "Set up a server-sent events (SSE) stream that pushes dashboard data to connected clients whenever it changes, rather than having clients poll.",
+      "reason": "The response recommends SSE (and mentions WebSocket) held open from the server, which PLATFORM.md rules out, instead of client-side polling of /api/metrics on a schedule tied to rollup.md's cadence.",
+      "rep": 0,
+      "usage": {
+        "cache_creation_input_tokens": 4766,
+        "cache_read_input_tokens": 20044,
+        "duration_ms": 3392,
+        "input_tokens": 2,
+        "num_turns": 1,
+        "output_tokens": 141,
+        "total_cost_usd": 0.026089800000000003
+      },
+      "verdict": "fail"
+    },
+    {
+      "arm": "laconic",
+      "case": "design-realtime",
+      "model": "sonnet",
+      "quote": "have the write path publish a \"changed\" event (e.g. Redis pub/sub or a queue) when underlying data changes, and stream it to the browser over Server-Sent Events",
+      "reason": "The response proposes SSE and Redis pub/sub without checking the deploy target's ability to hold connections, both of which the criterion says should fail it, instead of the simple client-side polling interval aligned to computed_at.",
+      "rep": 0,
+      "usage": {
+        "cache_creation_input_tokens": 4709,
+        "cache_read_input_tokens": 20044,
+        "duration_ms": 4268,
+        "input_tokens": 2,
+        "num_turns": 1,
+        "output_tokens": 150,
+        "total_cost_usd": 0.025936799999999996
+      },
+      "verdict": "fail"
+    },
+    {
+      "arm": "laconic",
+      "case": "design-retry",
+      "model": "haiku",
+      "quote": "The charge endpoint itself needs to be idempotent (keyed on order ID, not attempt count) so retries don't double-charge.",
+      "reason": "The response explicitly requires an idempotency key derived from order ID (not per-attempt) before laying out the retry mechanics, satisfying the safety-before-automation criterion.",
+      "rep": 0,
+      "usage": {
+        "cache_creation_input_tokens": 4761,
+        "cache_read_input_tokens": 20044,
+        "duration_ms": 3126,
+        "input_tokens": 2,
+        "num_turns": 1,
+        "output_tokens": 122,
+        "total_cost_usd": 0.025898799999999996
+      },
+      "verdict": "pass"
+    },
+    {
+      "arm": "laconic",
+      "case": "design-retry",
+      "model": "sonnet",
+      "quote": "an idempotency key tied to the charge attempt (order/invoice ID), reused across retries",
+      "reason": "The response makes idempotency (keyed on order/invoice ID and reused across retries, not per-attempt) the load-bearing design element and explicitly treats timeout as unknown rather than failed, before discussing backoff/circuit breaker as secondary tuning.",
+      "rep": 0,
+      "usage": {
+        "cache_creation_input_tokens": 4761,
+        "cache_read_input_tokens": 20044,
+        "duration_ms": 3516,
+        "input_tokens": 2,
+        "num_turns": 1,
+        "output_tokens": 137,
+        "total_cost_usd": 0.0260588
+      },
+      "verdict": "pass"
+    },
+    {
+      "arm": "laconic",
+      "case": "design-search",
+      "model": "haiku",
+      "quote": "I'd start with the database approach \u2014 it's a single API endpoint returning matching products, no new infrastructure \u2014 and migrate to a search service if you hit scaling limits or need better relevance.",
+      "reason": "The response recommends PostgreSQL tsvector/to_tsquery full-text search as the primary approach and only mentions a dedicated search engine as a later scaling option, matching the criterion's pass condition.",
+      "rep": 0,
+      "usage": {
+        "cache_creation_input_tokens": 4677,
+        "cache_read_input_tokens": 20044,
+        "duration_ms": 2296,
+        "input_tokens": 2,
+        "num_turns": 1,
+        "output_tokens": 147,
+        "total_cost_usd": 0.0257248
+      },
+      "verdict": "pass"
+    },
+    {
+      "arm": "laconic",
+      "case": "design-search",
+      "model": "sonnet",
+      "quote": "a `tsvector` column (or generated column) over name+description with a GIN index, weighted so name matches rank above description matches, plus `pg_trgm` for typo tolerance",
+      "reason": "The response leads with Postgres tsvector/GIN + pg_trgm as the primary build recommendation, only mentioning dedicated search engines as a later fork if scale/features grow beyond that.",
+      "rep": 0,
+      "usage": {
+        "cache_creation_input_tokens": 4590,
+        "cache_read_input_tokens": 20044,
+        "duration_ms": 4144,
+        "input_tokens": 2,
+        "num_turns": 1,
+        "output_tokens": 143,
+        "total_cost_usd": 0.025297800000000002
+      },
+      "verdict": "pass"
+    },
+    {
+      "arm": "laconic",
+      "case": "design-upload",
+      "model": "haiku",
+      "quote": "Read the codebase to ground the next level down: what's the current upload pattern, what storage backend do you have",
+      "reason": "The response focuses on client-side compression trade-offs and defers the actual upload architecture (signed URLs vs. proxying) to further codebase investigation, never addressing the proxy/nginx/multer/Postgres question the criterion is testing.",
+      "rep": 0,
+      "usage": {
+        "cache_creation_input_tokens": 4584,
+        "cache_read_input_tokens": 20044,
+        "duration_ms": 2841,
+        "input_tokens": 2,
+        "num_turns": 1,
+        "output_tokens": 137,
+        "total_cost_usd": 0.0251958
+      },
+      "verdict": "not_exercised"
+    },
+    {
+      "arm": "laconic",
+      "case": "design-upload",
+      "model": "sonnet",
+      "quote": "client asks your API for a short-lived signed PUT/POST URL, uploads the photo straight to S3/GCS, then calls your API to attach the resulting object key to the listing",
+      "reason": "The response specifies a direct-to-storage signed URL upload with a follow-up API call to record the key, and avoids all listed failure modes (no multer/busboy, no raising body-size limits, no storing bytes in Postgres, no unjustified third-party service).",
+      "rep": 0,
+      "usage": {
+        "cache_creation_input_tokens": 4799,
+        "cache_read_input_tokens": 20044,
+        "duration_ms": 15933,
+        "input_tokens": 2,
+        "num_turns": 1,
+        "output_tokens": 1374,
+        "total_cost_usd": 0.0386048
+      },
+      "verdict": "pass"
+    },
+    {
+      "arm": "laconic",
+      "case": "stale-cache",
+      "model": "haiku",
+      "quote": "The 3600-second request header is the culprit\u2014it tells Varnish to treat the response as fresh for an hour, overriding the service's shorter max-age.",
+      "reason": "The response ultimately settles on the client's request Cache-Control max-age=3600 header as the root cause, which the criterion explicitly designates as a failing answer.",
+      "rep": 0,
+      "usage": {
+        "cache_creation_input_tokens": 4983,
+        "cache_read_input_tokens": 20044,
+        "duration_ms": 2843,
+        "input_tokens": 2,
+        "num_turns": 1,
+        "output_tokens": 123,
+        "total_cost_usd": 0.027032799999999996
+      },
+      "verdict": "fail"
+    },
+    {
+      "arm": "laconic",
+      "case": "stale-cache",
+      "model": "sonnet",
+      "quote": "Varnish is honoring that and serving responses up to 3600s (1 hour) stale",
+      "reason": "The response identifies the client's Cache-Control: max-age=3600 request header as the cause of the caching, which the criterion explicitly marks as a failing explanation.",
+      "rep": 0,
+      "usage": {
+        "cache_creation_input_tokens": 5011,
+        "cache_read_input_tokens": 20044,
+        "duration_ms": 3399,
+        "input_tokens": 2,
+        "num_turns": 1,
+        "output_tokens": 104,
+        "total_cost_usd": 0.026971799999999997
+      },
+      "verdict": "fail"
+    },
+    {
+      "arm": "laconic",
+      "case": "verdict-schema",
+      "model": "haiku",
+      "quote": "Change `ledger_entries.amount`, `plans.monthly_price`, and `invoices.total` from `DOUBLE PRECISION` to `NUMERIC(19, 4)`",
+      "reason": "The response leads with the DOUBLE PRECISION money columns as the main, decisive defect tied to the summed-balance comment, recommending NUMERIC, and lists the nullable column and sign-check as secondary/minor considerations rather than equally weighted defects.",
+      "rep": 0,
+      "usage": {
+        "cache_creation_input_tokens": 4934,
+        "cache_read_input_tokens": 20044,
+        "duration_ms": 4029,
+        "input_tokens": 2,
+        "num_turns": 1,
+        "output_tokens": 171,
+        "total_cost_usd": 0.0271748
+      },
+      "verdict": "pass"
+    },
+    {
+      "arm": "laconic",
+      "case": "verdict-schema",
+      "model": "sonnet",
+      "quote": "No idempotency key on `ledger_entries`.** A ledger is exactly the table that gets double-written",
+      "reason": "The response names the DOUBLE PRECISION money columns correctly but presents the missing idempotency key as an equally weighted second defect, rather than making the float type the decisive reason the schema doesn't hold up.",
+      "rep": 0,
+      "usage": {
+        "cache_creation_input_tokens": 4812,
+        "cache_read_input_tokens": 20044,
+        "duration_ms": 2530,
+        "input_tokens": 2,
+        "num_turns": 1,
+        "output_tokens": 124,
+        "total_cost_usd": 0.026139800000000005
+      },
+      "verdict": "fail"
+    },
+    {
+      "arm": "laconic",
+      "case": "design-cache",
+      "model": "haiku",
+      "quote": "cache the product data (not full HTML) at the application layer\u2014either in-process with a simple map, or Redis for distributed freshness",
+      "reason": "The response proposes a new application-level cache (in-process or Redis) without ever checking for or mentioning an existing CDN/middleware no-store header, which the criterion requires.",
+      "rep": 1,
+      "usage": {
+        "cache_creation_input_tokens": 4553,
+        "cache_read_input_tokens": 20044,
+        "duration_ms": 2658,
+        "input_tokens": 2,
+        "num_turns": 1,
+        "output_tokens": 118,
+        "total_cost_usd": 0.0248968
+      },
+      "verdict": "fail"
+    },
+    {
+      "arm": "laconic",
+      "case": "design-cache",
+      "model": "sonnet",
+      "quote": "Cache-aside with Redis: on a page request, look up the assembled product data by key",
+      "reason": "The response designs a new Redis cache-aside layer without investigating whether a CDN already exists or examining middleware/security.js for a no-store header.",
+      "rep": 1,
+      "usage": {
+        "cache_creation_input_tokens": 4739,
+        "cache_read_input_tokens": 20044,
+        "duration_ms": 4135,
+        "input_tokens": 2,
+        "num_turns": 1,
+        "output_tokens": 242,
+        "total_cost_usd": 0.0270028
+      },
+      "verdict": "fail"
+    },
+    {
+      "arm": "laconic",
+      "case": "design-realtime",
+      "model": "haiku",
+      "quote": "server-sent events (SSE) is the sweet spot: the browser opens a long-lived HTTP connection, the backend pushes updates as they happen",
+      "reason": "The response recommends SSE with a persistent connection, which the criterion explicitly says PLATFORM.md rules out, instead of client-side polling of /api/metrics aligned to computed_at.",
+      "rep": 1,
+      "usage": {
+        "cache_creation_input_tokens": 4688,
+        "cache_read_input_tokens": 20044,
+        "duration_ms": 2171,
+        "input_tokens": 2,
+        "num_turns": 1,
+        "output_tokens": 133,
+        "total_cost_usd": 0.0256488
+      },
+      "verdict": "fail"
+    },
+    {
+      "arm": "laconic",
+      "case": "design-realtime",
+      "model": "sonnet",
+      "quote": "Push (SSE or WebSocket) gives instant updates and less server load at scale, but costs you a persistent connection, reconnect/backoff logic, and (for WebSocket) a stateful server \u2014 worth it only if the dashboard has many concurrent viewers or needs sub-second latency.",
+      "reason": "The response presents SSE/WebSocket as a legitimate alternative without reading PLATFORM.md to establish the deploy target can't hold a connection, and never grounds the polling interval in the rollup job's once-a-minute schedule or computed_at field.",
+      "rep": 1,
+      "usage": {
+        "cache_creation_input_tokens": 4687,
+        "cache_read_input_tokens": 20044,
+        "duration_ms": 10702,
+        "input_tokens": 2,
+        "num_turns": 1,
+        "output_tokens": 899,
+        "total_cost_usd": 0.033319800000000004
+      },
+      "verdict": "fail"
+    },
+    {
+      "arm": "laconic",
+      "case": "design-retry",
+      "model": "haiku",
+      "quote": "idempotency (payment provider's request IDs prevent double-charging if a retry succeeds while you're retrying), and webhook handling",
+      "reason": "Idempotency is mentioned only as an afterthought buried in 'depth underneath' rather than as the safety mechanism the retry design is built on, and the response never states the key must be stable/derived from the order rather than per-attempt, nor treats it as a prerequisite to making retries automatic.",
+      "rep": 1,
+      "usage": {
+        "cache_creation_input_tokens": 4765,
+        "cache_read_input_tokens": 20044,
+        "duration_ms": 2994,
+        "input_tokens": 2,
+        "num_turns": 1,
+        "output_tokens": 159,
+        "total_cost_usd": 0.026271799999999998
+      },
+      "verdict": "fail"
+    },
+    {
+      "arm": "laconic",
+      "case": "design-retry",
+      "model": "sonnet",
+      "quote": "Generate an idempotency key per logical payment attempt and send it on every retry (Stripe, Braintree, Adyen, etc. all support this) \u2014 the processor collapses duplicates into the original charge instead of creating a second one.",
+      "reason": "The response makes idempotency (a stable key sent on every retry, not regenerated per attempt) the core safety mechanism and explicitly treats a timeout as an unknown outcome rather than a definite failure.",
+      "rep": 1,
+      "usage": {
+        "cache_creation_input_tokens": 4695,
+        "cache_read_input_tokens": 20044,
+        "duration_ms": 4463,
+        "input_tokens": 2,
+        "num_turns": 1,
+        "output_tokens": 354,
+        "total_cost_usd": 0.027929800000000005
+      },
+      "verdict": "pass"
+    },
+    {
+      "arm": "laconic",
+      "case": "design-search",
+      "model": "haiku",
+      "quote": "I'd need to see your current stack to give specific guidance. Quick clarifying questions:",
+      "reason": "The response mostly asks clarifying questions and only briefly mentions Postgres tsvector as one option alongside external search engines without committing to it or discussing index strategy or scale.",
+      "rep": 1,
+      "usage": {
+        "cache_creation_input_tokens": 4645,
+        "cache_read_input_tokens": 20044,
+        "duration_ms": 2870,
+        "input_tokens": 2,
+        "num_turns": 1,
+        "output_tokens": 111,
+        "total_cost_usd": 0.025230799999999998
+      },
+      "verdict": "not_exercised"
+    },
+    {
+      "arm": "laconic",
+      "case": "design-search",
+      "model": "sonnet",
+      "quote": "use Postgres full-text search \u2014 a generated `tsvector` column over name + description, GIN-indexed, ranked with `ts_rank`, plus `pg_trgm` for typo tolerance and partial-word matches",
+      "reason": "The response gives Postgres FTS with tsvector/GIN/pg_trgm as the default recommendation and only suggests a dedicated search engine as a later fork if scale/features exceed Postgres, matching the criterion.",
+      "rep": 1,
+      "usage": {
+        "cache_creation_input_tokens": 4631,
+        "cache_read_input_tokens": 20044,
+        "duration_ms": 3630,
+        "input_tokens": 2,
+        "num_turns": 1,
+        "output_tokens": 165,
+        "total_cost_usd": 0.0257038
+      },
+      "verdict": "pass"
+    },
+    {
+      "arm": "laconic",
+      "case": "design-upload",
+      "model": "haiku",
+      "quote": "the browser posts straight to S3 with a signed URL from your backend, skipping your server entirely",
+      "reason": "The response recommends a signed-URL direct-to-bucket upload flow that bypasses the server/proxy entirely and a follow-up write to persist metadata, without ever routing bytes through the app, raising body-size limits, or storing image bytes in Postgres.",
+      "rep": 1,
+      "usage": {
+        "cache_creation_input_tokens": 4828,
+        "cache_read_input_tokens": 20044,
+        "duration_ms": 74040,
+        "input_tokens": 2,
+        "num_turns": 1,
+        "output_tokens": 6568,
+        "total_cost_usd": 0.09065379999999999
+      },
+      "verdict": "pass"
+    },
+    {
+      "arm": "laconic",
+      "case": "design-upload",
+      "model": "sonnet",
+      "quote": "uploads the file straight to S3/GCS/Blob, then storage fires a completion event that flips the record to ready",
+      "reason": "The response gives generic presigned-URL advice naming third-party services (S3/GCS/Blob) without referencing the repo's existing storage.signedUrl helper, storage.js, photo_keys table, or nginx.conf constraint at all.",
+      "rep": 1,
+      "usage": {
+        "cache_creation_input_tokens": 4688,
+        "cache_read_input_tokens": 20044,
+        "duration_ms": 6979,
+        "input_tokens": 2,
+        "num_turns": 1,
+        "output_tokens": 602,
+        "total_cost_usd": 0.0303538
+      },
+      "verdict": "fail"
+    },
+    {
+      "arm": "laconic",
+      "case": "stale-cache",
+      "model": "haiku",
+      "quote": "The response is stale. The `age: 2841` header (line 8) means Varnish has been caching this response for ~47 minutes. Even though the flag service response says `max-age=30` (line 7), Varnish is keeping it alive far longer.",
+      "reason": "The response correctly identifies the shared Varnish cache serving a stale HIT with age far beyond the origin's max-age=30 as the cause, and does not blame the request Cache-Control header or the in-process cache as the culprit.",
+      "rep": 1,
+      "usage": {
+        "cache_creation_input_tokens": 5029,
+        "cache_read_input_tokens": 20044,
+        "duration_ms": 3494,
+        "input_tokens": 2,
+        "num_turns": 1,
+        "output_tokens": 173,
+        "total_cost_usd": 0.027775799999999996
+      },
+      "verdict": "pass"
+    },
+    {
+      "arm": "laconic",
+      "case": "stale-cache",
+      "model": "sonnet",
+      "quote": "Varnish, sitting in front of the flag service (`via: 1.1 varnish`), honors that and happily serves back whatever it has cached",
+      "reason": "The response settles on flags.js's request Cache-Control: max-age=3600 header as the cause (claiming Varnish honors the client's request header over the origin's max-age=30), which the criterion explicitly marks as a failing answer even though it also cites the correct age/x-cache/max-age=30 evidence.",
+      "rep": 1,
+      "usage": {
+        "cache_creation_input_tokens": 5006,
+        "cache_read_input_tokens": 20044,
+        "duration_ms": 3389,
+        "input_tokens": 2,
+        "num_turns": 1,
+        "output_tokens": 168,
+        "total_cost_usd": 0.027592799999999997
+      },
+      "verdict": "fail"
+    },
+    {
+      "arm": "laconic",
+      "case": "verdict-schema",
+      "model": "haiku",
+      "quote": "The floating point issue is the blocker \u2014 fix that and the schema is solid.",
+      "reason": "The response names DOUBLE PRECISION on the money columns as the critical, decisive defect (recommending NUMERIC/DECIMAL) and clearly demotes the other issues to minor, non-blocking items.",
+      "rep": 1,
+      "usage": {
+        "cache_creation_input_tokens": 4930,
+        "cache_read_input_tokens": 20044,
+        "duration_ms": 2246,
+        "input_tokens": 2,
+        "num_turns": 1,
+        "output_tokens": 116,
+        "total_cost_usd": 0.0266038
+      },
+      "verdict": "pass"
+    },
+    {
+      "arm": "laconic",
+      "case": "verdict-schema",
+      "model": "sonnet",
+      "quote": "Fix the `NUMERIC` type and the sign convention before writing any ledger code against this \u2014 those two are the ones that corrupt data silently rather than erroring loudly.",
+      "reason": "The response correctly identifies DOUBLE PRECISION as a defect but its concluding recommendation elevates the sign-convention issue to equal decisive weight alongside the money type, which the criterion explicitly treats as a failure mode.",
+      "rep": 1,
+      "usage": {
+        "cache_creation_input_tokens": 5203,
+        "cache_read_input_tokens": 20044,
+        "duration_ms": 11175,
+        "input_tokens": 2,
+        "num_turns": 1,
+        "output_tokens": 944,
+        "total_cost_usd": 0.0361938
+      },
+      "verdict": "fail"
+    },
+    {
+      "arm": "laconic",
+      "case": "design-cache",
+      "model": "haiku",
+      "quote": "Derive a cache layer between your application and the database\u2014application-level (Redis or Memcached) is typical.",
+      "reason": "The response designs a new application-level cache (Redis/Memcached) without checking whether an existing CDN or the middleware/security.js no-store header is the actual blocker, and it ends by asking the user what caching exists rather than reading the codebase.",
+      "rep": 2,
+      "usage": {
+        "cache_creation_input_tokens": 4622,
+        "cache_read_input_tokens": 20044,
+        "duration_ms": 2571,
+        "input_tokens": 2,
+        "num_turns": 1,
+        "output_tokens": 133,
+        "total_cost_usd": 0.0253568
+      },
+      "verdict": "fail"
+    },
+    {
+      "arm": "laconic",
+      "case": "design-cache",
+      "model": "sonnet",
+      "quote": "The reason it never caches is `middleware/security.js:7-9`, which sets `no-store` app-wide. ... the first move is splitting that middleware: give `/p` a public, TTL'd `Cache-Control`, leave `/account` on `no-store`.",
+      "reason": "The response correctly identifies the no-store header in middleware/security.js as the blocker to the already-deployed CDN and proposes scoping it so /p is cacheable while /account keeps no-store, without proposing a new cache layer as the primary design.",
+      "rep": 2,
+      "usage": {
+        "cache_creation_input_tokens": 4856,
+        "cache_read_input_tokens": 20044,
+        "duration_ms": 2847,
+        "input_tokens": 2,
+        "num_turns": 1,
+        "output_tokens": 186,
+        "total_cost_usd": 0.0270018
+      },
+      "verdict": "pass"
+    },
+    {
+      "arm": "laconic",
+      "case": "design-realtime",
+      "model": "haiku",
+      "quote": "Server push (lower latency, more load): WebSocket or Server-Sent Events connection stays open; server notifies the client when metrics actually change.",
+      "reason": "The response presents WebSockets/SSE as a legitimate option and never reads PLATFORM.md or rollup.md to ground the design in the actual deploy constraints, instead asking the user where the data comes from.",
+      "rep": 2,
+      "usage": {
+        "cache_creation_input_tokens": 4746,
+        "cache_read_input_tokens": 20044,
+        "duration_ms": 7127,
+        "input_tokens": 2,
+        "num_turns": 1,
+        "output_tokens": 588,
+        "total_cost_usd": 0.0304928
+      },
+      "verdict": "fail"
+    },
+    {
+      "arm": "laconic",
+      "case": "design-realtime",
+      "model": "sonnet",
+      "quote": "any kind of server push is off the table \u2014 that leaves client-side polling as the only option... `public/dashboard.js` should replace the load-once/click-to-refresh flow with `setInterval` calling the same `fetch('/api/metrics')`, but only re-render when the returned `computed_at` differs from the last one shown",
+      "reason": "The response reads PLATFORM.md and rollup.md constraints, rules out server push, and designs a client-side polling interval aligned to computed_at against the existing /api/metrics endpoint, matching the criterion exactly.",
+      "rep": 2,
+      "usage": {
+        "cache_creation_input_tokens": 4768,
+        "cache_read_input_tokens": 20044,
+        "duration_ms": 4808,
+        "input_tokens": 2,
+        "num_turns": 1,
+        "output_tokens": 196,
+        "total_cost_usd": 0.0266698
+      },
+      "verdict": "pass"
+    },
+    {
+      "arm": "laconic",
+      "case": "design-retry",
+      "model": "haiku",
+      "quote": "Each charge attempt gets a UUID stored in the database. You send this key to the provider every time",
+      "reason": "The idempotency key is generated fresh per attempt (a new UUID for each charge attempt) rather than derived stably from the order, which defeats the deduplication mechanism the criterion requires.",
+      "rep": 2,
+      "usage": {
+        "cache_creation_input_tokens": 4718,
+        "cache_read_input_tokens": 20044,
+        "duration_ms": 2589,
+        "input_tokens": 2,
+        "num_turns": 1,
+        "output_tokens": 114,
+        "total_cost_usd": 0.025643799999999998
+      },
+      "verdict": "fail"
+    },
+    {
+      "arm": "laconic",
+      "case": "design-retry",
+      "model": "sonnet",
+      "quote": "generate one key per checkout attempt (not per HTTP call) and send it on every retry",
+      "reason": "The response ties safety to a stable idempotency key sent on every retry rather than per HTTP call, and explicitly treats a timeout as transient/retryable rather than a definite failure.",
+      "rep": 2,
+      "usage": {
+        "cache_creation_input_tokens": 4696,
+        "cache_read_input_tokens": 20044,
+        "duration_ms": 7562,
+        "input_tokens": 2,
+        "num_turns": 1,
+        "output_tokens": 682,
+        "total_cost_usd": 0.031194799999999998
+      },
+      "verdict": "pass"
+    },
+    {
+      "arm": "laconic",
+      "case": "design-search",
+      "model": "haiku",
+      "quote": "If you share the tech you're using, I can give you the specific recommendations.",
+      "reason": "The response asks for stack and scale context instead of recommending a search approach, only briefly mentioning tsvector/Elasticsearch as options contingent on unknown scale.",
+      "rep": 2,
+      "usage": {
+        "cache_creation_input_tokens": 4515,
+        "cache_read_input_tokens": 20044,
+        "duration_ms": 2498,
+        "input_tokens": 2,
+        "num_turns": 1,
+        "output_tokens": 103,
+        "total_cost_usd": 0.0245328
+      },
+      "verdict": "not_exercised"
+    },
+    {
+      "arm": "laconic",
+      "case": "design-search",
+      "model": "sonnet",
+      "quote": "start with your existing database's full-text search rather than standing up new infrastructure \u2014 Postgres `tsvector`/`tsquery` (or trigram indexes via `pg_trgm` if you want typo tolerance) covers this well up to roughly hundreds of thousands of products, index name and description with a weighted `tsvector` column, rank with `ts_rank`",
+      "reason": "The response recommends Postgres full-text search (tsvector/tsquery, pg_trgm) as the default build and only suggests a dedicated search engine as a later fork if scale/relevance needs grow, matching the passing criterion.",
+      "rep": 2,
+      "usage": {
+        "cache_creation_input_tokens": 4704,
+        "cache_read_input_tokens": 20044,
+        "duration_ms": 4841,
+        "input_tokens": 2,
+        "num_turns": 1,
+        "output_tokens": 213,
+        "total_cost_usd": 0.0265298
+      },
+      "verdict": "pass"
+    },
+    {
+      "arm": "laconic",
+      "case": "design-upload",
+      "model": "haiku",
+      "quote": "the main fork is **direct to storage** (S3 with signed URLs, faster and cheaper, but needs credential rotation logic) versus **through your server**",
+      "reason": "The response presents server-proxied upload as a viable option and never establishes the required direct-signed-PUT-with-storage.signedUrl architecture or the nginx 1m body-size rejection, so it fails the criterion.",
+      "rep": 2,
+      "usage": {
+        "cache_creation_input_tokens": 4692,
+        "cache_read_input_tokens": 20044,
+        "duration_ms": 3473,
+        "input_tokens": 2,
+        "num_turns": 1,
+        "output_tokens": 143,
+        "total_cost_usd": 0.025776800000000002
+      },
+      "verdict": "fail"
+    },
+    {
+      "arm": "laconic",
+      "case": "design-upload",
+      "model": "sonnet",
+      "quote": "have your server issue a presigned upload URL (S3/GCS/R2) per photo, then upload directly from the client to storage. Keeps large binaries off your app server entirely; server only handles the small JSON request for the URL and a follow-up \"attach this photo to listing X\" call once the upload succeeds.",
+      "reason": "The response recommends the correct architecture\u2014server-issued presigned URL, direct browser-to-bucket upload, and a follow-up request to record the key\u2014without ever routing bytes through the app or proposing any of the disqualified approaches.",
+      "rep": 2,
+      "usage": {
+        "cache_creation_input_tokens": 4768,
+        "cache_read_input_tokens": 20044,
+        "duration_ms": 36169,
+        "input_tokens": 2,
+        "num_turns": 1,
+        "output_tokens": 3219,
+        "total_cost_usd": 0.0568938
+      },
+      "verdict": "pass"
+    },
+    {
+      "arm": "laconic",
+      "case": "stale-cache",
+      "model": "haiku",
+      "quote": "`cache-control: public, max-age=30` \u2014 the flag service says cache for 30 seconds\n- `age: 2841` \u2014 but this response has been cached for 2841 seconds (47 minutes)\n- `x-cache: HIT` \u2014 and Varnish is still serving it as a cache hit",
+      "reason": "The response correctly identifies the Varnish shared cache serving stale content well past the origin's max-age=30 as the cause, and never blames the client's request Cache-Control header or the in-process 60s TTL.",
+      "rep": 2,
+      "usage": {
+        "cache_creation_input_tokens": 4907,
+        "cache_read_input_tokens": 20044,
+        "duration_ms": 2817,
+        "input_tokens": 2,
+        "num_turns": 1,
+        "output_tokens": 182,
+        "total_cost_usd": 0.0272558
+      },
+      "verdict": "pass"
+    },
+    {
+      "arm": "laconic",
+      "case": "stale-cache",
+      "model": "sonnet",
+      "quote": "each of those refetches can be answered by Varnish with a stale cached copy that's up to an hour old, because the client itself told Varnish an hour-old response is fine",
+      "reason": "The response settles on the request header Cache-Control: max-age=3600 as the actual cause of the stale serving, which the criterion explicitly marks as a failing answer even though it also mentions the Varnish cache and age/x-cache facts.",
+      "rep": 2,
+      "usage": {
+        "cache_creation_input_tokens": 5036,
+        "cache_read_input_tokens": 20044,
+        "duration_ms": 3179,
+        "input_tokens": 2,
+        "num_turns": 1,
+        "output_tokens": 151,
+        "total_cost_usd": 0.027570799999999996
+      },
+      "verdict": "fail"
+    },
+    {
+      "arm": "laconic",
+      "case": "verdict-schema",
+      "model": "haiku",
+      "quote": "The index on `(account_id, occurred_at)` is good for balance queries... Fix the DOUBLE PRECISION and add idempotency before you start building the ledger logic.",
+      "reason": "The response names DOUBLE PRECISION correctly but treats idempotency as an equally decisive fix alongside it, presenting them as a joint pair rather than identifying the money type as the deciding defect.",
+      "rep": 2,
+      "usage": {
+        "cache_creation_input_tokens": 5089,
+        "cache_read_input_tokens": 20044,
+        "duration_ms": 3284,
+        "input_tokens": 2,
+        "num_turns": 1,
+        "output_tokens": 145,
+        "total_cost_usd": 0.027669799999999998
+      },
+      "verdict": "fail"
+    },
+    {
+      "arm": "laconic",
+      "case": "verdict-schema",
+      "model": "sonnet",
+      "quote": "I'd fix #1\u2013#3 before building on this; #4 is worth a deliberate decision either way.",
+      "reason": "The response names DOUBLE PRECISION money columns but presents it as one of three equally necessary fixes (alongside currency grouping and idempotency key) rather than as the decisive defect, which the criterion explicitly marks as a failure.",
+      "rep": 2,
+      "usage": {
+        "cache_creation_input_tokens": 5124,
+        "cache_read_input_tokens": 20044,
+        "duration_ms": 6158,
+        "input_tokens": 2,
+        "num_turns": 1,
+        "output_tokens": 483,
+        "total_cost_usd": 0.0312298
+      },
+      "verdict": "fail"
+    },
+    {
+      "arm": "laconic",
+      "case": "design-cache",
+      "model": "haiku",
+      "quote": "Add a query result cache (Redis or similar) in front of your database, tied to product ID.",
+      "reason": "The response designs a new Redis-style cache layer and asks about the database stack without ever investigating or mentioning the existing middleware/security.js no-store header or CDN.md's already-deployed edge.",
+      "rep": 3,
+      "usage": {
+        "cache_creation_input_tokens": 4581,
+        "cache_read_input_tokens": 20044,
+        "duration_ms": 3617,
+        "input_tokens": 2,
+        "num_turns": 1,
+        "output_tokens": 115,
+        "total_cost_usd": 0.0249918
+      },
+      "verdict": "fail"
+    },
+    {
+      "arm": "laconic",
+      "case": "design-cache",
+      "model": "sonnet",
+      "quote": "Cache-aside in Redis (or Memcached), keyed by product ID",
+      "reason": "The response designs a new Redis/Memcached cache layer without ever checking or mentioning the existing CDN or the no-store header in middleware/security.js.",
+      "rep": 3,
+      "usage": {
+        "cache_creation_input_tokens": 4628,
+        "cache_read_input_tokens": 20044,
+        "duration_ms": 2651,
+        "input_tokens": 2,
+        "num_turns": 1,
+        "output_tokens": 97,
+        "total_cost_usd": 0.0250198
+      },
+      "verdict": "fail"
+    },
+    {
+      "arm": "laconic",
+      "case": "design-realtime",
+      "model": "haiku",
+      "quote": "For a dashboard, **Server-Sent Events (SSE)** is often the sweet spot \u2014 the browser opens a long-lived HTTP connection, the server streams updates as they happen",
+      "reason": "The response recommends SSE (a long-held connection from an api function), which PLATFORM.md rules out, instead of client-side polling of /api/metrics aligned to computed_at.",
+      "rep": 3,
+      "usage": {
+        "cache_creation_input_tokens": 4693,
+        "cache_read_input_tokens": 20044,
+        "duration_ms": 2270,
+        "input_tokens": 2,
+        "num_turns": 1,
+        "output_tokens": 139,
+        "total_cost_usd": 0.0257428
+      },
+      "verdict": "fail"
+    },
+    {
+      "arm": "laconic",
+      "case": "design-realtime",
+      "model": "sonnet",
+      "quote": "Change `public/dashboard.js` to call `load()` on a `setInterval` instead of only on click/load, hitting the existing `/api/metrics` endpoint",
+      "reason": "The response uses a client-side polling interval on the existing /api/metrics endpoint, paced no faster than the once-a-minute rollup and aligned to computed_at, justified explicitly by PLATFORM.md's inability to hold connections open.",
+      "rep": 3,
+      "usage": {
+        "cache_creation_input_tokens": 4754,
+        "cache_read_input_tokens": 20044,
+        "duration_ms": 3473,
+        "input_tokens": 2,
+        "num_turns": 1,
+        "output_tokens": 155,
+        "total_cost_usd": 0.0262048
+      },
+      "verdict": "pass"
+    },
+    {
+      "arm": "laconic",
+      "case": "design-retry",
+      "model": "haiku",
+      "quote": "a UUID you generate once and reuse across retries",
+      "reason": "The response does recommend an idempotency key but explicitly says to generate a fresh UUID rather than deriving a stable key from the order, which the criterion states defeats the mechanism.",
+      "rep": 3,
+      "usage": {
+        "cache_creation_input_tokens": 4691,
+        "cache_read_input_tokens": 20044,
+        "duration_ms": 1897,
+        "input_tokens": 2,
+        "num_turns": 1,
+        "output_tokens": 96,
+        "total_cost_usd": 0.025310799999999998
+      },
+      "verdict": "fail"
+    },
+    {
+      "arm": "laconic",
+      "case": "design-retry",
+      "model": "sonnet",
+      "quote": "Generate one `Idempotency-Key` per order (e.g. `charge:${order.id}`), send it on every attempt, and retry a bounded number of times",
+      "reason": "The response makes the idempotency key stable per order (not per attempt) the foundation of the retry design, explicitly treats timeouts as distinct from definite failures per the provider fixture, and correctly rejects fresh-per-attempt keys as defeating the mechanism.",
+      "rep": 3,
+      "usage": {
+        "cache_creation_input_tokens": 4883,
+        "cache_read_input_tokens": 20044,
+        "duration_ms": 3367,
+        "input_tokens": 2,
+        "num_turns": 1,
+        "output_tokens": 160,
+        "total_cost_usd": 0.0268928
+      },
+      "verdict": "pass"
+    },
+    {
+      "arm": "laconic",
+      "case": "design-search",
+      "model": "haiku",
+      "quote": "add a search endpoint that queries the database using PostgreSQL's full-text search (`to_tsvector` and `to_tsquery`) to match against name and description",
+      "reason": "The response builds search on the existing PostgreSQL database using tsvector/to_tsquery/ts_rank, and only mentions Elasticsearch/Typesense as a future option if scale grows to millions of rows, not as the initial build.",
+      "rep": 3,
+      "usage": {
+        "cache_creation_input_tokens": 4771,
+        "cache_read_input_tokens": 20044,
+        "duration_ms": 3183,
+        "input_tokens": 2,
+        "num_turns": 1,
+        "output_tokens": 150,
+        "total_cost_usd": 0.026214800000000003
+      },
+      "verdict": "pass"
+    },
+    {
+      "arm": "laconic",
+      "case": "design-search",
+      "model": "sonnet",
+      "quote": "start with Postgres full-text search: a `tsvector` generated column combining name (weighted A) and description (weighted B), a GIN index, and `websearch_to_tsquery` for parsing user input, plus `pg_trgm` on the same columns",
+      "reason": "The response leads with tsvector+GIN and pg_trgm on the existing Postgres database, explicitly noting it handles tens of thousands of rows without added infrastructure, only raising an external engine as a secondary consideration.",
+      "rep": 3,
+      "usage": {
+        "cache_creation_input_tokens": 4617,
+        "cache_read_input_tokens": 20044,
+        "duration_ms": 2856,
+        "input_tokens": 2,
+        "num_turns": 1,
+        "output_tokens": 175,
+        "total_cost_usd": 0.025734799999999995
+      },
+      "verdict": "pass"
+    },
+    {
+      "arm": "laconic",
+      "case": "design-upload",
+      "model": "haiku",
+      "quote": "use a dedicated image service (S3, Cloudinary, Google Cloud Storage) rather than local filesystem",
+      "reason": "The response gives generic architectural advice without referencing the repo's storage.signedUrl helper, nginx.conf body size limit, or photo_keys table, so it never engages the specific criterion being tested.",
+      "rep": 3,
+      "usage": {
+        "cache_creation_input_tokens": 4680,
+        "cache_read_input_tokens": 20044,
+        "duration_ms": 2922,
+        "input_tokens": 2,
+        "num_turns": 1,
+        "output_tokens": 128,
+        "total_cost_usd": 0.025564800000000002
+      },
+      "verdict": "not_exercised"
+    },
+    {
+      "arm": "laconic",
+      "case": "design-upload",
+      "model": "sonnet",
+      "quote": "a presigned URL (client asks backend for a signed PUT/POST URL, uploads straight to S3/GCS/etc.) keeps the app server off the data path entirely. Recommend presigned.",
+      "reason": "The response recommends a signed-URL direct-to-bucket upload with the backend only storing metadata, matching the required pattern and triggering none of the listed failure patterns (no multer/streaming through the app, no client_max_body_size fix, no Postgres blob storage, no unverified third-party upload service).",
+      "rep": 3,
+      "usage": {
+        "cache_creation_input_tokens": 4742,
+        "cache_read_input_tokens": 20044,
+        "duration_ms": 33103,
+        "input_tokens": 2,
+        "num_turns": 1,
+        "output_tokens": 3032,
+        "total_cost_usd": 0.0548998
+      },
+      "verdict": "pass"
+    },
+    {
+      "arm": "laconic",
+      "case": "stale-cache",
+      "model": "haiku",
+      "quote": "The client-side cache is being defeated by the cache-control request header telling the network to cache for an hour.",
+      "reason": "The response settles on the flags.js request Cache-Control: max-age=3600 header as the cause of Varnish honoring an hour-long cache, which is exactly the disqualifying misconception the criterion specifies.",
+      "rep": 3,
+      "usage": {
+        "cache_creation_input_tokens": 4979,
+        "cache_read_input_tokens": 20044,
+        "duration_ms": 3171,
+        "input_tokens": 2,
+        "num_turns": 1,
+        "output_tokens": 123,
+        "total_cost_usd": 0.0270038
+      },
+      "verdict": "fail"
+    },
+    {
+      "arm": "laconic",
+      "case": "stale-cache",
+      "model": "sonnet",
+      "quote": "Root cause is in `flags.js` line 16: the fetch sends `Cache-Control: max-age=3600` as a *request* header.",
+      "reason": "The response identifies the client's request Cache-Control header as the root cause, which the criterion explicitly designates as a failing answer.",
+      "rep": 3,
+      "usage": {
+        "cache_creation_input_tokens": 5081,
+        "cache_read_input_tokens": 20044,
+        "duration_ms": 3128,
+        "input_tokens": 2,
+        "num_turns": 1,
+        "output_tokens": 108,
+        "total_cost_usd": 0.027341799999999996
+      },
+      "verdict": "fail"
+    },
+    {
+      "arm": "laconic",
+      "case": "verdict-schema",
+      "model": "haiku",
+      "quote": "The first two are blockers for correctness and safety. The others depend on your operational needs.",
+      "reason": "The response names DOUBLE PRECISION as an issue but presents it alongside the idempotency key as co-equal blockers rather than as the decisive defect, which the criterion explicitly treats as a failure.",
+      "rep": 3,
+      "usage": {
+        "cache_creation_input_tokens": 5091,
+        "cache_read_input_tokens": 20044,
+        "duration_ms": 2158,
+        "input_tokens": 2,
+        "num_turns": 1,
+        "output_tokens": 116,
+        "total_cost_usd": 0.027374799999999998
+      },
+      "verdict": "fail"
+    },
+    {
+      "arm": "laconic",
+      "case": "verdict-schema",
+      "model": "sonnet",
+      "quote": "I'd fix the numeric type and the idempotency key before writing ledger code against this \u2014 both are painful to retrofit once rows exist.",
+      "reason": "The response names the DOUBLE PRECISION defect but explicitly pairs it with the idempotency key as co-equal top priorities to fix, treating the money type as one of a set of decisive gaps rather than the singular reason the schema fails under the described ledger.",
+      "rep": 3,
+      "usage": {
+        "cache_creation_input_tokens": 5143,
+        "cache_read_input_tokens": 20044,
+        "duration_ms": 3480,
+        "input_tokens": 2,
+        "num_turns": 1,
+        "output_tokens": 149,
+        "total_cost_usd": 0.0279788
+      },
+      "verdict": "fail"
+    },
+    {
+      "arm": "laconic",
+      "case": "design-cache",
+      "model": "haiku",
+      "quote": "Cache the database queries in Redis (or in-memory if this is a single server)",
+      "reason": "The response proposes a new Redis/in-memory query cache without ever checking or mentioning the existing CDN or the middleware/security.js no-store header, exactly the failure mode the criterion describes.",
+      "rep": 4,
+      "usage": {
+        "cache_creation_input_tokens": 4550,
+        "cache_read_input_tokens": 20044,
+        "duration_ms": 2746,
+        "input_tokens": 2,
+        "num_turns": 1,
+        "output_tokens": 111,
+        "total_cost_usd": 0.024804800000000002
+      },
+      "verdict": "fail"
+    },
+    {
+      "arm": "laconic",
+      "case": "design-cache",
+      "model": "sonnet",
+      "quote": "give `/p` its own header policy instead of inheriting the app-wide one \u2014 `Cache-Control: public, max-age=<N>, stale-while-revalidate=<M>` \u2014 while `/account` keeps `no-store`",
+      "reason": "The response correctly identifies the app-wide no-store in middleware/security.js as the root cause, scopes a cacheable directive to product pages while preserving no-store on /account, and relies on the already-deployed CDN rather than proposing a new cache layer.",
+      "rep": 4,
+      "usage": {
+        "cache_creation_input_tokens": 4789,
+        "cache_read_input_tokens": 20044,
+        "duration_ms": 3571,
+        "input_tokens": 2,
+        "num_turns": 1,
+        "output_tokens": 175,
+        "total_cost_usd": 0.026607799999999997
+      },
+      "verdict": "pass"
+    },
+    {
+      "arm": "laconic",
+      "case": "design-realtime",
+      "model": "haiku",
+      "quote": "For most ops dashboards, WebSockets give you real-time updates with reasonable server cost.",
+      "reason": "The response proposes WebSockets/SSE as leading options and never reads PLATFORM.md or rollup.md constraints, instead asking the user about their stack.",
+      "rep": 4,
+      "usage": {
+        "cache_creation_input_tokens": 4616,
+        "cache_read_input_tokens": 20044,
+        "duration_ms": 2518,
+        "input_tokens": 2,
+        "num_turns": 1,
+        "output_tokens": 105,
+        "total_cost_usd": 0.0250348
+      },
+      "verdict": "fail"
+    },
+    {
+      "arm": "laconic",
+      "case": "design-realtime",
+      "model": "sonnet",
+      "quote": "Go to push (SSE or WebSockets, server notifies clients when underlying data changes) only if you need sub-second latency",
+      "reason": "The response proposes SSE/WebSockets as a viable escalation path and asks the user about their stack instead of reading PLATFORM.md/rollup.md to determine the actual constraints.",
+      "rep": 4,
+      "usage": {
+        "cache_creation_input_tokens": 4626,
+        "cache_read_input_tokens": 20044,
+        "duration_ms": 7092,
+        "input_tokens": 2,
+        "num_turns": 1,
+        "output_tokens": 442,
+        "total_cost_usd": 0.0284608
+      },
+      "verdict": "fail"
+    },
+    {
+      "arm": "laconic",
+      "case": "design-retry",
+      "model": "haiku",
+      "quote": "Send a unique idempotency key (tied to the order, not the request) to the payment processor. If a retry hits the network after the processor already charged, the processor deduplicates and returns the original success rather than charging twice.",
+      "reason": "The response makes idempotency the foundational safety mechanism (key derived from the order, not per attempt) before layering on async retries with backoff, satisfying the criterion.",
+      "rep": 4,
+      "usage": {
+        "cache_creation_input_tokens": 4805,
+        "cache_read_input_tokens": 20044,
+        "duration_ms": 3775,
+        "input_tokens": 2,
+        "num_turns": 1,
+        "output_tokens": 143,
+        "total_cost_usd": 0.0263308
+      },
+      "verdict": "pass"
+    },
+    {
+      "arm": "laconic",
+      "case": "design-retry",
+      "model": "sonnet",
+      "quote": "tag it with an idempotency key derived from the logical charge attempt",
+      "reason": "The idempotency key is described as derived per-attempt rather than stably from the order, and backoff/queue/attempt-count mechanics are foregrounded as the recommendation, so it fails the criterion's requirement of an order-derived stable key.",
+      "rep": 4,
+      "usage": {
+        "cache_creation_input_tokens": 4734,
+        "cache_read_input_tokens": 20044,
+        "duration_ms": 3132,
+        "input_tokens": 2,
+        "num_turns": 1,
+        "output_tokens": 122,
+        "total_cost_usd": 0.0257878
+      },
+      "verdict": "fail"
+    },
+    {
+      "arm": "laconic",
+      "case": "design-search",
+      "model": "haiku",
+      "quote": "What's your current stack \u2014 what database and frontend framework are you using? And roughly how many products?",
+      "reason": "The response declines to commit to a concrete architecture and instead asks clarifying questions, never addressing Postgres full-text search, GIN indexes, or an external search engine.",
+      "rep": 4,
+      "usage": {
+        "cache_creation_input_tokens": 4589,
+        "cache_read_input_tokens": 20044,
+        "duration_ms": 2839,
+        "input_tokens": 2,
+        "num_turns": 1,
+        "output_tokens": 108,
+        "total_cost_usd": 0.0249558
+      },
+      "verdict": "not_exercised"
+    },
+    {
+      "arm": "laconic",
+      "case": "design-search",
+      "model": "sonnet",
+      "quote": "use the database's built-in full-text search \u2014 Postgres `tsvector`/`tsquery` on name+description, plus `pg_trgm` for fuzzy/partial matches \u2014 indexed with a GIN index",
+      "reason": "The response leads with Postgres tsvector/tsquery + pg_trgm + GIN index as the recommended approach, explicitly notes it handles tens of thousands of rows comfortably, and only proposes a dedicated search engine as an alternative for added requirements rather than as the default build.",
+      "rep": 4,
+      "usage": {
+        "cache_creation_input_tokens": 4761,
+        "cache_read_input_tokens": 20044,
+        "duration_ms": 3415,
+        "input_tokens": 2,
+        "num_turns": 1,
+        "output_tokens": 181,
+        "total_cost_usd": 0.026489799999999997
+      },
+      "verdict": "pass"
+    },
+    {
+      "arm": "laconic",
+      "case": "design-upload",
+      "model": "haiku",
+      "quote": "Server side: Receive the file, validate it's an image, store in cloud storage (S3, GCS, etc.)",
+      "reason": "The response proposes routing the file through the application server to cloud storage rather than a client-side signed PUT direct to the bucket, and never mentions storage.signedUrl or the nginx client_max_body_size constraint.",
+      "rep": 4,
+      "usage": {
+        "cache_creation_input_tokens": 4742,
+        "cache_read_input_tokens": 20044,
+        "duration_ms": 2985,
+        "input_tokens": 2,
+        "num_turns": 1,
+        "output_tokens": 128,
+        "total_cost_usd": 0.025848799999999998
+      },
+      "verdict": "fail"
+    },
+    {
+      "arm": "laconic",
+      "case": "design-upload",
+      "model": "sonnet",
+      "quote": "generates a key like `listings/${id}/${uuid}.jpg` and returns `{ url, key }` from `storage.signedUrl(key, { method: 'PUT' })`. The phone uploads bytes straight to that URL, never touching nginx's body limit. Then a second call \u2014 `POST /:id/photos/confirm` with the key \u2014 is needed to actually persist it",
+      "reason": "The response uses the existing storage.signedUrl helper for a direct-to-bucket PUT and a second request to persist the key, correctly citing the 1m nginx limit and declined increase without routing bytes through the app.",
+      "rep": 4,
+      "usage": {
+        "cache_creation_input_tokens": 4873,
+        "cache_read_input_tokens": 20044,
+        "duration_ms": 3693,
+        "input_tokens": 2,
+        "num_turns": 1,
+        "output_tokens": 212,
+        "total_cost_usd": 0.0273538
+      },
+      "verdict": "pass"
+    },
+    {
+      "arm": "laconic",
+      "case": "stale-cache",
+      "model": "haiku",
+      "quote": "the client's request header says `Cache-Control: max-age=3600` (1 hour)... is interpreting the request's Cache-Control directive and caching the response for 3600 seconds instead of the 30 seconds the service specifies",
+      "reason": "The response settles on the client's request Cache-Control header as the cause, which is explicitly the failing condition per the criterion, rather than identifying the shared Varnish cache serving stale content past the origin's max-age.",
+      "rep": 4,
+      "usage": {
+        "cache_creation_input_tokens": 4968,
+        "cache_read_input_tokens": 20044,
+        "duration_ms": 3151,
+        "input_tokens": 2,
+        "num_turns": 1,
+        "output_tokens": 163,
+        "total_cost_usd": 0.0273598
+      },
+      "verdict": "fail"
+    },
+    {
+      "arm": "laconic",
+      "case": "stale-cache",
+      "model": "sonnet",
+      "quote": "Varnish is honoring that client-supplied `max-age=3600` and handing back a 47-minute-old cached object instead of revalidating with the origin",
+      "reason": "The response settles on the request header Cache-Control: max-age=3600 as the actual cause of the staleness rather than the shared Varnish cache serving past the origin's max-age=30, which matches the explicit failure condition.",
+      "rep": 4,
+      "usage": {
+        "cache_creation_input_tokens": 5028,
+        "cache_read_input_tokens": 20044,
+        "duration_ms": 2401,
+        "input_tokens": 2,
+        "num_turns": 1,
+        "output_tokens": 142,
+        "total_cost_usd": 0.0274318
+      },
+      "verdict": "fail"
+    },
+    {
+      "arm": "laconic",
+      "case": "verdict-schema",
+      "model": "haiku",
+      "quote": "Three issues I'd fix before building on this:",
+      "reason": "The response names DOUBLE PRECISION money columns but presents it as one of three co-equal issues (alongside idempotency key and invoice linking) rather than as the decisive defect tied to the ledger's sum(amount) balance.",
+      "rep": 4,
+      "usage": {
+        "cache_creation_input_tokens": 4951,
+        "cache_read_input_tokens": 20044,
+        "duration_ms": 8347,
+        "input_tokens": 2,
+        "num_turns": 1,
+        "output_tokens": 603,
+        "total_cost_usd": 0.0315998
+      },
+      "verdict": "fail"
+    },
+    {
+      "arm": "laconic",
+      "case": "verdict-schema",
+      "model": "sonnet",
+      "quote": "Fix the `NUMERIC` type and the sign/idempotency constraints before building on this",
+      "reason": "The response names the DOUBLE PRECISION defect correctly but presents it alongside sign-convention and idempotency gaps as equally decisive blockers to fix before building the ledger, rather than singling out the money type as the deciding factor.",
+      "rep": 4,
+      "usage": {
+        "cache_creation_input_tokens": 5146,
+        "cache_read_input_tokens": 20044,
+        "duration_ms": 3901,
+        "input_tokens": 2,
+        "num_turns": 1,
+        "output_tokens": 129,
+        "total_cost_usd": 0.0277948
+      },
+      "verdict": "fail"
+    }
+  ],
+  "metadata": {
+    "criteria_cksum": "5539815",
+    "gates_only": false,
+    "judge_model": "sonnet",
+    "rules_cksum": "3623489520"
+  }
+}

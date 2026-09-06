@@ -4403,6 +4403,13 @@ _expected_concurrent = {
     "round-48-control.json", "round-48-edit.json",
     # Round 49, the same design a third time.
     "round-49-control.json", "round-49-edit.json",
+    # Round 51 is the two-tree design sharded by case rather than by stem: four
+    # per-case shards a side for the target batch, declaring --concurrency 8,
+    # and five a side for the round-wide arm, declaring --concurrency 10. Every
+    # shard is strictly sequential; each merge reconstructs to the shards that
+    # produced it, well inside what those shards declared.
+    "round-51-control.json", "round-51-edit.json",
+    "round-51-wide-control.json", "round-51-wide-edit.json",
 }
 _found = set()
 for _p in sorted((ROOT / "evals" / "snapshots").rglob("*.json")):
@@ -5126,6 +5133,95 @@ check("the comparison counts only `conditional`, whatever else the round ran",
       _vol.compare(_EDIT_RUNS + [{"case": "walkthrough", "tools": ["Edit"],
                                   "num_turns": 3, "text": "Fixed."}] * 40,
                    _CTRL_RUNS)[0][2:4] == (2, 10))
+
+# --- Round 51: the compression target, and the four ways it could be cheated ---
+#
+# Round 50 disclosed a 25% fall in prose words that it could not credit,
+# because it had registered the edit rate instead. This scorer is what lets a
+# round register the fall - so its tests are about the ways a fall can be
+# bought rather than earned: by not reading the fixture, by not naming the
+# defect, by pooling `conditional`'s two strata, and by counting a rise.
+import score_compression as _cmp  # noqa: E402
+
+
+def _pad(n, text=""):
+    """A response of about n prose words, optionally opening with `text`."""
+    n -= len(text.split())
+    return (text + " " + " ".join(["word"] * max(0, n))).strip()
+
+
+def _batch(cond_words, gen_words, edits=0, unread=0, silent=0, reps=20):
+    """Runs for all four cases, with the three cheats available as knobs.
+
+    `edits` puts editing runs into `conditional`; `unread` puts runs that
+    called no tool; `silent` puts runs that never name the defect. Each is a
+    way to buy the target rather than earn it, and each has to reject.
+    """
+    out = []
+    for i in range(reps):
+        # Spread, because a median permutation over two constant groups is
+        # degenerate: every shuffle lands the two medians a whole gap apart.
+        n = cond_words + (i % 5)
+        if i < edits:
+            run = {"tools": ["Read", "Edit"], "num_turns": 3, "text": _pad(4)}
+        elif i < edits + unread:
+            run = {"tools": [], "num_turns": 1, "text": _pad(n)}
+        elif i < edits + unread + silent:
+            run = {"tools": ["Read"], "num_turns": 3, "text": _pad(n)}
+        else:
+            run = {"tools": ["Read"], "num_turns": 3, "text": _pad(n, _DIAG)}
+        out.append(dict(run, case="conditional", ok=True))
+    for case in _cmp.GENERAL:
+        for i in range(reps):
+            out.append({"case": case, "tools": ["Read"], "num_turns": 2,
+                        "ok": True, "text": _pad(gen_words + (i % 3))})
+    return out
+
+
+def _v(edit_runs, control_runs):
+    """(accepted, reasons) the way the round's own command line computes it."""
+    return _cmp.verdict(_cmp.compare(edit_runs, control_runs, resamples=2000),
+                        _cmp.bounds(edit_runs, control_runs))
+
+
+_C51 = _batch(120, 100)
+check("the round-51 target accepts a fall on all four cases",
+      _v(_batch(60, 50), _C51)[0])
+check("`conditional` is scored inside its answering stratum, not pooled",
+      _cmp.cell(_batch(120, 100, edits=8), "conditional")["scored_n"] == 12)
+# The whole reason the stratum exists: an editing run is a few words long, so
+# a cell's pooled median tracks its edit rate rather than its compression.
+# `conditional`'s baseline arm has edited 62.5% of the time, so a majority is
+# the case #209 is actually about.
+_MAJORITY = _batch(120, 100, edits=12)
+check("pooling `conditional`'s editing runs would collapse its median, so it does not",
+      bench_metrics.median(_cmp.cell(_MAJORITY, "conditional")["words"]) >= 120
+      and bench_metrics.median([_cmp.words(r) for r in _MAJORITY
+                                if r["case"] == "conditional"]) < 10)
+check("a fall bought by not reading the fixture is rejected",
+      not _v(_batch(60, 50, unread=20), _C51)[0])
+check("a fall bought by not naming the defect is rejected",
+      not _v(_batch(60, 50, silent=20), _C51)[0])
+check("`conditional` alone falling is short of the generalisation bar of two",
+      not _v(_batch(60, 100), _C51)[0])
+check("a rise is not a fall, however cleanly it separates",
+      not _v(_batch(300, 400), _C51)[0])
+# `fail-open`, `silent-success` and `stale-cache` all end `Don't edit
+# anything.`, so an edit on one is a broken case rather than a treatment
+# effect, and #209 says a mixed cell has no comparable median.
+_mixed = [dict(r, tools=["Read", "Edit"]) if r["case"] == "fail-open" else r
+          for r in _batch(60, 50)]
+check("an edit on a case that forbids one makes that cell mixed and unscored",
+      [c for c in _cmp.compare(_mixed, _C51, resamples=500)
+       if c["case"] == "fail-open"][0]["mixed"]
+      and not _v(_mixed, _C51)[0])
+
+check("metrics.permutation compares medians when asked, means by default",
+      bench_metrics.permutation([1, 2, 300], [1, 2, 3], 51, 2000) is not None
+      and bench_metrics.permutation([1, 2, 300], [1, 2, 3], 51, 2000,
+                              stat=_statistics.median) == 1.0)
+check("metrics.permutation refuses to invent a p from one group",
+      bench_metrics.permutation([], [1, 2, 3], 51, 100) is None)
 
 print("\n%d failure(s)" % fails)
 sys.exit(1 if fails else 0)

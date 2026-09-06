@@ -10,6 +10,7 @@ Every detector runs on code-stripped prose: `->` in Rust and `impl` in a
 command are correct usage, and counting them would make the metric worthless.
 """
 import math
+import random
 import re
 import statistics
 
@@ -244,6 +245,35 @@ def median(xs, default=0):
     copies of a two-line function is two places to keep a default in sync.
     """
     return statistics.median(xs) if xs else default
+
+
+def permutation(a, b, seed, resamples=200000, stat=None):
+    """Two-sided permutation of the group label over two samples.
+
+    `stat` is the summary the two groups are compared on, and it is not
+    optional in practice: `score_register.py` compares means and round 51's
+    compression target compares medians, because the loop scores per-cell
+    medians everywhere else and a mean would let one long response carry a
+    cell. It defaults to the mean only so the caller that predates the
+    parameter reads unchanged.
+
+    Returns None when either side is empty, which is what a partial snapshot
+    looks like while a shard is still generating. A p-value invented from one
+    group is worse than no p-value.
+    """
+    if not a or not b:
+        return None
+    stat = stat or (lambda xs: sum(xs) / len(xs))
+    obs = abs(stat(b) - stat(a))
+    pool = list(a) + list(b)
+    n = len(a)
+    rng = random.Random(seed)
+    hits = 0
+    for _ in range(resamples):
+        rng.shuffle(pool)
+        if abs(stat(pool[n:]) - stat(pool[:n])) >= obs - 1e-9:
+            hits += 1
+    return (hits + 1) / (resamples + 1)
 
 
 def sign_test(k, n):

@@ -4418,6 +4418,11 @@ _expected_concurrent = {
     # to at or below what its shards declared.
     "round-52-control.json", "round-52-edit.json",
     "round-52-arbitration.json",
+    # Round 53 is one arm and one batch, sharded by case into four, each
+    # strictly sequential and each declaring --concurrency 4 for the four
+    # really in flight. Only the merge reaches the sweep, and it reconstructs
+    # to exactly the four shards that produced it.
+    "round-53-pool.json",
 }
 _found = set()
 for _p in sorted((ROOT / "evals" / "snapshots").rglob("*.json")):

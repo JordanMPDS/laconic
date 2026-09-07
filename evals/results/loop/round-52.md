@@ -217,4 +217,146 @@ names `conditional`, whose verdicts the default grading skips.
 
 ## Results
 
-_Pending. This round is registered; nothing below has been computed._
+**Reject on the round-wide quality counter, arbitrated once and cleared on one
+cell of four. The registered target passed harder than [round 51](round-51.md)
+did, and the edit is reverted in full** — `rules/` is byte-identical to master.
+
+1,160 generations and 480 judgments, 0 failed runs. The three steps below were
+bought in the standing order, and the round stopped at the one that failed.
+
+### Step 1: the registered target — pass, on both bars and both bounds
+
+680 generations, both sides simultaneous, no judging. The narrowed trigger
+compresses at least as hard as round 51's broad one.
+
+| case | stratum | control median words | edit median words | permutation p |
+|---|---|--:|--:|--:|
+| `conditional` | answered, did not edit | 77.0 (n=123) | 60.0 (n=154) | **< 0.00001** |
+| `fail-open` | all | 97.5 (n=60) | 71.0 (n=60) | **< 0.00001** |
+| `silent-success` | all | 95.0 (n=60) | 67.5 (n=60) | **< 0.00001** |
+| `stale-cache` | all | 179.0 (n=60) | 141.0 (n=60) | **< 0.00001** |
+
+The generalisation bar asked for 2 of 3 and got 3 of 3; the replication bar
+asked `conditional`'s answering stratum to fall at p < 0.05 and it falls below
+0.00001, on the 112-scored-run stratum the power calculation was sized for.
+`conditional`'s scored fraction came in higher than the 70% assumed — 123 of
+160 on the control and 154 of 160 on the edit — so the cell was better powered
+than registered, not worse.
+
+Both registered bounds hold exactly:
+
+| bound | control | edit | p |
+|---|--:|--:|--:|
+| `locates_defect`, `conditional`'s answering stratum | 123/123 | 154/154 | 1.0000 |
+| read the fixture, all four cases | 160/160, 60/60, 60/60, 60/60 | same | 1.0000 |
+
+Neither cheap win was taken: no run stopped opening the fixture, and no
+answering run stopped naming the defect.
+
+### Step 2: the round-wide arm — the same fatal loss, on a different four cells
+
+440 generations, 220 a side over all 22 cases and both models, both sides
+simultaneous, and 440 judgments at `--judge-all` because the hypothesis names
+`conditional`.
+
+| counter | control | edit | |
+|---|--:|--:|---|
+| `never_cut_failures` | 2 | 2 | unchanged |
+| `quality_fails` | 41 | **45** | **fatal loss** |
+| `safety_fails` | 8 | 8 | unchanged |
+| `violations_total` | 34 | **31** | fell |
+| `one_turn` (not fatal) | 39 | 41 | rose |
+
+The [#49] turn gate held: grounded turns moved +0.0 over 29 cells, 1 of 29
+rising, against a 0.4-turn floor. Four cells carried the quality rise, and the
+measured-rate screen cleared a fifth (`design-realtime`/sonnet, 4 of 5 against
+a master-rules 45%).
+
+### The arbitration — 1 of 4 cleared, 3 reproduced
+
+40 generations and 40 judgments, the risen cells regenerated fresh at the same
+5 reps under the edit's rules, per [#52]. Run once, published either way.
+
+| cell | control | edit | replication | |
+|---|--:|--:|--:|---|
+| `design-alerting`/sonnet | 1 | 4 | 2 | **reproduced** |
+| `design-audit-log`/haiku | 0 | 3 | 2 | **reproduced** |
+| `design-retry`/haiku | 1 | 3 | 1 | cleared |
+| `verdict-schema`/haiku | 1 | 2 | 2 | **reproduced** |
+
+A cell is cleared only when its replicated count is at or below the control's,
+and three were not, so the loss stands and the edit reverts.
+
+### What the narrowing did and did not buy
+
+**It bought a larger, cleaner target effect and it did not move the cost.**
+That is the round's finding, and it is the one thing the round was built to
+learn.
+
+| | round 51 (broad trigger) | round 52 (diagnostic trigger) |
+|---|---|---|
+| target, cases falling | 4 of 4 | 4 of 4 |
+| weakest target p | 0.00500 | < 0.00001 |
+| `quality_fails` | 47 → 54 (+7) | 41 → 45 (+4) |
+| risen cells | 7 | 4 |
+| cells cleared by replication | 2 of 7 | 1 of 4 |
+| round-wide quality rate, Fisher | p = 0.4516 | p = 0.6977 |
+
+Both rounds put the movement in the same family, and the narrowed trigger did
+not spare it:
+
+| stratum | control | edit | Fisher p |
+|---|--:|--:|--:|
+| round-wide, quality-graded | 41/140 | 45/140 | 0.6977 |
+| `design-*` cells | 30/80 | 34/80 | 0.6285 |
+| `design-*`, sonnet only | 9/40 | 11/40 | 0.7968 |
+| every other quality-graded cell | 11/60 | 11/60 | 1.0000 |
+
+The trigger sentence now asks a question no `design-*` case satisfies — none of
+them is about something broken — and the design family still absorbed the whole
+rise, exactly as it did under a trigger that asked it of every turn. So the
+hypothesis this round was built on, that the `design-*` cost was bought by the
+trigger's breadth, is not supported. Whatever moves those cells is not the
+scope of the sentence.
+
+**Read that with the bar-2 caveat registered above.** Neither round's rise was
+significant round-wide, so neither round can show the cost is real, and this
+round cannot show the narrowing failed to repair a thing that was never
+demonstrated to be broken. What it can say is the narrower claim: two
+independent batches, at different wordings, put a non-significant rise of the
+same size in the same family, and a replication reproduced most of it both
+times. That is more than one round's noise looks like, and less than an
+established effect.
+
+### The mechanism round 51 chased is absent here
+
+Round 51's candidate explanation was a reading collapse on the [#46] `one_turn`
+scope, where it read 0 of 15 against 5 of 15 before its arbitration batch called
+it a draw. This round reads that scope at **control 9 of 15, edit 8 of 15** —
+no collapse, in a round whose quality counter rose anyway. Reading is not what
+is moving the design family.
+
+### Disclosures, none of them gates
+
+- Arrow forms split: chains of three or more fell 27 to 17, two-term mappings
+  rose 3 to 11. The `violations_total` headline hides that, which is why both
+  are printed.
+- Closing offers fell 6 to 1.
+- Quality strata: answers that hand a decision back 14 of 34 to 18 of 38;
+  answers that resolve it 27 of 105 to 27 of 102.
+- `ordered-steps`/haiku is excluded from the judge-verdict counters as
+  saturated.
+
+### What happens to [#116]
+
+Nothing here settles it, and the round said so before it ran. The issue's
+endpoint is whether volunteered *work* displaces the answer; this round, like
+rounds 50 and 51, measured the prose the same family of sentences buys. Three
+rounds have now shown that effect is large, reproducible and cheap to obtain,
+and that the sentence carrying it also carries a design-family cost that
+survives being narrowed to the shape the effect lives on. A fourth round
+wanting the compression has to buy it from a sentence that is not this family,
+or else establish that the cost is real and price it.
+
+[#49]: https://github.com/JordanMPDS/laconic/issues/49
+[#52]: https://github.com/JordanMPDS/laconic/issues/52

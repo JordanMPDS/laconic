@@ -4410,6 +4410,14 @@ _expected_concurrent = {
     # produced it, well inside what those shards declared.
     "round-51-control.json", "round-51-edit.json",
     "round-51-wide-control.json", "round-51-wide-edit.json",
+    # Round 52 repeats round 51's per-case sharding for the target batch, four
+    # shards a side declaring --concurrency 8, and shards its arbitration by
+    # model, two shards declaring --concurrency 2. The round-wide arm merged
+    # from shards that did not overlap in time, so it does not reach the sweep
+    # at all. Every shard is strictly sequential and every merge reconstructs
+    # to at or below what its shards declared.
+    "round-52-control.json", "round-52-edit.json",
+    "round-52-arbitration.json",
 }
 _found = set()
 for _p in sorted((ROOT / "evals" / "snapshots").rglob("*.json")):

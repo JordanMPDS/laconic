@@ -395,7 +395,19 @@ a measurement is bounded in `evals/results/loop/concurrency-audit.md`: nothing
 detectable on `output_tokens`, and the one-turn rate moves in opposite
 directions on the two sides of the contrast, so it is batch rather than regime.
 
+**Four shards at once, and the fifth is refused.** Declaring the fan-out is
+honesty about the metadata; it is not resource safety, and nothing bounded the
+number until [#255]. Round 52 sharded across five `run.py` processes on
+2026-09-06, each holding an open `claude` session, and with the supervisor's own
+child that was enough for the kernel to take the supervisor for low memory on a
+7.6 GiB machine — sixteen hours of dead backlog and three partial shards.
+`run.py` now counts its siblings at startup and exits rather than becoming the
+fifth. Split a round into four shards or fewer, or raise the bound deliberately
+with `--max-shards N` for one round or `LACONIC_MAX_SHARDS=N` for a machine that
+has the memory.
+
 [#120]: https://github.com/JordanMPDS/laconic/issues/120
+[#255]: https://github.com/JordanMPDS/laconic/issues/255
 
 `run.py` loops arms innermost, so a single invocation already interleaves them.
 Two rules revisions cannot share one invocation — `rules_cksum` is resolved once

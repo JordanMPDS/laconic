@@ -5223,5 +5223,119 @@ check("metrics.permutation compares medians when asked, means by default",
 check("metrics.permutation refuses to invent a p from one group",
       bench_metrics.permutation([], [1, 2, 3], 51, 100) is None)
 
+# --- #255: a round's shard count is bounded, and the bound refuses early ---
+# Five concurrent run.py processes plus the supervisor's own claude session
+# OOM-killed the loop on a 7.6 GiB machine on 2026-09-06, leaving round 52 with
+# three partial shards and nothing working the backlog for sixteen hours.
+# --concurrency records the fan-out after the fact; this refuses an unsafe one
+# before it starts. The count is read out of /proc, so the tests build a fake
+# one - a real process list cannot be arranged to order.
+
+
+def _fake_proc(td, entries):
+    """entries: {pid: [argv, ...]} written the way /proc writes cmdline."""
+    root = Path(td) / "proc"
+    root.mkdir()
+    for pid, argv in entries.items():
+        d = root / str(pid)
+        d.mkdir()
+        (d / "cmdline").write_bytes(b"\0".join(a.encode() for a in argv) + b"\0")
+    (root / "not-a-pid").mkdir()
+    return str(root)
+
+
+with tempfile.TemporaryDirectory() as td_shard:
+    _proc = _fake_proc(td_shard, {
+        101: ["python3", "evals/bench/run.py", "--arms", "laconic"],
+        102: ["python3", "/home/x/projects/laconic/evals/bench/run.py"],
+        # The control side of an interleaved round runs from a worktree copy.
+        # Different tree, same physical memory, so it counts.
+        103: ["python3", "/tmp/laconic-control/evals/bench/run.py"],
+        # Not shards: a different harness, and an unrelated run.py, which is
+        # about the commonest filename there is.
+        104: ["python3", "evals/bench/judge.py", "--jobs", "6"],
+        105: ["python3", "/home/x/some-other-project/run.py"],
+        106: ["bash", "tools/loop.sh"],
+    })
+    _sibs = bench_run.sibling_shards(_proc, me=999)
+    check("sibling_shards counts a relative and an absolute run.py",
+          101 in _sibs and 102 in _sibs)
+    check("sibling_shards counts a shard running from a worktree copy",
+          103 in _sibs)
+    check("sibling_shards ignores judge.py and an unrelated run.py",
+          104 not in _sibs and 105 not in _sibs and 106 not in _sibs)
+    check("sibling_shards does not count itself",
+          bench_run.sibling_shards(_proc, me=101) == [102, 103])
+    check("sibling_shards skips a /proc entry that is not a pid",
+          len(_sibs) == 3)
+
+    # The refusal is on the count, so three siblings fit under four and the
+    # fourth process is the one that makes five.
+    check("three shards running is room for a fourth",
+          bench_run.require_shard_room(4, _proc) == [101, 102, 103])
+    try:
+        bench_run.require_shard_room(3, _proc)
+        check("a shard past the limit exits", False)
+    except SystemExit as _e:
+        check("a shard past the limit exits", True)
+        check("and its message names the limit and the pids already running",
+              "the limit is 3" in str(_e) and "101, 102, 103" in str(_e))
+        check("and it says how to raise the bound for a bigger machine",
+              "--max-shards" in str(_e) and "LACONIC_MAX_SHARDS" in str(_e))
+    check("--max-shards 0 disables the bound",
+          bench_run.require_shard_room(0, _proc) is None)
+    # A kernel without /proc cannot be counted. Letting the round through is
+    # deliberate: the bound is a guard against a known death, not a
+    # correctness property, and refusing on an unmeasurable machine would cost
+    # more rounds than the OOM does.
+    check("a machine with no /proc is let through rather than refused",
+          bench_run.sibling_shards(str(Path(td_shard) / "nope")) is None
+          and bench_run.require_shard_room(1, str(Path(td_shard) / "nope")) is None)
+
+_old_env = os.environ.get("LACONIC_MAX_SHARDS")
+try:
+    os.environ.pop("LACONIC_MAX_SHARDS", None)
+    check("the default bound is four", bench_run._default_max_shards() == 4)
+    os.environ["LACONIC_MAX_SHARDS"] = "12"
+    check("a bigger machine raises it once, in the environment",
+          bench_run._default_max_shards() == 12)
+    os.environ["LACONIC_MAX_SHARDS"] = "lots"
+    check("a garbage setting falls back to the default rather than crashing",
+          bench_run._default_max_shards() == 4)
+finally:
+    os.environ.pop("LACONIC_MAX_SHARDS", None)
+    if _old_env is not None:
+        os.environ["LACONIC_MAX_SHARDS"] = _old_env
+
+# End to end against a real process list: a genuine sibling at a genuine
+# evals/bench/run.py path, so the guard is proven through main() and against
+# /proc itself rather than against the fixture above.
+with tempfile.TemporaryDirectory() as td_e2e_shard:
+    _sib_dir = Path(td_e2e_shard) / "evals" / "bench"
+    _sib_dir.mkdir(parents=True)
+    (_sib_dir / "run.py").write_text("import time\ntime.sleep(60)\n")
+    _snap_shard = Path(td_e2e_shard) / "snap.json"
+    _sib = subprocess.Popen([sys.executable, str(_sib_dir / "run.py")])
+    try:
+        _cmd_shard = [sys.executable, str(ROOT / "evals" / "bench" / "run.py"),
+                      "--claude-bin", "tests/stubs/claude-stub.sh",
+                      "--models", "haiku", "--reps", "1", "--cases", "floor",
+                      "--arms", "laconic", "--snapshot", str(_snap_shard)]
+        _r_shard = subprocess.run(_cmd_shard + ["--max-shards", "1"],
+                                  capture_output=True, text=True, cwd=str(ROOT))
+        check("subprocess: the sixth shard exits instead of starting",
+              _r_shard.returncode != 0)
+        check("subprocess: and says what the limit was",
+              "the limit is 1" in (_r_shard.stdout + _r_shard.stderr))
+        check("subprocess: it refuses before any work, so no snapshot is written",
+              not _snap_shard.exists())
+        _r_ok = subprocess.run(_cmd_shard + ["--max-shards", "0"],
+                               capture_output=True, text=True, cwd=str(ROOT))
+        check("subprocess: the same command runs with the bound disabled",
+              _r_ok.returncode == 0 and _snap_shard.exists())
+    finally:
+        _sib.kill()
+        _sib.wait()
+
 print("\n%d failure(s)" % fails)
 sys.exit(1 if fails else 0)

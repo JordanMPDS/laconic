@@ -52,6 +52,15 @@ one that catches stale generated files, and it is the easiest to skip by acciden
   `metadata.concurrency_declared`. `python3 evals/bench/concurrency.py` sweeps
   the committed snapshots and exits non-zero on an undeclared one. Ten
   snapshots predate the flag; see `evals/results/loop/concurrency-audit.md`.
+- **Four shards at once is the ceiling, and `run.py` enforces it.** Each shard
+  holds an open `claude` CLI session for hours, and on 2026-09-06 five of them
+  plus the supervisor's own child took the loop for low memory on a 7.6 GiB
+  machine: sixteen hours with nothing working the backlog, and round 52 left
+  with three partial shards. A fifth `run.py` now exits at startup naming the
+  limit instead of starting. `--max-shards N` raises it for one round and
+  `LACONIC_MAX_SHARDS=N` for a machine that has the memory; `--max-shards 0`
+  disables it. This is a different thing from `--concurrency`, which records
+  the fan-out and refuses nothing.
 - **Opus needs a stated reason, and a round is spent from a person's usage
   window.** These harnesses shell out to the `claude` binary, so every
   generation and every judgment is a CLI session drawing on the operator's

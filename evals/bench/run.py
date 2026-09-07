@@ -109,6 +109,95 @@ def require_claude_bin(arg):
     return claude_bin
 
 
+# How many run.py processes may be in flight on one machine at once (#255).
+# Sharding is sanctioned and roughly 4x faster, so the bound is a ceiling and
+# not a prohibition; four is the fan-out the loop's own documentation describes
+# and one below the five that died. Per machine rather than per round, which is
+# what the environment variable is for: the number is a property of the RAM,
+# not of the hypothesis.
+def _default_max_shards():
+    raw = os.environ.get("LACONIC_MAX_SHARDS")
+    if raw is None or not raw.strip():
+        return 4
+    try:
+        return int(raw)
+    except ValueError:
+        print("warning: LACONIC_MAX_SHARDS=%r is not a number, using 4" % raw)
+        return 4
+
+
+def sibling_shards(proc_root="/proc", me=None):
+    """The pids of the other run.py processes running on this machine.
+
+    Read out of /proc, because the standard library has no portable process
+    list and this repository adds no dependency. A kernel without /proc gets
+    None, which the caller reads as "cannot count" and lets through: the bound
+    guards against a known way of dying, and refusing to generate at all on a
+    machine it cannot measure would cost more rounds than the OOM does.
+
+    An argv entry matches when its path ends `evals/bench/run.py`, so a shard
+    launched from a `git worktree` copy is counted - it is a different tree and
+    the same physical memory, and running the control side from a worktree is
+    the documented way to run both sides of a round at once. `run.py` is a
+    common filename, so the two parent directories are part of the match rather
+    than the basename alone.
+    """
+    root = Path(proc_root)
+    if not root.is_dir():
+        return None
+    me = os.getpid() if me is None else me
+    found = []
+    for entry in sorted(root.iterdir(), key=lambda d: d.name):
+        if not entry.name.isdigit() or int(entry.name) == me:
+            continue
+        try:
+            argv = (entry / "cmdline").read_bytes().split(b"\0")
+        except OSError:
+            continue  # exited between the listing and the read, or not ours
+        if any(a.replace(b"\\", b"/").endswith(b"evals/bench/run.py")
+               for a in argv):
+            found.append(int(entry.name))
+    return found
+
+
+def require_shard_room(limit, proc_root="/proc"):
+    """Exit rather than become one shard too many (#255).
+
+    Each shard is sequential, but each one holds an open `claude` CLI session
+    for hours, and on 2026-09-06 five of them plus the supervisor's own child
+    were enough for the kernel to take the supervisor for low memory on a
+    7.6 GiB machine. Nothing worked the backlog for the sixteen hours after,
+    and round 52 was left with three partial shards. `--concurrency` records
+    the fan-out into the snapshot, which is honesty about the metadata rather
+    than resource safety: it describes the regime after the fact instead of
+    refusing an unsafe one.
+
+    Two shards started in the same instant can both see room and both start,
+    so this bounds an operator launching shards from a script or a loop and
+    not a simultaneous start. That is the case that actually occurs, and a
+    lock file bought with a second failure mode - a stale lock refusing every
+    later round - is worse than the race it would close.
+
+    Returns the sibling pids, or None when the count was not possible.
+    """
+    if limit <= 0:
+        return None
+    siblings = sibling_shards(proc_root)
+    if siblings is None or len(siblings) < limit:
+        return siblings
+    sys.exit(
+        "refusing to start: %d run.py process(es) are already running (pid%s "
+        "%s) and the limit is %d at once. Each one holds an open claude CLI "
+        "session for hours; five of them plus the supervisor's own took the "
+        "loop for low memory on a 7.6 GiB machine on 2026-09-06 and cost a "
+        "round and a night (#255).\n"
+        "Wait for a shard to finish, or raise the bound with --max-shards N "
+        "(or LACONIC_MAX_SHARDS=N, which is per machine) on hardware that can "
+        "afford more. --max-shards 0 disables it."
+        % (len(siblings), "" if len(siblings) == 1 else "s",
+           ", ".join(str(p) for p in siblings), limit))
+
+
 # Measured over the 2,429 calls the loop made on 2026-09-02, in US dollars per
 # generation. Opus was a quarter of the calls and half the bill.
 COST_PER_CALL = {"opus": 0.149, "sonnet": 0.075, "haiku": 0.016}
@@ -773,6 +862,14 @@ def main():
                          "not allowed is an undeclared one, because a concurrent "
                          "snapshot and a sequential one then get compared with "
                          "nothing recording the difference")
+    ap.add_argument("--max-shards", type=int, default=_default_max_shards(),
+                    help="refuse to start when this many run.py processes are "
+                         "already running on this machine (#255). Sharding is "
+                         "allowed and is roughly 4x faster, but each shard "
+                         "holds an open claude CLI session for hours and five "
+                         "of them OOM-killed the loop on a 7.6 GiB machine. "
+                         "Set LACONIC_MAX_SHARDS to raise it for a machine "
+                         "once rather than per round; 0 disables the bound")
     ap.add_argument("--max-consecutive-failures", type=int, default=8,
                     help="stop the pass after this many failed cells in a row; "
                          "0 disables it. A usage limit or an outage fails every "
@@ -785,6 +882,12 @@ def main():
 
     if args.concurrency < 1:
         sys.exit("--concurrency must be at least 1")
+
+    # First of the startup guards, because it is the one whose cost is paid by
+    # a machine rather than by this process: a shard that should not start is
+    # cheapest to stop before it has read a case, resolved a binary or opened
+    # a snapshot.
+    require_shard_room(args.max_shards)
 
     claude_bin = require_claude_bin(args.claude_bin)
 

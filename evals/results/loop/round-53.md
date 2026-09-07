@@ -225,8 +225,120 @@ the level-slicing marker living in `hooks/laconic.sh` and only there.
   verdict may move without that being the round's declared purpose. This round
   files the number and the issue.
 
+## Results
+
+**Bar B fires. The fatal `quality_fails` gate rejects 46.2% of draws that
+differ in nothing, and the [#52] arbitration replication cleared 0 of the 231
+it fired on.** That is the `B >= 0.20` branch registered above, so its
+consequence is the registered one: the rejection rule has to be repriced before
+another round is spent against it, and the two rejects it produced — [round
+51](round-51.md) and [round 52](round-52.md) — cannot be read as evidence of
+harm.
+
+The registered bound holds and the round is valid: 420 generations, **0 failed
+runs**, one `rules_cksum` (136269960), one `cases_cksum` (2946169621), one CLI
+version (2.1.263), 15 reps on every one of the 28 cells. 420 judgments at
+`criteria_cksum` 5539815, **0 judge-call failures**, 267 pass, 141 fail, 12 not
+exercised.
+
+```
+the gate on nothing
+  fatal quality loss reported       231 / 500  (46.2%)
+  still standing after arbitration  231 / 500  (46.2%)
+  cleared by the replication          0 / 231  (0.0% of fired)
+```
+
+| registered quantity | reading |
+|---|--:|
+| **bar B** — loss still standing after arbitration | **46.2%** |
+| bar A — loss reported at all, no threshold registered | 46.2% |
+| secondary: draws reaching round 51's +7 | 14.0% |
+| secondary: draws reaching round 52's +4 | 27.8% |
+
+### The predicted mechanism is exactly what happened
+
+The round predicted in advance that bar A would be "bounded above by the
+probability that one block's total exceeds another's", because `accept_verdict`
+only examines cells once the round-wide total has risen. The round-wide
+difference rose in **231 of 500** draws and the gate fired on **231 of 500**:
+the two numbers are the same draws. Below `CELL_TEST_MIN_RUNS`, a risen total
+is a rejection, with no step in between that can stop one.
+
+The difference itself is symmetric and centred on nothing, which is what a null
+should look like:
+
+| edit block minus control block | |
+|---|--:|
+| median | +0.0 |
+| mean | +0.06 |
+| range | −14 to +16 |
+| rose | 231 / 500 (46.2%) |
+
+### Arbitration cleared nothing, and that was predicted too
+
+The round predicted clearing would require "every risen cell to replicate at or
+below its control — roughly a coin flip per cell, compounding". A firing draw
+names a **median of 7** risen cells (max 10), so a clean sweep is about one
+draw in 128 and the expected number of clears across 231 firings is under two.
+Observed: **zero**. The [#52] replication is not a filter at this cell count;
+it is a formality that a round pays 40 to 70 generations for.
+
+Read this as a floor rather than an estimate, for the reason registered before
+the round ran: the loop's real arbitration is bought as a **later** batch and
+compared against the earlier control, so it carries era drift on top of the
+sampling measured here. Nothing in this batch separates its three blocks by
+even a minute.
+
+### The cells the null names
+
+Twelve of the 28 cells are named as risen in at least 17% of draws:
+
+| cell | named risen |
+|---|--:|
+| `verdict-schema`/haiku | 156 / 500 (31.2%) |
+| `design-rate-limit`/haiku | 130 / 500 (26.0%) |
+| `design-retry`/haiku | 125 / 500 (25.0%) |
+| `design-upload`/sonnet | 118 / 500 (23.6%) |
+| `verdict-schema`/sonnet | 116 / 500 (23.2%) |
+| `design-alerting`/haiku | 112 / 500 (22.4%) |
+| `design-search`/sonnet | 111 / 500 (22.2%) |
+| `stale-cache`/haiku | 108 / 500 (21.6%) |
+| `design-alerting`/sonnet | 107 / 500 (21.4%) |
+| `design-audit-log`/haiku | 99 / 500 (19.8%) |
+| `design-search`/haiku | 93 / 500 (18.6%) |
+| `design-cache`/sonnet | 89 / 500 (17.8%) |
+
+Three of the four cells that rejected round 52 are in that list, and
+`design-alerting`/sonnet, `design-audit-log`/haiku and `verdict-schema`/haiku
+are the three it named. The null reaches the same cells the rejections did,
+which is the point: those cells are wide, and a 5-run draw against another
+5-run draw cannot tell width from harm.
+
+### What the cross-era estimate got right
+
+The one figure computed before generation — 39.0% firing, 31.0% reaching +4,
+15.0% reaching +7, from pooling round 51's and round 52's round-wide control
+arms a day apart — sits close to the within-batch measurement of 46.2%, 27.8%
+and 14.0%. **The measured rate is higher than the cross-era one**, so era drift
+is not what produces the firing; sampling inside one batch is enough on its
+own, and if anything the cross-era pool understated it.
+
+### What this round does not do
+
+It proposes no change to the gate and no change to `rules/laconic.md`, both as
+registered. `rules_cksum` is master's 136269960 throughout and `rules/` is
+untouched. Repricing a fatal counter re-scores the archive, so it needs its own
+registration and its own bar; this round files the number and the issue, as
+[#259].
+
+It also does not say rounds 51 and 52's edits were harmless. A gate that fires
+on nothing is uninformative about the rounds it rejected, in both directions.
+What [#116] gets from this round is that its next attempt is not obliged to
+treat those two rejects as measured cost.
+
 [#46]: https://github.com/JordanMPDS/laconic/issues/46
 [#52]: https://github.com/JordanMPDS/laconic/issues/52
 [#116]: https://github.com/JordanMPDS/laconic/issues/116
 [#133]: https://github.com/JordanMPDS/laconic/issues/133
 [#255]: https://github.com/JordanMPDS/laconic/issues/255
+[#259]: https://github.com/JordanMPDS/laconic/issues/259

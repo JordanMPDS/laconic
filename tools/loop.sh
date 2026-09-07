@@ -186,18 +186,33 @@ RETRY_CAP=${LOOP_RETRY_CAP:-3600}
 # request open and the issue unfinished — and the supervisor started the next
 # issue, because a stopped-short iteration exits exactly like a finished one.
 # So the wait is named as a blocking command rather than left as an intention.
+#
+# The same sentence has a second form, and naming only the CI one left it open.
+# On 2026-09-07 iteration 1 printed "Generation is in flight (three shards, ~130
+# runs left). The wait task will re-invoke me when it completes" and exited after
+# four minutes. Nothing re-invoked it: a background task re-invokes an
+# interactive session, and `claude -p` is not one. The next iteration picked the
+# round back up, so the cost was small, but the shape is identical — an
+# intention to wait, satisfied by describing it. The prompt therefore names the
+# waiting rather than the thing waited on.
 PROMPT='Work the laconic backlog: pick the highest-value open issue and take it
 end to end — design, implement, test, a round document if it is a loop round,
 branch, pull request, then merge. Do exactly one issue, then stop; the next one
 gets its own process and its own empty context. Never ask permission and never
 offer next steps.
 
-Waiting for CI is a command, not an intention. Run `gh pr checks <N> --watch`,
-which blocks until every check has finished, and merge only after it returns.
-Saying that you are waiting and then ending the turn does not wait: it abandons
-the pull request open, and nothing downstream can tell that from a clean finish.
-If the checks fail, fix them and wait again. The issue is not done until its
-pull request is merged.'
+Waiting is a command, not an intention, and it is never satisfied by saying that
+you are waiting. Ending the turn ends the process: no background task will
+re-invoke you, because that happens in an interactive session and this is not
+one. So run the wait in the foreground and let it block. For a long generation
+that is `wait` on the job you started, or the `run.py` invocation itself; for
+continuous integration it is `gh pr checks <N> --watch`, which returns only once
+every check has finished.
+
+Merge only after the checks pass, and if they fail, fix them and wait again. The
+issue is not done until its pull request is merged. A turn that ends with work
+still in flight abandons it, and nothing downstream can tell that from a clean
+finish.'
 
 transcript=$(mktemp)
 trap 'rm -f "$transcript"' EXIT

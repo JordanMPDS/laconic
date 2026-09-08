@@ -4549,6 +4549,15 @@ _expected_concurrent = {
     "round-55-control.json", "round-55-edit.json",
     "round-55-wide-control.json", "round-55-wide-edit.json",
     "round-55-holdout.json", "round-55-holdout-control.json",
+    # Round 56 is round 55's two-tree design sharded by case rather than by
+    # model: two shards a side over eight design cases, each strictly
+    # sequential and each declaring --concurrency 4 for the four run.py
+    # processes really in flight. Only the two merges reach the sweep, and
+    # each reconstructs to exactly the two shards that produced it. The
+    # control merge spans four hours because `control-a` stopped short and
+    # was resumed by key; the resume is still one sequential invocation, so
+    # it widens the span without widening what was in flight.
+    "round-56-control.json", "round-56-edit.json",
 }
 _found = set()
 for _p in sorted((ROOT / "evals" / "snapshots").rglob("*.json")):

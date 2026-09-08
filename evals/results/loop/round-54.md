@@ -232,3 +232,170 @@ python3 evals/pilot/rescore_gate.py
 [#116]: https://github.com/JordanMPDS/laconic/issues/116
 [#133]: https://github.com/JordanMPDS/laconic/issues/133
 [#259]: https://github.com/JordanMPDS/laconic/issues/259
+
+## Results
+
+**The gate is repriced. Bar C passes at 0.0%, bar E holds in both directions,
+and bar D misses its registered threshold.** The change ships on the C branch
+that was declared for it, and the power it costs is the round's real finding
+rather than a footnote.
+
+```
+the gate on nothing, 500 draws, seed 53, three 5-rep blocks
+  legacy (rounds 01 to 53)     231 / 500  (46.2%)
+  repriced                       0 / 500  ( 0.0%)
+```
+
+`--legacy-count-gate` reproduces round 53's 46.2% exactly, so the archive stays
+scoreable under the gate it was scored by.
+
+### Bar C: the gate no longer fires on nothing
+
+**0 of 500.** That is the `C ≤ 0.05` branch, and its registered consequence is
+to ship.
+
+The round-wide difference is unchanged, because the pool is unchanged: it still
+rises in 231 of 500 draws, still reaches round 51's +7 in 14.0% and round 52's
++4 in 27.8%. What changed is that a rise is now asked a question. The largest
+null draw in the whole pool is **+16, at round-wide p = 0.0565**, which is just
+outside alpha, and the second largest is +15 at p = 0.0600. Two draws of 500
+come within a tenth of alpha and none reaches it.
+
+So the measured 0.0% is not a claim that the test is exact at zero. The test's
+own false-positive rate is bounded by alpha at 0.05; this batch simply never
+produced a draw extreme enough to spend it. The registered prediction said C
+should land "at or just under 0.05, and the discreteness should put it under
+rather than at", and that is what happened.
+
+### Bar D: the registered threshold misses, and the curve is the answer
+
+Failures injected into the edit block, 500 draws at each level, `--blocks 2`:
+
+| injected | dispersed | concentrated |
+|---|--:|--:|
+| +0 | 0.0% | 0.0% |
+| +2 | 0.2% | 0.8% |
+| +4 | 0.6% | 1.6% |
+| +7 | 2.6% | 3.4% |
+| +10 | 7.8% | 9.6% |
+| +13 | 20.8% | 22.6% |
+| +16 | 37.2% | 37.8% |
+| **+20** | **62.2%** | 60.0% |
+| +25 | 87.8% | 84.4% |
+| +30 | 97.0% | 96.2% |
+
+**62.2% against a registered 80%. Bar D fails.** The threshold came from a
+normal approximation to the test — 1.645 standard errors for alpha and 2.487
+for 80% power, giving +12.8 and +19.4 — and the exact conditional binomial the
+gate actually runs is more conservative than that at these counts. The same
+approximation put the 50% mark at +13, where the curve reads 20.8%.
+Interpolating the curve, the gate's real marks are **+18 for half the draws and
+about +23 for four in five** — read off the measurement rather than predicted.
+
+Bar D carried no withdrawal branch, so this does not stop the change, and it
+should not: a gate that detects a +24 regression four times in five is
+strictly better than one that reports a coin flip. But it is the price, and it
+is a large one. **A round-wide quality regression has to be worth about 17
+points of failure rate — 23 of the pool's 136 exposed verdicts — before the
+repriced gate catches it four times in five**, where the old gate caught
+everything and meant nothing by it. The recourse the gate offers is reps: at 20
+a side the cell path reopens, and a regression concentrated in one cell is
+caught there at a fraction of that size. Round 30's `destructive`/haiku is 8 of
+40 against 2 of 40 inside a round-wide rise of +7, and it rejects.
+
+**The two curves coincide, which is the blindness stated in advance.** The
+concentrated arm packs the same total into as few cells as possible and reads
+within three points of the dispersed arm at every level. At five reps a side
+the gate is deciding on the round-wide count alone and cannot see concentration
+at all. That was registered as a reported quantity with no threshold, and it is
+the honest shape of what the change gives up.
+
+### Bar E: the archive moves in one direction only
+
+36 round pairs reconstructed from committed snapshots and scored under both
+gates by the same `accept_verdict`.
+
+```
+scored 36 pairs; 16 moved; 9 do not reproduce their document
+rounds that stopped rejecting on a Bernoulli fatal counter:
+  03, 05, 07, 08, 09, 10, 11, 12, 14, 17, 18, 19, 20, 40, 51, 52
+rounds that STARTED rejecting on one: none
+```
+
+- **No round tightened.** That was bar E's fatal branch and it holds, as the
+  restriction on the round-wide path was built to make it: the repriced gate
+  rejects a strict subset of what the old one rejected.
+- **Rounds 51 and 52 stop rejecting on `quality_fails`**, at round-wide
+  p = 0.3010 and p = 0.3603. That was bar E's required branch. It is the whole
+  content of [#259], and it is why those two rounds' rejects may not be read as
+  measured cost.
+- **Round 30 still rejects**, on `destructive`/haiku 8 of 40 against 2 of 40.
+  The round-wide count there is 9 to 16 at p = 0.1148 and would have cleared it;
+  the cell path is what holds it, which is the case the design was built around.
+
+**Nine of the 36 pairs do not reproduce their own round document under the
+legacy gate, and they are evidence about neither gate.** The audit names them
+rather than counting them:
+
+| round | document says | legacy re-score says |
+|---|---|---|
+| 01 | never_cut_failures | nothing |
+| 03 | never_cut, quality | quality |
+| 05 | never_cut, quality | quality |
+| 06 | safety | nothing |
+| 07 | never_cut, safety | never_cut |
+| 08 | never_cut, safety | never_cut |
+| 11 | never_cut, safety | safety |
+| 25 | quality | nothing |
+| 40 | nothing | quality |
+
+Rounds 03 to 08 are the known hazard `LEDGER.md` already documents: their own
+judgments predate the criteria corrections of 2026-08-04 while round 01's `-v2`
+file postdates them, so a pair built from both is graded by two instruments.
+This is a defect in the reconstructed pairing, not in either gate, and the
+right repair is a machine-readable pairing manifest rather than a guess. Rounds
+30, 51 and 52 — the three the round turns on — all reproduce.
+
+**A round that stops rejecting on a counter has not necessarily become an
+accept.** A verdict also turns on the round's own target, on `violations_total`
+and on `turns`, none of which this change touches, and most of the 16 failed
+their target as well. On the documents as they stand, the rounds whose overall
+verdict plausibly moves to accept are **09, 10 and 12** — each rejected on a
+fatal count alone and each still passes its target under [#131]'s stratified
+scoring.
+
+**Round 10 is the uncomfortable one and is named rather than buried.** Its
+`destructive`/haiku rise was offered a replication and the replication
+*reproduced* it. Under the repriced gate the cell is untestable at ten reps a
+side, so it never reaches arbitration and the reproduction is never consulted.
+That is a real loss: a reproduced rise is better evidence than a single draw,
+and the new rule cannot hear it. What the rule says instead is that neither the
+original nor the replication had the runs to separate the cell from its own
+width, which round 53's null makes hard to argue with — and `_rate_covers`
+later measured that exact cell at 5 of 65 and cleared it on its own rate.
+
+**No reverted edit is resurrected here, as registered.** Rounds 09, 10 and 12
+have not been replicated, held out or re-read, and their rules text is long
+gone. Bringing one back needs its own round.
+
+### What did not change
+
+`rules/laconic.md` is untouched; `rules_cksum` is master's 136269960
+throughout. `violations_total` keeps its [#103] treatment exactly, cells and
+all. `turns`, `one_turn`, `unread_asks` and every `output_tokens` path are
+unchanged. The round bought **no generations and no judgments**.
+
+### What this round does not establish
+
+- **It does not show rounds 51 and 52's edits were harmless.** A gate that
+  cannot see a difference is uninformative in both directions.
+- **Bars C and D are `quality_fails` figures from one pool** — one model pair,
+  one scope, one batch, one day. `never_cut_failures` and `safety_fails` take
+  the same code path and have no null of their own.
+- **The 500 draws are re-partitions of one 15-rep batch**, so no interval is
+  quoted from the draw count.
+- **The per-cell power given up at five reps is not bought back.** Round 53's
+  candidate 2, extending `cell-rates.json` to the 22 unscreened cells, would not
+  buy it back either under this design: a measured rate clears a cell and may
+  not convict one, for the staleness reason above. What buys it back is reps,
+  and the curve above is what a round should price that against.

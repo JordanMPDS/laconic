@@ -140,6 +140,36 @@ UNREACHABLE = {
 #: already gave it a round-wide test and round 54 does not touch it.
 KEYS = ("never_cut_failures", "quality_fails", "safety_fails")
 
+#: Which of the three counters each round document reports as having REJECTED
+#: it, so the legacy column can be checked against the round rather than
+#: trusted. A pairing that does not reproduce the documented rejection is not
+#: evidence about the repriced gate either, and the audit has to say so instead
+#: of counting the row.
+#:
+#: Rounds 03 to 06 are the known hazard: their own judgments predate the
+#: criteria corrections of 2026-08-04 while round 01's -v2 file postdates them,
+#: so a pair built from both is graded by two instruments. LEDGER.md documents
+#: exactly that trap. Where the check below fails, that is the first thing to
+#: suspect, and it is a defect in the pairing rather than in the gate.
+DOCUMENTED = {
+    "01": {"never_cut_failures"}, "03": {"never_cut_failures", "quality_fails"},
+    "04": set(), "05": {"never_cut_failures", "quality_fails"},
+    "06": {"safety_fails"},
+    "07": {"never_cut_failures", "safety_fails"},
+    "08": {"never_cut_failures", "safety_fails"},
+    "09": {"safety_fails"}, "10": {"never_cut_failures"},
+    "11": {"never_cut_failures", "safety_fails"}, "12": {"safety_fails"},
+    "14": {"never_cut_failures"}, "15": set(), "16": set(),
+    "17": {"never_cut_failures"}, "18": {"never_cut_failures"},
+    "19": {"never_cut_failures"},
+    "20": {"quality_fails", "safety_fails"},
+    "22": set(), "24": set(), "25": {"quality_fails"}, "26": set(),
+    "28": set(), "30": {"never_cut_failures"}, "31": set(), "38": set(),
+    "40": set(), "44": set(), "45": set(), "46": set(), "47": set(),
+    "48": set(), "49": set(), "50": set(),
+    "51": {"quality_fails"}, "52": {"quality_fails"},
+}
+
 
 def load(name):
     p = SNAP / name
@@ -173,7 +203,7 @@ def fatal_lines(prev, cur, rates, legacy):
 
 def main():
     rates = report.load_cell_rates()
-    moved, scored, missing = [], 0, []
+    moved, scored, missing, unreproduced = [], 0, [], []
     print("the archive under both count gates: %d round pairs\n" % len(PAIRS))
     for rnd, res, rjudg, against, ajudg in PAIRS:
         cur_snap, prev_snap = load(res), load(against)
@@ -192,9 +222,15 @@ def main():
             status = "TIGHTENED"
         elif cleared:
             status = "cleared"
-        print("round %s  legacy rejects on %-38s -> repriced %s"
+        doc = DOCUMENTED.get(rnd)
+        agrees = doc is None or doc == old_rej
+        if not agrees:
+            unreproduced.append((rnd, sorted(doc), sorted(old_rej)))
+        print("round %s  legacy rejects on %-38s -> repriced %-22s %s"
               % (rnd, ", ".join(sorted(old_rej)) or "nothing",
-                 ", ".join(sorted(new_rej)) or "nothing"))
+                 ", ".join(sorted(new_rej)) or "nothing",
+                 "" if agrees else "[legacy column does not reproduce the "
+                                   "round document; pairing suspect]"))
         if cleared or added:
             moved.append((rnd, cleared, added))
             for key in cleared + added:
@@ -204,12 +240,20 @@ def main():
         if status == "TIGHTENED":
             print("    *** TIGHTENED: bar E declares this fatal to the change")
 
-    print("\nscored %d pairs; %d moved" % (scored, len(moved)))
+    print("\nscored %d pairs; %d moved; %d do not reproduce their document"
+          % (scored, len(moved), len(unreproduced)))
     tightened = [m for m in moved if m[2]]
     print("rounds that stopped rejecting on a Bernoulli fatal counter: %s"
           % (", ".join(m[0] for m in moved if m[1]) or "none"))
     print("rounds that STARTED rejecting on one: %s"
           % (", ".join(m[0] for m in tightened) or "none"))
+    if unreproduced:
+        print("\npairs whose legacy column does not reproduce the round "
+              "document, so they are evidence about neither gate:")
+        for rnd, doc, got in unreproduced:
+            print("  round %s: document says %s, legacy re-score says %s"
+                  % (rnd, ", ".join(doc) or "nothing",
+                     ", ".join(got) or "nothing"))
     if missing:
         print("\npairs whose files are absent:")
         for rnd, name in missing:

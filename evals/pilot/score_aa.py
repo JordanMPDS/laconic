@@ -225,7 +225,11 @@ def power(snap, judg, reps, rates, args):
               % ("+%d" % n, disp, args.draws, pct(disp, args.draws),
                  conc, args.draws, pct(conc, args.draws)))
     print("\n  concentrated saturates one cell before starting the next")
-    print("  +13 is the gate's registered 50%% mark, +20 its 80%% mark")
+    print("  round 54 registered 80%% detection at +20 from a normal "
+          "approximation;")
+    print("  the exact conditional binomial is more conservative and the "
+          "curve is where")
+    print("  the gate's real marks are.")
     return 0
 
 

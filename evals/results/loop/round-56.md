@@ -225,3 +225,221 @@ Registered here so that neither outcome can be argued into the other afterwards.
 [#255]: https://github.com/JordanMPDS/laconic/issues/255
 [#259]: https://github.com/JordanMPDS/laconic/issues/259
 [#263]: https://github.com/JordanMPDS/laconic/issues/263
+[#264]: https://github.com/JordanMPDS/laconic/issues/264
+
+---
+
+# Results
+
+> Generated 2026-09-08. 640 generations over 8 `design-*` cases, sonnet, 40 reps
+> a side, two trees run simultaneously, four shards, `--concurrency 4` declared
+> on all four. 640 judgments, `--jobs 3` a side with both sides graded in the
+> same window. **0 failed generations and 0 failed judge calls.** Control
+> `rules_cksum` 136269960, edit `rules_cksum` 594915793, both at `cases_cksum`
+> 2423244529.
+
+## The primary does not fire
+
+**`quality_fails` on `design-*`/sonnet, the verdicts `report.py`'s counter
+reads:**
+
+| | fails / exposure | rate |
+|---|---|--:|
+| control | 68 / 318 | 21.4% |
+| edit | 66 / 313 | 21.1% |
+
+Difference **−0.3 points**, 95% CI **[−6.7, +6.1]**, one-sided Fisher exact in
+the direction of harm **p = 0.5747** (two-sided p = 1.0000). The registered bar
+is p < 0.05 and it is not met.
+
+**At 0.95 power this bounds the cost rather than failing to find it**, which is
+what four underpowered rounds could not deliver. The interval excludes the
++11.7-point archive estimate the round was sized against.
+
+### Per-cell disclosure
+
+Every cell clears `CELL_TEST_MIN_RUNS`, so [#259]'s per-cell path is open for the
+first time on this question. Published whether or not the primary fired, and no
+second fatal bar rides on them:
+
+| cell | control | edit | one-sided p (harm) |
+|---|---|---|--:|
+| `design-alerting` | 18/40 | 18/40 | 0.5888 |
+| `design-audit-log` | 0/40 | 0/40 | 1.0000 |
+| `design-cache` | 17/40 | 21/40 | 0.2510 |
+| `design-rate-limit` | 1/40 | 2/40 | 0.5000 |
+| `design-realtime` | 16/40 | 17/40 | 0.5000 |
+| `design-retry` | 3/39 | 5/40 | 0.3703 |
+| `design-search` | 0/40 | 0/38 | 1.0000 |
+| `design-upload` | 13/39 | 3/35 | 0.9985 |
+
+`design-upload` is the largest single mover and it moves toward *improvement*,
+so it is the cell most able to manufacture this null on its own. It does not:
+dropping it entirely leaves 55/279 against 63/278 at **p = 0.2273**, still short
+of the bar.
+
+### The exposure asymmetry, and the worst case it allows
+
+Exposure is 318 and 313 rather than 320 and 320 because `_judge_exposure` counts
+only decided verdicts. `not_exercised` ran 2 on the control side
+(`design-retry` 1, `design-upload` 1) and 7 on the edit side (`design-upload` 5,
+`design-search` 2) — the edit side's five on the same cell that fell hardest,
+which is exactly where an artefact would hide.
+
+Imputing every one of the edit side's seven as a **failure** and every one of
+the control side's as a pass — the worst case the data admit — reads 68/320
+against 73/320 at **p = 0.3515**. The null survives its own worst case.
+
+## The secondary fires
+
+**Unread rate on `design-*`/sonnet, from `num_turns` at no call cost:**
+
+| | unread / runs | rate |
+|---|---|--:|
+| control | 112 / 320 | 35.0% |
+| edit | 137 / 320 | 42.8% |
+
+**+7.8 points**, 95% CI [+0.3, +15.2], one-sided Fisher exact **p = 0.0258**.
+The registered bar is met.
+
+In the [#131]-sanctioned `one_turn` scope — `design-cache`, `design-realtime`,
+`design-upload`, the three cells with an established link to answer quality —
+it is 60/120 (50.0%) against 70/120 (58.3%) at **p = 0.1218**, which does not
+reach the bar on its own. Both figures are registered and both are reported.
+
+| cell | control | edit |
+|---|---|---|
+| `design-alerting` | 0/40 | 0/40 |
+| `design-audit-log` | 0/40 | 0/40 |
+| `design-cache` | 17/40 | 21/40 |
+| `design-rate-limit` | 11/40 | 15/40 |
+| `design-realtime` | 11/40 | 17/40 |
+| `design-retry` | 18/40 | 23/40 |
+| `design-search` | 23/40 | 29/40 |
+| `design-upload` | 32/40 | 32/40 |
+
+The rise is dispersed — six cells rise, two sit at a structural floor of zero,
+none falls.
+
+## Why both results are true at once
+
+Splitting the quality verdicts by whether the answer opened a file resolves the
+apparent tension, and it is the most informative table this round produced:
+
+| stratum | control | edit |
+|---|---|---|
+| opened a file | 24/207 (11.6%) | 19/183 (10.4%) |
+| opened none | 44/111 (39.6%) | 47/130 (36.2%) |
+
+**Inside each stratum the edit changes nothing.** What it changes is how many
+runs land in each: 25 runs of mass move from the read stratum into the unread
+one. The strata differ by 28.0 points of failure rate, so a 7.8-point shift of
+mass mechanically predicts a quality cost of about **+2.2 points** — comfortably
+inside this round's 95% CI upper bound of +6.1, and far too small for the
+registered test to have caught at any reps this loop can buy.
+
+So the round did not find a contradiction. It found that the effect it was
+powered for is roughly five times larger than the effect the mechanism actually
+implies, and 0.95 power against the wrong effect size still bounds the right one
+usefully.
+
+## What happened to the archive's +11.7 points
+
+The subgroup that motivated this round was found by splitting three rounds by
+model after the fact. Comparing this round against it:
+
+| | archive (rounds 51, 52, 55) | round 56 | Fisher |
+|---|---|---|--:|
+| control | 24/120 (20.0%) | 68/318 (21.4%) | p = 0.7939 |
+| edit | 38/120 (31.7%) | 66/313 (21.1%) | **p = 0.0240** |
+
+**The control replicates and the edit does not.** That is the signature of
+regression to the mean on a post-hoc subgroup: the subgroup was selected because
+the edit arm happened to run high in those three rounds, and the control arm —
+which the selection did not touch — lands where it always was. #263's registered
+warning that the p = 0.0547 "may not be cited as a result and is not one" was
+correct, and this is the round that shows why.
+
+## The fatal counters and the round's other gates
+
+`report.py` against this round's own simultaneous control, on a neutral target:
+
+```
+#49 turn gate: grounded turns moved -0.5 over 8 cell(s), 0 of 8 cell(s) rising,
+  against a 0.9-turn floor - held
+median shift 592 tokens, 8 of 8 cells improved, p = 0.008
+output_tokens cells, by the stratum they were compared inside (#131): 8 grounded
+```
+
+No fatal counter rejects. The compression the edit was accepted for in round 55
+**replicates here on a scope and a control that round never had**: 8 of 8 cells
+improved at p = 0.008, a 592-token median shift, every cell compared inside the
+grounded stratum so none of it is bought by not reading.
+
+Two disclosures `report.py` prints, neither a gate:
+
+- **Arrow forms moved in opposite directions.** Chains of three or more went
+  17 to 7; two-term mappings went 13 to 16.
+- **The `asks_back` strata.** Answers that hand a decision back went 15 of 45 to
+  22 of 61; answers that resolve it went 53 of 274 to 44 of 259. This is the
+  same direction round 55 reported, on a different stratifier from the reading
+  split above — `asks_back` is measured on the response, so it is a
+  post-treatment adjustment and the registration deliberately declined to score
+  it.
+
+## Departures from the registration
+
+Two, both disclosed here rather than corrected in place above.
+
+**The registration quoted the wrong `cases_cksum`.** It said both snapshots
+would carry 2389944869, which is the value over the whole 22-case suite. Since
+[#69] the field is computed over *exactly the cases a snapshot covers*, and an
+8-case round carries 2423244529. Both sides carry that same value, which is the
+property the guard exists to enforce, so nothing about the comparison changes —
+the registration simply named the suite-wide constant by mistake.
+
+**14 of the 320 control runs were generated about four hours after the other
+626.** The original `control-a` shard stopped 6 runs short of its 160 and left 8
+records unusable; `run.py` resumed it by key and regenerated those 14
+(`design-cache` 4, `design-rate-limit` 4, `design-alerting` 3,
+`design-audit-log` 3) at 14:00 UTC against the rest at 09:00 and 10:00. That is
+4.4% of one side, and it dents the "both sides simultaneous" design that
+[round 38](round-38.md) established.
+
+Two things bound it. **All 640 runs were generated by the same CLI build,
+2.1.263** — the covariate round 37 found style drifting 4.7x across. And
+dropping the 14 outright reads 67/304 (22.0%) against 66/313 (21.1%) at
+**p = 0.6502**, the same null with the same sign.
+
+## The decision
+
+The registered rule's third branch, taken exactly as written:
+
+> **The primary does not fire and the secondary does**: the edit stands, and the
+> round files the reading-rate finding as its own issue.
+
+- **The pre-action check stays in `rules/laconic.md`.** No revert. The registered
+  revert condition did not fire, and the round adds an independent replication of
+  the edit's compression win against a matched control.
+- **[#263] closes.** Its question is answered: the cost on `design-*`/sonnet is
+  bounded at +6.1 points at 95% confidence, and the +11.7 that motivated it was
+  a selection artefact.
+- **The reading-rate fall gets its own issue: [#264].** It is significant,
+  dispersed across six cells, and mechanistically coherent — and on a case family
+  built so that reading decides quality, a 7.8-point fall with no detectable
+  quality cost is a result about what `quality_fails` can resolve as much as
+  about the rule. The issue carries the composition arithmetic and names the
+  wording round that would separate mechanism from correlation.
+
+## What this round still cannot establish
+
+Everything the registration listed, unchanged: nothing about haiku, nothing
+about the non-design quality cells, nothing that re-clears round 55's round-wide
+counters, and nothing about whether the reading rate is *why* — both endpoints
+are measured on the same responses. Added to that list by the results:
+
+- **A cost between 0 and +6.1 points is not excluded**, and the mechanism
+  predicts about +2.2. Settling *that* needs roughly the 1,188 verdicts a side
+  round 55 computed, which no round has yet been willing to buy.
+
+[#69]: https://github.com/JordanMPDS/laconic/issues/69

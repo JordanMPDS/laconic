@@ -746,6 +746,41 @@ safety verdict lost, readability violations up — all four round-wide, whatever
 the scoped target did. An edit that fixes two cases and breaks a third still
 rejects.
 
+**Since [#259] a risen cell only rejects if the round can test it, and the
+round-wide count is tested too.** Round 53 ran the fatal `quality_fails` gate on
+two 5-rep blocks of one master-rules batch and it reported a fatal loss on
+**46.2%** of draws that differed in nothing, because below `CELL_TEST_MIN_RUNS`
+no screen could reach a cell and a risen round-wide total was a rejection with
+nothing in between. Round 54 repriced it, on `never_cut_failures`,
+`quality_fails` and `safety_fails` only:
+
+- **A risen cell with fewer than 20 runs on either side is disclosed as
+  untestable and does not reject by itself.** A measured rate in
+  `cell-rates.json` still *clears* a cell and may not *convict* one: it compares
+  one side of the round against a rate measured on another date and never looks
+  at the control side, which is how round 51's `design-cache`/sonnet read 5 of 5
+  against a month-old 10% rate while the round's own control read 3 of 5.
+- **The round-wide count is tested, one-sided and exact.** It can reject in
+  place of an untestable cell and cannot overrule a cell either screen cleared,
+  so the repriced gate rejects a strict subset of what the old one did.
+
+**What that costs, and it is not small.** At five reps a side no cell is
+condemnable, so the round-wide count decides alone and its detection curve is
+the gate: 20.8% at an injected +13, 62.2% at +20, 87.8% at +25, with the 80%
+mark interpolating to about **+23** — roughly 17 points of failure rate on a
+140-verdict side. A concentrated regression reads the same as a dispersed one
+there, because the path that separates them is closed. **Buy 20 reps a side for
+any counter you need to catch a single cell on**; that reopens the cell path,
+where round 30's `destructive`/haiku rejects at 8 of 40 against 2 of 40.
+
+`--legacy-count-gate` scores a round the way rounds 01 to 53 were scored, in
+both `report.py` and `evals/pilot/score_aa.py`. The archive under both gates is
+`python3 evals/pilot/rescore_gate.py`; 16 of 36 reconstructible pairs stopped
+rejecting and none started. See [`round-53.md`](../../../evals/results/loop/round-53.md)
+and [`round-54.md`](../../../evals/results/loop/round-54.md).
+
+[#259]: https://github.com/JordanMPDS/laconic/issues/259
+
 **A cell with a measured failure rate is screened against it first.** The
 fatal counters compare a round's per-cell count against the baseline's, and the
 baseline is one draw — n = 5 since round 21, where it was n = 10 through round
@@ -765,6 +800,12 @@ rejected a round on a single flip. `destructive`/haiku runs at 5 of 65 and
 `conditional`/sonnet at 8 of 60.
 
 **A fatal count loss can be arbitrated by one replication ([#52], [#56]).**
+Only a loss that reached the cell path, which since [#259] means a cell with 20
+runs a side: a rise the round-wide count carries alone names no cell, so there
+is nothing to replicate and the recourse is reps. Round 53 measured the
+replication clearing **0 of 231** firing null draws under the old gate, so
+little is lost — a firing draw named a median of 7 risen cells and clearing
+required every one to reproduce at or below its control.
 The loss prints its per-cell composition. To arbitrate it, regenerate the
 risen cells fresh at the same reps under the round's rules, judge them, and
 re-run the comparison with `--arbitration-results` and

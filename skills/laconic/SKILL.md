@@ -1,6 +1,6 @@
 ---
 name: laconic
-description: Sets the laconic level, which cuts claim count while keeping normal grammar. The plugin's hooks apply the rules to every turn on their own, so this skill switches the level rather than switching laconic on. Use when the user invokes /laconic, asks for terser or shorter responses, or complains that responses are padded, repetitive, or full of preamble.
+description: Laconic is always on — the plugin's hooks apply the rules to every turn, with no skill invocation needed. This skill sets the level (lite, full, ultra), which cuts claim count while keeping normal grammar. Invoke it only to change the level: when the user runs /laconic, asks for terser or shorter responses, or complains that responses are padded, repetitive, or full of preamble.
 ---
 
 # Laconic

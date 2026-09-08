@@ -95,7 +95,13 @@ def summarize(snap, judg, keep):
 
 
 def quality_reason(reasons):
-    """The fatal quality reason from an accept_verdict, or None if it held."""
+    """The fatal quality reason from an accept_verdict, or None if it held.
+
+    Two wordings reject: the per-cell one the gate has always printed, and the
+    round-wide one #259 added. Both begin with the same prefix, which is built
+    off report.FATAL rather than spelled out, so a rename there breaks this
+    loudly instead of silently matching nothing.
+    """
     for r in reasons:
         if r.startswith(FATAL_PREFIX):
             return r
@@ -114,7 +120,40 @@ def risen_cells(reason):
     return [part.strip().rsplit(" +", 1)[0] for part in tail.split(", ")]
 
 
-def draw(snap, judg, reps, rng, rates, blocks):
+def inject(judg, keep, n, rng, concentrated=False):
+    """`judg` with n passing verdicts of the edit block flipped to fail (#259).
+
+    The power arm. A null pool cannot say what a gate detects, only what it
+    reports on nothing, so the effect has to be put in by hand - and putting it
+    into the verdicts rather than into the text is what keeps the gate the
+    thing under test instead of the judge.
+
+    Dispersed spreads the same total uniformly over every eligible verdict.
+    Concentrated packs it into as few cells as possible, saturating one before
+    it starts the next, which is the shape of a regression that ruins one case
+    rather than shaving every case. The two produce the SAME round-wide total
+    by construction, so wherever the two curves coincide the gate is deciding
+    on the round-wide count alone and cannot see concentration at all.
+    """
+    pool = [j for j in judg
+            if j["rep"] in keep and j.get("arm") == "laconic"
+            and j.get("verdict") == "pass"
+            and report.case_grading(j["case"]) == "quality"
+            and report.feeds_judge_gate(j["case"], j.get("model"))]
+    rng.shuffle(pool)
+    if concentrated:
+        cells = {}
+        for j in pool:
+            cells.setdefault((j["case"], j.get("model")), []).append(j)
+        order = list(cells)
+        rng.shuffle(order)
+        pool = [j for c in order for j in cells[c]]
+    flip = set(id(j) for j in pool[:n])
+    return [dict(j, verdict="fail") if id(j) in flip else j for j in judg]
+
+
+def draw(snap, judg, reps, rng, rates, blocks, legacy=False, n_inject=0,
+         concentrated=False):
     """One control/edit[/arbitration] draw, scored by the real gate.
 
     With three blocks the gate is run twice on the same pair, once bare and
@@ -122,13 +161,16 @@ def draw(snap, judg, reps, rng, rates, blocks):
     describe the same draws rather than two different sets of them.
     """
     picked = blocks_of(reps, rng, blocks)
+    edit_judg = judg if not n_inject else inject(judg, set(picked[1]),
+                                                 n_inject, rng, concentrated)
     prev, cur = (summarize(snap, judg, picked[0]),
-                 summarize(snap, judg, picked[1]))
-    _, bare = report.accept_verdict(prev, cur, TARGET, cell_rates=rates)
+                 summarize(snap, edit_judg, picked[1]))
+    _, bare = report.accept_verdict(prev, cur, TARGET, cell_rates=rates,
+                                    legacy_count_gate=legacy)
     stood = None
     if blocks > 2:
         _, after = report.accept_verdict(
-            prev, cur, TARGET, cell_rates=rates,
+            prev, cur, TARGET, cell_rates=rates, legacy_count_gate=legacy,
             arbitration=summarize(snap, judg, picked[2]))
         stood = quality_reason(after)
     return {
@@ -144,6 +186,49 @@ def pct(n, d):
     return 0.0 if not d else 100.0 * n / d
 
 
+#: The injected effects bar D reports, in judgments added to the edit block.
+#: +13 is the gate's own 50% mark and +20 its 80% mark, both computed from the
+#: test's arithmetic before the round ran; the rest bracket them.
+INJECTIONS = (0, 2, 4, 7, 10, 13, 16, 20, 25, 30)
+
+
+def fire_rate(snap, judg, reps, rates, args, n, concentrated=False):
+    """Share of draws the gate rejects with n failures injected."""
+    rng = random.Random(SEED)
+    fired = 0
+    for _ in range(args.draws):
+        d = draw(snap, judg, reps, rng, rates, args.blocks,
+                 legacy=args.legacy_count_gate, n_inject=n,
+                 concentrated=concentrated)
+        fired += bool(d["fired"])
+    return fired
+
+
+def power(snap, judg, reps, rates, args):
+    """Bar D: what the gate detects once there is something to detect.
+
+    The dispersed arm spreads the injection over every eligible cell and is the
+    one bar D put a threshold on. The concentrated arm puts the same total into
+    one cell; at five reps a side no cell is condemnable, so the two arms should
+    read alike, and printing them together is how that blindness is disclosed
+    rather than argued.
+    """
+    print("pool: %d runs, %d reps; draws: %d, seed %d; gate: %s\n"
+          % (len(snap["runs"]), len(reps), args.draws, SEED,
+             "legacy (pre-#259)" if args.legacy_count_gate else "repriced"))
+    print("detection, failures injected into the edit block")
+    print("  %-10s %-22s %s" % ("injected", "dispersed", "concentrated"))
+    for n in INJECTIONS:
+        disp = fire_rate(snap, judg, reps, rates, args, n)
+        conc = fire_rate(snap, judg, reps, rates, args, n, concentrated=True)
+        print("  %-10s %4d / %d  (%5.1f%%)   %4d / %d  (%5.1f%%)"
+              % ("+%d" % n, disp, args.draws, pct(disp, args.draws),
+                 conc, args.draws, pct(conc, args.draws)))
+    print("\n  concentrated saturates one cell before starting the next")
+    print("  +13 is the gate's registered 50%% mark, +20 its 80%% mark")
+    return 0
+
+
 def main():
     ap = argparse.ArgumentParser(description=__doc__,
                                  formatter_class=argparse.RawDescriptionHelpFormatter)
@@ -154,6 +239,12 @@ def main():
                     help="disjoint 5-rep blocks per draw: 3 scores the "
                          "arbitration too, 2 scores only the bare gate")
     ap.add_argument("--cell-rates", default=None)
+    ap.add_argument("--legacy-count-gate", action="store_true",
+                    help="score under the pre-#259 gate, which is the one "
+                         "round 53 measured at 46.2%%")
+    ap.add_argument("--power", action="store_true",
+                    help="bar D: the detection curve, with failures injected "
+                         "into the edit block instead of a null")
     args = ap.parse_args()
 
     snap = json.loads(Path(args.pool).read_text())
@@ -166,8 +257,12 @@ def main():
         sys.exit("pool holds %d reps; a draw of %d blocks needs %d"
                  % (len(reps), args.blocks, BLOCK * args.blocks))
 
+    if args.power:
+        return power(snap, judg, reps, rates, args)
+
     rng = random.Random(SEED)
-    draws = [draw(snap, judg, reps, rng, rates, args.blocks)
+    draws = [draw(snap, judg, reps, rng, rates, args.blocks,
+                  legacy=args.legacy_count_gate)
              for _ in range(args.draws)]
 
     fired = [d for d in draws if d["fired"]]

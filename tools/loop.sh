@@ -195,11 +195,31 @@ RETRY_CAP=${LOOP_RETRY_CAP:-3600}
 # round back up, so the cost was small, but the shape is identical — an
 # intention to wait, satisfied by describing it. The prompt therefore names the
 # waiting rather than the thing waited on.
+# Each iteration designs its round alone, from this repository and nothing else.
+# That is cheap and it is also how six consecutive clauses came to be measured at
+# zero (rounds 44 to 49) without anyone asking whether the file was too full for
+# a clause to register — the question a reader outside the repository asks first.
+# So the child consults the delegate targets after it picks an issue and before
+# it commits to a design. `tools/consult.sh` asks and never fails the caller: a
+# target that is down is named in the output and the iteration continues.
+#
+# Provenance is not optional here. These rounds are pre-registered, so a
+# hypothesis that came from outside has to say so in its registration, or the
+# round's own record cannot tell where its idea came from.
 PROMPT='Work the laconic backlog: pick the highest-value open issue and take it
 end to end — design, implement, test, a round document if it is a loop round,
 branch, pull request, then merge. Do exactly one issue, then stop; the next one
 gets its own process and its own empty context. Never ask permission and never
 offer next steps.
+
+Before you commit to a design, run `bash tools/consult.sh "<your question>"`.
+It asks the delegate targets and prints what they say. Give it the issue, the
+design you are leaning towards, and the thing you are least sure of; a question
+that only describes the issue buys a summary you already have. Take what is
+useful and discard the rest — this is a feeler, not an approval step, and a
+target that is down is not a reason to stop. Where an idea you adopt came from
+a target, say so in the round registration, because a pre-registered round whose
+hypothesis has no stated origin cannot be audited later.
 
 Waiting is a command, not an intention, and it is never satisfied by saying that
 you are waiting. Ending the turn ends the process: no background task will

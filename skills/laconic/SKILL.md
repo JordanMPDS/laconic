@@ -1,6 +1,6 @@
 ---
 name: laconic
-description: Use when the user asks for terse, brief, concise, or shorter responses, or invokes /laconic — sets response length by cutting claim count while keeping normal grammar. Also use when the user complains that responses are padded, repetitive, or full of preamble.
+description: Sets the laconic level, which cuts claim count while keeping normal grammar. The plugin's hooks apply the rules to every turn on their own, so this skill switches the level rather than switching laconic on. Use when the user invokes /laconic, asks for terser or shorter responses, or complains that responses are padded, repetitive, or full of preamble.
 ---
 
 # Laconic

@@ -4541,6 +4541,14 @@ _expected_concurrent = {
     # really in flight. Only the merge reaches the sweep, and it reconstructs
     # to exactly the four shards that produced it.
     "round-53-pool.json",
+    # Round 55 is the two-tree design sharded by model rather than by case:
+    # two shards a side for the target batch, the round-wide arm and the
+    # holdout, each strictly sequential and each declaring --concurrency 4 for
+    # the four run.py processes really in flight. Each merge reconstructs to
+    # the two shards that produced it, inside what those shards declared.
+    "round-55-control.json", "round-55-edit.json",
+    "round-55-wide-control.json", "round-55-wide-edit.json",
+    "round-55-holdout.json", "round-55-holdout-control.json",
 }
 _found = set()
 for _p in sorted((ROOT / "evals" / "snapshots").rglob("*.json")):

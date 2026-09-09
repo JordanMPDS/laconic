@@ -241,9 +241,140 @@ A single `rules_cksum` across every snapshot, and any pass that crosses a CLI
 release is reported through `python3 evals/bench/release.py` before a contrast
 is read out of it ([#272]).
 
+---
+
+# Result
+
+**720 generations, 0 failed, one `rules_cksum` (594915793), one CLI release
+(2.1.266).** `release.py` reports no unreadable span and no arm imbalanced
+across a release; `concurrency.py` reads the declared 3 on all nine arm-days.
+Scored with
+
+```sh
+python3 evals/pilot/score_dilution.py \
+  --words-cases 'design-cache,design-realtime,design-upload,destructive,code-fidelity,badnews' \
+  evals/snapshots/loop/round-59-{a,b,c}.json
+```
+
+## The registered reading's first branch obtains
+
+**`abl-shown` lengthens and `abl-arrow` does not**, on the primary, on the
+secondary, and in every shard.
+
+| arm | words removed | primary ratio | p | Bonferroni α = 0.025 |
+|---|--:|--:|--:|---|
+| `laconic-abl-shown` | 209 | **1.119x** | **0.0008** | clears |
+| `laconic-abl-arrow` | 165 | 0.967x | 0.3054 | null, and the point estimate is the other way |
+
+Blocked on case, six blocks, 240 runs per arm, permutation seed 58. The
+secondary that additionally blocks on the reading stratum agrees and is larger:
+`abl-shown` **1.184x, p < 0.0001**, `abl-arrow` 1.024x, p = 0.4393.
+
+**The per-shard diagnostic does not weaken it.** Each of the three processes ran
+all six cases, and `abl-shown` is above 1 in all three — 1.080 (p = 0.1893),
+1.104 (p = 0.1032), 1.180 (p = 0.0054) — while `abl-arrow` is at or below 1 in
+all three: 0.986, 0.922, 0.992. No contrast here is carried by one process.
+
+**The manipulation check fired, which is what makes `abl-arrow`'s null worth
+anything.** Responses carrying an arrow: `laconic` **8 of 240**, `abl-arrow`
+**25 of 240**, Fisher **p = 0.0033**. The arm received its treatment — deleting
+the prohibition roughly tripled the behaviour it prohibits — and still produced
+answers no longer than the control's. `abl-shown` reads 17 of 240 (p = 0.0986),
+which is not part of any endpoint and is noted because it is not zero.
+
+## What the round establishes, stated at the resolution it has
+
+**Removing 209 words of worked demonstration lengthens answers by about 12%.
+Removing 165 words of on-topic prohibition does nothing.** The variable is not
+bulk. That is the finding, and it is the one [#275] bought the round for.
+
+Against round 58 on the same estimator, the two minimal slices removed ~735
+words for a geometric-mean **1.606x** (+0.4739 log). Proportionally:
+
+| block | share of the 735 words | share of round 58's gap it delivers |
+|---|--:|--:|
+| `abl-shown` | 28% | **24%** |
+| `abl-arrow` | 22% | **−7%** |
+
+So one block pays slightly under its weight and the other pays nothing, which is
+the shape a null on *proportionality* takes when the effect is real but
+content-specific. Three quarters of round 58's gap is still unaccounted for, in
+material neither arm touches.
+
+**This is a claim about a block and not about a mechanism**, as registered
+before the numbers. The 209 words are the only rendered short answer, the only
+side-by-side calibration of the three levels, and the only worked application of
+the rule to a specific question, and a positive result on the block cannot tell
+those apart. The replacement round that would is filed as [#277].
+
+## Exploratory: the effect is confined to the case family the block is about
+
+Not an endpoint, and reported as exploratory. Per-case geometric-mean ratios
+against `laconic`, medians beside them:
+
+| case | `abl-shown` | `abl-arrow` | `laconic` median |
+|---|--:|--:|--:|
+| `design-cache` | **1.260x** (240.0) | 1.019x (177.5) | 172.0 |
+| `design-realtime` | **1.224x** (184.5) | 1.068x (165.0) | 151.5 |
+| `design-upload` | **1.373x** (240.5) | 1.087x (188.0) | 172.0 |
+| `destructive` | 1.027x (133.0) | 0.964x (123.5) | 120.5 |
+| `code-fidelity` | 0.962x (26.5) | 0.832x (20.5) | 28.0 |
+| `badnews` | 0.940x (11.5) | 0.860x (12.5) | 22.5 |
+
+`abl-shown`'s whole effect is on the three design questions and it is absent on
+the three contract cells. The deleted block is *about* advice-shaped questions —
+a worked "should I bump the memory limit?" and the design licence's own
+`Wrong:`/`Right:` pair — so the material and the cells where it matters line up.
+That is a hypothesis for the factorial round, not a result of this one: six
+cells cannot separate "the block governs design answers" from "design answers
+are simply where this file has room to move".
+
+## Guardrail 1 failed, on both arms
+
+**Neither ablation can be certified non-inferior on reading rate**, and the
+registered margin is what it is:
+
+| arm | reads | rate | difference | lower bound | margin | verdict |
+|---|--:|--:|--:|--:|--:|---|
+| `laconic` | 45/120 | 37.5% | — | — | — | — |
+| `laconic-abl-shown` | 32/120 | 26.7% | −10.8 pts | −20.5 | −15.0 | **INFERIOR** |
+| `laconic-abl-arrow` | 33/120 | 27.5% | −10.0 pts | −19.7 | −15.0 | **INFERIOR** |
+
+Reported as a failure of the registered test rather than reinterpreted. What the
+round actually has is an inability to certify: neither fall reaches significance
+(Fisher p = 0.0967 and 0.1293), and at n = 120 a 15-point margin cannot be
+cleared by a 10-point observed fall whichever way the truth lies. Round 58's
+`laconic-min-a` failed the same guardrail the same way at n = 90. Three rounds
+have now run this test and none of them could certify anything with it; that is
+filed as [#278], because a guardrail that cannot pass is not protecting
+anything.
+
+**It does not rescue `abl-arrow` or explain `abl-shown`.** Reading less makes
+answers shorter, so a reading fall biases *against* the lengthening the primary
+found — `abl-shown` lengthened anyway, and by more inside the stratum (1.184x)
+than across it. And `abl-arrow`'s null survives the same conditioning at 1.024x,
+p = 0.4393, so its flat result is not a reading fall cancelling a real effect.
+
+Guardrail 2, the never-cut contract: **0 failures of 120 on all three arms.**
+Certifies nothing by design — the rule of three bounds each arm at 2.5% — but
+rules out the one way a length result could have been trivial.
+
+The per-cell median display, kept from round 58 as robustness: 1 of 5 cells
+shorter for each arm, sign test p = 0.3750 both. Uninformative, exactly as the
+registration said a six-cell sign test would be, and it is the reason it is not
+the primary.
+
+## No rule edit
+
+None was registered under any outcome and none follows. The finding argues for
+*keeping* 209 words the file already ships, which needs no change, and the
+mechanism question it opens is a round rather than an edit.
+
 [#88]: https://github.com/JordanMPDS/laconic/issues/88
 [#131]: https://github.com/JordanMPDS/laconic/issues/131
 [#264]: https://github.com/JordanMPDS/laconic/issues/264
 [#270]: https://github.com/JordanMPDS/laconic/issues/270
 [#272]: https://github.com/JordanMPDS/laconic/issues/272
 [#275]: https://github.com/JordanMPDS/laconic/issues/275
+[#277]: https://github.com/JordanMPDS/laconic/issues/277
+[#278]: https://github.com/JordanMPDS/laconic/issues/278

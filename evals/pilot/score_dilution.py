@@ -134,6 +134,10 @@ WORDS_CASES = list(READING_CASES)
 #: Resamples for the blocked log-words test. Enough to resolve p to ~0.002,
 #: which is finer than any threshold the round reads.
 BLOCK_RESAMPLES = 20000
+#: Draws for the percentile intervals the round 60 ladder reports. Fewer than
+#: BLOCK_RESAMPLES because a 95% percentile bound is a far coarser thing to
+#: estimate than a tail p-value, and each draw resamples every cell.
+BOOTSTRAP_DRAWS = 4000
 
 #: Registered before generation in round 58, and not moved since - see the
 #: #278 section above. An arm is non-inferior on reading rate when the lower
@@ -320,9 +324,16 @@ def words(runs, arm, case):
             if r["arm"] == arm and r["case"] == case and grounded(r)]
 
 
-def blocked_log_words(runs, arm, cases, seed=SEED, strata=False):
-    """Mean difference in log prose words against the control, blocked on the
-    case, with a permutation p-value.
+def blocked_log_words(runs, arm, cases, seed=SEED, strata=False,
+                      ref=FULL_ARM):
+    """Mean difference in log prose words against `ref`, blocked on the case,
+    with a permutation p-value.
+
+    `ref` defaults to the control and round 60 is the first round to move it.
+    A replacement ladder has two anchors rather than one - the shipped slice at
+    the ceiling and the ablated slice at the floor - and an arm's distance from
+    each of them is a different claim, so the same estimator has to be able to
+    point at either.
 
     Each block contributes the difference of its two arm means and every block
     weighs the same, so one wide cell cannot carry the contrast. Labels are
@@ -346,10 +357,10 @@ def blocked_log_words(runs, arm, cases, seed=SEED, strata=False):
             rows_ = [r for r in runs
                      if r["case"] == case
                      and (stratum is None or grounded(r) is stratum)
-                     and r["arm"] in (arm, FULL_ARM)]
+                     and r["arm"] in (arm, ref)]
             a = [math.log(max(prose_words(r), 1)) for r in rows_ if r["arm"] == arm]
             b = [math.log(max(prose_words(r), 1)) for r in rows_
-                 if r["arm"] == FULL_ARM]
+                 if r["arm"] == ref]
             if a and b:
                 blocks.append((a, b))
     if not blocks:
@@ -368,6 +379,51 @@ def blocked_log_words(runs, arm, cases, seed=SEED, strata=False):
     return obs, math.exp(obs), (hits + 1) / (BLOCK_RESAMPLES + 1), len(blocks)
 
 
+def _cells(runs, cases, arms):
+    """{(case, arm): [log prose words]} - the unit the bootstrap resamples."""
+    return {(c, a): [math.log(max(prose_words(r), 1)) for r in runs
+                     if r["case"] == c and r["arm"] == a]
+            for c in cases for a in arms}
+
+
+def _contrast(cells, cases, arm, ref):
+    """Blocked mean difference in log words, `arm` against `ref`. Same
+    estimator as blocked_log_words, computed from cells instead of runs so a
+    bootstrap replicate can be fed to it."""
+    diffs = [sum(cells[(c, arm)]) / len(cells[(c, arm)])
+             - sum(cells[(c, ref)]) / len(cells[(c, ref)])
+             for c in cases
+             if cells.get((c, arm)) and cells.get((c, ref))]
+    return sum(diffs) / len(diffs) if diffs else None
+
+
+def bootstrap(runs, cases, arms, stat, seed=SEED, draws=BOOTSTRAP_DRAWS):
+    """Percentile interval for any statistic computed off the (case, arm)
+    cells, resampling runs with replacement inside each cell.
+
+    One generator of draws feeds every quantity the ladder reports, so a
+    ratio, the share of the block effect it implies, and the interaction
+    across two case families are all read off the same replicate. Both
+    delegate targets asked for intervals rather than bare p-values on
+    `tools/consult.sh`: a rung that fails to reach significance against either
+    anchor is still informative if its interval is narrow, and a ladder that
+    can only print "unresolved" is not worth its generations.
+    """
+    base = _cells(runs, cases, arms)
+    rnd = random.Random(seed)
+    vals = []
+    for _ in range(draws):
+        drawn = {k: [rnd.choice(v) for _ in v] if v else []
+                 for k, v in base.items()}
+        got = stat(drawn)
+        if got is not None:
+            vals.append(got)
+    if not vals:
+        return None
+    vals.sort()
+    return vals[int(0.025 * len(vals))], vals[int(0.975 * len(vals))]
+
+
 def arrows_carried(runs, arm, cases):
     """(responses carrying an arrow, responses) - the round 59 manipulation
     check, not an endpoint. An arm with the arrow rule deleted that produces no
@@ -376,6 +432,93 @@ def arrows_carried(runs, arm, cases):
     hit = sum(1 for r in rows
               if sum(metrics.arrow_forms(r.get("text") or "").values()))
     return hit, len(rows)
+
+
+def ladder(runs, cases, rungs, floor_arm, out, seed=SEED):
+    """The round 60 endpoint: where each rung sits between the two anchors.
+
+    Three numbers per rung and each answers a different question. Its ratio
+    against the ceiling asks whether that delivery form still buys what the
+    shipped file buys. Its ratio against the floor asks whether it buys
+    anything at all. Its share is the fraction of the ceiling-to-floor gap the
+    rung gives back, which is the quantity that stays readable when a pairwise
+    contrast misses significance - a rung can be non-significant against both
+    anchors and still have a share interval that excludes zero or excludes one.
+    """
+    out("\nreplacement ladder: ceiling %s, floor %s, %d cells, "
+        "95%% percentile intervals from %d draws (THE PRIMARY)"
+        % (FULL_ARM, floor_arm, len(cases), BOOTSTRAP_DRAWS))
+    total = _contrast(_cells(runs, cases, [FULL_ARM, floor_arm]), cases,
+                      floor_arm, FULL_ARM)
+    tot_ci = bootstrap(runs, cases, [FULL_ARM, floor_arm],
+                       lambda c: _contrast(c, cases, floor_arm, FULL_ARM), seed)
+    out("  %-24s ratio %.3fx [%.3f, %.3f]  (the block effect the shares "
+        "divide)" % ("floor vs ceiling", math.exp(total), math.exp(tot_ci[0]),
+                     math.exp(tot_ci[1])))
+    rows = {}
+    for arm in rungs:
+        got_c = blocked_log_words(runs, arm, cases, seed=seed)
+        got_f = blocked_log_words(runs, arm, cases, seed=seed, ref=floor_arm)
+        if not got_c or not got_f:
+            out("  %-24s no block with both arms in it" % arm)
+            continue
+        pair = [FULL_ARM, floor_arm, arm]
+        ci_c = bootstrap(runs, cases, pair,
+                         lambda c, a=arm: _contrast(c, cases, a, FULL_ARM), seed)
+        ci_f = bootstrap(runs, cases, pair,
+                         lambda c, a=arm: _contrast(c, cases, a, floor_arm), seed)
+        share = got_c[0] / total if total else None
+        ci_s = bootstrap(
+            runs, cases, pair,
+            lambda c, a=arm: (lambda num, den: num / den if den else None)(
+                _contrast(c, cases, a, FULL_ARM),
+                _contrast(c, cases, floor_arm, FULL_ARM)), seed)
+        rows[arm] = {"ratio_ceiling": got_c[1], "p_ceiling": got_c[2],
+                     "ratio_floor": got_f[1], "p_floor": got_f[2],
+                     "share": share}
+        out("  %-24s vs ceiling %.3fx [%.3f, %.3f] p = %.4f | vs floor %.3fx "
+            "[%.3f, %.3f] p = %.4f | share %+.2f [%+.2f, %+.2f]"
+            % (arm, got_c[1], math.exp(ci_c[0]), math.exp(ci_c[1]), got_c[2],
+               got_f[1], math.exp(ci_f[0]), math.exp(ci_f[1]), got_f[2],
+               share, ci_s[0], ci_s[1]))
+    return rows
+
+
+def interaction(runs, cases_a, cases_b, floor_arm, out, seed=SEED):
+    """Is the block's effect bigger on one case family than on the other?
+
+    (ceiling - floor) on family A minus (ceiling - floor) on family B, with an
+    interval. Round 59 saw the whole effect on its three design cells and none
+    of it on three short contract cells, and could not tell "the block governs
+    advice-shaped questions" from "design cells are where this file has room to
+    move". The second family here is chosen to be long at baseline and not
+    advice-shaped, so the two readings make opposite predictions. Asked for in
+    this form by the `codex` target on `tools/consult.sh`, which pointed out
+    that a separate pass reported side by side is an anecdote and the
+    difference of the two contrasts is the estimand.
+    """
+    both = [FULL_ARM, floor_arm]
+    a = _contrast(_cells(runs, cases_a, both), cases_a, floor_arm, FULL_ARM)
+    b = _contrast(_cells(runs, cases_b, both), cases_b, floor_arm, FULL_ARM)
+    if a is None or b is None:
+        out("\ninteraction: one family has no block with both anchors in it")
+        return None
+    cases = list(cases_a) + list(cases_b)
+    ci = bootstrap(runs, cases, both,
+                   lambda c: (lambda x, y: None if x is None or y is None
+                              else x - y)(
+                       _contrast(c, cases_a, floor_arm, FULL_ARM),
+                       _contrast(c, cases_b, floor_arm, FULL_ARM)), seed)
+    out("\nblock effect by case family, floor against ceiling "
+        "(the #277 tie-break)")
+    out("  %-24s ratio %.3fx  (%s)" % ("family A", math.exp(a),
+                                       ", ".join(cases_a)))
+    out("  %-24s ratio %.3fx  (%s)" % ("family B", math.exp(b),
+                                       ", ".join(cases_b)))
+    out("  %-24s %.3fx [%.3f, %.3f]" % ("A over B (interaction)",
+                                        math.exp(a - b), math.exp(ci[0]),
+                                        math.exp(ci[1])))
+    return {"a": a, "b": b, "diff": a - b, "ci": ci}
 
 
 def report(runs, cases_dir, out=print, words_cases=None, arms=None):
@@ -646,6 +789,45 @@ def _selftest():
            blocked_log_words(both, "laconic-min-a", READING_CASES,
                              strata=True)[3]) == (3, 6))
 
+    # The round 60 ladder. Every number it prints is arithmetic on the cells,
+    # so it is checked against cells whose answer is known by construction: a
+    # ceiling at 100 words, a floor at 200, a rung at 141 - which is one half
+    # of the gap in logs, not one half of the gap in words.
+    def _cell(arm, case, words, n=8, base=0):
+        return [{"arm": arm, "case": case, "model": "sonnet", "rep": base + i,
+                 "ok": True, "num_turns": 2, "text": " ".join(["w"] * words)}
+                for i in range(n)]
+
+    lad_cases = ["design-cache", "design-realtime", "design-upload"]
+    lad = []
+    for c in lad_cases:
+        lad += _cell(FULL_ARM, c, 100) + _cell("floor", c, 200) \
+            + _cell("rung", c, 141)
+    lines = []
+    rows = ladder(lad, lad_cases, ["rung"], "floor", lines.append)
+    check("the ladder reads the rung against the ceiling",
+          abs(rows["rung"]["ratio_ceiling"] - 1.41) < 0.005)
+    check("the ladder reads the same rung against the floor",
+          abs(rows["rung"]["ratio_floor"] - 141 / 200) < 0.005)
+    check("the share is the fraction of the gap in logs, not in words",
+          abs(rows["rung"]["share"] - math.log(1.41) / math.log(2)) < 0.005)
+    check("a cell with no spread gives an interval that is a point",
+          "[1.410, 1.410]" in " ".join(lines))
+
+    # The tie-break interaction. Family A carries the whole 2x block effect and
+    # family B carries a tenth of it, so the difference is known.
+    inter_cases = ["stale-cache", "verdict-schema", "verdict-rollout"]
+    inter = list(lad)
+    for c in inter_cases:
+        inter += _cell(FULL_ARM, c, 100) + _cell("floor", c, 110)
+    got = interaction(inter, lad_cases, inter_cases, "floor", lambda *_: None)
+    check("the interaction is the difference of the two family contrasts",
+          abs(got["diff"] - (math.log(2) - math.log(1.1))) < 0.005)
+    check("and it is zero when both families move together",
+          abs(interaction(lad + [dict(r, case="stale-cache") for r in lad],
+                          lad_cases, ["stale-cache"], "floor",
+                          lambda *_: None)["diff"]) < 1e-9)
+
     check("shards are split on the generator that wrote each run",
           [k for k, _ in shards([{"generator": "b"}, {"generator": "a"},
                                  {"generator": "b"}])] == ["a", "b"])
@@ -694,6 +876,15 @@ def main():
                     help="prose-words scope; round 58 registered three cells "
                          "and round 59 registers six")
     ap.add_argument("--selftest", action="store_true")
+    ap.add_argument("--floor", default=None, metavar="ARM",
+                    help="second anchor for a replacement ladder (#277). "
+                         "Every other comparison arm is reported against both "
+                         "it and the control, with the share of the "
+                         "ceiling-to-floor gap it gives back.")
+    ap.add_argument("--interaction-cases", default=None, metavar="A,B,C",
+                    help="a second case family. Reports the floor-against-"
+                         "ceiling contrast on --words-cases, on this family, "
+                         "and the difference of the two with an interval.")
     ap.add_argument("--certifiable-fall", nargs=2, type=float,
                     metavar=("N", "CONTROL_RATE"),
                     help="check the margin against planned reps before buying "
@@ -718,8 +909,18 @@ def main():
         ap.error("give at least one snapshot, or --selftest")
     runs, versions = load(args.snapshots)
     print("%d usable runs, CLI %s\n" % (len(runs), ", ".join(versions)))
-    report(runs, Path(args.cases_dir),
-           words_cases=[c for c in args.words_cases.split(",") if c])
+    words_cases = [c for c in args.words_cases.split(",") if c]
+    report(runs, Path(args.cases_dir), words_cases=words_cases)
+    if args.floor:
+        rungs = [a for a in comparison_arms(runs) if a != args.floor]
+        ladder(runs, words_cases, rungs, args.floor, print)
+    if args.interaction_cases:
+        if not args.floor:
+            ap.error("--interaction-cases needs --floor: the tie-break is the "
+                     "floor-against-ceiling contrast read on two families")
+        interaction(runs, words_cases,
+                    [c for c in args.interaction_cases.split(",") if c],
+                    args.floor, print)
     return 0
 
 

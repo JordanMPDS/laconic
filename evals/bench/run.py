@@ -61,13 +61,19 @@ ARM_OUTPUT_STYLES = {"concise-style": "Concise"}
 #
 # `laconic-min-*` are #270's minimal slices; `laconic-abl-*` are #275's
 # ablation arms, which are the shipped slice with one block deleted and
-# nothing else changed. tests/test_bench.py holds each kind to a different
-# invariant, because minimality and pure deletion are different properties.
+# nothing else changed; `laconic-repl-*` are #277's replacement arms, which are
+# that same deletion with a substitute put back in its place. Each kind is held
+# to a different invariant in tests/test_bench.py, because minimality, pure
+# deletion and pure replacement are different properties and an arm that
+# silently stopped having its own would isolate nothing.
 ARM_FILES = {
     "laconic-min-a": "laconic-min-a.md",
     "laconic-min-b": "laconic-min-b.md",
     "laconic-abl-shown": "laconic-abl-shown.md",
     "laconic-abl-arrow": "laconic-abl-arrow.md",
+    "laconic-repl-told": "laconic-repl-told.md",
+    "laconic-repl-unlabelled": "laconic-repl-unlabelled.md",
+    "laconic-repl-unframed": "laconic-repl-unframed.md",
 }
 
 
@@ -86,6 +92,9 @@ ARMS = {
     "laconic-min-b": _arm_file("laconic-min-b"),
     "laconic-abl-shown": _arm_file("laconic-abl-shown"),
     "laconic-abl-arrow": _arm_file("laconic-abl-arrow"),
+    "laconic-repl-told": _arm_file("laconic-repl-told"),
+    "laconic-repl-unlabelled": _arm_file("laconic-repl-unlabelled"),
+    "laconic-repl-unframed": _arm_file("laconic-repl-unframed"),
     "laconic": "",
 }
 

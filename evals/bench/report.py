@@ -27,7 +27,9 @@ RESULTS = ROOT / "evals" / "snapshots" / "results.json"
 JUDGMENTS = ROOT / "evals" / "snapshots" / "judgments.json"
 ARM_ORDER = ["baseline", "terse-control", "word-compression",
              "concise-style", "laconic-min-a", "laconic-min-b",
-             "laconic-abl-shown", "laconic-abl-arrow", "laconic"]
+             "laconic-abl-shown", "laconic-abl-arrow",
+             "laconic-repl-told", "laconic-repl-unlabelled",
+             "laconic-repl-unframed", "laconic"]
 # A ratio of small integers is not evidence: floor/sonnet laconic (26 words,
 # 0 auxiliary verbs) and code-fidelity/haiku baseline (49 words, ~1 auxiliary
 # verb) both clear a *rate* floor trivially - one short correct answer with

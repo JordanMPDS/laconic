@@ -67,4 +67,43 @@ the figure round 59 registered. An edit to `rules/laconic.md` that moves either
 block fails that check, which is correct — the arm would no longer isolate what
 it was built to isolate.
 
+## `laconic-repl-*.md` — the [#277] replacement arms
+
+Round 59 found `abl-shown` load-bearing: deleting its 209 words of rendered
+demonstration lengthened answers by 1.119x overall and by 1.284x on the three
+`design-*` cells. But those 209 words are three things welded together — the
+file's only rendered short answer, its only side-by-side calibration of `lite`,
+`full` and `ultra`, and its only worked application of the rule to a specific
+question — and a deletion cannot tell them apart.
+
+These three arms can, because each one **puts a substitute back at the two
+sites `abl-shown` deletes from** and each removes exactly one of the three
+properties while keeping the other two. So every arm is compared against the
+shipped slice on a single difference, rather than against the arm one rung
+below it on a cumulative ladder.
+
+| arm | words | rendered? | mapped to a level? | worked from a question? |
+|---|--:|---|---|---|
+| `laconic` (ceiling) | 1,041 | yes | yes | yes |
+| `laconic-repl-told` | 1,049 | **no**, the same content in prose | described | described |
+| `laconic-repl-unlabelled` | 1,042 | yes | **no**, three answers with no level names | yes |
+| `laconic-repl-unframed` | 1,034 | yes | yes | **no**, the answers stand free of the question |
+| `laconic-abl-shown` (floor) | 832 | no | no | no |
+
+**They are word-matched, and that is the point.** Every rung sits within 8 words
+of the shipped slice, against a floor 209 words below it. On the design cells
+round 59 bounds bulk removal at 1.070x per 100 words at the 95% upper bound, so
+a 20-word band bounds any length artefact at 1.014x — comfortably under the
+round's 1.10x detection floor. Round 59's own `abl-arrow` result is *not* enough
+on its own here: pooled over six cells it was 0.967x, but on the design cells
+alone it reads 1.058x with an interval that reaches 1.119x, so length is
+something this ladder had to design out rather than argue away.
+
+`tests/test_bench.py` holds each arm to pure replacement: every line of
+`laconic-abl-shown.md` must appear in it, in order, so nothing the floor keeps
+can be dropped or reworded, and the arm must land within 20 words of the shipped
+slice. Because the floor is itself checked against the live hook output, an edit
+to `rules/laconic.md` that moves the block fails all five arms at once.
+
 [#275]: https://github.com/JordanMPDS/laconic/issues/275
+[#277]: https://github.com/JordanMPDS/laconic/issues/277

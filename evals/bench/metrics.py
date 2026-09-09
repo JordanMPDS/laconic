@@ -458,6 +458,102 @@ def never_cut_missing(text, keywords):
     return [k for k in keywords if k.lower() not in low]
 
 
+# --- level-aware decisions (#269) -------------------------------------------
+#
+# The ranks hooks/laconic.sh assigns when it slices rules/laconic.md: 0 is the
+# shared block above the first marker, then the lite, full and ultra blocks.
+# The slicer prints every block with `rank <= want`, so the levels are
+# cumulative and a rule at rank r is in force at every level of rank >= r.
+# tests/test_bench.py parses the awk in the hook and checks these against it,
+# because a rank invented here that the shipped slicer does not emit would be
+# a registry describing a product that does not exist.
+LEVEL_RANK = {"lite": 1, "full": 2, "ultra": 3}
+
+# The rank of the rule each policy detector implements. Every entry today is 0
+# or 1, which is a fact about the detectors rather than a coincidence: the loop
+# has only ever built detectors for rules in the shared block ("Never do this",
+# "Never cut") or in the lite block, and both ship at all three levels. That is
+# also why decision monotonicity currently holds by equality.
+#
+# The two grammar proxies are the entries worth reading twice. The module
+# docstring calls them "proxies for degraded grammar, not a parser", so what
+# POLICY_RULE anchors them to is the prose they proxy for rather than a
+# definition of them. That anchor is still the thing being claimed - the rule
+# they stand in for is in the shared block - and recording it forces the next
+# detector's author to make the same claim out loud instead of inheriting a
+# level by accident.
+POLICY_RANK = {
+    "symbol_connectors": 0,
+    "abbreviated_prose": 0,
+    "sentence_initial_lowercase": 0,
+    "never_cut_missing": 0,
+    "closing_offers": 1,
+    "preamble": 1,
+}
+
+# The line of rules/laconic.md each detector implements, verbatim and unique.
+# POLICY_RANK without this is an unanchored claim: moving `closing_offers` to
+# rank 2 would say a lite rule is a full rule, and nothing could tell. With it,
+# tests/test_bench.py locates each anchor between the level markers and derives
+# the rank the rule file actually implies, so a rank and the rule it names
+# cannot come apart. Substrings of one line, because the rule file wraps.
+POLICY_RULE = {
+    "symbol_connectors": "**No arrows inside a sentence.**",
+    "abbreviated_prose": "Do not shorten words in running",
+    "sentence_initial_lowercase": "No dropped articles. No telegraphic fragments.",
+    "never_cut_missing": "## Never cut (every level, including ultra)",
+    "closing_offers": "No closing offers and no offers to do more work",
+    "preamble": "No preamble. Do not restate the question",
+}
+
+# Keys score() returns that are measurements, not findings against a rule. They
+# carry no rank because there is no level at which a word count becomes a
+# violation. Named rather than inferred so that adding a key to score() without
+# deciding which of the two it is fails tests/test_metrics.py.
+MEASUREMENTS = ("words", "article_rate", "aux_verb_rate", "violations", "spans")
+
+
+def decisions(text, level, never_cut_keywords=()):
+    """The policy detectors that fire on `text` and are in force at `level`.
+
+    The level-aware view of detectors that are themselves level-blind: every
+    function called here takes text and nothing else, and the level enters
+    only as the filter on POLICY_RANK. That is what makes the nesting
+    mechanical - decisions(t, "lite") is a subset of decisions(t, "full") is a
+    subset of decisions(t, "ultra") for every text - and it is the property
+    #269 asks to be gated, because a scorer that fired at `full` and not at
+    `ultra` would say a stricter rule set accepted what a looser one rejected.
+
+    `never_cut_keywords` is per case rather than per response, so a caller
+    that has no case in hand passes nothing and the never-cut detector cannot
+    fire. That is a caller's omission, not a pass: never_cut_missing needs the
+    keywords to have an opinion at all.
+
+    Deliberately NOT score()["violations"], which sums the three readability
+    detectors only. Closing offers, preamble and the never-cut contract are
+    findings against named rules too, and a decision set that dropped them
+    would gate a narrower thing than it claims to.
+
+    Scope: deterministic detectors. The judge is outside it - judge.py grades a
+    response against a per-case trap and never sees a level, so its verdicts
+    cannot violate this property and cannot be cited as evidence for it either.
+    A judge trap that is ever made level-aware is a new kind of detector and
+    needs its own rank.
+    """
+    want = LEVEL_RANK[level]
+    # Driven off POLICY_RANK rather than a second list of names, so a ranked
+    # finding added to score() reaches this without a matching edit here.
+    s = score(text)
+    fired = {n for n in POLICY_RANK if s.get(n)}
+    if never_cut_keywords and never_cut_missing(text, never_cut_keywords):
+        fired.add("never_cut_missing")
+    if closing_offers(text):
+        fired.add("closing_offers")
+    if preamble(text):
+        fired.add("preamble")
+    return frozenset(n for n in fired if POLICY_RANK[n] <= want)
+
+
 # The grader's view of one response, for a case whose deliverable is a file.
 #
 # Every metric the loop has ever scored reads `text`. #150 reports its harm in

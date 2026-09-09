@@ -1595,6 +1595,143 @@ check("arrow_rows keeps the laconic arm only", len(_rows) == 1)
 check("arrow_rows counts the arrow in a numbered step", _rows[0]["arrows"] == 1)
 check("arrow_rows counts that response's structure", _rows[0]["structure"] == 3)
 
+# --- decision monotonicity and the incomplete gate (#269) --------------------
+#
+# Three separate claims sit behind "the levels are cumulative", and they were
+# covered very unevenly. The rule text is checked by tests/test_laconic.sh
+# cases 4 to 6; the detector contract is checked in tests/test_metrics.py; this
+# is the part that needs the archive and the shipped hook.
+
+# metrics.POLICY_RANK invents nothing: the ranks it uses are read off the awk
+# in hooks/laconic.sh, which is where the marker contract lives and where
+# AGENTS.md says it stays. A subset rather than an equality, because no
+# detector's rule lives in the full or ultra block today and requiring one
+# would mean inventing a detector to satisfy a test.
+_hook_src = (ROOT / "hooks" / "laconic.sh").read_text()
+_marker_ranks = {m.group(1): int(m.group(2)) for m in re.finditer(
+    r"/\^<!-- level:(\w+) -->\$/\s*\{ rank = (\d+);", _hook_src)}
+_flag_ranks = {m.group(1): int(m.group(2)) for m in re.finditer(
+    r"^\s*(\w+)\)\s*RANK=(\d+) ;;", _hook_src, re.M)}
+check("the hook's marker ranks were found and cover all three levels",
+      _marker_ranks == {"lite": 1, "full": 2, "ultra": 3})
+check("metrics.LEVEL_RANK matches the ranks the hook resolves a flag to",
+      bench_metrics.LEVEL_RANK == _flag_ranks == _marker_ranks)
+check("every detector rank is one the hook's slicer emits",
+      set(bench_metrics.POLICY_RANK.values()) <= {0} | set(_marker_ranks.values()))
+
+# The rank a detector claims, against the block its rule actually sits in. This
+# is what stops POLICY_RANK from being an unanchored assertion: a rank checked
+# only against itself would let `closing_offers` move to the full block while
+# its rule stayed in the lite one, and every other check here would still pass.
+_rules_lines = (ROOT / "rules" / "laconic.md").read_text().splitlines()
+_rank_of_line, _r = [], 0
+for _line in _rules_lines:
+    _m = re.match(r"^<!-- level:(\w+) -->$", _line)
+    if _m:
+        _r = _marker_ranks[_m.group(1)]
+        _rank_of_line.append(None)   # the marker itself belongs to no block
+        continue
+    _rank_of_line.append(_r)
+
+_derived = {}
+for _name, _anchor in sorted(bench_metrics.POLICY_RULE.items()):
+    _hits = [_rank_of_line[i] for i, _line in enumerate(_rules_lines)
+             if _anchor in _line]
+    check("%s's rule is found exactly once in rules/laconic.md" % _name,
+          len(_hits) == 1)
+    if len(_hits) == 1:
+        _derived[_name] = _hits[0]
+
+check("every detector names the rule it implements",
+      set(bench_metrics.POLICY_RULE) == set(bench_metrics.POLICY_RANK))
+check("every detector's rank is the block its rule is actually in",
+      _derived == bench_metrics.POLICY_RANK)
+
+# The sweep over archived responses. It cannot fail while every detector is a
+# pure function of text - which is the point, and why tests/test_metrics.py
+# carries the contract instead. What this adds is the report on real data: if
+# a future detector is made level-aware, this says whether the ordering
+# survives the corpus rather than only the witnesses.
+_lvl_texts = []
+for _lv in ("lite", "full", "ultra"):
+    _snap = bench_run.load_snapshot(str(ROOT / "evals" / "snapshots" / ("levels-%s.json" % _lv)))
+    if _snap:
+        _lvl_texts += [(r["case"], r.get("text", "")) for r in bench_run.usable(_snap["runs"])]
+
+_nc = {}
+for _d in sorted((ROOT / "evals" / "cases").iterdir()):
+    _e = _d / "expect.json"
+    if _e.is_file():
+        _nc[_d.name] = tuple(json.loads(_e.read_text()).get("never_cut", []))
+
+_breaks, _fired = [], 0
+for _case, _text in _lvl_texts:
+    _kw = _nc.get(_case, ())
+    _d3 = [bench_metrics.decisions(_text, lv, _kw) for lv in ("lite", "full", "ultra")]
+    if not (_d3[0] <= _d3[1] <= _d3[2]):
+        _breaks.append(_case)
+    _fired += 1 if _d3[2] else 0
+
+check("the archive sweep found responses to score", len(_lvl_texts) > 300)
+check("decisions nest across all three levels on every archived response",
+      _breaks == [])
+# Without this the sweep above would pass on 330 empty sets, which is the
+# defect #269 filed against levels.py in a new costume.
+check("the archive sweep is not run on empty decision sets", _fired > 0)
+
+# levels.py exits non-zero on an incomplete cross-level run, and only on that.
+# A missing level used to be a footnote under a heading promising three.
+with tempfile.TemporaryDirectory() as _td:
+    def _levels_cli(args):
+        return subprocess.run(
+            [sys.executable, str(ROOT / "evals" / "bench" / "levels.py")] + args,
+            capture_output=True, text=True)
+
+    _full_run = _levels_cli(["--markdown", str(Path(_td) / "all.md")])
+    check("levels.py exits 0 on the committed three-level run",
+          _full_run.returncode == 0)
+
+    _src = ROOT / "evals" / "snapshots"
+    _partial = Path(_td) / "snaps"
+    _partial.mkdir()
+    for _lv in ("lite", "full"):
+        shutil.copy(_src / ("levels-%s.json" % _lv), _partial / ("levels-%s.json" % _lv))
+    _miss = _levels_cli(["--snapshot-dir", str(_partial), "--markdown",
+                         str(Path(_td) / "partial.md")])
+    check("levels.py exits non-zero when a level never ran",
+          _miss.returncode != 0 and "ultra" in (_miss.stdout + _miss.stderr))
+    # The report is still written, so a partial run leaves the reader its
+    # tables rather than nothing at all.
+    check("levels.py writes its report before failing",
+          (Path(_td) / "partial.md").is_file())
+
+    # A model present at one level and absent at another is the same hole with
+    # all three files on disk, and it has to be caught the same way.
+    _lop = Path(_td) / "lopsided"
+    _lop.mkdir()
+    for _lv in ("lite", "full", "ultra"):
+        _s = json.loads((_src / ("levels-%s.json" % _lv)).read_text())
+        if _lv == "ultra":
+            _s["runs"] = [r for r in _s["runs"] if r["model"] != "sonnet"]
+        (_lop / ("levels-%s.json" % _lv)).write_text(json.dumps(_s))
+    _hole = _levels_cli(["--snapshot-dir", str(_lop), "--markdown",
+                         str(Path(_td) / "hole.md")])
+    check("levels.py exits non-zero when a model is missing a whole level",
+          _hole.returncode != 0 and "sonnet/ultra" in (_hole.stdout + _hole.stderr))
+
+# gaps() is per model, not per case: a case added between runs would otherwise
+# make the exit code track the case list rather than the analysis.
+_gap_views = {
+    "lite": (None, [{"model": "haiku", "case": "floor"},
+                    {"model": "haiku", "case": "decision"}], None),
+    "full": (None, [{"model": "haiku", "case": "floor"}], None),
+}
+check("gaps ignores a case that is absent at one level",
+      bench_levels.gaps(_gap_views, ["lite", "full"]) == [])
+_gap_views["full"] = (None, [], None)
+check("gaps reports a model with no usable run at a level",
+      bench_levels.gaps(_gap_views, ["lite", "full"]) == [("haiku", "full")])
+
 import subagent as bench_subagent  # noqa: E402
 
 # Fisher is what decides whether an arm difference in the relay run is real,

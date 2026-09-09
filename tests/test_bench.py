@@ -5910,5 +5910,22 @@ with tempfile.TemporaryDirectory() as _td_off:
           "0 left" in _shard("s2.json", 2).stdout
           or _reps("s2.json") == [2, 3])
 
+# --- every pilot scorer that ships a --selftest has to pass it in CI ------
+# score_dilution.py carries about seventy arithmetic checks behind
+# `--selftest` and nothing ran them: the five suites CI runs never touched
+# evals/pilot, so rounds 58, 59 and 60 each added checks to a file whose
+# regressions no pull request could catch. Discovered by grep rather than
+# listed, so the next scorer that grows a selftest is covered by existing it.
+_pilots = sorted(p for p in (ROOT / "evals" / "pilot").glob("*.py")
+                 if "--selftest" in p.read_text())
+check("at least one pilot scorer ships a selftest", bool(_pilots))
+for _pilot in _pilots:
+    _got = subprocess.run([sys.executable, str(_pilot), "--selftest"],
+                          capture_output=True, text=True, cwd=str(ROOT))
+    check("evals/pilot/%s --selftest passes" % _pilot.name,
+          _got.returncode == 0)
+    if _got.returncode != 0:
+        print(_got.stdout[-4000:] or _got.stderr[-4000:])
+
 print("\n%d failure(s)" % fails)
 sys.exit(1 if fails else 0)

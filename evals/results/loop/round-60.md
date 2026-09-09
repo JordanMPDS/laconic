@@ -235,6 +235,56 @@ Fixed before the numbers. "At the ceiling" below means not separated from
 Anything reported outside these endpoints is exploratory and says so where it is
 written.
 
+## Addendum, registered 2026-09-09 after registration and before any number was read
+
+Two things came up during generation that the registration did not cover.
+Both were settled on `bash tools/consult.sh` and written down here before the
+scorer was pointed at the snapshots. Neither changes an arm, an endpoint, the
+primary test or the Bonferroni correction.
+
+**1. The share is guarded by its own denominator.** The registered share
+divides by the ceiling-to-floor gap, which is itself estimated, and a bootstrap
+draw whose denominator lands near zero produces an enormous share — a
+Fieller-type problem whose naive percentile bounds are both very wide and
+misleadingly finite. `share_usable()` now reports the share only when the gap's
+own 95% interval lies entirely above zero, and otherwise prints
+`share uninterpretable` beside the two absolute contrasts, which are printed
+either way. The fraction of draws at or below zero is printed as a descriptive
+line and decides nothing. **2.5% in one tail is not a threshold this round
+chose**; it is the 95% level already registered, which is the whole reason this
+is not a post-hoc rule.
+
+**2. The ladder was generated in two sittings, and the pause is reported.** The
+first three shards died with 464 of 600 runs written and a resume filled the
+rest four and a half hours later. The CLI version is byte-identical across the
+pause (2.1.266) and `rules_cksum` and `cases_cksum` are unchanged, so both
+existing guards pass and neither says anything: **wall-clock is not something
+this repository records anywhere a reader would look.** Interleaving is the
+design's defence — every rep generates all five arms back to back and the
+estimator differences arms inside a case, so anything moving all five together
+is absorbed — but that is an argument, not a check. `continuity()` locates the
+pause from the run stamps, prints the block effect on each side of it with the
+interaction between them, and prints the pre-pause ladder underneath as a
+sensitivity.
+
+**Its action is registered with it.** It filters nothing, it is not an endpoint,
+and it does not decide inclusion. A null says the share's denominator is one
+quantity rather than a mixture of two; a large interaction says the round needs
+replication and the pre-pause ladder is what a reader falls back to. A null here
+is also weak, because the post-pause epoch is the smaller of the two: it cannot
+rule out a gap effect much below the interval it prints, and the round says so
+rather than reading it as clean.
+
+*Origin: all three delegate targets — `codex`, `deepseek` and `kimi` — gave the
+denominator-interval gate independently, and all three rejected the sign-flip
+threshold proposed to them, on the ground that a cutoff chosen here is a cutoff
+chosen for appearance. `codex` supplied the rule that a continuity diagnostic
+must have its action registered with it and must never be used to exclude data
+after the fact, and named joint resampling of the blocks as the one
+implementation detail that would silently invalidate the share. `deepseek`
+supplied the pre-pause fallback and the warning about the smaller epoch. `kimi`
+asked for the sensitivity to be printed rather than described.*
+
 ## Bound, fatal to the round
 
 A single `rules_cksum` across every snapshot, and any pass crossing a CLI

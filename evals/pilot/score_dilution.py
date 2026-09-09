@@ -108,6 +108,34 @@ reading stratum. `kimi` supplied the per-shard reading and the argument for
 giving every shard every case. Both were adopted before any generation;
 `deepseek` did not answer either time.*
 
+## Round 60: the two things decided after registration and before the numbers
+
+Round 60 was registered and half generated before either of these came up, so
+both were settled on `tools/consult.sh` and written down before any result was
+read. Neither changes an arm, an endpoint or the primary test.
+
+- **The share is guarded by its own denominator.** `share_usable()` reports the
+  registered share only when the ceiling-to-floor gap's 95% interval lies
+  entirely above zero; otherwise the three shares print as
+  `share uninterpretable` and the two absolute contrasts, which are printed
+  either way, are what a reader uses. The fraction of draws at or below zero is
+  printed as a descriptive line and decides nothing.
+- **A pause in generation is found and reported.** The ladder was generated in
+  two sittings four and a half hours apart. `continuity()` locates the pause
+  from the run stamps, prints the block effect on each side of it and the
+  interaction between them, and prints the pre-pause ladder as a sensitivity.
+  It filters nothing and it is not an endpoint.
+
+*Origin: all three delegate targets - `codex`, `deepseek` and `kimi` - gave the
+denominator-interval gate independently and all three rejected the sign-flip
+threshold I proposed, on the ground that a cutoff I choose myself is a cutoff
+chosen for appearance while 2.5% in one tail is the 95% level the round already
+registered. `codex` supplied the rule that a continuity diagnostic must have its
+action registered with it and must never be used to exclude data after the fact;
+`deepseek` supplied the pre-pause fallback and the warning that the post-pause
+epoch is too small for its null to be strong; `kimi` asked for the sensitivity
+to be printed rather than described.*
+
 [#131]: https://github.com/JordanMPDS/laconic/issues/131
 [#264]: https://github.com/JordanMPDS/laconic/issues/264
 [#270]: https://github.com/JordanMPDS/laconic/issues/270
@@ -118,6 +146,7 @@ import json
 import math
 import random
 import sys
+from datetime import datetime
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "bench"))
@@ -397,9 +426,9 @@ def _contrast(cells, cases, arm, ref):
     return sum(diffs) / len(diffs) if diffs else None
 
 
-def bootstrap(runs, cases, arms, stat, seed=SEED, draws=BOOTSTRAP_DRAWS):
-    """Percentile interval for any statistic computed off the (case, arm)
-    cells, resampling runs with replacement inside each cell.
+def bootstrap_draws(runs, cases, arms, stat, seed=SEED, draws=BOOTSTRAP_DRAWS):
+    """Every replicate of `stat`, resampling runs with replacement inside each
+    (case, arm) cell.
 
     One generator of draws feeds every quantity the ladder reports, so a
     ratio, the share of the block effect it implies, and the interaction
@@ -408,6 +437,11 @@ def bootstrap(runs, cases, arms, stat, seed=SEED, draws=BOOTSTRAP_DRAWS):
     `tools/consult.sh`: a rung that fails to reach significance against either
     anchor is still informative if its interval is narrow, and a ladder that
     can only print "unresolved" is not worth its generations.
+
+    Every cell is redrawn inside one replicate rather than a cell at a time,
+    so a share and its denominator keep the covariance that makes their ratio
+    meaningful - `codex` named resampling the arms independently as the one
+    implementation detail that would silently invalidate the share.
     """
     base = _cells(runs, cases, arms)
     rnd = random.Random(seed)
@@ -418,10 +452,126 @@ def bootstrap(runs, cases, arms, stat, seed=SEED, draws=BOOTSTRAP_DRAWS):
         got = stat(drawn)
         if got is not None:
             vals.append(got)
+    return vals
+
+
+def bootstrap(runs, cases, arms, stat, seed=SEED, draws=BOOTSTRAP_DRAWS):
+    """95% percentile interval, or None when no replicate was computable."""
+    vals = bootstrap_draws(runs, cases, arms, stat, seed, draws)
     if not vals:
         return None
     vals.sort()
     return vals[int(0.025 * len(vals))], vals[int(0.975 * len(vals))]
+
+
+def share_usable(total_ci):
+    """Is the ceiling-to-floor gap resolved well enough to divide by?
+
+    The share is a ratio whose denominator is estimated, which is a
+    Fieller-type problem: a bootstrap draw whose denominator lands near zero
+    produces an enormous share, and the naive percentile bounds on such a
+    ratio are both very wide and misleadingly finite. All three delegate
+    targets independently gave the same gate on `tools/consult.sh` - report
+    the share only when the denominator's own 95% interval lies entirely on
+    the expected side of zero - and all three rejected the sign-flip fraction
+    I proposed, because a threshold I pick myself is a threshold chosen for
+    appearance. 2.5% in one tail is not chosen: it is the 95% level already
+    registered, so this adds no new number to the round.
+
+    The sign-flip fraction is still printed, as a descriptive line rather than
+    as the instrument that decides anything.
+    """
+    return bool(total_ci) and total_ci[0] > 0
+
+
+def epoch_split(runs, min_gap_s=1800):
+    """(boundary, gap in seconds) for the largest pause in generation, or None.
+
+    Round 60's ladder was generated in two sittings four and a half hours
+    apart: the first process died with 464 of 600 runs written, and a resume
+    filled the rest into the same shard files. `rules_cksum` and the per-run
+    CLI stamp (#272) both pass across a pause - they are the same instrument -
+    so neither existing guard says anything, and wall-clock is not otherwise
+    recorded anywhere a reader would look. Found from the data rather than
+    given as a constant, so a round generated in one sitting reports no split
+    instead of reporting a made-up one.
+    """
+    stamps = sorted({r["generated_at"] for r in runs if r.get("generated_at")})
+    if len(stamps) < 2:
+        return None
+    at = [datetime.strptime(t, "%Y-%m-%dT%H:%M:%SZ") for t in stamps]
+    gaps = [((at[i + 1] - at[i]).total_seconds(), stamps[i + 1])
+            for i in range(len(at) - 1)]
+    gap, boundary = max(gaps)
+    return (boundary, gap) if gap >= min_gap_s else None
+
+
+def continuity(runs, cases, rungs, floor_arm, out, seed=SEED):
+    """Did the block effect change across the pause in generation?
+
+    Interleaving is the design's defence: every rep generates all five arms
+    back to back, and the estimator differences arms inside a case, so
+    anything that moves all five arms together is absorbed. The one artefact
+    that would survive that is a time effect differential by arm, and this is
+    the test for it - the floor-against-ceiling contrast after the pause minus
+    the same contrast before it, blocked on case, with an interval.
+
+    Registered before the numbers were read and with its action registered
+    too, which is what stops it being a number nobody can act on: it does not
+    filter the primary and it does not decide inclusion. A null says the
+    share's denominator is one quantity rather than a mixture; a large
+    interaction says the round needs replication, and the pre-pause ladder
+    printed underneath is the sensitivity a reader falls back to. `codex` was
+    explicit that a diagnostic used to exclude data after the fact is worse
+    than no diagnostic, and `deepseek` supplied the fallback.
+
+    A null here is weak: the post-pause epoch is the smaller one, so this
+    cannot rule out a gap effect much below the interval it prints.
+    """
+    split = epoch_split(runs)
+    if not split:
+        out("\ngeneration continuity: one sitting, no pause to check")
+        return None
+    boundary, gap = split
+    pre = [r for r in runs if r["generated_at"] < boundary]
+    post = [r for r in runs if r["generated_at"] >= boundary]
+    out("\ngeneration continuity: a %.1f h pause at %s (diagnostic, and it "
+        "filters nothing)" % (gap / 3600.0, boundary))
+    for arm in [FULL_ARM, floor_arm] + list(rungs):
+        out("  %-24s %3d before, %3d after"
+            % (arm, sum(1 for r in pre if r["arm"] == arm),
+               sum(1 for r in post if r["arm"] == arm)))
+    both = [FULL_ARM, floor_arm]
+    a = _contrast(_cells(pre, cases, both), cases, floor_arm, FULL_ARM)
+    b = _contrast(_cells(post, cases, both), cases, floor_arm, FULL_ARM)
+    if a is None or b is None:
+        out("  one epoch has no block with both anchors in it")
+        return None
+    # The two epochs are disjoint sets of runs, so their draws are independent
+    # and the interaction's interval is the percentile of their differences.
+    # Different seeds, or replicate i of one epoch would be paired with the
+    # same resampling pattern in the other.
+    stat = lambda c: _contrast(c, cases, floor_arm, FULL_ARM)  # noqa: E731
+    pre_d = bootstrap_draws(pre, cases, both, stat, seed)
+    post_d = bootstrap_draws(post, cases, both, stat, seed + 1)
+    n = min(len(pre_d), len(post_d))
+    diffs = sorted(post_d[i] - pre_d[i] for i in range(n))
+    ci = (diffs[int(0.025 * n)], diffs[int(0.975 * n)]) if n else None
+    out("  %-24s ratio %.3fx  (%d runs)" % ("block effect before",
+                                            math.exp(a), len(pre)))
+    out("  %-24s ratio %.3fx  (%d runs)" % ("block effect after",
+                                            math.exp(b), len(post)))
+    if ci:
+        out("  %-24s %.3fx [%.3f, %.3f]"
+            % ("after over before", math.exp(b - a),
+               math.exp(ci[0]), math.exp(ci[1])))
+    else:
+        out("  %-24s no draws" % "after over before")
+    ladder(pre, cases, rungs, floor_arm, out, seed)
+    out("  ^ that ladder is the pre-pause runs alone: the sensitivity, not "
+        "the primary")
+    return {"pre": a, "post": b, "diff": b - a, "ci": ci,
+            "boundary": boundary, "gap_s": gap}
 
 
 def arrows_carried(runs, arm, cases):
@@ -450,11 +600,22 @@ def ladder(runs, cases, rungs, floor_arm, out, seed=SEED):
         % (FULL_ARM, floor_arm, len(cases), BOOTSTRAP_DRAWS))
     total = _contrast(_cells(runs, cases, [FULL_ARM, floor_arm]), cases,
                       floor_arm, FULL_ARM)
-    tot_ci = bootstrap(runs, cases, [FULL_ARM, floor_arm],
-                       lambda c: _contrast(c, cases, floor_arm, FULL_ARM), seed)
+    tot_draws = bootstrap_draws(
+        runs, cases, [FULL_ARM, floor_arm],
+        lambda c: _contrast(c, cases, floor_arm, FULL_ARM), seed)
+    tot_draws.sort()
+    tot_ci = (tot_draws[int(0.025 * len(tot_draws))],
+              tot_draws[int(0.975 * len(tot_draws))])
+    flip = sum(1 for d in tot_draws if d <= 0) / len(tot_draws)
+    usable = share_usable(tot_ci)
     out("  %-24s ratio %.3fx [%.3f, %.3f]  (the block effect the shares "
-        "divide)" % ("floor vs ceiling", math.exp(total), math.exp(tot_ci[0]),
-                     math.exp(tot_ci[1])))
+        "divide; %.1f%% of draws at or below zero)"
+        % ("floor vs ceiling", math.exp(total), math.exp(tot_ci[0]),
+           math.exp(tot_ci[1]), 100 * flip))
+    if not usable:
+        out("  the denominator's own interval reaches zero, so every share "
+            "below is uninterpretable and is printed as such. Read the two "
+            "absolute contrasts instead.")
     rows = {}
     for arm in rungs:
         got_c = blocked_log_words(runs, arm, cases, seed=seed)
@@ -475,12 +636,14 @@ def ladder(runs, cases, rungs, floor_arm, out, seed=SEED):
                 _contrast(c, cases, floor_arm, FULL_ARM)), seed)
         rows[arm] = {"ratio_ceiling": got_c[1], "p_ceiling": got_c[2],
                      "ratio_floor": got_f[1], "p_floor": got_f[2],
-                     "share": share}
+                     "share": share if usable else None,
+                     "share_point": share}
         out("  %-24s vs ceiling %.3fx [%.3f, %.3f] p = %.4f | vs floor %.3fx "
-            "[%.3f, %.3f] p = %.4f | share %+.2f [%+.2f, %+.2f]"
+            "[%.3f, %.3f] p = %.4f | %s"
             % (arm, got_c[1], math.exp(ci_c[0]), math.exp(ci_c[1]), got_c[2],
                got_f[1], math.exp(ci_f[0]), math.exp(ci_f[1]), got_f[2],
-               share, ci_s[0], ci_s[1]))
+               "share %+.2f [%+.2f, %+.2f]" % (share, ci_s[0], ci_s[1])
+               if usable else "share uninterpretable"))
     return rows
 
 
@@ -814,6 +977,80 @@ def _selftest():
     check("a cell with no spread gives an interval that is a point",
           "[1.410, 1.410]" in " ".join(lines))
 
+    # The #278-shaped defect one level down: a share is a ratio, and a
+    # denominator that the design did not resolve makes its percentile
+    # interval finite and meaningless. The gate has to fire on cells where the
+    # two anchors are the same length up to noise.
+    check("a denominator interval clear of zero lets the share through",
+          share_usable((0.1, 0.4)))
+    check("one that reaches zero does not", not share_usable((-0.01, 0.4)))
+    check("nor does one that is entirely the wrong side",
+          not share_usable((-0.4, -0.1)))
+    check("nor a missing interval", not share_usable(None))
+
+    def _noisy(arm, case, words, n=12, spread=3):
+        return [{"arm": arm, "case": case, "model": "sonnet", "rep": i,
+                 "ok": True, "num_turns": 2,
+                 "text": " ".join(["w"] * (words + spread * (i % 5 - 2)))}
+                for i in range(n)]
+
+    flat = []
+    for c in lad_cases:
+        flat += _noisy(FULL_ARM, c, 100) + _noisy("floor", c, 100) \
+            + _noisy("rung", c, 100)
+    flines = []
+    frows = ladder(flat, lad_cases, ["rung"], "floor", flines.append)
+    check("an unresolved block effect suppresses the share",
+          frows["rung"]["share"] is None
+          and any("share uninterpretable" in l for l in flines))
+    check("and the two absolute contrasts are still printed",
+          all(k in frows["rung"] for k in ("ratio_ceiling", "ratio_floor")))
+    check("a resolved one does not suppress it",
+          rows["rung"]["share"] is not None)
+
+    # The pause diagnostic. Found from the stamps, so a round generated in one
+    # sitting has to report no split rather than invent one.
+    def _stamped(runs, when):
+        return [dict(r, generated_at=when) for r in runs]
+
+    one = _stamped(lad, "2026-09-09T15:00:00Z")
+    check("one sitting has no pause", epoch_split(one) is None)
+    two = _stamped(lad[:len(lad) // 2], "2026-09-09T15:00:00Z") \
+        + _stamped(lad[len(lad) // 2:], "2026-09-09T20:00:00Z")
+    got_split = epoch_split(two)
+    check("a five-hour pause is found at the run after it",
+          got_split == ("2026-09-09T20:00:00Z", 5 * 3600.0))
+    check("a two-minute pause is not one",
+          epoch_split(_stamped(lad[:3], "2026-09-09T15:00:00Z")
+                      + _stamped(lad[3:], "2026-09-09T15:02:00Z")) is None)
+    check("a continuity check on one sitting returns nothing",
+          continuity(one, lad_cases, ["rung"], "floor", lambda *_: None)
+          is None)
+    # Every arm appears on both sides of this pause with the same lengths, so
+    # the interaction is zero by construction and any drift in the estimator
+    # shows up here.
+    same = _stamped(lad, "2026-09-09T15:00:00Z") \
+        + _stamped([dict(r, rep=r["rep"] + 100) for r in lad],
+                   "2026-09-09T20:00:00Z")
+    cont = continuity(same, lad_cases, ["rung"], "floor", lambda *_: None)
+    check("an unchanged block effect reads as no interaction",
+          abs(cont["diff"]) < 1e-9)
+    check("and the diagnostic reports both epochs, not just the pooled one",
+          abs(math.exp(cont["pre"]) - 2.0) < 0.005
+          and abs(math.exp(cont["post"]) - 2.0) < 0.005)
+    # A block effect that halves across the pause has to be visible, or the
+    # diagnostic is decorative.
+    moved = _stamped(lad, "2026-09-09T15:00:00Z")
+    for c in lad_cases:
+        moved += _stamped(_cell(FULL_ARM, c, 100, base=100)
+                          + _cell("floor", c, 141, base=100)
+                          + _cell("rung", c, 120, base=100),
+                          "2026-09-09T20:00:00Z")
+    moved_c = continuity(moved, lad_cases, ["rung"], "floor", lambda *_: None)
+    check("a block effect that halves across the pause is reported as such",
+          abs(math.exp(moved_c["post"]) - 1.41) < 0.005
+          and abs(math.exp(moved_c["diff"]) - 1.41 / 2) < 0.01)
+
     # The tie-break interaction. Family A carries the whole 2x block effect and
     # family B carries a tenth of it, so the difference is known.
     inter_cases = ["stale-cache", "verdict-schema", "verdict-rollout"]
@@ -914,6 +1151,7 @@ def main():
     if args.floor:
         rungs = [a for a in comparison_arms(runs) if a != args.floor]
         ladder(runs, words_cases, rungs, args.floor, print)
+        continuity(runs, words_cases, rungs, args.floor, print)
     if args.interaction_cases:
         if not args.floor:
             ap.error("--interaction-cases needs --floor: the tie-break is the "

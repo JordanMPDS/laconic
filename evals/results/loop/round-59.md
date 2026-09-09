@@ -77,6 +77,17 @@ answer.*
 Sonnet only, 40 reps per arm, six cases, **720 generations**, three shards
 declaring `--concurrency 3`, no judging in step 1.
 
+**Every shard runs every case.** The three processes split the rep range
+(`run.py --rep-offset`, 0-13, 14-26, 27-39) rather than splitting the cases the
+way round 58 did. A run is keyed on (case, arm, model, rep), so a rep split
+gives each process a disjoint key space while every process still covers all
+six cases and all twelve blocks. Splitting by case instead makes case
+inseparable from shard, and therefore from wall-clock time and from any CLI
+release that lands mid-round: round 58's per-shard spread of 1.23x to 1.43x on
+one arm cannot be read as case heterogeneity or as process artefact, because
+there each shard *was* a pair of cases. Under the rep split, the per-shard
+contrast below is a genuine robustness check.
+
 - `design-cache`, `design-realtime`, `design-upload` — the sanctioned `one_turn`
   scope, the three cells that can tell a fixture-derived answer from a recalled
   one ([#88]).
@@ -94,18 +105,36 @@ asks for, and it doubles the blocks the primary test runs over.
 **Primary, free, six cells, two contrasts against `laconic` at Bonferroni
 α = 0.025:**
 
-**Mean log prose words, blocked on (case, reading stratum)**, permutation on
-arm labels within block at seed 58, reported as a geometric-mean ratio. Each
-block contributes the difference of its two arm means and every block weighs
-the same, so no one wide cell carries the contrast. Blocking on the reading
-stratum is [#131]; blocking on the case is what stops a cell with 30 grounded
-runs outvoting one with 5.
+**Mean log prose words, blocked on the case**, permutation on arm labels within
+block at seed 58, reported as a geometric-mean ratio. Each block contributes the
+difference of its two arm means and every block weighs the same, so no one wide
+cell carries the contrast, and a cell with 30 grounded runs cannot outvote one
+with 5.
+
+**The reading stratum is a secondary here, not part of the primary, and that is
+a change from round 58.** `grounded()` is `num_turns > 1` — what the run did
+under its own treatment. An arm can change whether a response opens a file at
+all, so blocking on it conditions on a post-treatment variable, which the
+assignment does not identify. The quantity this round needs is the total effect
+of shipping the slice: length as it actually comes out, reading included. [#131]'s
+concern is answered by the reading-rate guardrail below, which is the endpoint
+built for it, rather than conditioned away in the primary. Both blocks are
+computed and both are reported; only the case block is the primary. Dropping the
+stratum costs almost nothing: measured on round 58's 540 runs the within-cell
+standard deviation of log words rises from 0.280 to 0.290, moving the minimum
+detectable ratio from 1.082x to 1.085x.
 
 Round 58's per-cell-median test stays, as a robustness display and not as the
 primary. It cannot be the primary here: with six cells the exact two-sided sign
 test bottoms out at p = 0.03125, which does not clear α = 0.025 for two
 contrasts, so a sign test on this scope is unable to reject whatever the data
 say.
+
+**The primary is also reported per shard, as a diagnostic and not an endpoint.**
+Three processes, each with all twelve blocks. A contrast carried by one process
+is a warning that something wall-clock or release-shaped is in the number, and
+the pooled figure alone cannot show that. Substantial arm-by-shard spread is
+reported and weakens the reading; it does not by itself reject.
 
 **Guardrail 1, free: reading rate** on the three `design-*` cells, share with
 `num_turns > 1`, non-inferiority against `laconic` at the 15-point margin round
@@ -128,25 +157,43 @@ Fisher p < 0.0001, on slices that dropped the same rule.
 ## Power, and what a null would mean
 
 The pooled within-cell standard deviation of log prose words, measured over
-round 58's own 540 runs, is **0.264**. At 240 runs per arm over twelve blocks
-that gives a standard error near 0.024 and a **minimum detectable ratio of about
-1.077x** at α = 0.025 with 80% power.
+round 58's own 540 runs, is **0.290** within (case, arm) and 0.280 within
+(case, arm, stratum). At 240 runs per arm over six blocks the first gives a
+standard error near 0.027 and a **minimum detectable ratio of about 1.085x** at
+α = 0.025 with 80% power. The stratified secondary reads 1.082x, so the choice
+of block costs three thousandths of a ratio.
 
 If the effect were linear in words removed, round 58's 746 words at 1.66x
 predicts **1.15x** for a 209-word ablation and **1.12x** for a 165-word one.
 Both sit comfortably above the detection threshold, which is the point of buying
 40 reps rather than 30. So a null here is not the uninterpretable kind: it bounds
-the block's effect below roughly 1.08x and thereby rules out proportionality,
+the block's effect below roughly 1.09x and thereby rules out proportionality,
 which is a result about the shape of the dose-response rather than an absence of
 one.
 
 ## The registered reading
 
+**This round tests two blocks, not two mechanisms, and no result of it licenses
+a mechanism claim.** The 209 words `abl-shown` deletes are three things at once:
+the file's only rendered instance of a short answer, its only side-by-side
+calibration of the three levels, and a worked application of the rule to a
+specific question. A positive result identifies *that block*, and all three
+readings survive it. Separating them needs a later factorial round — the table
+replaced by a prose description of the same answer, the worked framing kept
+without the three-row calibration, a short answer shown without the level
+ladder — and four arms inside 720 generations would only localise one of the
+three while costing every arm its power. So the reading below is written in
+terms of blocks, and the discussion of what carries the effect is named as
+speculation where it appears.
+
 Fixed before the numbers:
 
-- **`abl-shown` lengthens, `abl-arrow` does not.** The rendered short answer is
-  the carrier. This is [#275]'s hypothesis and the one the round was bought to
-  test.
+- **`abl-shown` lengthens, `abl-arrow` does not.** The deleted demonstration
+  block carries a measurable part of the compression and a word-matched block of
+  on-topic instruction does not. This is [#275]'s hypothesis at the resolution
+  this design actually has. It does *not* establish that showing rather than
+  describing is the mechanism; it establishes that the block is load-bearing and
+  makes the factorial round worth buying.
 - **Both lengthen, and by a similar ratio.** Bulk is the variable: ~200 words of
   anything costs roughly this much, and the next question is about total length
   rather than about content.
@@ -159,6 +206,34 @@ Fixed before the numbers:
 
 Anything reported outside these endpoints is exploratory and says so where it is
 written.
+
+## Four further changes, all made before generating
+
+Registered after a second `bash tools/consult.sh` pass put the design in front
+of the delegate targets with its three weakest joints named. `codex` and `kimi`
+answered; `deepseek` was asked and did not.
+
+1. **The primary blocks on the case alone, and the reading stratum becomes a
+   secondary.** `codex`: blocking on whether a run opened a file conditions on
+   post-treatment behaviour, and it is separately one of the round's own
+   guardrails. Both were right and both blocks are reported; the arithmetic cost
+   is in the power section.
+2. **Every shard runs every case, through a new `run.py --rep-offset`.** `kimi`
+   named the shard split as the design's weakest joint and the fix as making
+   each of the three processes cover all six cases. Round 58's case-per-shard
+   split left case, process and wall-clock inseparable.
+3. **The registered reading is a block-deletion claim, not a mechanism claim.**
+   Both targets independently said the `abl-shown` block is three treatments
+   welded together and that no three-arm design can separate them. Neither
+   offered a cheap fix, and the honest move was the one they both named: fix the
+   claim to the resolution the design has, and name the factorial follow-up.
+4. **The primary is reported per shard as a diagnostic.** Asked for by both,
+   and only interpretable because of change 2.
+
+`codex` also suggested a max-|T| permutation adjustment in place of Bonferroni
+for a small free power gain. Not adopted: Bonferroni is registered, it is
+already implemented, and the round has power to spare against both predicted
+effects.
 
 ## Bound, fatal to the round
 

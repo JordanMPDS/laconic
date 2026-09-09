@@ -5811,5 +5811,37 @@ with tempfile.TemporaryDirectory() as _td_rel:
     check("--warn reports the same thing and exits 0",
           _run_rel("--warn", str(_p_bad)).returncode == 0)
 
+# --rep-offset (#275). A run is keyed on (case, arm, model, rep) and merging
+# shard files keeps one record per key, so two shards that both start at rep 0
+# throw one shard's work away without saying so. The flag is what lets three
+# processes each run every case - which is the thing that decouples the case
+# from the shard, and therefore from wall-clock time and from a CLI release
+# landing mid-round. Driven end to end against the stub, because the bug this
+# guards is in the argument plumbing and not in any function worth extracting.
+with tempfile.TemporaryDirectory() as _td_off:
+    _shard = lambda name, offset: subprocess.run(
+        [sys.executable, str(ROOT / "evals" / "bench" / "run.py"),
+         "--cases", "badnews", "--arms", "laconic", "--models", "sonnet",
+         "--reps", "2", "--rep-offset", str(offset), "--max-shards", "0",
+         "--claude-bin", str(ROOT / "tests" / "stubs" / "claude-stub.sh"),
+         "--snapshot", str(Path(_td_off) / name)],
+        capture_output=True, text=True, cwd=str(ROOT))
+    _reps = lambda name: sorted(
+        r["rep"] for r in json.loads((Path(_td_off) / name).read_text())["runs"])
+    _o0, _o2 = _shard("s0.json", 0), _shard("s2.json", 2)
+    check("a shard runs with --rep-offset", _o0.returncode == 0 and _o2.returncode == 0)
+    check("--rep-offset 0 generates the first reps", _reps("s0.json") == [0, 1])
+    check("--rep-offset 2 generates the next ones, not the same ones again",
+          _reps("s2.json") == [2, 3])
+    check("two shards at different offsets share no key, so a merge keeps "
+          "every run",
+          set(_reps("s0.json")).isdisjoint(_reps("s2.json")))
+    check("the offset is recorded, so a snapshot says which reps it owns",
+          json.loads((Path(_td_off) / "s2.json").read_text())
+          ["metadata"]["rep_offset"] == 2)
+    check("a resume of the same shard regenerates nothing",
+          "0 left" in _shard("s2.json", 2).stdout
+          or _reps("s2.json") == [2, 3])
+
 print("\n%d failure(s)" % fails)
 sys.exit(1 if fails else 0)

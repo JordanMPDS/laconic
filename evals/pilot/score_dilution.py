@@ -46,14 +46,24 @@ here, none of which moves a number round 58 published:
   throws away the reps that a 165-word ablation needs: with six cells the exact
   two-sided sign test bottoms out at p = 0.03125, which cannot clear a
   Bonferroni correction for two contrasts, so a sign test cannot be the primary
-  of a round that has more than one arm to compare. The blocked test permutes
-  arm labels inside each (case, reading stratum) block, which is where #131's
-  stratification and the case-to-case spread both live.
+  of a round that has more than one arm to compare.
+- **The primary blocks on the case, and the reading stratum comes back as a
+  secondary.** `grounded()` is `num_turns > 1`, which is what the run did under
+  its own treatment, so blocking on it conditions on a post-treatment variable
+  and is not identified by the assignment. Round 58 made the stratified block
+  its primary; round 59 reports the total effect - length as it comes out,
+  reading included - because that is the quantity shipping the slice would
+  change. Both blocks are printed and #131's concern is answered by the
+  reading-rate guardrail, which is the endpoint built for it.
+- **The primary is also printed per shard**, as a diagnostic. It is readable
+  only because every shard now runs every case; see `shards()`.
 
-*Origin: the blocked log-words estimand, the six-cell sign-test arithmetic and
-the argument for dropping round 58's `laconic-min-a` arm from round 59 came
-from the `codex` delegate target on `bash tools/consult.sh`. `deepseek` and
-`kimi` did not answer.*
+*Origin: the blocked log-words estimand and the six-cell sign-test arithmetic
+came from the `codex` delegate target on `bash tools/consult.sh` before round
+59 was registered, as did the post-treatment objection to blocking on the
+reading stratum. `kimi` supplied the per-shard reading and the argument for
+giving every shard every case. Both were adopted before any generation;
+`deepseek` did not answer either time.*
 
 [#131]: https://github.com/JordanMPDS/laconic/issues/131
 [#270]: https://github.com/JordanMPDS/laconic/issues/270
@@ -107,6 +117,23 @@ def comparison_arms(runs):
     omitting the arm the round was bought for.
     """
     return sorted({r["arm"] for r in runs} - {FULL_ARM})
+
+
+def shards(runs):
+    """[(generator, its runs)] - one entry per process that wrote into the
+    round, in a stable order.
+
+    Round 59 gives every shard every case (`run.py --rep-offset`), so a
+    per-shard read of the primary is a genuine robustness check rather than a
+    restatement of which cases that process happened to own. Both delegate
+    targets asked for it: an effect carried by one process is indistinguishable
+    from a wall-clock or CLI-release artefact, and the pooled number alone
+    cannot show that.
+    """
+    by = {}
+    for r in runs:
+        by.setdefault(r.get("generator") or "unstamped", []).append(r)
+    return sorted(by.items())
 
 
 def load(paths):
@@ -183,24 +210,35 @@ def words(runs, arm, case):
             if r["arm"] == arm and r["case"] == case and grounded(r)]
 
 
-def blocked_log_words(runs, arm, cases, seed=SEED):
-    """Mean difference in log prose words against the control, blocked on
-    (case, reading stratum), with a permutation p-value.
+def blocked_log_words(runs, arm, cases, seed=SEED, strata=False):
+    """Mean difference in log prose words against the control, blocked on the
+    case, with a permutation p-value.
 
     Each block contributes the difference of its two arm means and every block
     weighs the same, so one wide cell cannot carry the contrast. Labels are
-    permuted inside the block, which is the null the design supports: the arm
-    is what was randomised, and #131 says an unread answer and a grounded one
-    are not exchangeable with each other.
+    permuted inside the block, which is the null the design supports: the case
+    is fixed before the round and the arm is what was assigned within it.
+
+    **`strata=True` additionally blocks on the reading stratum, and that is a
+    secondary and not the primary (#275).** `grounded()` reads `num_turns`,
+    which is the run's own behaviour under the treatment: an arm can change
+    whether a response opens a file, and conditioning on a post-treatment
+    variable is not identified by the randomisation. Round 58 registered the
+    stratified block as its primary and round 59 demotes it, because the
+    quantity the product needs is the total effect of shipping the slice -
+    length as it actually comes out, reading included. An arm that bought its
+    compression by not reading is caught by the reading-rate guardrail, which
+    is the endpoint built for it, rather than conditioned away here.
     """
     blocks = []
     for case in cases:
-        for stratum in (True, False):
-            rows = [r for r in runs
-                    if r["case"] == case and grounded(r) is stratum
-                    and r["arm"] in (arm, FULL_ARM)]
-            a = [math.log(max(prose_words(r), 1)) for r in rows if r["arm"] == arm]
-            b = [math.log(max(prose_words(r), 1)) for r in rows
+        for stratum in ((True, False) if strata else (None,)):
+            rows_ = [r for r in runs
+                     if r["case"] == case
+                     and (stratum is None or grounded(r) is stratum)
+                     and r["arm"] in (arm, FULL_ARM)]
+            a = [math.log(max(prose_words(r), 1)) for r in rows_ if r["arm"] == arm]
+            b = [math.log(max(prose_words(r), 1)) for r in rows_
                  if r["arm"] == FULL_ARM]
             if a and b:
                 blocks.append((a, b))
@@ -251,8 +289,8 @@ def report(runs, cases_dir, out=print, words_cases=None, arms=None):
                100 * lower, 100 * MARGIN,
                "non-inferior" if ok else "INFERIOR", p))
 
-    out("\nprose words, blocked on (case, reading stratum), %d cells, "
-        "permutation seed %d" % (len(words_cases), SEED))
+    out("\nprose words, blocked on case, %d cells, permutation seed %d "
+        "(THE PRIMARY)" % (len(words_cases), SEED))
     for arm in arms:
         got = blocked_log_words(runs, arm, words_cases)
         if not got:
@@ -263,6 +301,29 @@ def report(runs, cases_dir, out=print, words_cases=None, arms=None):
         verdicts[arm]["log_words_p"] = p
         out("  %-18s %+.4f log words, ratio %.3fx against %s, %d blocks, "
             "p = %.4f" % (arm, diff, ratio, FULL_ARM, nblocks, p))
+
+    out("\nprose words, additionally blocked on the reading stratum "
+        "(secondary: conditions on num_turns, which is post-treatment)")
+    for arm in arms:
+        got = blocked_log_words(runs, arm, words_cases, strata=True)
+        if not got:
+            out("  %-18s no block with both arms in it" % arm)
+            continue
+        diff, ratio, p, nblocks = got
+        verdicts[arm]["log_words_ratio_stratified"] = ratio
+        verdicts[arm]["log_words_p_stratified"] = p
+        out("  %-18s %+.4f log words, ratio %.3fx against %s, %d blocks, "
+            "p = %.4f" % (arm, diff, ratio, FULL_ARM, nblocks, p))
+
+    out("\nthe primary per shard (diagnostic, not an endpoint: a contrast "
+        "carried by one process is a warning, not a finding)")
+    for arm in arms:
+        for shard, rows in shards(runs):
+            got = blocked_log_words(rows, arm, words_cases)
+            out("  %-18s %-26s %s"
+                % (arm, shard,
+                   "no block with both arms in it" if not got else
+                   "ratio %.3fx, %d blocks, p = %.4f" % (got[1], got[3], got[2])))
 
     out("\nprose words per cell, grounded stratum, permutation seed %d "
         "(robustness, not the primary)" % SEED)
@@ -384,7 +445,43 @@ def _selftest():
                                 "num_turns": 3 if deep else 1,
                                 "text": "word " * (long_ if deep else short)})
     check("blocking survives a Simpson reversal the marginal median would miss",
-          blocked_log_words(simpson, "laconic-min-a", READING_CASES)[1] < 0.85)
+          blocked_log_words(simpson, "laconic-min-a", READING_CASES,
+                            strata=True)[1] < 0.85)
+
+    # The two blocks answer different questions and this is the fixture where
+    # they disagree: an arm 1.2x longer inside *both* strata, which reads so
+    # much less often that its answers are shorter as they actually come out.
+    # The primary must report the total effect (0.69x) and the secondary the
+    # within-stratum one (1.20x). A scorer that silently reported the second as
+    # the first would say a shipped slice compresses when it lengthens every
+    # answer it is compared against at equal reading.
+    both = []
+    for arm, rate, short, long_ in ((FULL_ARM, 0.9, 100, 200),
+                                    ("laconic-min-a", 0.1, 120, 240)):
+        for case in READING_CASES:
+            for rep in range(60):
+                deep = rep < rate * 60
+                both.append({"arm": arm, "case": case, "model": "sonnet",
+                             "rep": rep, "ok": True,
+                             "num_turns": 3 if deep else 1,
+                             "text": "word " * (long_ if deep else short)})
+    check("the primary reports the total effect, reading included",
+          abs(blocked_log_words(both, "laconic-min-a", READING_CASES)[1]
+              - 0.689) < 0.01)
+    check("the secondary reports the within-stratum effect, which is the "
+          "other direction",
+          abs(blocked_log_words(both, "laconic-min-a", READING_CASES,
+                                strata=True)[1] - 1.2) < 0.01)
+    check("the primary blocks per case and the secondary per case and stratum",
+          (blocked_log_words(both, "laconic-min-a", READING_CASES)[3],
+           blocked_log_words(both, "laconic-min-a", READING_CASES,
+                             strata=True)[3]) == (3, 6))
+
+    check("shards are split on the generator that wrote each run",
+          [k for k, _ in shards([{"generator": "b"}, {"generator": "a"},
+                                 {"generator": "b"}])] == ["a", "b"])
+    check("a run with no generator stamp is still assigned a shard",
+          shards([{"case": "x"}])[0][0] == "unstamped")
 
     # The manipulation check has to count responses, not arrows, or one
     # arrow-heavy answer would read as a delivered treatment.

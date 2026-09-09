@@ -571,7 +571,8 @@ def _now():
 
 
 def new_snapshot(reps, models, level, rules_cksum, arms, claude_bin="claude",
-                 cases_ck=None, cases_dir=None, concurrency_declared=1):
+                 cases_ck=None, cases_dir=None, concurrency_declared=1,
+                 rep_offset=0):
     arms_dict = {}
     for k, v in arms.items():
         entry = {"system_prompt": v}
@@ -600,6 +601,7 @@ def new_snapshot(reps, models, level, rules_cksum, arms, claude_bin="claude",
             "reminder_cksum": str(zlib.crc32(REMINDER.encode())),
             "rules_cksum": rules_cksum,
             "reps": reps,
+            "rep_offset": rep_offset,
             "models": models,
         },
         "arms": arms_dict,
@@ -866,6 +868,18 @@ def main():
                          "metadata.opus_justification. A confirmatory round "
                          "does not need opus; run it on haiku and sonnet")
     ap.add_argument("--reps", type=int, default=5)
+    ap.add_argument("--rep-offset", type=int, default=0,
+                    help="first rep index this process generates, so several "
+                         "shards can each run every case instead of owning a "
+                         "slice of them (#275). A run is keyed on "
+                         "(case, arm, model, rep) and a merge keeps one record "
+                         "per key, so two shards that both start at rep 0 "
+                         "silently discard one shard's work; splitting the rep "
+                         "range gives each process a disjoint key space while "
+                         "every process still covers every case. Splitting by "
+                         "case instead confounds case with shard, and "
+                         "therefore with wall-clock time and with any CLI "
+                         "release that lands mid-round")
     ap.add_argument("--cases", default="*")
     ap.add_argument("--arms", default=",".join(ARMS))
     ap.add_argument("--snapshot", default=str(SNAPSHOT))
@@ -976,7 +990,8 @@ def main():
     if snap is None:
         snap = new_snapshot(args.reps, models, args.level, cksum, arms, claude_bin,
                             cases_ck=case_ck, cases_dir=str(cases_dir),
-                            concurrency_declared=args.concurrency)
+                            concurrency_declared=args.concurrency,
+                            rep_offset=args.rep_offset)
         if args.carry_arms_from:
             source = load_snapshot(args.carry_arms_from)
             if source is None:
@@ -1065,7 +1080,8 @@ def main():
     # denominated in. Priced per case rather than per cell.
     turns_per_case = {d.name: len(split_turns((d / "prompt.md").read_text()))
                       for d in cases}
-    left_cells = [(d.name, a, m, rep) for rep in range(args.reps) for d in cases
+    reps = range(args.rep_offset, args.rep_offset + args.reps)
+    left_cells = [(d.name, a, m, rep) for rep in reps for d in cases
                   for m in models for a in arm_names
                   if run_key(d.name, a, m, rep) not in done]
     left = len(left_cells)
@@ -1113,7 +1129,7 @@ def main():
 
     n = 0
     streak = 0
-    for rep in range(args.reps):
+    for rep in reps:
         for case_dir in cases:
             case = case_dir.name
             turns = split_turns((case_dir / "prompt.md").read_text())

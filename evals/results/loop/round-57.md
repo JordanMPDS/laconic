@@ -276,6 +276,187 @@ it is read against a finding that did not reproduce.
 - **[#116]'s own endpoint**, which is volunteered work displacing the answer,
   still [round 50](round-50.md)'s null at 0.56 power.
 
+---
+
+# Results
+
+**Everything above this line was committed before any generation. Everything
+below it is computed from the three snapshots.**
+
+1,440 generations, 0 judgments, **0 failed calls in the scored data**. Three
+arms at 480 usable runs each, six `design-*` cases, sonnet, 80 reps an arm,
+generated from three trees simultaneously. All three snapshots carry
+`cases_cksum` **2801628494** as registered, and
+`python3 evals/bench/concurrency.py` on the three files reports *no arm-day
+exceeds its declared concurrency*.
+
+## Secondary 1 first: the round 56 effect did not replicate
+
+The registration requires this to be stated above the primary, and it is the
+reason every number below is weaker than the round was designed to produce.
+
+| contrast | arm | unread | rate | 95% CI |
+|---|---|---|--:|---|
+| | **A** (no check) | 266/480 | 55.42% | [50.9, 59.8] |
+| | **B** (check as shipped) | 284/480 | 59.17% | [54.7, 63.5] |
+| | **C** (trigger removed) | 282/480 | 58.75% | [54.3, 63.1] |
+
+**Secondary 1, B against A: +3.75 points, 95% CI [-2.5, +10.0], one-sided
+Fisher p = 0.1337.** It does not fire. Round 56 read the same contrast on the
+same six cells at **+10.4 points**, and this round was powered at 0.947 to
+find exactly that.
+
+The power was really there. Re-simulated at the control rate this round
+actually observed, 4,000 draws at n = 480 an arm put power at **0.943** against
+a +10.4 point effect and **0.807** against +8. So this is a round that would
+almost certainly have seen the round 56 effect, and did not.
+
+## The primary
+
+**C against A: +3.33 points, 95% CI [-2.9, +9.5], one-sided Fisher
+p = 0.1640.** It does not fire.
+
+**Secondary 2, C against B: -0.42 points, 95% CI [-6.6, +5.8], two-sided
+Fisher p = 0.9477.** It does not fire either, and it is the tightest null in
+the round: whatever arm B does, arm C does within half a point of it.
+
+C is not significantly below A, so the third branch does not apply either
+(C against A two-sided, p = 0.3280).
+
+**This is the registered "neither fires" branch.** Arm C is distinguishable
+from neither arm, both intervals are published above, and per the registration
+the round says so rather than picking the nearer arm. **#264 question 2 is not
+answered by this round.** The ordering the point estimates give — A below C,
+with C level with B — is the shape #264's mechanism predicts, and at these
+intervals it is not evidence for it.
+
+## Per-cell counts, all three arms
+
+Published whatever the tests do, as registered.
+
+| case | A | B | C | A % | B % | C % |
+|---|--:|--:|--:|--:|--:|--:|
+| `design-cache` | 45/80 | 46/80 | 50/80 | 56.2 | 57.5 | 62.5 |
+| `design-rate-limit` | 30/80 | 38/80 | 33/80 | 37.5 | 47.5 | 41.2 |
+| `design-realtime` | 31/80 | 45/80 | 31/80 | 38.8 | 56.2 | 38.8 |
+| `design-retry` | 45/80 | 44/80 | 51/80 | 56.2 | 55.0 | 63.8 |
+| `design-search` | 51/80 | 52/80 | 50/80 | 63.8 | 65.0 | 62.5 |
+| `design-upload` | 64/80 | 59/80 | 67/80 | 80.0 | 73.8 | 83.8 |
+| **total** | **266/480** | **284/480** | **282/480** | **55.4** | **59.2** | **58.8** |
+
+## The [#131] scope
+
+Disclosure, as registered. No decision turns on it.
+
+| arm | unread | rate | 95% CI |
+|---|--:|--:|---|
+| A | 140/240 | 58.33% | [52.0, 64.4] |
+| B | 150/240 | 62.50% | [56.2, 68.4] |
+| C | 148/240 | 61.67% | [55.4, 67.6] |
+
+C against A +3.33 points (p = 0.2572), B against A +4.17 points (p = 0.2005),
+C against B -0.83 points (p = 0.9251). The same three nulls, with less power.
+
+## What happened to arm A, and what it did not do
+
+**Arm A stopped 9 keys short of its 480 on a usage limit** and was completed on
+2026-09-09 at 05:23 UTC, from the same `4da6314` worktree, cases verified
+byte-identical. The 8 failures and the 1 absent key were consecutive, in reps
+78 and 79, which is the eight-consecutive-failure stop doing its job. The
+repair runs landed under CLI **2.1.266**, a release neither of the other arms
+carries, so they are disclosed and tested rather than assumed harmless:
+
+- The 9 repair runs read 7/9 unread against 259/471 for the rest of arm A,
+  two-sided p = 0.3103.
+- **Dropping them entirely** moves the primary to +3.76 points (p = 0.1345) and
+  secondary 1 to +4.18 points (p = 0.1083). Neither fires.
+- **Restricting all three arms to reps 0 to 77**, the block where all three are
+  balanced at 468 runs, reads C-A +3.21 (p = 0.1780), B-A +4.49 (p = 0.0932),
+  C-B -1.28 (p = 0.7399). Neither fires.
+
+No conclusion in this round depends on the repair.
+
+## Why the effect went missing: a CLI release landed inside the round
+
+**Post-hoc. Nothing in this section was registered, and none of it changes a
+verdict above.** It is here because the registration's whole design rests on
+the premise that running three arms simultaneously makes era cancel between
+them, and that premise did not hold.
+
+The round ran across the **2.1.263 to 2.1.265** boundary. The arms did not
+cross it together, because they generate at different speeds and arm A was the
+one that hit the limit:
+
+| arm | on 2.1.263 | on 2.1.265 | on 2.1.266 |
+|---|--:|--:|--:|
+| A | 225 | 246 | 9 |
+| B | 276 | 204 | 0 |
+| C | 254 | 226 | 0 |
+
+Inside each release the picture is not the pooled one:
+
+| stratum | A | B | C | B-A | C-A | C-B |
+|---|--:|--:|--:|--:|--:|--:|
+| **2.1.263** | 108/225 (48.0%) | 162/276 (58.7%) | 138/254 (54.3%) | **+10.70** (p = 0.0107) | +6.33 (p = 0.0982) | -4.36 (p = 0.3350) |
+| **2.1.265** | 151/246 (61.4%) | 122/204 (59.8%) | 144/226 (63.7%) | **-1.58** (p = 0.6695) | +2.33 (p = 0.3344) | +3.91 (p = 0.4273) |
+
+**Round 56 ran entirely on 2.1.263**, on 2026-09-08 between 05:52 and 14:30
+UTC. Round 57's own 2.1.263 block ran from 15:15 to 20:54 the same day. On that
+release the two rounds agree almost exactly:
+
+| round | A | B | B-A |
+|---|---|---|--:|
+| 56 (all of it) | 112/240 (46.7%) | 137/240 (57.1%) | **+10.42** |
+| 57, 2.1.263 only | 108/225 (48.0%) | 162/276 (58.7%) | **+10.70** (p = 0.0192) |
+
+The control arm is what moved. Across the release boundary **arm A rises 48.0%
+to 61.4%** while **arm B is flat at 58.7% to 59.8%**. Comparing the rounds
+directly, arm A rises 46.7% to 55.4% (p = 0.0325) and arm B does not move
+(57.1% to 59.2%, p = 0.6304). A rules text with no pre-action check started
+producing the unread rate that the check used to produce.
+
+Formally this is suggestive and not established: the B-A interaction across the
+two strata is **z = 1.875, p = 0.0608**, and it is post-hoc. Mantel-Haenszel
+pooling over the two releases does not rescue any contrast — C-A odds ratio
+1.197 (p = 0.1744), B-A 1.221 (p = 0.1296), C-B 0.973 (p = 0.8357).
+
+## What this round establishes
+
+- **The round 57 primary and both secondaries are null**, at genuine 0.94 power
+  against the effect the round was sized for. #264 question 2 is unanswered.
+- **Arm C is indistinguishable from arm B** at the tightest interval in the
+  round, [-6.6, +5.8] points. If there is a trigger effect it is small.
+- **Round 56's +7.8/+10.4 point reading-rate finding is release-conditional on
+  the evidence available.** It reproduces at +10.70 on the release it was
+  measured on and is absent at -1.58 on the next one. That is one boundary, one
+  observation, and post-hoc.
+- **Simultaneity does not protect a round from a release landing inside its
+  window.** It equalises the *calendar* across arms, not the *instrument*, and
+  it stops equalising even the calendar as soon as the arms drift apart in pace
+  — which they do, because a usage limit hits the slowest arm hardest. Round 37
+  established that style drifts between releases; this round is the first where
+  a release moved a counter a registered test was reading, mid-round.
+
+## What it does not establish
+
+- **That the round 56 effect was an artefact.** Two draws either side of one
+  boundary cannot separate "the release changed the behaviour" from "both
+  rounds' first halves ran high". The pooled B-A over both rounds is still
+  +5.97 points at p = 0.0259.
+- **Anything about quality**, unchanged: no judging was bought, deliberately.
+- **Anything about haiku**, or about the non-design cells.
+- **Which clause carries the reading cost**, if any does. That was the round's
+  purpose and it is exactly what the null leaves open.
+
+## What follows
+
+`rules/laconic.md` is unchanged on this branch, as registered, under this and
+every other outcome. Arm C was never a merge candidate and is not one now.
+
+Filed as [#272](https://github.com/JordanMPDS/laconic/issues/272): the
+instrument moved under a live round, and both the #264 question and the round 56
+finding need re-running inside a single CLI release before either can be read.
+
 [#69]: https://github.com/JordanMPDS/laconic/issues/69
 [#88]: https://github.com/JordanMPDS/laconic/issues/88
 [#116]: https://github.com/JordanMPDS/laconic/issues/116

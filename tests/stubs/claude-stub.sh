@@ -8,6 +8,20 @@
 # STUB_ARGV_OUT, if set, records how this stub was invoked - the isolation
 # env vars call() is supposed to set, then the full argv - so tests can
 # assert on the invocation itself, not just its output.
+# `claude --version` is its own invocation and must not fall through to the
+# canned stream or to the argv capture below - run.py reads it once per
+# generation since #272, so a test asserting on argv would otherwise see the
+# version probe instead of the call it meant to inspect. STUB_VERSION_FILE
+# names a file whose contents are the version, so a test can flip the release
+# in the middle of a pass the way an upgrade does.
+if [ "$1" = "--version" ]; then
+  if [ -n "${STUB_VERSION_FILE:-}" ] && [ -f "${STUB_VERSION_FILE}" ]; then
+    cat "${STUB_VERSION_FILE}"
+  else
+    printf '%s\n' "${STUB_VERSION:-0.0.0-stub (Claude Code)}"
+  fi
+  exit 0
+fi
 if [ -n "${STUB_ARGV_OUT:-}" ]; then
   {
     printf 'SAFE_MODE=%s\n' "${CLAUDE_CODE_SAFE_MODE:-<unset>}"

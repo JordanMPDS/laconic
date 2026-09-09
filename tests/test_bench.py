@@ -223,8 +223,9 @@ def _stub_calls(results):
     it = iter(results)
 
     def fake(claude_bin, model, prompt, system_prompt, cwd, output_style=None,
-             resume=None):
-        seen.append({"prompt": prompt, "resume": resume})
+             resume=None, stop_hook=None, safe_mode=True):
+        seen.append({"prompt": prompt, "resume": resume,
+                     "stop_hook": stop_hook, "safe_mode": safe_mode})
         return next(it)
     return seen, fake
 
@@ -262,9 +263,10 @@ try:
 finally:
     bench_run.call = _orig_call
 
-check("arms include all twelve",
+check("arms include all thirteen",
       sorted(bench_run.ARMS) == ["baseline", "concise-style", "laconic",
                                  "laconic-abl-arrow", "laconic-abl-shown",
+                                 "laconic-enforced",
                                  "laconic-min-a", "laconic-min-b",
                                  "laconic-repl-told",
                                  "laconic-repl-unframed",
@@ -286,6 +288,46 @@ check("no arm both appends a system prompt and sets an output style",
       all(not bench_run.ARMS[a] for a in bench_run.ARM_OUTPUT_STYLES))
 check("every styled arm is a real arm",
       set(bench_run.ARM_OUTPUT_STYLES) <= set(bench_run.ARMS))
+
+# --- #268's enforcement arm ------------------------------------------------
+# The mechanism is a Stop hook, and the arm exists to be compared against
+# `laconic` with nothing but the mechanism between them. Two properties carry
+# that, and both are silent when they break: the rules text has to be the same
+# object the control gets, and the hook has to actually fire, which it cannot
+# under CLAUDE_CODE_SAFE_MODE=1.
+check("every hooked arm is a real arm",
+      set(bench_run.ARM_STOP_HOOKS) <= set(bench_run.ARMS))
+check("a hooked arm is not also a styled arm, which would confound two "
+      "delivery mechanisms in one treatment",
+      not (set(bench_run.ARM_STOP_HOOKS) & set(bench_run.ARM_OUTPUT_STYLES)))
+check("the enforcement arm's rules are a placeholder in ARMS, so they can "
+      "only come from the live hook at runtime",
+      all(bench_run.ARMS[a] == "" for a in bench_run.ARM_STOP_HOOKS))
+check("laconic is a placeholder for the same reason, so the two arms resolve "
+      "from one hook call and cannot differ",
+      bench_run.ARMS["laconic"] == "")
+
+_hook_cmd = bench_run.stop_hook_command("ultra", ("401", "refresh"), "/tmp/l")
+check("the hook command names the level the pass is running at",
+      "--level ultra" in _hook_cmd)
+check("the hook command carries the case's never-cut keywords",
+      _hook_cmd.rstrip().endswith("--never-cut 401 refresh"))
+check("the never-cut list is last, so its nargs='*' cannot swallow a flag",
+      _hook_cmd.index("--record") < _hook_cmd.index("--never-cut"))
+check("the hook command runs the harness's own stop_hook.py",
+      str(ROOT / "evals" / "bench" / "stop_hook.py") in _hook_cmd)
+check("a case with no never-cut keywords passes none rather than an empty flag",
+      "--never-cut" not in bench_run.stop_hook_command("full", (), "/tmp/l"))
+check("the never-cut keywords are read from the case's own expect.json",
+      bench_run.case_never_cut(ROOT / "evals" / "cases" / "walkthrough")
+      == ("401",))
+check("a case directory with no expect.json yields no keywords",
+      bench_run.case_never_cut(ROOT / "evals" / "cases") == ())
+
+_settings = bench_run.stop_hook_settings("cmd", timeout=17)
+check("the Stop settings fragment carries the command and its timeout",
+      _settings["hooks"]["Stop"][0]["hooks"][0]
+      == {"type": "command", "command": "cmd", "timeout": 17})
 
 # The #270 dilution arms. Two properties matter and neither is cosmetic: the
 # text has to come from evals/arms/ rather than from a copy in run.py, and
@@ -557,6 +599,38 @@ try:
         bench_run.call(resolved_rel, "haiku", "test", None, "/tmp")
         check("output_style=None produces no --settings flag at all",
               "--settings" not in argv_nostyle.read_text().splitlines()[3:])
+
+        # #268's enforcement arm rides on the same --settings flag as the
+        # output style, and the CLI takes that flag once: a second copy
+        # replaces the first rather than merging with it. An arm that set both
+        # and lost one would silently be a different treatment.
+        argv_hook = Path(td_argv) / "argv-hook.txt"
+        os.environ["STUB_ARGV_OUT"] = str(argv_hook)
+        bench_run.call(resolved_rel, "haiku", "test", None, "/tmp",
+                       stop_hook="/bin/true", safe_mode=False)
+        argv_tail_hook = argv_hook.read_text().splitlines()[3:]
+        _hook_settings = json.loads(
+            argv_tail_hook[argv_tail_hook.index("--settings") + 1])
+        check("a stop hook is passed as a --settings Stop entry naming its command",
+              _hook_settings["hooks"]["Stop"][0]["hooks"][0]["command"]
+              == "/bin/true")
+        check("the Stop entry matches every stop, not a subset",
+              _hook_settings["hooks"]["Stop"][0]["matcher"] == "")
+        check("safe_mode=False keeps CLAUDE_CODE_SAFE_MODE out of the "
+              "subprocess env, because it disables hooks outright",
+              argv_hook.read_text().splitlines()[0] == "SAFE_MODE=<unset>")
+
+        argv_both = Path(td_argv) / "argv-both.txt"
+        os.environ["STUB_ARGV_OUT"] = str(argv_both)
+        bench_run.call(resolved_rel, "haiku", "test", None, "/tmp",
+                       output_style="Concise", stop_hook="/bin/true",
+                       safe_mode=False)
+        argv_tail_both = argv_both.read_text().splitlines()[3:]
+        check("one --settings flag carries both a style and a hook",
+              argv_tail_both.count("--settings") == 1)
+        _both = json.loads(argv_tail_both[argv_tail_both.index("--settings") + 1])
+        check("neither the style nor the hook is dropped when both are set",
+              _both.get("outputStyle") == "Concise" and "Stop" in _both["hooks"])
 finally:
     if old_stub_argv_out is None:
         os.environ.pop("STUB_ARGV_OUT", None)
@@ -591,6 +665,21 @@ try:
     check("probe rejects the style when the probe call itself fails",
           bench_run.output_style_reaches_model(resolved_rel, "haiku", "Concise")
           is False)
+
+    # The same preflight for the other silent-delivery mechanism (#268). Safe
+    # mode disables hooks outright and the harness set it on every call for its
+    # whole history, so an enforcement arm generated by accident under safe
+    # mode would be a second copy of laconic wearing a treatment label.
+    os.environ.pop("STUB_FAIL", None)
+    os.environ["STUB_TEXT"] = "ENFORCED"
+    check("the stop-hook probe accepts delivery when the sentinel comes back",
+          bench_run.stop_hook_reaches_model(resolved_rel, "haiku") is True)
+    os.environ["STUB_TEXT"] = "banana"
+    check("the stop-hook probe rejects delivery when the first answer stands",
+          bench_run.stop_hook_reaches_model(resolved_rel, "haiku") is False)
+    os.environ["STUB_FAIL"] = "1"
+    check("the stop-hook probe rejects delivery when the probe call fails",
+          bench_run.stop_hook_reaches_model(resolved_rel, "haiku") is False)
 finally:
     for _k, _v in (("STUB_TEXT", old_stub_text), ("STUB_FAIL", old_stub_fail)):
         if _v is None:
@@ -1922,6 +2011,7 @@ check("carrying stamps the source and its cksum",
 check("carrying names the arms it could not carry",
       carried["metadata"]["carried_arms_from"]["missing_arms"]
       == ["concise-style", "laconic-abl-arrow", "laconic-abl-shown",
+          "laconic-enforced",
           "laconic-min-a", "laconic-min-b", "laconic-repl-told",
           "laconic-repl-unframed", "laconic-repl-unlabelled",
           "word-compression"])
@@ -1980,7 +2070,8 @@ with tempfile.TemporaryDirectory() as td_gap:
     check("subprocess: the gap is recorded in the snapshot, not only printed",
           json.loads(gap_out.read_text())["metadata"]["carried_arms_from"]
           ["missing_arms"] == ["concise-style", "laconic-abl-arrow",
-                               "laconic-abl-shown", "laconic-min-a",
+                               "laconic-abl-shown", "laconic-enforced",
+                               "laconic-min-a",
                                "laconic-min-b", "laconic-repl-told",
                                "laconic-repl-unframed",
                                "laconic-repl-unlabelled", "terse-control",
@@ -4503,6 +4594,58 @@ with tempfile.TemporaryDirectory() as td_probe:
     check("and it stops before the output-style probe spends a call",
           not (Path(td_probe) / "calls").exists())
 
+# An enforcement arm under safe mode is the one failure that would look like a
+# finding: the hook never runs, the arm generates as a second copy of laconic,
+# and the round publishes "post-hoc enforcement changes nothing" (#268). The
+# refusal has to come before anything is spent.
+with tempfile.TemporaryDirectory() as td_safe:
+    _stub = Path(td_safe) / "claude"
+    _stub.write_text(_SEQ_STUB)
+    _stub.chmod(0o755)
+    _r = subprocess.run(
+        [sys.executable, str(ROOT / "evals" / "bench" / "run.py"),
+         "--claude-bin", str(_stub), "--arms", "laconic-enforced",
+         "--models", "haiku", "--reps", "1", "--cases", "design-cache",
+         "--snapshot", str(Path(td_safe) / "gen.json")],
+        capture_output=True, text=True,
+        env=dict(os.environ, CFILE=str(Path(td_safe) / "calls"), OK_ALL="1"))
+    check("a hooked arm without --no-safe-mode is refused",
+          _r.returncode != 0 and "disables hooks" in _r.stderr)
+    check("and the refusal spends no call",
+          not (Path(td_safe) / "calls").exists())
+    check("an unhooked pass is not made to pass --no-safe-mode",
+          subprocess.run(
+              [sys.executable, str(ROOT / "evals" / "bench" / "run.py"),
+               "--claude-bin", str(_stub), "--arms", "baseline",
+               "--models", "haiku", "--reps", "1", "--cases", "design-cache",
+               "--snapshot", str(Path(td_safe) / "plain.json")],
+              capture_output=True, text=True,
+              env=dict(os.environ, CFILE=str(Path(td_safe) / "c2"),
+                       OK_ALL="1")).returncode == 0)
+    check("a pass that keeps safe mode records that it did",
+          json.loads((Path(td_safe) / "plain.json").read_text())
+          ["metadata"]["safe_mode"] is True)
+
+# The hook itself, whose selftest is not under evals/pilot and would otherwise
+# be run by nothing. It is the measurement the enforcement arm is made of.
+_hook_st = subprocess.run(
+    [sys.executable, str(ROOT / "evals" / "bench" / "stop_hook.py"), "--selftest"],
+    capture_output=True, text=True, cwd=str(ROOT))
+check("evals/bench/stop_hook.py --selftest passes", _hook_st.returncode == 0)
+if _hook_st.returncode != 0:
+    print(_hook_st.stdout[-4000:] or _hook_st.stderr[-4000:])
+
+# read_hook_log is what turns the hook's firings into the snapshot record, and
+# a run that generated fine must not be recorded as failed because its log did
+# not parse.
+with tempfile.TemporaryDirectory() as td_log:
+    _log = Path(td_log) / "log.jsonl"
+    _log.write_text('{"blocked": true}\n\nnot json\n{"blocked": false}\n')
+    check("the hook log reads its firings in order and drops what will not parse",
+          [e["blocked"] for e in bench_run.read_hook_log(_log)] == [True, False])
+    check("a missing hook log is empty rather than an error",
+          bench_run.read_hook_log(Path(td_log) / "absent.jsonl") == [])
+
 
 # --- and the judging pass stops too. Round 12 returned 850 judgments of which
 # 666 were judge-call failures, and re-running changed nothing because every
@@ -4966,9 +5109,10 @@ _calls = []
 
 
 def _fake_call(claude_bin, model, prompt, system_prompt, cwd, output_style=None,
-               resume=None):
+               resume=None, stop_hook=None, safe_mode=True):
     _calls.append({"prompt": prompt, "system_prompt": system_prompt,
-                   "resume": resume})
+                   "resume": resume, "stop_hook": stop_hook,
+                   "safe_mode": safe_mode})
     return {"ok": True, "session_id": "s1", "text": "x", "num_turns": 1,
             "total_cost_usd": 0.0, "duration_ms": 1, "output_tokens": 1,
             "input_tokens": 1, "cache_creation_input_tokens": 0,
@@ -5005,7 +5149,7 @@ try:
                          delivery="plugin", level="full")
     check("a one-turn case is unchanged under plugin delivery",
           _calls == [{"prompt": "only", "system_prompt": "RULES",
-                      "resume": None}])
+                      "resume": None, "stop_hook": None, "safe_mode": True}])
 
     # The mode is recorded on a multi-turn record, so a snapshot says which
     # treatment it holds rather than leaving a reader to assume.

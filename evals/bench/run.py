@@ -11,6 +11,7 @@ import fnmatch
 import json
 import os
 import re
+import shlex
 import shutil
 import subprocess
 import sys
@@ -52,6 +53,23 @@ WORD_COMPRESSION = (
 # actually ships. "Concise" is the built-in style added in CLI 2.1.x, and it
 # is the closest thing to a native competitor this plugin has.
 ARM_OUTPUT_STYLES = {"concise-style": "Concise"}
+
+# Arms that carry the shipped rules *and* the enforcement mechanism #268 asks
+# about: a `Stop` hook that reads the completed turn and asks for one revision
+# when it broke a rule that was already in the model's context. The rules text
+# is byte-identical to the `laconic` arm - resolved from the same hook output
+# below - so an arm comparison isolates the mechanism and nothing else.
+#
+# **Hooks do not fire under CLAUDE_CODE_SAFE_MODE=1**, which every call here
+# has set since the beginning, verified on 2.1.267 through both --settings and
+# a project .claude/settings.json. So a pass holding one of these arms needs
+# --no-safe-mode, which turns it off for *every* arm in the pass rather than
+# just this one: safe mode differing between the arms would confound the
+# mechanism with the regime, which is the one thing the round cannot afford.
+# main() refuses the combination rather than generating an arm whose hook never
+# fires - the same failure output_style_reaches_model exists to catch, and it
+# would publish "enforcement changes nothing" as a finding.
+ARM_STOP_HOOKS = {"laconic-enforced"}
 
 # Benchmark-only rule texts, one file per arm, read at import so the arm is
 # whatever `evals/arms/` says today rather than a copy pasted in here. They go
@@ -95,6 +113,9 @@ ARMS = {
     "laconic-repl-told": _arm_file("laconic-repl-told"),
     "laconic-repl-unlabelled": _arm_file("laconic-repl-unlabelled"),
     "laconic-repl-unframed": _arm_file("laconic-repl-unframed"),
+    # Both placeholders, replaced at runtime with the same real hook output, so
+    # the enforcement arm cannot drift from the rules it is meant to enforce.
+    "laconic-enforced": "",
     "laconic": "",
 }
 
@@ -458,7 +479,7 @@ REMINDER = ("LACONIC MODE ACTIVE (%s). Make fewer claims and keep normal "
 
 
 def call_turns(claude_bin, model, turns, system_prompt, cwd, output_style=None,
-               delivery="repeat", level=None):
+               delivery="repeat", level=None, stop_hook=None, safe_mode=True):
     """Run a turn sequence in one CLI session and return one merged record.
 
     Turn 1 opens the session; each later turn resumes it by the id the previous
@@ -498,7 +519,7 @@ def call_turns(claude_bin, model, turns, system_prompt, cwd, output_style=None,
         else:
             sp = system_prompt
         res = call(claude_bin, model, text, sp, cwd, output_style,
-                   resume=session)
+                   resume=session, stop_hook=stop_hook, safe_mode=safe_mode)
         records.append(res)
         if not res.get("ok"):
             return {"ok": False}
@@ -507,6 +528,43 @@ def call_turns(claude_bin, model, turns, system_prompt, cwd, output_style=None,
     if merged.get("ok") and len(records) > 1:
         merged["turn_delivery"] = delivery
     return merged
+
+
+def case_never_cut(case_dir):
+    """The case's never-cut keywords, for the hook to measure against.
+
+    Read from the same expect.json the judge and the scorers read, so the hook
+    enforces the contract the case actually declares rather than a copy of it.
+    """
+    p = Path(case_dir) / "expect.json"
+    if not p.exists():
+        return ()
+    try:
+        return tuple(json.loads(p.read_text()).get("never_cut") or ())
+    except ValueError:
+        return ()
+
+
+def read_hook_log(path):
+    """The hook's firings for one response, oldest first.
+
+    A malformed line is dropped rather than taking the run down: the log is a
+    measurement of the run and not the run itself, and a generation that
+    succeeded should not be recorded as a failure because its log did not
+    parse.
+    """
+    out = []
+    try:
+        for line in Path(path).read_text().splitlines():
+            if not line.strip():
+                continue
+            try:
+                out.append(json.loads(line))
+            except ValueError:
+                continue
+    except OSError:
+        return []
+    return out
 
 
 def run_key(case, arm, model, rep):
@@ -794,8 +852,42 @@ def save_snapshot(path, snap):
     os.replace(str(tmp), str(p))
 
 
+def stop_hook_settings(command, timeout=30):
+    """The `--settings` fragment that registers one `Stop` hook.
+
+    One place, because the shape is what the CLI validates and a hook that is
+    silently dropped for a malformed entry is an arm that runs as a second copy
+    of its own control.
+    """
+    return {"hooks": {"Stop": [{"matcher": "",
+                                "hooks": [{"type": "command",
+                                           "command": command,
+                                           "timeout": timeout}]}]}}
+
+
+def stop_hook_command(level, never_cut=(), record=None):
+    """The command line the Stop hook runs, as one shell string.
+
+    The case's never-cut keywords reach the hook as arguments rather than
+    through a file in the workspace: the workspace is diffed after every run to
+    capture what the response wrote (#231), and a file the harness put there
+    would be recorded as an artifact the model authored. The record path is
+    outside the workspace for the same reason.
+    """
+    parts = [shlex.quote(sys.executable),
+             shlex.quote(str(Path(__file__).resolve().parent / "stop_hook.py")),
+             "--level", shlex.quote(level)]
+    if record:
+        parts += ["--record", shlex.quote(str(record))]
+    if never_cut:
+        # Last, because it is nargs="*" and would otherwise swallow the flags
+        # that follow it.
+        parts += ["--never-cut"] + [shlex.quote(k) for k in never_cut]
+    return " ".join(parts)
+
+
 def call(claude_bin, model, prompt, system_prompt, cwd, output_style=None,
-         resume=None):
+         resume=None, stop_hook=None, safe_mode=True):
     # stream-json rather than json because only the stream carries the
     # tool_use blocks (#142); --verbose is not optional, the CLI refuses the
     # combination under --print without it. The terminal result event is the
@@ -811,9 +903,23 @@ def call(claude_bin, model, prompt, system_prompt, cwd, output_style=None,
         cmd += ["--resume", resume]
     if system_prompt:
         cmd += ["--append-system-prompt", system_prompt]
+    # One --settings, whatever it has to carry: the CLI takes the flag once and
+    # a second copy replaces the first rather than merging with it.
+    settings = {}
     if output_style:
-        cmd += ["--settings", json.dumps({"outputStyle": output_style})]
-    env = dict(os.environ, CLAUDE_CODE_SAFE_MODE="1")
+        settings["outputStyle"] = output_style
+    if stop_hook:
+        settings.update(stop_hook_settings(stop_hook))
+    if settings:
+        cmd += ["--settings", json.dumps(settings)]
+    env = dict(os.environ)
+    # Safe mode disables hooks outright, so an enforcement arm cannot be
+    # generated under it (#268). Dropped for the whole pass when it is dropped
+    # at all, never per arm.
+    if safe_mode:
+        env["CLAUDE_CODE_SAFE_MODE"] = "1"
+    else:
+        env.pop("CLAUDE_CODE_SAFE_MODE", None)
     env.pop("LACONIC_DEFAULT", None)
     try:
         out = subprocess.run(cmd, input=prompt, capture_output=True, text=True,
@@ -853,6 +959,41 @@ def output_style_reaches_model(claude_bin, model, style):
     finally:
         shutil.rmtree(scratch, ignore_errors=True)
     return bool(res.get("ok")) and ("# %s Style Active" % style) in res["text"]
+
+
+STOP_PROBE = "Reply with only the word banana."
+
+
+def stop_hook_probe_command():
+    """The probe hook: block once, whatever the answer was, and ask for a
+    sentinel the first answer could not have contained."""
+    return " ".join([shlex.quote(sys.executable),
+                     shlex.quote(str(Path(__file__).resolve().parent
+                                     / "stop_hook.py")),
+                     "--probe"])
+
+
+def stop_hook_reaches_model(claude_bin, model, safe_mode=False):
+    """Whether a `Stop` hook actually runs and its block reaches the model.
+
+    The concise-style lesson applied to the other silent-delivery mechanism: an
+    output style the CLI does not recognise is dropped without an error, and so
+    is a hook it will not run. Under CLAUDE_CODE_SAFE_MODE=1 it will not run any
+    of them, which is exactly the configuration this harness used for its whole
+    history - so an enforcement arm generated by accident under safe mode would
+    be a second copy of `laconic` wearing a treatment label, and the round would
+    publish "post-hoc enforcement changes nothing" as its finding.
+
+    One probe call before a multi-hour pass is the cheapest way to not spend the
+    pass measuring the control twice.
+    """
+    scratch = tempfile.mkdtemp()
+    try:
+        res = call(claude_bin, model, STOP_PROBE, None, scratch,
+                   stop_hook=stop_hook_probe_command(), safe_mode=safe_mode)
+    finally:
+        shutil.rmtree(scratch, ignore_errors=True)
+    return bool(res.get("ok")) and "ENFORCED" in res.get("text", "")
 
 
 def main():
@@ -921,6 +1062,16 @@ def main():
                          "of them OOM-killed the loop on a 7.6 GiB machine. "
                          "Set LACONIC_MAX_SHARDS to raise it for a machine "
                          "once rather than per round; 0 disables the bound")
+    ap.add_argument("--no-safe-mode", action="store_true",
+                    help="generate without CLAUDE_CODE_SAFE_MODE=1, which "
+                         "every pass before #268 set on every call. Required "
+                         "by any arm carrying a Stop hook, because safe mode "
+                         "disables hooks outright - and it applies to every "
+                         "arm in the pass, so the mechanism is the only thing "
+                         "that differs between them. Recorded as "
+                         "metadata.safe_mode, which is false for exactly the "
+                         "snapshots that are not comparable with the archive "
+                         "on this axis")
     ap.add_argument("--stop-on-cli-change", action="store_true",
                     help="exit at the first generation that would run under a "
                          "different claude release than the pass started on, "
@@ -953,6 +1104,15 @@ def main():
     bad_arms = [a for a in arm_names if a not in ARMS]
     if bad_arms:
         sys.exit("unknown arm(s): %s (valid: %s)" % (", ".join(bad_arms), ", ".join(ARMS)))
+    hooked = [a for a in arm_names if a in ARM_STOP_HOOKS]
+    if hooked and not args.no_safe_mode:
+        sys.exit("arm(s) %s carry a Stop hook, and CLAUDE_CODE_SAFE_MODE=1 "
+                 "disables hooks outright - the arm would generate as a second "
+                 "copy of laconic and the round would publish 'enforcement "
+                 "changes nothing'. Pass --no-safe-mode, which drops it for "
+                 "every arm in the pass so the mechanism is the only thing "
+                 "that differs between them (#268)." % ", ".join(hooked))
+    safe_mode = not args.no_safe_mode
     cases_dir = Path(args.cases_dir)
     if not cases_dir.is_dir():
         sys.exit("no such case directory: %s" % args.cases_dir)
@@ -992,6 +1152,11 @@ def main():
     arms["laconic"] = laconic_rules(ROOT, args.level)
     if not arms["laconic"].strip():
         sys.exit("hook produced no rules for level %s" % args.level)
+    # Byte-identical, from the one resolution above: an enforcement arm whose
+    # rules differed from the control's would confound the mechanism with the
+    # text, which is the whole contrast.
+    for a in ARM_STOP_HOOKS:
+        arms[a] = arms["laconic"]
     cksum = str(zlib.crc32(arms["laconic"].encode()))
 
     snap = load_snapshot(args.snapshot)
@@ -1049,6 +1214,14 @@ def main():
     meta = snap["metadata"]
     meta["concurrency_declared"] = max(meta.get("concurrency_declared") or 1,
                                        args.concurrency)
+    # Describes the file, like the concurrency and opus declarations: once any
+    # pass over this snapshot generated without safe mode, the file holds runs
+    # that were, and a later resume must not relabel it. Absent on every
+    # snapshot below round 61, which were all generated under safe mode.
+    if not safe_mode:
+        meta["safe_mode"] = False
+    else:
+        meta.setdefault("safe_mode", True)
     # True only when every run in the file was stamped with the version that
     # generated it. A file this pass created qualifies; one started before #272
     # holds per-invocation stamps in its existing runs and cannot be repaired by
@@ -1096,6 +1269,7 @@ def main():
     left = len(left_cells)
     left_calls = sum(turns_per_case[c] for c, _, _, _ in left_cells)
     probes = sum(1 for a in arm_names if a in ARM_OUTPUT_STYLES)
+    probes += 1 if hooked else 0
     # Printed before the first call, because the number nobody had was the plan.
     # A round is priced afterwards, in report.py, off what it spent; what a
     # maintainer needs before committing hours of quota is what it is about to
@@ -1116,7 +1290,7 @@ def main():
     print("budget: %d call(s) to make, of %d cell(s) in this pass (%d already "
           "in the snapshot)%s. A failed call is retried once, so the ceiling "
           "is %d.%s" % (left_calls, total, total - left,
-                        ", plus %d output-style probe(s)" % probes if probes else "",
+                        ", plus %d delivery probe(s)" % probes if probes else "",
                         2 * left_calls + probes,
                         (" Multi-turn: %s - one cell each, %s call(s) each."
                          % (", ".join(multi),
@@ -1135,6 +1309,14 @@ def main():
                      "copy of baseline. Check that the style exists in this "
                      "version before running the round."
                      % (style, _cli_version(claude_bin), arm))
+    if hooked and not stop_hook_reaches_model(claude_bin, models[0],
+                                              safe_mode=safe_mode):
+        sys.exit("a Stop hook is not reaching the model on this CLI (%s): the "
+                 "probe blocked one reply and asked for a sentinel, and the "
+                 "sentinel did not come back. Arm(s) %s would generate as a "
+                 "second copy of laconic. Check that hooks run in this release "
+                 "before running the round (#268)."
+                 % (_cli_version(claude_bin), ", ".join(hooked)))
 
     n = 0
     streak = 0
@@ -1149,6 +1331,8 @@ def main():
                         continue
                     fixture = case_dir / "fixture"
 
+                    never_cut = case_never_cut(case_dir)
+
                     def attempt():
                         """One generation in its own throwaway workspace.
 
@@ -1157,6 +1341,17 @@ def main():
                         place to keep in sync.
                         """
                         scratch = tempfile.mkdtemp()
+                        # Outside the workspace: the workspace is diffed after
+                        # the call to capture what the response wrote (#231),
+                        # and a log the harness put there would be recorded as
+                        # an artifact the model authored.
+                        log = None
+                        hook_cmd = None
+                        if arm in ARM_STOP_HOOKS:
+                            fd, log = tempfile.mkstemp(suffix=".jsonl")
+                            os.close(fd)
+                            hook_cmd = stop_hook_command(args.level, never_cut,
+                                                         log)
                         try:
                             if fixture.is_dir():
                                 shutil.copytree(fixture, scratch,
@@ -1165,13 +1360,27 @@ def main():
                             out = call_turns(claude_bin, model, turns, arms[arm],
                                              scratch, ARM_OUTPUT_STYLES.get(arm),
                                              delivery=delivery or "repeat",
-                                             level=args.level)
+                                             level=args.level,
+                                             stop_hook=hook_cmd,
+                                             safe_mode=safe_mode)
                             wrote = workspace_diff(scratch, before)
                             if wrote:
                                 out["artifacts"] = wrote
+                            if log:
+                                # Stored whether or not anything fired. An
+                                # empty list is the finding "the hook saw this
+                                # response and had nothing to say"; a missing
+                                # key would be indistinguishable from a hook
+                                # that never ran at all.
+                                out["stop_hook"] = read_hook_log(log)
                             return out
                         finally:
                             shutil.rmtree(scratch, ignore_errors=True)
+                            if log:
+                                try:
+                                    os.unlink(log)
+                                except OSError:
+                                    pass
 
                     # Read before the call rather than after it, so the stamp
                     # names the binary this generation is about to spawn (#272).

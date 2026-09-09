@@ -57,10 +57,17 @@ ARM_OUTPUT_STYLES = {"concise-style": "Concise"}
 # whatever `evals/arms/` says today rather than a copy pasted in here. They go
 # down the same --append-system-prompt path as the laconic arm, which is what
 # makes the comparison treatment against treatment (#270). See
-# evals/arms/README.md for what each one is and why there are two of them.
+# evals/arms/README.md for what each one is and what it was built to test.
+#
+# `laconic-min-*` are #270's minimal slices; `laconic-abl-*` are #275's
+# ablation arms, which are the shipped slice with one block deleted and
+# nothing else changed. tests/test_bench.py holds each kind to a different
+# invariant, because minimality and pure deletion are different properties.
 ARM_FILES = {
     "laconic-min-a": "laconic-min-a.md",
     "laconic-min-b": "laconic-min-b.md",
+    "laconic-abl-shown": "laconic-abl-shown.md",
+    "laconic-abl-arrow": "laconic-abl-arrow.md",
 }
 
 
@@ -77,6 +84,8 @@ ARMS = {
     "concise-style": None,
     "laconic-min-a": _arm_file("laconic-min-a"),
     "laconic-min-b": _arm_file("laconic-min-b"),
+    "laconic-abl-shown": _arm_file("laconic-abl-shown"),
+    "laconic-abl-arrow": _arm_file("laconic-abl-arrow"),
     "laconic": "",
 }
 

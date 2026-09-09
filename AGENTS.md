@@ -52,6 +52,19 @@ one that catches stale generated files, and it is the easiest to skip by acciden
   `metadata.concurrency_declared`. `python3 evals/bench/concurrency.py` sweeps
   the committed snapshots and exits non-zero on an undeclared one. Ten
   snapshots predate the flag; see `evals/results/loop/concurrency-audit.md`.
+- **A round that spans a CLI release is the normal case, and the round has to
+  say which runs are on which side.** The CLI ships several times a day and a
+  round runs for hours, so assuming one instrument throughout is assuming
+  something false: round 57 spanned three releases in fourteen hours. `run.py`
+  reads `claude --version` before every generation and stamps that run with it,
+  warns at the boundary and again at the end, and sets
+  `metadata.cli_versions_per_run` so a reader knows the field may be stratified
+  on. `python3 evals/bench/release.py <snapshot>...` reports the composition and
+  tests whether the arms are balanced across the boundary, which simultaneity
+  does not deliver on its own. Seventeen snapshots predate the per-run stamp and
+  may not be stratified on; see `evals/results/loop/release-audit.md`.
+  `--stop-on-cli-change` refuses the span instead of recording it, for a round
+  whose design needs one instrument; it is not the default.
 - **Four shards at once is the ceiling, and `run.py` enforces it.** Each shard
   holds an open `claude` CLI session for hours, and on 2026-09-06 five of them
   plus the supervisor's own child took the loop for low memory on a 7.6 GiB

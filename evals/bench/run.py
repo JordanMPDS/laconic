@@ -870,6 +870,12 @@ def main():
                          "of them OOM-killed the loop on a 7.6 GiB machine. "
                          "Set LACONIC_MAX_SHARDS to raise it for a machine "
                          "once rather than per round; 0 disables the bound")
+    ap.add_argument("--stop-on-cli-change", action="store_true",
+                    help="exit at the first generation that would run under a "
+                         "different claude release than the pass started on, "
+                         "instead of warning and continuing (#272). For a round "
+                         "whose design needs one instrument throughout; the "
+                         "default is to record the span and say so loudly.")
     ap.add_argument("--max-consecutive-failures", type=int, default=8,
                     help="stop the pass after this many failed cells in a row; "
                          "0 disables it. A usage limit or an outage fails every "
@@ -914,12 +920,20 @@ def main():
         calls=len(cases) * args.reps * len(arm_names)
         * sum(1 for m in models if "opus" in m))
 
-    # Resolved once, then stamped onto every run below. The snapshot-level
-    # stamp is written when the file is created and never again, so a round
-    # assembled into a pre-seeded file inherits that file's provenance:
-    # round-12.json carries round-01-n10-v2.json's CLI and date for runs made
-    # three days later on a different CLI (#80). A per-run stamp cannot be
-    # inherited, and it can represent a round that legitimately spans hours.
+    # The snapshot-level stamp is written when the file is created and never
+    # again, so a round assembled into a pre-seeded file inherits that file's
+    # provenance: round-12.json carries round-01-n10-v2.json's CLI and date for
+    # runs made three days later on a different CLI (#80). A per-run stamp
+    # cannot be inherited, and it can represent a round that spans hours.
+    #
+    # It only represents that if it is read per run, which until #272 it was
+    # not: this was resolved once here and copied onto every run below, so a
+    # pass that outlived a release recorded the release it started on. `claude`
+    # is a symlink into a versioned payload and an upgrade re-points it, so the
+    # very next generation runs the new binary under the old label. Round 57
+    # stratified on this field and 540 of its 1,440 runs name a release they
+    # did not run on. The read costs about 20 ms against a generation of tens
+    # of seconds, so there is no reason to cache it across a call.
     cli_version = _cli_version(claude_bin)
     case_ck = cases_cksum(cases_dir, [d.name for d in cases])
 
@@ -930,6 +944,7 @@ def main():
     cksum = str(zlib.crc32(arms["laconic"].encode()))
 
     snap = load_snapshot(args.snapshot)
+    fresh = snap is None
     if snap is None:
         snap = new_snapshot(args.reps, models, args.level, cksum, arms, claude_bin,
                             cases_ck=case_ck, cases_dir=str(cases_dir),
@@ -940,6 +955,11 @@ def main():
                 sys.exit("no snapshot to carry arms from: %s" % args.carry_arms_from)
             source["__path"] = args.carry_arms_from
             carry_arms(snap, source, arm_names)
+            # Carried runs bring their own stamps, so a fresh file is only
+            # per-run-stamped if the file it actually took runs from was (#272).
+            if snap["runs"] and not (
+                    source.get("metadata") or {}).get("cli_versions_per_run"):
+                fresh = False
             absent = snap["metadata"]["carried_arms_from"]["missing_arms"]
             if absent:
                 print("warning: %s has no runs to carry for %s. This is not an "
@@ -977,6 +997,18 @@ def main():
     meta = snap["metadata"]
     meta["concurrency_declared"] = max(meta.get("concurrency_declared") or 1,
                                        args.concurrency)
+    # True only when every run in the file was stamped with the version that
+    # generated it. A file this pass created qualifies; one started before #272
+    # holds per-invocation stamps in its existing runs and cannot be repaired by
+    # adding correct ones beside them, so the flag stays false for good. It is
+    # what tells a later reader whether stratifying on claude_cli_version is
+    # sound, which is the question round 57 answered wrongly by assuming.
+    if fresh:
+        meta["cli_versions_per_run"] = True
+    else:
+        meta.setdefault("cli_versions_per_run", False)
+    seen_versions = {r.get("claude_cli_version") for r in snap["runs"]
+                     if r.get("claude_cli_version")}
     # Like the concurrency declaration, this describes the file rather than one
     # invocation: once a snapshot holds opus runs, it holds them for good, so a
     # later resume must not drop the reason they were bought.
@@ -1088,6 +1120,46 @@ def main():
                         finally:
                             shutil.rmtree(scratch, ignore_errors=True)
 
+                    # Read before the call rather than after it, so the stamp
+                    # names the binary this generation is about to spawn (#272).
+                    # "unknown" is what _cli_version returns when the probe
+                    # itself failed, which over a fourteen-hour pass will happen
+                    # for reasons that are not a release: it carries no
+                    # information about the version and must not be read as a
+                    # change to one, least of all under --stop-on-cli-change.
+                    live = _cli_version(claude_bin)
+                    if cli_version == "unknown" and live != "unknown":
+                        # The startup probe failed and this one did not; there
+                        # is no earlier release to have changed from.
+                        cli_version = live
+                    elif live != cli_version and live != "unknown":
+                        print("\n*** the claude CLI changed from %s to %s "
+                              "during this pass, at run %d of %d (%s/%s/%s "
+                              "rep%d). Runs before this point were generated by "
+                              "the old release and runs after it by the new "
+                              "one, so this snapshot spans two instruments. "
+                              "Stratify on claude_cli_version before reading "
+                              "any contrast from it, and do not pool the arms "
+                              "unless they are balanced across the boundary "
+                              "(#272). Pass --stop-on-cli-change to make this "
+                              "fatal instead.\n"
+                              % (cli_version, live, n, total, case, arm, model,
+                                 rep))
+                        cli_version = live
+                        if args.stop_on_cli_change:
+                            # The new release generated nothing, so it is named
+                            # in the message and not in the file's version list.
+                            meta["cli_versions"] = sorted(seen_versions)
+                            save_snapshot(args.snapshot, snap)
+                            sys.exit(
+                                "stopped at the release boundary, as "
+                                "--stop-on-cli-change asked. The snapshot is "
+                                "saved and no unstarted key counts as done, so "
+                                "the same command resumes it - but a resume "
+                                "continues on the new release, which is the "
+                                "thing this flag exists to refuse. A round that "
+                                "needs one release throws this snapshot away "
+                                "and starts again.")
                     res = attempt()
                     if not res.get("ok"):  # one retry before recording a failure
                         res = attempt()
@@ -1095,6 +1167,8 @@ def main():
                                 "generated_at": _now(),
                                 "claude_cli_version": cli_version,
                                 "generator": GENERATOR})
+                    seen_versions.add(cli_version)
+                    meta["cli_versions"] = sorted(seen_versions)
                     # Replace the failed record for this cell rather than
                     # appending beside it (#61): a resume is a second attempt
                     # at one cell, not a second cell.
@@ -1133,10 +1207,22 @@ def main():
     # touched, instead of leaving the key absent.
     meta["max_runs_in_flight"] = concurrency.snapshot_max_in_flight(
         snap["runs"], carried)
+    meta["cli_versions"] = sorted(seen_versions)
     save_snapshot(args.snapshot, snap)
 
     bad = len([r for r in snap["runs"] if not r.get("ok")])
     print("\nwrote %s (%d runs, %d failed)" % (args.snapshot, len(snap["runs"]), bad))
+
+    # Said at the end as well as at the boundary, because the boundary line
+    # scrolls past hours of per-run output and the summary is what a reader
+    # sees. Round 57 spanned three releases and nothing printed at all (#272).
+    if len(seen_versions) > 1:
+        print("warning: this snapshot's runs were generated by %d claude "
+              "release(s): %s. Contrasts read across it compare two "
+              "instruments, so stratify on claude_cli_version and check the "
+              "arms are balanced across the boundary before pooling. "
+              "`python3 evals/bench/release.py <snapshot>...` does both (#272)."
+              % (len(seen_versions), ", ".join(sorted(seen_versions))))
 
     # Said here rather than left for evals/bench/concurrency.py to find months
     # later. The reconstruction is a floor - a retried cell records only the

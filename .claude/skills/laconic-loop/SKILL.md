@@ -395,6 +395,40 @@ a measurement is bounded in `evals/results/loop/concurrency-audit.md`: nothing
 detectable on `output_tokens`, and the one-turn rate moves in opposite
 directions on the two sides of the contrast, so it is batch rather than regime.
 
+**A round that runs for hours spans a CLI release, and simultaneity does not
+protect it.** The CLI ships several times a day. Round 57 ran fourteen hours and
+crossed from 2.1.263 to 2.1.266, and its three arms — run simultaneously, from
+three trees, exactly as round 38 prescribes — split 225/246, 276/204 and 254/226
+across their first boundary, because three processes generate at their own pace
+and a usage limit hits the slowest hardest. Simultaneity equalises the calendar
+between arms, not the instrument, and it stops equalising even the calendar once
+the arms drift apart.
+
+Worse, until [#272] the round could not see it. `run.py` read `claude --version`
+once at startup and copied the answer onto every run, so a pass that outlived a
+release recorded the release it started on: **540 of round 57's 1,440 runs name
+a release they did not run on**, and the round stratified on that field. The
+stamp is now read before every generation, a pass that crosses a release says so
+twice, and `metadata.cli_versions_per_run` marks a file whose labels can be
+trusted. Seventeen committed snapshots predate it and may not be stratified on —
+`evals/results/loop/release-audit.md` names them, and has round 57 relabelled.
+
+So for any round with arms in separate snapshots, run the audit before reading a
+contrast out of it:
+
+```bash
+python3 evals/bench/release.py evals/snapshots/loop/round-$N-{control,edit}.json
+```
+
+It reports each arm's share of each release and tests the imbalance. A round
+that fails it has the release correlated with the arm, and its pooled contrast
+is confounded by the instrument. Do not try to fit a round inside one release —
+at three or four hours a release, no round big enough to answer anything fits.
+`--stop-on-cli-change` is there for the rare design that genuinely needs one
+instrument, and it throws away everything after the boundary.
+
+[#272]: https://github.com/JordanMPDS/laconic/issues/272
+
 **Four shards at once, and the fifth is refused.** Declaring the fan-out is
 honesty about the metadata; it is not resource safety, and nothing bounded the
 number until [#255]. Round 52 sharded across five `run.py` processes on

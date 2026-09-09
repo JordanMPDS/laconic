@@ -262,8 +262,9 @@ try:
 finally:
     bench_run.call = _orig_call
 
-check("arms include all five",
+check("arms include all seven",
       sorted(bench_run.ARMS) == ["baseline", "concise-style", "laconic",
+                                 "laconic-min-a", "laconic-min-b",
                                  "terse-control", "word-compression"])
 check("baseline has no system prompt", bench_run.ARMS["baseline"] is None)
 check("terse control is exactly the control instruction",
@@ -281,6 +282,27 @@ check("no arm both appends a system prompt and sets an output style",
       all(not bench_run.ARMS[a] for a in bench_run.ARM_OUTPUT_STYLES))
 check("every styled arm is a real arm",
       set(bench_run.ARM_OUTPUT_STYLES) <= set(bench_run.ARMS))
+
+# The #270 dilution arms. Two properties matter and neither is cosmetic: the
+# text has to come from evals/arms/ rather than from a copy in run.py, and
+# every never-cut item has to survive the compression. A minimal slice that
+# quietly dropped one of them would answer a question nobody asked - "does a
+# smaller file with a smaller contract read shorter" - and the round built on
+# it would report dilution where it had measured a broken contract.
+for _min_arm, _fname in bench_run.ARM_FILES.items():
+    _disk = (ROOT / "evals" / "arms" / _fname).read_text()
+    check("%s is the file on disk, not a copy in run.py" % _min_arm,
+          bench_run.ARMS[_min_arm] == _disk and len(_disk) > 200)
+    check("%s is actually minimal against the full slice" % _min_arm,
+          len(_disk.split()) * 2
+          < len((ROOT / "rules" / "dist" / "laconic-full.md").read_text().split()))
+    _low = _disk.lower()
+    for _probe in ("error strings", "security warning", "destructive",
+                   "explained", "the words that fix", "bad news",
+                   "uncertainty", "claims", "earn", "broken"):
+        check("%s keeps the never-cut contract: %r" % (_min_arm, _probe),
+              _probe in _low)
+
 
 rules = bench_run.laconic_rules(ROOT, "full")
 check("laconic rules come from the hook and are non-empty", len(rules) > 200)
@@ -646,7 +668,7 @@ _js[_at[_key]] = dict(_failed, verdict="pass", reason="r")
 check("repairing in place does not grow a duplicate",
       len(_js) == 2 and _js[0]["verdict"] == "pass")
 for arm in ["laconic", "baseline", "terse-control", "word-compression",
-            "concise-style"]:
+            "concise-style", "laconic-min-a", "laconic-min-b"]:
     check("judge prompt is blind to arm %s" % arm, arm not in p)
 
 # judge.py's main() must resolve --claude-bin and fail fast, the same guard
@@ -1632,7 +1654,8 @@ check("carrying stamps the source and its cksum",
 # regenerated, so the two arms it has never heard of are the gap to disclose.
 check("carrying names the arms it could not carry",
       carried["metadata"]["carried_arms_from"]["missing_arms"]
-      == ["concise-style", "word-compression"])
+      == ["concise-style", "laconic-min-a", "laconic-min-b",
+          "word-compression"])
 check("an arm being regenerated is not reported as missing",
       "laconic" not in carried["metadata"]["carried_arms_from"]["missing_arms"])
 src_full = {"metadata": {"rules_cksum": "111"},
@@ -1677,11 +1700,18 @@ with tempfile.TemporaryDirectory() as td_gap:
               for a in ("concise-style", "terse-control", "word-compression")))
     _gap_line = next(l for l in proc_gap.stdout.splitlines()
                      if "no runs to carry" in l)
+    # Parsed rather than substring-matched: "laconic" is a prefix of
+    # laconic-min-a, so `"laconic" not in line` stopped meaning "the
+    # regenerated arm is absent" the moment a second arm shared the prefix.
+    _gap_named = [a.strip() for a in
+                  _gap_line.split("no runs to carry for ", 1)[1]
+                  .split(". This is not", 1)[0].split(",")]
     check("subprocess: the warning does not name the regenerated arm",
-          "laconic" not in _gap_line)
+          "laconic" not in _gap_named)
     check("subprocess: the gap is recorded in the snapshot, not only printed",
           json.loads(gap_out.read_text())["metadata"]["carried_arms_from"]
-          ["missing_arms"] == ["concise-style", "terse-control",
+          ["missing_arms"] == ["concise-style", "laconic-min-a",
+                               "laconic-min-b", "terse-control",
                                "word-compression"])
 
 # --- #142: the tool list has to reach the snapshot, not just the parser ---

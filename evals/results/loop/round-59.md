@@ -349,6 +349,19 @@ have now run this test and none of them could certify anything with it; that is
 filed as [#278], because a guardrail that cannot pass is not protecting
 anything.
 
+> **Correction, [#278].** The two **INFERIOR** verdicts in the table above are
+> wrong and the scorer has been fixed. The paragraph immediately above them
+> says what the data support - an inability to certify - and the verdict column
+> should have said it too. A one-sided non-inferiority test has three outcomes
+> and `score_dilution.py` reported two, collapsing "ruled against" together
+> with "unresolved". Re-run against these same snapshots both rows now read
+> **inconclusive**, on difference intervals of [−20.5, −0.9] for `abl-shown`
+> and [−19.7, −0.1] for `abl-arrow`, each containing the margin. Every other
+> number in this document reproduces unchanged, including both primaries. The
+> scorer now also prints the check that was missing: at 120 runs an arm the
+> registered 15-point margin certifies only arms that fall by less than 5.0
+> points.
+
 **It does not rescue `abl-arrow` or explain `abl-shown`.** Reading less makes
 answers shorter, so a reading fall biases *against* the lengthening the primary
 found — `abl-shown` lengthened anyway, and by more inside the stratum (1.184x)

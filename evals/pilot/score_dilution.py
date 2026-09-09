@@ -557,10 +557,15 @@ def continuity(runs, cases, rungs, floor_arm, out, seed=SEED):
     n = min(len(pre_d), len(post_d))
     diffs = sorted(post_d[i] - pre_d[i] for i in range(n))
     ci = (diffs[int(0.025 * n)], diffs[int(0.975 * n)]) if n else None
+    # Counted inside the scope the contrast is computed on. A round that also
+    # holds a second case family pools it into `post` otherwise, and the line
+    # then reports a run count the ratio beside it was not computed from.
+    inscope = lambda rows: sum(1 for r in rows if r["case"] in cases  # noqa: E731
+                               and r["arm"] in both)
     out("  %-24s ratio %.3fx  (%d runs)" % ("block effect before",
-                                            math.exp(a), len(pre)))
+                                            math.exp(a), inscope(pre)))
     out("  %-24s ratio %.3fx  (%d runs)" % ("block effect after",
-                                            math.exp(b), len(post)))
+                                            math.exp(b), inscope(post)))
     if ci:
         out("  %-24s %.3fx [%.3f, %.3f]"
             % ("after over before", math.exp(b - a),

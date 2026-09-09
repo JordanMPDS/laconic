@@ -259,7 +259,14 @@ first three shards died with 464 of 600 runs written and a resume filled the
 rest four and a half hours later. The CLI version is byte-identical across the
 pause (2.1.266) and `rules_cksum` and `cases_cksum` are unchanged, so both
 existing guards pass and neither says anything: **wall-clock is not something
-this repository records anywhere a reader would look.** Interleaving is the
+this repository records anywhere a reader would look.**
+
+> **This paragraph is wrong about the CLI and is left in place.** The version
+> was read before the resume rather than after it, and 2.1.267 landed during
+> the pause. `release.py` found it afterwards; see the Result section, which
+> reports the composition and the balance test. Nothing else in this addendum
+> is affected — the guard and the diagnostic below were registered for the
+> pause and they are what caught the release too. Interleaving is the
 design's defence — every rep generates all five arms back to back and the
 estimator differences arms inside a case, so anything moving all five together
 is absorbed — but that is an argument, not a check. `continuity()` locates the
@@ -284,6 +291,138 @@ after the fact, and named joint resampling of the blocks as the one
 implementation detail that would silently invalidate the share. `deepseek`
 supplied the pre-pause fallback and the warning about the smaller epoch. `kimi`
 asked for the sensitivity to be printed rather than described.*
+
+## Result
+
+600 ladder runs, no failures in the file, one `rules_cksum`, sonnet only.
+`python3 evals/pilot/score_dilution.py evals/snapshots/loop/round-60-{a,b,c}.json
+--floor laconic-abl-shown`.
+
+**The block effect replicates.** Floor against ceiling on these three cells is
+**1.286x [1.212, 1.363]**, against round 59's 1.284x measured on a different CLI
+build. The denominator the shares divide by is 44 standard errors clear of zero
+and no bootstrap draw of 4,000 fell at or below it, so the share is
+interpretable under the registered gate.
+
+| rung | property removed | vs ceiling | p | vs floor | share of the gap |
+|---|---|--:|--:|--:|--:|
+| `repl-told` | rendered | 0.960x [0.904, 1.020] | 0.1774 | 0.746x | **−0.16** [−0.47, +0.07] |
+| `repl-unlabelled` | mapped to a level | 1.057x [1.002, 1.117] | 0.0515 | 0.822x | **+0.22** [+0.01, +0.41] |
+| `repl-unframed` | worked from a question | **1.140x** [1.080, 1.206] | **0.0000** | 0.887x | **+0.52** [+0.33, +0.72] |
+
+Bonferroni α = 0.0167 over the three rungs. Every rung is separated from the
+floor at p ≤ 0.0001, so no rung is a disguised deletion.
+
+**The worked question is the largest single thing the block does, and it is
+about half of it.** `repl-unframed` keeps the rendered answers and keeps their
+level labels, and deletes only the question they answer — the OOM scenario and
+the design licence's `Wrong:`/`Right:` pair — replacing both with the same
+answers standing free. That alone costs 1.140x of the 1.286x gap, clears the
+correction on its own, and its share interval excludes both 0 and 1. An example
+needs a question to be an example of.
+
+**Rendering as such is none of it.** `repl-told` describes the same three
+answers in prose and shows nothing, and it is indistinguishable from the shipped
+slice — its point estimate is on the *short* side of the ceiling and its share
+interval reaches only +0.07. This is the reading round 59 speculated and refused
+to claim, and it is wrong. Showing rather than telling is not the mechanism.
+
+**The level mapping carries a little.** `repl-unlabelled` misses the corrected
+threshold at p = 0.0515, so by the registered rule it sits at the ceiling; but
+its share is +0.22 with an interval excluding zero. That is the exact case the
+share was registered for — a rung a pairwise test calls null while the interval
+says it recovers a fifth of the gap. It is reported as a small positive effect
+the pairwise test could not resolve, not as a null.
+
+**The three shares do not add up, and that is a finding.** −0.16 + 0.22 + 0.52 =
+**0.58**. If the three properties were additive and exhaustive the shares would
+sum to about 1. Two fifths of the block effect is therefore not a main effect of
+any one property: it lives in some combination of them, or in something all
+three substitutes preserved. The registration said a sum far from 1 is itself
+reportable, and this is that.
+
+Against the registered outcome map, the result is **none of the six patterns
+exactly**. The nearest is "`repl-unframed` at the floor, the other two at the
+ceiling", and it fails on the word *floor*: `repl-unframed` is separated from
+both anchors. The round anticipated a midpoint rung and registered the share
+precisely because a pairwise test says nothing there.
+
+### The tie-break
+
+120 further runs, ceiling and floor only, on `stale-cache`, `verdict-schema`
+and `verdict-rollout` — cells that read a fixture and return a diagnosis or a
+verdict, and are not advice-shaped.
+
+| family | cells | floor against ceiling |
+|---|---|--:|
+| A | the three `design-*` cells | 1.286x |
+| B | the three verdict cells | 1.079x (p = 0.0153) |
+| | **A over B (the registered interaction)** | **1.192x [1.094, 1.296]** |
+
+The interval excludes 1, which is the registered reading for **the block's
+effect is specific to advice-shaped questions**. That is the answer [#277] asked
+for: round 59 could not tell "the block governs design answers" from "design
+answers are where this file has room to move", and the difference is now
+estimated rather than inferred from two nulls side by side.
+
+**It is specific, not exclusive, and the round says both.** Family B is itself
+above 1 at p = 0.0153, so the block lengthens a verdict answer too — about a
+third as much in logs. The registration's two branches did not anticipate an
+interval excluding 1 *and* a second family significantly above 1, and the honest
+statement of what was found is that the effect generalises weakly and is roughly
+2.7x larger where the deleted material is about the question being asked.
+
+**One premise came in weaker than registered.** The tie-break cells were chosen
+to be long at baseline so that "no room to move" could not explain a small
+effect, on historical `laconic` sonnet medians of 163, 269 and 273 words. They
+came in at **139.5, 169.0 and 200.5** — not longer than the design cells, as
+predicted, but the same length as them (140.5, 181.0, 188.0). The premise still
+does the job it was there for, because these are the lengths at which family A
+moved 1.286x, so the room existed. It does not do the stronger job the
+registration claimed for it.
+
+### Diagnostics
+
+- **The pause.** A 3.7-hour gap at 2026-09-09T20:23:13Z separates 464 ladder
+  runs from 136. The block effect is 1.283x before it and 1.300x after, an interaction of
+  **1.013x [0.900, 1.151]**. The pre-pause ladder alone reproduces every
+  conclusion above — 1.283x block effect, `repl-unframed` at 1.141x, `repl-told`
+  at 0.949x, `repl-unlabelled` at 1.065x, shares +0.53, −0.21 and +0.25. As
+  registered, this is a weak null: the post-pause epoch is 23% of the runs and
+  the interval reaches 1.151x, so it rules out a large differential time effect
+  and not a small one.
+- **The pause spans a CLI release, and the addendum below is wrong about that.**
+  Written before generation resumed, it says the version is byte-identical
+  across the gap. It is not: `python3 evals/bench/release.py` reports
+  **2.1.266 and 2.1.267**, with the new build carrying 12% of the runs and
+  landing entirely after the pause. What saves the round is that the arms are
+  interleaved within a rep, so every arm took the same share of each build:
+  release.py reports no arm imbalanced across the boundary, at Fisher p between
+  0.43 and 1.00 on every arm in every shard. The continuity diagnostic above is
+  therefore also the release check, which is the reason it is reported here
+  rather than deleted as a false alarm. The mistake was mine — the version was
+  read before the resume rather than after it — and it is left in place with
+  this correction beside it rather than edited away.
+- **Per shard.** All nine ladder processes read the floor above the ceiling
+  (1.201x to 1.409x), as do all three tie-break processes on family B (1.027x to
+  1.114x). `repl-unframed` reads above 1.12x in five of six ladder shards and
+  1.008x in one, so the headline is not carried by one process.
+- **Reading rate, the guardrail.** `laconic` reads 39.2%. `repl-told` at 40.0%
+  and `repl-unlabelled` at 44.2% are certified **non-inferior**; `abl-shown`
+  (−5.0 pts) and `repl-unframed` (−10.0 pts) are **inconclusive**, neither
+  certified nor ruled against. Nothing is **HARMED**. The scorer prints the
+  reason the middle verdict is common here: at 120 runs an arm this design
+  certifies only a fall smaller than 4.2 points ([#278]), so a 10-point fall is
+  outside what these reps can resolve in either direction. `repl-unframed` is
+  the arm that both lengthens most and reads least, which is worth a follow-up
+  and is not something this round can settle.
+- **Not endpoints.** No arm dropped a never-cut keyword, and no arm differs from
+  the control on arrows carried — expected, since nothing here deletes a
+  prohibition. The per-cell sign test cannot reach a useful p with three cells
+  and is printed only because rounds 58 and 59 printed it.
+- **`python3 evals/bench/concurrency.py` reports no round-60 arm-day above its
+  declaration.** The nineteen it flags repository-wide are the pre-existing ones
+  in [`concurrency-audit.md`](concurrency-audit.md).
 
 ## Bound, fatal to the round
 

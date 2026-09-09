@@ -205,6 +205,17 @@ Share of responses with `num_turns > 1`, over the three `design-*` cells,
 | `laconic-min-a` | 23/90, 25.6% | −7.8 pts | −18.7 | **inferior** at the registered margin |
 | `laconic-min-b` | 37/90, 41.1% | +7.8 pts | −4.0 | non-inferior |
 
+> **Correction, [#278].** `laconic-min-a`'s verdict above is wrong, and the
+> scorer that produced it has been fixed. A one-sided non-inferiority test has
+> three outcomes and `score_dilution.py` reported two, so an arm the design
+> could not resolve was published as one it had ruled against. Re-run against
+> these same snapshots the row now reads **inconclusive**: the difference
+> interval is [−18.7, +3.4], which contains both zero and the margin. Nothing
+> else in this document changes — every other number reproduces — and the
+> paragraph below already read the result this way. At 90 runs an arm the
+> registered 15-point margin certifies only arms that fall by less than 3.3
+> points, which is the mismatch #278 is about.
+
 Neither difference against `laconic` separates (Fisher p = 0.3265 and 0.3549).
 **The two minimal slices differ from each other more than either differs from
 the shipped slice** — 23/90 against 37/90, Fisher **p = 0.0394** — which is
@@ -291,3 +302,5 @@ projects is not the design of the test, which is the same test — it is that
 the shipped slice were put there by a round that measured them. A rule
 catalogue's length is not by itself evidence of dilution, and this round is the
 measurement that separates the two cases.
+
+[#278]: https://github.com/JordanMPDS/laconic/issues/278

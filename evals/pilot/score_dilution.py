@@ -58,6 +58,49 @@ here, none of which moves a number round 58 published:
 - **The primary is also printed per shard**, as a diagnostic. It is readable
   only because every shard now runs every case; see `shards()`.
 
+## Issue #278: the guardrail had two verdicts and needed three
+
+The reading-rate test ran in rounds 58 and 59 and returned INFERIOR on three of
+four arms, none of which fell significantly on its own. The cause was neither
+the margin nor the reps: `ok = lower > MARGIN` collapsed "the design ruled this
+arm out" and "the design could not resolve this arm" into one verdict, and at
+these reps almost every arm lands in the second. A one-sided non-inferiority
+test has three outcomes and this file now reports all three - `non-inferior`
+when the lower bound clears the margin, `HARMED` when the upper bound falls
+below it, `inconclusive` in between.
+
+`MARGIN` does not move. It was registered before generation, and widening it
+afterwards so that results pass is the thing pre-registration exists to
+prevent. Reprinting rounds 58 and 59 under the corrected verdict turns all
+three INFERIOR results into `inconclusive` and changes no other number.
+
+`HARMED` is not toothless. At n = 120 against a control at 37.5% it fires on
+any arm below about 13%, which is what [#264]'s hazard - an arm that buys its
+compression by not opening a file - looks like when it actually happens.
+
+The reading line also prints each arm's own interval, because "reads between
+20% and 34% against a control at 37.5%" is what the data support and what a
+reader wants; and the **null resolution**, the margin an arm that fell by
+nothing could have cleared at the reps actually run. The registered margin and
+the reps were never checked against each other, which is how a 15-point margin
+came to be registered for a design whose best case resolves 10.
+`--null-resolution N RATE` runs that check before a round buys any generation.
+
+What an `inconclusive` guardrail blocks is a registration decision and this
+file does not make it. The verdict is evidence; the disposition belongs to the
+round.
+
+*Origin: the three-way form is `codex`'s on `bash tools/consult.sh`. My own
+proposal fired `HARMED` whenever the difference interval excluded zero, which
+is not mutually exclusive with clearing the margin - a precise 10-point fall
+would have been both - and which would have labelled both round 59 arms HARMED
+at upper bounds of -0.9 and -0.05 points, firing more often than the test it
+replaced. `codex` computed those bounds and I confirmed them before adopting
+the correction. `codex` also drew the line above between the scorer's verdict
+and the round's disposition, and warned that a number printed after a round
+cannot stop a bad margin being registered before one, which is what the
+`--null-resolution` flag is for. `deepseek` and `kimi` did not answer.*
+
 *Origin: the blocked log-words estimand and the six-cell sign-test arithmetic
 came from the `codex` delegate target on `bash tools/consult.sh` before round
 59 was registered, as did the post-treatment objection to blocking on the
@@ -66,7 +109,9 @@ giving every shard every case. Both were adopted before any generation;
 `deepseek` did not answer either time.*
 
 [#131]: https://github.com/JordanMPDS/laconic/issues/131
+[#264]: https://github.com/JordanMPDS/laconic/issues/264
 [#270]: https://github.com/JordanMPDS/laconic/issues/270
+[#278]: https://github.com/JordanMPDS/laconic/issues/278
 """
 import argparse
 import json
@@ -90,8 +135,10 @@ WORDS_CASES = list(READING_CASES)
 #: which is finer than any threshold the round reads.
 BLOCK_RESAMPLES = 20000
 
-#: Registered before generation. A minimal slice is non-inferior on reading
-#: rate when the lower bound of its difference against `laconic` clears this.
+#: Registered before generation in round 58, and not moved since - see the
+#: #278 section above. An arm is non-inferior on reading rate when the lower
+#: bound of its difference against `laconic` clears this, harmed when the upper
+#: bound falls below it, and unresolved by the design in between.
 MARGIN = -0.15
 #: The catastrophic-loss trigger for the contract smoke alarm, also registered:
 #: more than this many failing runs while the full slice fails at most one.
@@ -185,6 +232,69 @@ def _diff_lower(k1, n1, k2, n2):
     return (p1 - p2) - math.sqrt((p1 - l1) ** 2 + (u2 - p2) ** 2)
 
 
+def _wilson_upper(k, n, z=1.645):
+    """One-sided upper bound on a proportion, by symmetry with the lower bound
+    on the failures. Same z, so the two composed give a 90% interval."""
+    if not n:
+        return 1.0
+    return 1 - _wilson_lower(n - k, n, z)
+
+
+def _diff_upper(k1, n1, k2, n2):
+    """Upper bound on p1 - p2, Newcombe's construction mirrored."""
+    if not n1 or not n2:
+        return 1.0
+    p1, p2 = k1 / n1, k2 / n2
+    u1 = _wilson_upper(k1, n1)
+    l2 = _wilson_lower(k2, n2)
+    return (p1 - p2) + math.sqrt((u1 - p1) ** 2 + (p2 - l2) ** 2)
+
+
+def reading_verdict(k, n, full_k, full_n):
+    """(verdict, lower, upper) - the three outcomes of the non-inferiority
+    test, kept distinct. See the #278 section at the top of this file.
+
+    The three are mutually exclusive and exhaustive because lower <= upper: a
+    margin cannot sit below the lower bound and above the upper bound at once.
+    """
+    lower = _diff_lower(k, n, full_k, full_n)
+    upper = _diff_upper(k, n, full_k, full_n)
+    if lower > MARGIN:
+        return "non-inferior", lower, upper
+    if upper < MARGIN:
+        return "HARMED", lower, upper
+    return "inconclusive", lower, upper
+
+
+def certifiable_fall(n, full_k, full_n):
+    """The largest observed fall in reading rate that still clears MARGIN at
+    these reps, as a difference in proportions, or None if nothing does.
+
+    This is the check #278 says nobody ran: the margin and the reps were never
+    compared, and at n = 120 against a control near a third a 15-point margin
+    certifies only arms that fall by less than 5 points. A margin whose name
+    says it tolerates 15 and whose design tolerates 5 is not describing
+    itself, and the gap is invisible unless it is printed.
+
+    Not a power calculation - it assumes the observed control rate rather than
+    a true effect and a target power, neither of which any round registers,
+    and it is conditional on that rate, since a rate near 0 or 1 resolves much
+    finer. It is an exact search over the counts rather than an approximation,
+    which costs n calls and is free at any n a round can afford.
+    """
+    if not full_n or not n:
+        return None
+    for k in range(n + 1):
+        if _diff_lower(k, n, full_k, full_n) > MARGIN:
+            fall = k / n - full_k / full_n
+            # A positive answer means the smallest clearing count is above the
+            # control's own: the design cannot certify the margin even for an
+            # arm that fell by nothing, which is a different failure and gets
+            # its own value rather than a misleading negative one.
+            return fall if fall <= 0 else None
+    return None
+
+
 def reading(runs, arm):
     rows = [r for r in runs if r["arm"] == arm and r["case"] in READING_CASES]
     return sum(1 for r in rows if grounded(r)), len(rows)
@@ -272,22 +382,35 @@ def report(runs, cases_dir, out=print, words_cases=None, arms=None):
     words_cases = list(words_cases or WORDS_CASES)
     arms = list(arms if arms is not None else comparison_arms(runs))
     full_k, full_n = reading(runs, FULL_ARM)
-    out("reading rate, %s cells, grounded = num_turns > 1" % len(READING_CASES))
-    out("  %-18s %3d/%-3d  %5.1f%%" % (FULL_ARM, full_k, full_n,
-                                       100 * full_k / full_n if full_n else 0))
+    out("reading rate, %s cells, grounded = num_turns > 1 "
+        "(90%% intervals, margin %+.1f pts)" % (len(READING_CASES),
+                                                100 * MARGIN))
+    out("  %-18s %3d/%-3d  %5.1f%%  [%.1f, %.1f]"
+        % (FULL_ARM, full_k, full_n, 100 * full_k / full_n if full_n else 0,
+           100 * _wilson_lower(full_k, full_n),
+           100 * _wilson_upper(full_k, full_n)))
     verdicts = {}
     for arm in arms:
         k, n = reading(runs, arm)
-        lower = _diff_lower(k, n, full_k, full_n)
+        verdict, lower, upper = reading_verdict(k, n, full_k, full_n)
         p = fisher_exact(k, n - k, full_k, full_n - full_k)
-        ok = lower > MARGIN
-        verdicts[arm] = {"reading_non_inferior": ok}
-        out("  %-18s %3d/%-3d  %5.1f%%  diff %+5.1f pts, lower bound %+5.1f, "
-            "margin %+5.1f -> %s (Fisher p = %.4f)"
+        verdicts[arm] = {"reading_verdict": verdict,
+                         "reading_bounds": (lower, upper)}
+        out("  %-18s %3d/%-3d  %5.1f%%  [%.1f, %.1f]  diff %+5.1f pts "
+            "[%+.1f, %+.1f] -> %s (Fisher p = %.4f)"
             % (arm, k, n, 100 * k / n if n else 0,
+               100 * _wilson_lower(k, n), 100 * _wilson_upper(k, n),
                100 * ((k / n if n else 0) - (full_k / full_n if full_n else 0)),
-               100 * lower, 100 * MARGIN,
-               "non-inferior" if ok else "INFERIOR", p))
+               100 * lower, 100 * upper, verdict, p))
+    # #278: the margin and the reps were never checked against each other, so
+    # the check is printed beside the result it governs rather than left to a
+    # reader to run by hand.
+    for n in sorted({reading(runs, arm)[1] for arm in arms}):
+        fall = certifiable_fall(n, full_k, full_n)
+        out("  at %d runs an arm this design certifies a %+.1f pt margin only "
+            "for arms that fall by less than %s"
+            % (n, 100 * MARGIN,
+               "nothing at all" if fall is None else "%.1f pts" % (-100 * fall)))
 
     out("\nprose words, blocked on case, %d cells, permutation seed %d "
         "(THE PRIMARY)" % (len(words_cases), SEED))
@@ -389,6 +512,50 @@ def _selftest():
     check("an empty arm is inferior rather than crashing",
           _diff_lower(0, 0, 74, 90) < MARGIN)
 
+    # #278. The three verdicts have to partition the outcomes, and the two
+    # rounds that have run this test have to come out of it saying what the
+    # data actually support. Every count below is read off an immutable
+    # snapshot, so these are regression checks and not illustrations.
+    check("the three verdicts are exclusive and exhaustive over every count",
+          all(sum(reading_verdict(k, 120, 45, 120)[0] == v
+                  for v in ("non-inferior", "HARMED", "inconclusive")) == 1
+              for k in range(121)))
+    check("bounds never cross, so no count can be both",
+          all(reading_verdict(k, 120, 45, 120)[1]
+              <= reading_verdict(k, 120, 45, 120)[2] for k in range(121)))
+    check("round 58's laconic-min-a was never ruled against, only unresolved",
+          reading_verdict(23, 90, 30, 90)[0] == "inconclusive")
+    check("round 59's abl-shown likewise",
+          reading_verdict(32, 120, 45, 120)[0] == "inconclusive")
+    check("round 59's abl-arrow likewise",
+          reading_verdict(33, 120, 45, 120)[0] == "inconclusive")
+    check("round 58's laconic-min-b is still certified non-inferior",
+          reading_verdict(37, 90, 30, 90)[0] == "non-inferior")
+    # The rule I proposed before consulting - HARMED whenever the interval
+    # excludes zero - would have taken both round 59 arms, whose upper bounds
+    # are -0.9 and -0.05 points. It has to stay excluded.
+    check("an arm whose interval excludes zero is not harmed on that alone",
+          _diff_upper(32, 120, 45, 120) < 0
+          and reading_verdict(32, 120, 45, 120)[0] != "HARMED")
+    check("#264's hazard, an arm that stopped reading, is HARMED",
+          reading_verdict(0, 120, 45, 120)[0] == "HARMED")
+    check("and so is one that reads a third as often",
+          reading_verdict(10, 120, 45, 120)[0] == "HARMED")
+    check("an arm that reads more than the control is never harmed",
+          reading_verdict(90, 120, 45, 120)[0] == "non-inferior")
+    check("a 15-point margin at n=120 certifies only a 5-point fall",
+          abs(-100 * certifiable_fall(120, 45, 120) - 5.0) < 0.05)
+    check("the fall it names is the smallest one that really clears",
+          _diff_lower(39, 120, 45, 120) > MARGIN
+          and _diff_lower(38, 120, 45, 120) < MARGIN)
+    check("quadrupling the reps buys a wider tolerance",
+          -certifiable_fall(480, 180, 480) > -certifiable_fall(120, 45, 120))
+    check("a design too small to certify even a zero fall says so",
+          certifiable_fall(4, 2, 4) is None)
+    check("it does not divide by zero on an arm with no runs",
+          certifiable_fall(0, 45, 120) is None
+          and certifiable_fall(120, 0, 0) is None)
+
     runs = []
     for arm, turns, text in ((FULL_ARM, 3, "word " * 100),
                              ("laconic-min-a", 3, "word " * 40),
@@ -401,9 +568,11 @@ def _selftest():
     lines = []
     v = report(runs, Path(__file__).resolve().parents[1] / "cases", lines.append)
     check("an arm that reads as often as the full slice is non-inferior",
-          v["laconic-min-a"]["reading_non_inferior"])
-    check("an arm that stopped reading is not",
-          not v["laconic-min-b"]["reading_non_inferior"])
+          v["laconic-min-a"]["reading_verdict"] == "non-inferior")
+    check("an arm that stopped reading is reported harmed, not unresolved",
+          v["laconic-min-b"]["reading_verdict"] == "HARMED")
+    check("the report prints the margin-against-reps check beside the verdict",
+          any("this design certifies" in ln for ln in lines))
     check("a shorter arm sweeps the word cells",
           v["laconic-min-a"]["words_cells_shorter"] == (3, 3))
     check("an arm with no grounded stratum reports no word cells",
@@ -525,9 +694,26 @@ def main():
                     help="prose-words scope; round 58 registered three cells "
                          "and round 59 registers six")
     ap.add_argument("--selftest", action="store_true")
+    ap.add_argument("--certifiable-fall", nargs=2, type=float,
+                    metavar=("N", "CONTROL_RATE"),
+                    help="check the margin against planned reps before buying "
+                         "any generation: prints the largest fall the "
+                         "registered margin could certify at N runs an arm "
+                         "against a control reading at CONTROL_RATE. Assumes "
+                         "equal reps per arm, which is how every round has "
+                         "run it. See #278")
     args = ap.parse_args()
     if args.selftest:
         return _selftest()
+    if args.certifiable_fall:
+        n, rate = int(args.certifiable_fall[0]), args.certifiable_fall[1]
+        fall = certifiable_fall(n, round(n * rate), n)
+        print("at %d runs an arm and a control reading %.1f%%, the registered "
+              "%+.1f pt margin certifies only arms that fall by less than %s"
+              % (n, 100 * rate, 100 * MARGIN,
+                 "nothing at all" if fall is None
+                 else "%.1f pts" % (-100 * fall)))
+        return 0
     if not args.snapshots:
         ap.error("give at least one snapshot, or --selftest")
     runs, versions = load(args.snapshots)

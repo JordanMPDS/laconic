@@ -34,3 +34,37 @@ They are two drafts by one author in one sitting, not two independent authors,
 and any round citing them says so.
 
 [#270]: https://github.com/JordanMPDS/laconic/issues/270
+
+## `laconic-abl-shown.md`, `laconic-abl-arrow.md` — the [#275] ablation arms
+
+Round 58 found that both minimal slices produce answers roughly twice as long
+as the shipped one, so the compression lives in the ~750 words they dropped.
+These two arms ask which of those words, and they are a different construction
+from the minimal slices: **each is the shipped `full` slice with one named
+block deleted and nothing else changed.** Not a rewrite, not an extract — a
+deletion, so a difference against the control attributes to that block alone.
+
+| arm | words | block removed |
+|---|--:|---|
+| `laconic-abl-shown` | 832 | every rendered short answer: the worked OOM question with its three-row level table and coda, and the design licence's `Wrong:`/`Right:` pair. 209 words. |
+| `laconic-abl-arrow` | 876 | the arrow rule entire: the prohibition, its enumeration of forbidden uses, the four `Wrong:`/`Right:` lines and the fenced-code exemption. 165 words. |
+
+The instructions those blocks illustrate stay in both arms. `abl-shown` keeps
+the design licence, the level ladder and the whole never-cut contract;
+`abl-arrow` keeps the rest of `## Never do this`, including the anti-compression
+clause that shares its section.
+
+**They are word-matched on purpose, and the pairing is the design.**
+`abl-shown` removes the file's only rendered instances of a brief answer.
+`abl-arrow` removes a comparable bulk of on-topic instruction — including its
+own rendered `Wrong:`/`Right:` demonstrations — that says nothing about length
+anywhere in it. So `abl-shown` moving while `abl-arrow` does not separates
+"showing a short answer is the carrier" from "any 200 words are".
+
+`tests/test_bench.py` holds both to pure deletion: every line has to be a line
+of the shipped slice, in order, and the removed word count has to be exactly
+the figure round 59 registered. An edit to `rules/laconic.md` that moves either
+block fails that check, which is correct — the arm would no longer isolate what
+it was built to isolate.
+
+[#275]: https://github.com/JordanMPDS/laconic/issues/275

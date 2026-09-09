@@ -262,8 +262,9 @@ try:
 finally:
     bench_run.call = _orig_call
 
-check("arms include all seven",
+check("arms include all nine",
       sorted(bench_run.ARMS) == ["baseline", "concise-style", "laconic",
+                                 "laconic-abl-arrow", "laconic-abl-shown",
                                  "laconic-min-a", "laconic-min-b",
                                  "terse-control", "word-compression"])
 check("baseline has no system prompt", bench_run.ARMS["baseline"] is None)
@@ -289,19 +290,84 @@ check("every styled arm is a real arm",
 # quietly dropped one of them would answer a question nobody asked - "does a
 # smaller file with a smaller contract read shorter" - and the round built on
 # it would report dilution where it had measured a broken contract.
+_NEVER_CUT_PROBES = ("error strings", "security warning", "destructive",
+                    "explained", "the words that fix", "bad news",
+                    "uncertainty", "claims", "earn", "broken")
+
 for _min_arm, _fname in bench_run.ARM_FILES.items():
     _disk = (ROOT / "evals" / "arms" / _fname).read_text()
     check("%s is the file on disk, not a copy in run.py" % _min_arm,
           bench_run.ARMS[_min_arm] == _disk and len(_disk) > 200)
-    check("%s is actually minimal against the full slice" % _min_arm,
-          len(_disk.split()) * 2
-          < len((ROOT / "rules" / "dist" / "laconic-full.md").read_text().split()))
+    if _min_arm.startswith("laconic-min-"):
+        check("%s is actually minimal against the full slice" % _min_arm,
+              len(_disk.split()) * 2
+              < len((ROOT / "rules" / "dist" / "laconic-full.md").read_text().split()))
     _low = _disk.lower()
-    for _probe in ("error strings", "security warning", "destructive",
-                   "explained", "the words that fix", "bad news",
-                   "uncertainty", "claims", "earn", "broken"):
+    for _probe in _NEVER_CUT_PROBES:
         check("%s keeps the never-cut contract: %r" % (_min_arm, _probe),
               _probe in _low)
+
+# The #275 ablation arms. These are a different kind of thing from the minimal
+# slices above and need a different invariant: an ablation arm is the shipped
+# `full` slice with one named block deleted and *nothing else changed*, so the
+# contrast it feeds attributes a difference to that block alone. A reworded
+# ablation arm, or one left stale by a later edit to rules/laconic.md, would
+# still read as a plausible rules file and would silently make the round
+# measure two things at once. So the check is structural rather than textual:
+# the arm's lines must be a subsequence of the slice's lines, and the number of
+# words that went must be exactly what round 59 registered.
+#
+# The word counts are the registration. If an edit to rules/laconic.md moves
+# either block, this fails and the arm has to be rebuilt - which is correct,
+# because the old arm no longer isolates the block round 59 named.
+_ABLATIONS = {"laconic-abl-shown": 209, "laconic-abl-arrow": 165}
+_slice_lines = bench_run.laconic_rules(ROOT, "full").split("\n")
+
+
+def _is_subsequence(small, big):
+    it = iter(big)
+    return all(line in it for line in small)
+
+
+for _abl, _removed in _ABLATIONS.items():
+    _text = bench_run.ARMS[_abl]
+    check("%s is pure deletion from the shipped full slice" % _abl,
+          _is_subsequence(_text.split("\n"), _slice_lines))
+    check("%s removes exactly the %d words it registered" % (_abl, _removed),
+          len(" ".join(_slice_lines).split()) - len(_text.split()) == _removed)
+
+# Each ablation must actually remove its block and keep the instruction that
+# block illustrates - the whole design is "the rule stays, the demonstration
+# goes", and an arm that took the rule with it would answer a different
+# question.
+_shown = bench_run.ARMS["laconic-abl-shown"]
+check("abl-shown drops the worked OOM example", "OOM kill" not in _shown)
+check("abl-shown drops the level response table", "kubectl top pod" not in _shown)
+check("abl-shown drops the design-licence Wrong/Right pair",
+      "dedup rules" not in _shown)
+check("abl-shown keeps the design licence itself",
+      "not a treatise" in _shown and "earned by reading" in _shown)
+check("abl-shown keeps the whole never-cut contract",
+      all(_p in _shown.lower() for _p in _NEVER_CUT_PROBES))
+
+_arrow = bench_run.ARMS["laconic-abl-arrow"]
+check("abl-arrow drops the arrow prohibition", "No arrows inside" not in _arrow)
+check("abl-arrow drops the four Wrong/Right arrow lines",
+      "currentToken()" not in _arrow and "rotate the key" not in _arrow.lower())
+check("abl-arrow drops the fenced-code exemption",
+      "fenced code block" not in _arrow)
+check("abl-arrow keeps the rest of Never do this",
+      "No dropped articles" in _arrow and "fewer claims is" in _arrow)
+check("abl-arrow keeps the whole never-cut contract",
+      all(_p in _arrow.lower() for _p in _NEVER_CUT_PROBES))
+
+# The two blocks must not overlap, or the round's two contrasts would share
+# material and neither could attribute anything to its own block. Blank lines
+# go with every cut, so they are not evidence of overlap and are excluded.
+_gone_shown = set(_slice_lines) - set(_shown.split("\n")) - {""}
+_gone_arrow = set(_slice_lines) - set(_arrow.split("\n")) - {""}
+check("no line is removed by both ablation arms",
+      _gone_shown and _gone_arrow and not (_gone_shown & _gone_arrow))
 
 
 rules = bench_run.laconic_rules(ROOT, "full")
@@ -668,7 +734,8 @@ _js[_at[_key]] = dict(_failed, verdict="pass", reason="r")
 check("repairing in place does not grow a duplicate",
       len(_js) == 2 and _js[0]["verdict"] == "pass")
 for arm in ["laconic", "baseline", "terse-control", "word-compression",
-            "concise-style", "laconic-min-a", "laconic-min-b"]:
+            "concise-style", "laconic-min-a", "laconic-min-b",
+            "laconic-abl-shown", "laconic-abl-arrow"]:
     check("judge prompt is blind to arm %s" % arm, arm not in p)
 
 # judge.py's main() must resolve --claude-bin and fail fast, the same guard
@@ -1654,8 +1721,8 @@ check("carrying stamps the source and its cksum",
 # regenerated, so the two arms it has never heard of are the gap to disclose.
 check("carrying names the arms it could not carry",
       carried["metadata"]["carried_arms_from"]["missing_arms"]
-      == ["concise-style", "laconic-min-a", "laconic-min-b",
-          "word-compression"])
+      == ["concise-style", "laconic-abl-arrow", "laconic-abl-shown",
+          "laconic-min-a", "laconic-min-b", "word-compression"])
 check("an arm being regenerated is not reported as missing",
       "laconic" not in carried["metadata"]["carried_arms_from"]["missing_arms"])
 src_full = {"metadata": {"rules_cksum": "111"},
@@ -1710,7 +1777,8 @@ with tempfile.TemporaryDirectory() as td_gap:
           "laconic" not in _gap_named)
     check("subprocess: the gap is recorded in the snapshot, not only printed",
           json.loads(gap_out.read_text())["metadata"]["carried_arms_from"]
-          ["missing_arms"] == ["concise-style", "laconic-min-a",
+          ["missing_arms"] == ["concise-style", "laconic-abl-arrow",
+                               "laconic-abl-shown", "laconic-min-a",
                                "laconic-min-b", "terse-control",
                                "word-compression"])
 
@@ -5742,6 +5810,38 @@ with tempfile.TemporaryDirectory() as _td_rel:
           _o_ok.returncode == 0)
     check("--warn reports the same thing and exits 0",
           _run_rel("--warn", str(_p_bad)).returncode == 0)
+
+# --rep-offset (#275). A run is keyed on (case, arm, model, rep) and merging
+# shard files keeps one record per key, so two shards that both start at rep 0
+# throw one shard's work away without saying so. The flag is what lets three
+# processes each run every case - which is the thing that decouples the case
+# from the shard, and therefore from wall-clock time and from a CLI release
+# landing mid-round. Driven end to end against the stub, because the bug this
+# guards is in the argument plumbing and not in any function worth extracting.
+with tempfile.TemporaryDirectory() as _td_off:
+    _shard = lambda name, offset: subprocess.run(
+        [sys.executable, str(ROOT / "evals" / "bench" / "run.py"),
+         "--cases", "badnews", "--arms", "laconic", "--models", "sonnet",
+         "--reps", "2", "--rep-offset", str(offset), "--max-shards", "0",
+         "--claude-bin", str(ROOT / "tests" / "stubs" / "claude-stub.sh"),
+         "--snapshot", str(Path(_td_off) / name)],
+        capture_output=True, text=True, cwd=str(ROOT))
+    _reps = lambda name: sorted(
+        r["rep"] for r in json.loads((Path(_td_off) / name).read_text())["runs"])
+    _o0, _o2 = _shard("s0.json", 0), _shard("s2.json", 2)
+    check("a shard runs with --rep-offset", _o0.returncode == 0 and _o2.returncode == 0)
+    check("--rep-offset 0 generates the first reps", _reps("s0.json") == [0, 1])
+    check("--rep-offset 2 generates the next ones, not the same ones again",
+          _reps("s2.json") == [2, 3])
+    check("two shards at different offsets share no key, so a merge keeps "
+          "every run",
+          set(_reps("s0.json")).isdisjoint(_reps("s2.json")))
+    check("the offset is recorded, so a snapshot says which reps it owns",
+          json.loads((Path(_td_off) / "s2.json").read_text())
+          ["metadata"]["rep_offset"] == 2)
+    check("a resume of the same shard regenerates nothing",
+          "0 left" in _shard("s2.json", 2).stdout
+          or _reps("s2.json") == [2, 3])
 
 print("\n%d failure(s)" % fails)
 sys.exit(1 if fails else 0)

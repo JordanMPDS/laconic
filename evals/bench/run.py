@@ -53,6 +53,21 @@ WORD_COMPRESSION = (
 # is the closest thing to a native competitor this plugin has.
 ARM_OUTPUT_STYLES = {"concise-style": "Concise"}
 
+# Benchmark-only rule texts, one file per arm, read at import so the arm is
+# whatever `evals/arms/` says today rather than a copy pasted in here. They go
+# down the same --append-system-prompt path as the laconic arm, which is what
+# makes the comparison treatment against treatment (#270). See
+# evals/arms/README.md for what each one is and why there are two of them.
+ARM_FILES = {
+    "laconic-min-a": "laconic-min-a.md",
+    "laconic-min-b": "laconic-min-b.md",
+}
+
+
+def _arm_file(name):
+    return (ROOT / "evals" / "arms" / ARM_FILES[name]).read_text()
+
+
 # The laconic entry is a placeholder here and is replaced at runtime with the
 # real hook output, so the benchmark cannot drift from what ships.
 ARMS = {
@@ -60,6 +75,8 @@ ARMS = {
     "terse-control": "Answer concisely.",
     "word-compression": WORD_COMPRESSION,
     "concise-style": None,
+    "laconic-min-a": _arm_file("laconic-min-a"),
+    "laconic-min-b": _arm_file("laconic-min-b"),
     "laconic": "",
 }
 
@@ -551,6 +568,8 @@ def new_snapshot(reps, models, level, rules_cksum, arms, claude_bin="claude",
         entry = {"system_prompt": v}
         if k == "laconic":
             entry["source"] = "hooks/laconic.sh start @ %s" % level
+        if k in ARM_FILES:
+            entry["source"] = "evals/arms/%s" % ARM_FILES[k]
         if k in ARM_OUTPUT_STYLES:
             entry["output_style"] = ARM_OUTPUT_STYLES[k]
         arms_dict[k] = entry

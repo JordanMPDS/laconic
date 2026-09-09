@@ -190,4 +190,14 @@ done
 python3 evals/bench/levels.py   # ladder verdicts, never-cut and readability per level
 ```
 
+`levels.py` exits non-zero when the cross-level run is incomplete - a level with
+no usable snapshot, or a model with no usable run at one of them - and zero
+otherwise. The length ladder verdict (`monotonic`, `flat`, `broken`) never
+decides the exit code: it reports what a generation run measured, and on the
+committed snapshots it reads `broken` for both models. What is gated instead is
+decision monotonicity, which is a property of the code rather than of a run:
+`metrics.decisions(text, level)` returns the findings in force at one level, and
+`tests/test_metrics.py` and `tests/test_bench.py` assert that those sets nest
+across `lite`, `full` and `ultra`.
+
 Results and what the numbers mean: [`docs/benchmark.md`](benchmark.md).

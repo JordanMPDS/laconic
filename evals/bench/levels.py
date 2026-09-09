@@ -18,6 +18,17 @@ tokens between lite and full while its answer stays 215 -> 204 words. For a
 comparison between arms at one level that noise is common to every arm; for a
 comparison between levels it is the confound, so the user-visible length leads.
 
+The ladder verdict on length is advisory and stays that way (#269). It is a
+measurement of a generation run, not an invariant of the code: on the committed
+snapshots it reads `broken` for both models, because `full` is longer than
+`lite` at the median (haiku 95/105/90 words, sonnet 92/123/94). Wiring that
+into CI would either fail every build for an outcome no code change can repair,
+or push someone to rewrite evals/snapshots/, which AGENTS.md puts out of bounds
+precisely because those files are evidence. A round that means to claim a level
+shortens responses should register that claim and let this table decide it.
+What does gate is `incomplete` - see gaps() - and decision monotonicity over
+the detectors, which is a code invariant and lives in metrics.decisions().
+
 Runs entirely offline against those snapshots - no network, no third-party
 packages.
 """
@@ -93,6 +104,25 @@ def pooled(views, level, model, metric):
 
 def _models(views):
     return sorted(set(r["model"] for _, runs, _ in views.values() for r in runs))
+
+
+def gaps(views, levels):
+    """(model, level) pairs with no usable run - the `incomplete` verdict, listed.
+
+    This is the one ladder outcome that is an operator error rather than a
+    measurement, and it is the one main() exits non-zero on. `monotonic`,
+    `flat` and `broken` describe what a generation run measured; `incomplete`
+    describes an analysis that could not be run at all, and rendering a
+    three-level table for a model that has data at two of them is the same
+    defect class as a gate that skips a check and reports a pass.
+
+    Per model rather than per case, deliberately. A case that is absent at one
+    level is usually a case added between runs, and failing on it would make
+    the exit code track the case list rather than the analysis. A *model*
+    missing a whole level means the level never ran for it.
+    """
+    return [(m, lv) for m in _models(views) for lv in levels
+            if not any(r["model"] == m for r in views[lv][1])]
 
 
 def render(views, levels):
@@ -306,6 +336,19 @@ def main():
         print("wrote %s" % args.markdown)
     else:
         print(md)
+
+    # The report is written first and the exit code comes after, so a partial
+    # run still leaves the reader the tables it could build. Only completeness
+    # decides the code: see gaps() for why the length verdicts do not.
+    holes = gaps(views, levels)
+    if missing or holes:
+        parts = []
+        if missing:
+            parts.append("no usable snapshot at %s" % ", ".join(missing))
+        if holes:
+            parts.append("no usable run for %s"
+                         % ", ".join("%s/%s" % (m, lv) for m, lv in holes))
+        sys.exit("incomplete cross-level run: %s" % "; ".join(parts))
 
 
 if __name__ == "__main__":

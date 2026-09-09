@@ -364,5 +364,89 @@ check("preamble is not fooled by a dot inside a backticked filename",
 check("preamble ignores a direct answer",
       metrics.preamble("Three tests still fail, not zero.") is None)
 
+
+# --- level-aware decisions (#269) -------------------------------------------
+#
+# The levels nest, so for one fixed response the findings in force at `lite`
+# must be a subset of those in force at `full`, which must be a subset of
+# `ultra`. Nothing checked that before, at any level. These checks are the
+# gate; the sweep over archived responses in tests/test_bench.py is the
+# regression check that real data satisfies it.
+
+# One witness per detector, each the smallest text that fires exactly it. They
+# are what makes the nesting check non-vacuous: a subset assertion over texts
+# that fire nothing passes on the empty set.
+WITNESS = {
+    "symbol_connectors": "Rotate the key -> wait out the old TTL.",
+    "abbreviated_prose": "The impl is fine and the resp is cached.",
+    "sentence_initial_lowercase": "The limit is low. check the restart count.",
+    "closing_offers": "The limit is too low. Let me know if you want more.",
+    "preamble": "Here's the complete token refresh flow:",
+    "never_cut_missing": "The limit is too low.",
+}
+NEVER_CUT = ("kubectl",)  # missing from every witness above
+
+check("every policy detector has a witness",
+      set(WITNESS) == set(metrics.POLICY_RANK))
+
+# The coverage gate, and the part with teeth. A key added to score() that is
+# neither a measurement nor a ranked finding fails here, so the next detector's
+# author has to say which level its rule enters at instead of inheriting one by
+# accident.
+_score_keys = set(metrics.score(GOOD))
+check("score() reports only ranked findings and named measurements",
+      _score_keys <= set(metrics.POLICY_RANK) | set(metrics.MEASUREMENTS))
+check("every named measurement is really a score() key",
+      set(metrics.MEASUREMENTS) <= _score_keys)
+# The three detectors that are not score() keys are separate calls, and the
+# registry has to reach them or decisions() gates a narrower thing than it says.
+check("the ranked findings score() does not report are the standalone calls",
+      set(metrics.POLICY_RANK) - _score_keys
+      == {"never_cut_missing", "closing_offers", "preamble"})
+
+# The shared block or one of the three levels, and nothing else. This file
+# reads no other file; tests/test_bench.py checks the same ranks against the
+# awk in hooks/laconic.sh and against the block each rule really sits in.
+check("every rank is the shared block or a level",
+      set(metrics.POLICY_RANK.values()) <= {0} | set(metrics.LEVEL_RANK.values()))
+check("every level name has a rank", set(metrics.LEVEL_RANK) == {"lite", "full", "ultra"})
+
+for _name, _text in sorted(WITNESS.items()):
+    _rank = metrics.POLICY_RANK[_name]
+    _fires = {lv: _name in metrics.decisions(_text, lv, NEVER_CUT)
+              for lv in metrics.LEVEL_RANK}
+    check("%s fires at every level from its own rank up" % _name,
+          all(_fires[lv] for lv, r in metrics.LEVEL_RANK.items() if r >= _rank))
+    check("%s fires at no level below its rank" % _name,
+          not any(_fires[lv] for lv, r in metrics.LEVEL_RANK.items() if r < _rank))
+
+# Preamble is an *opening* - metrics.preamble reads the first 160 characters
+# only - so its witness has to lead or the combined text cannot fire it.
+_ALL = "\n\n".join([WITNESS["preamble"]]
+                   + [t for k, t in WITNESS.items() if k != "preamble"])
+_lite = metrics.decisions(_ALL, "lite", NEVER_CUT)
+_full = metrics.decisions(_ALL, "full", NEVER_CUT)
+_ultra = metrics.decisions(_ALL, "ultra", NEVER_CUT)
+check("decisions nest: lite is a subset of full", _lite <= _full)
+check("decisions nest: full is a subset of ultra", _full <= _ultra)
+# Without this the nesting checks above would pass on three empty sets.
+check("the nesting check is not run on empty sets", len(_lite) > 0)
+check("ultra withholds nothing - every fired detector is in force there",
+      _ultra == frozenset(metrics.POLICY_RANK))
+
+# never_cut_missing needs the case's keywords. A caller that has no case passes
+# none, and the detector must then stay silent rather than report a pass.
+check("never_cut_missing cannot fire without the case's keywords",
+      "never_cut_missing" not in metrics.decisions(_ALL, "ultra"))
+
+# The readability sum excludes closing offers, preamble and the never-cut
+# contract; decisions() must not inherit that omission.
+check("decisions covers findings score()['violations'] leaves out",
+      {"closing_offers", "preamble", "never_cut_missing"} <= _ultra)
+
+check("a clean response decides nothing at any level",
+      all(metrics.decisions(GOOD, lv, ("kubectl",)) == frozenset()
+          for lv in metrics.LEVEL_RANK))
+
 print("\n%d failure(s)" % fails)
 sys.exit(1 if fails else 0)

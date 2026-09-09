@@ -262,10 +262,13 @@ try:
 finally:
     bench_run.call = _orig_call
 
-check("arms include all nine",
+check("arms include all twelve",
       sorted(bench_run.ARMS) == ["baseline", "concise-style", "laconic",
                                  "laconic-abl-arrow", "laconic-abl-shown",
                                  "laconic-min-a", "laconic-min-b",
+                                 "laconic-repl-told",
+                                 "laconic-repl-unframed",
+                                 "laconic-repl-unlabelled",
                                  "terse-control", "word-compression"])
 check("baseline has no system prompt", bench_run.ARMS["baseline"] is None)
 check("terse control is exactly the control instruction",
@@ -360,6 +363,66 @@ check("abl-arrow keeps the rest of Never do this",
       "No dropped articles" in _arrow and "fewer claims is" in _arrow)
 check("abl-arrow keeps the whole never-cut contract",
       all(_p in _arrow.lower() for _p in _NEVER_CUT_PROBES))
+
+# The #277 replacement arms. A third kind again, and the invariant has to be a
+# third one: a replacement arm is `laconic-abl-shown` with a substitute put back
+# at each of the two sites that arm deleted from, so it differs from the shipped
+# slice only inside the block round 59 measured. Two things follow and both are
+# checked. Nothing `abl-shown` keeps may be dropped or reworded, which makes the
+# arm's lines a superset-in-order of that file's - and because `abl-shown` is
+# itself checked against the live slice above, an edit to rules/laconic.md that
+# moves the block fails here too. And the arm has to land within a few words of
+# the shipped slice, because the whole point of a replacement ladder is that
+# length is not the variable: on the design cells round 59 bounds bulk removal
+# at 1.07x per 100 words (95% upper), so a band of 20 words bounds it at 1.014x,
+# which is well under the round's 1.10x detection floor.
+_REPLACEMENTS = {
+    # arm -> (must appear, must not appear)
+    "laconic-repl-told": (
+        # nothing rendered anywhere: no table, no quoted answer, at either site
+        ("The `lite` answer runs to about", "is the failure."),
+        ("| Level | Response |", '| `ultra` | "Only if memory',
+         '  - Right: "Derive alerts'),
+    ),
+    "laconic-repl-unlabelled": (
+        # rendered and worked from the question, but not mapped to a level
+        ("Three answers to it, longest to shortest:",
+         "Our deploy failed with an OOM kill",
+         '  - Right: "Derive alerts'),
+        ("| Level | Response |", "| `lite` |", "Ultra kept the conditional"),
+    ),
+    "laconic-repl-unframed": (
+        # rendered and mapped to a level, but not worked from a question
+        ("An answer of the right size, at each of the three levels:",
+         "| `lite` |", "Ultra kept the conditional"),
+        ("Our deploy failed with an OOM kill",
+         '  - Wrong: "how would alerting be built?"'),
+    ),
+}
+_shown_lines = _shown.split("\n")
+_slice_words = len(" ".join(_slice_lines).split())
+
+for _repl, (_present, _absent) in _REPLACEMENTS.items():
+    _text = bench_run.ARMS[_repl]
+    check("%s is pure replacement over the abl-shown floor" % _repl,
+          _is_subsequence(_shown_lines, _text.split("\n")))
+    check("%s stays within 20 words of the shipped full slice" % _repl,
+          abs(len(_text.split()) - _slice_words) <= 20)
+    for _probe in _present:
+        check("%s carries its substitute: %r" % (_repl, _probe),
+              _probe in _text)
+    for _probe in _absent:
+        check("%s received its manipulation: %r is gone" % (_repl, _probe),
+              _probe not in _text)
+    check("%s keeps the whole never-cut contract" % _repl,
+          all(_p in _text.lower() for _p in _NEVER_CUT_PROBES))
+    check("%s keeps the design licence itself" % _repl,
+          "not a treatise" in _text and "earned by reading" in _text)
+
+# The three arms have to differ from each other, or two of them are one arm
+# wearing two labels and the ladder has three rungs on paper only.
+check("the three replacement arms are three different texts",
+      len({bench_run.ARMS[_r] for _r in _REPLACEMENTS}) == 3)
 
 # The two blocks must not overlap, or the round's two contrasts would share
 # material and neither could attribute anything to its own block. Blank lines
@@ -1722,7 +1785,9 @@ check("carrying stamps the source and its cksum",
 check("carrying names the arms it could not carry",
       carried["metadata"]["carried_arms_from"]["missing_arms"]
       == ["concise-style", "laconic-abl-arrow", "laconic-abl-shown",
-          "laconic-min-a", "laconic-min-b", "word-compression"])
+          "laconic-min-a", "laconic-min-b", "laconic-repl-told",
+          "laconic-repl-unframed", "laconic-repl-unlabelled",
+          "word-compression"])
 check("an arm being regenerated is not reported as missing",
       "laconic" not in carried["metadata"]["carried_arms_from"]["missing_arms"])
 src_full = {"metadata": {"rules_cksum": "111"},
@@ -1779,7 +1844,9 @@ with tempfile.TemporaryDirectory() as td_gap:
           json.loads(gap_out.read_text())["metadata"]["carried_arms_from"]
           ["missing_arms"] == ["concise-style", "laconic-abl-arrow",
                                "laconic-abl-shown", "laconic-min-a",
-                               "laconic-min-b", "terse-control",
+                               "laconic-min-b", "laconic-repl-told",
+                               "laconic-repl-unframed",
+                               "laconic-repl-unlabelled", "terse-control",
                                "word-compression"])
 
 # --- #142: the tool list has to reach the snapshot, not just the parser ---
@@ -5842,6 +5909,23 @@ with tempfile.TemporaryDirectory() as _td_off:
     check("a resume of the same shard regenerates nothing",
           "0 left" in _shard("s2.json", 2).stdout
           or _reps("s2.json") == [2, 3])
+
+# --- every pilot scorer that ships a --selftest has to pass it in CI ------
+# score_dilution.py carries about seventy arithmetic checks behind
+# `--selftest` and nothing ran them: the five suites CI runs never touched
+# evals/pilot, so rounds 58, 59 and 60 each added checks to a file whose
+# regressions no pull request could catch. Discovered by grep rather than
+# listed, so the next scorer that grows a selftest is covered by existing it.
+_pilots = sorted(p for p in (ROOT / "evals" / "pilot").glob("*.py")
+                 if "--selftest" in p.read_text())
+check("at least one pilot scorer ships a selftest", bool(_pilots))
+for _pilot in _pilots:
+    _got = subprocess.run([sys.executable, str(_pilot), "--selftest"],
+                          capture_output=True, text=True, cwd=str(ROOT))
+    check("evals/pilot/%s --selftest passes" % _pilot.name,
+          _got.returncode == 0)
+    if _got.returncode != 0:
+        print(_got.stdout[-4000:] or _got.stderr[-4000:])
 
 print("\n%d failure(s)" % fails)
 sys.exit(1 if fails else 0)

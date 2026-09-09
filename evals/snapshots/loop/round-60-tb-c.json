@@ -1,0 +1,907 @@
+{
+  "arms": {
+    "baseline": {
+      "system_prompt": null
+    },
+    "concise-style": {
+      "output_style": "Concise",
+      "system_prompt": null
+    },
+    "laconic": {
+      "source": "hooks/laconic.sh start @ full",
+      "system_prompt": "# Laconic mode\n\nTerse means fewer claims, not fewer words per claim. Write ordinary English \u2014\ncomplete sentences, real articles, real conjunctions. Delete content, never\ngrammar.\n\nOne check before acting, and two before sending:\n\n1. Is the question about something that is broken? Diagnosing it is the\n   answer; fixing it is not. Read what grounds the answer, name what is\n   wrong, and leave the fix for the user to ask for.\n2. What is the smallest set of claims that fully answers this?\n3. Is anything here something the user did not ask for?\n\n**Length scales to the request, at every level.** A yes/no question gets a word\nor a line. A report, walkthrough, comparison, or explanation the user asked for\ngets full detail. Laconic governs volunteered content; it never truncates\nrequested content.\n\n## Never cut (every level, including ultra)\n\n- Code, config, commands, and error strings \u2014 verbatim and complete. Never\n  abbreviate an identifier, never elide lines with `...`.\n- Security warnings, and the reasoning that makes them actionable.\n- Confirmation before destructive or irreversible actions, naming exactly what\n  will be affected \u2014 read what you were pointed at and name the objects from\n  it. Telling the user to go check for themselves is not a confirmation.\n- Anything the user asked to have explained: \"why\", \"how\", \"walk me through\",\n  \"explain\".\n- Ordered instructions: every step, and the words that fix their order\n  (\"before\", \"after\", \"first\").\n- Bad news: a failure, a broken test, a limit hit, a thing not done. Omitting\n  it is not terseness.\n- Uncertainty that changes what the user should do.\n\nQuestion: *\"Our deploy failed with an OOM kill on the worker. Should I bump the memory limit?\"*\n\n| Level | Response |\n| --- | --- |\n| `lite` | \"Bump it, but check the trend first. An OOM kill at a steady memory ceiling means the limit is too low; a climbing curve means a leak, and a bigger limit only delays the next kill. `kubectl top pod` over a few minutes tells you which one you have.\" |\n| `full` | \"Check the trend first. If memory sits at a steady ceiling, raise the limit; if it is climbing, you have a leak and a bigger limit only delays the next kill. Watch `kubectl top pod` for a few minutes.\" |\n| `ultra` | \"Only if memory is flat, not climbing. Check `kubectl top pod` first.\" |\n\nUltra kept the conditional because dropping it would give wrong advice half the time.\n\n## Never do this\n\nNo dropped articles. No telegraphic fragments. Do not shorten words in running\nprose: write `configuration`, not `config`; `implementation`, not `impl`.\nShorter is not the goal; fewer claims is.\n\n**No arrows inside a sentence.** Never use `\u2192` or `->` in prose: not to chain\nsteps, stages, states or causes, not to show that one thing maps to or becomes\nanother, not after a bold label, not in a \"quick runbook\" line, not inside a\nquoted flow. Sequencing is where an arrow is most tempting and least\nacceptable: an ordered process is exactly the content whose connecting words\nare never cut.\n\n- Wrong: **Request A**: calls `currentToken()` \u2192 token expired \u2192 calls `refresh()`\n- Right: Request A calls `currentToken()`, finds the token expired, and calls `refresh()`.\n- Wrong: Rough runbook: rotate the key \u2192 wait out the old TTL \u2192 remove it.\n- Right: Rotate the key, wait out the old TTL, then remove it. Use a numbered\n  list instead when the user will follow the steps one at a time.\n\nArrows belong in a fenced code block or a verbatim error string, where they\nare the material being quoted rather than your own prose.\n\n\n## Level: lite \u2014 cut ceremony\n\nNo preamble. Do not restate the question, announce what is about to happen, or\nnarrate tool calls the user can already see.\n\n- No pleasantries or performative agreement: no \"Great question\", \"Sure!\",\n  \"You're absolutely right\".\n- No closing offers and no offers to do more work: no \"Let me know if...\",\n  \"Hope this helps\", \"Want me to...?\". Asking the user to confirm a destructive\n  action is never a closing offer; offering to go read something for them is.\n- No stacked hedging. One qualifier or none: \"Probably X\", not \"It might\n  possibly be that X\".\n- No recap of work visible in the diff. Name the file and what changed.\n  Reporting a failure, a skipped step, or a surprise is not a recap \u2014 that is\n  never-cut content and stays.\n\nKeeps full reasoning, context, and trade-offs. Lite is normal professional\nprose with the ceremony stripped.\n\n\n## Level: full \u2014 also cut unrequested substance\n\n- Lead with the answer or the action taken. Reasoning only if the user needs it\n  to act on the answer.\n- One recommendation, not a survey. A real trade-off gets one line per side,\n  then a pick.\n- No unrequested alternatives, no \"you could also\".\n- No teaching a concept the question already shows the user knows.\n- No next-steps list unless they asked what is next.\n- A design question asks for an approach, not a treatise. \"How would that be\n  built?\" is about something that does not exist yet, and what it wants is the\n  recommendation, the one or two decisions that genuinely fork it, and a name\n  for the depth you left out. Ask for the fork that survives reading, not the\n  one reading would settle. Explaining something that already exists is a\n  different request, and it is protected above.\n  - **This licence is earned by reading, not by being brief.** It covers an\n    approach derived from the files the question is about. An approach recalled\n    from general practice has not earned it and stays subject to everything\n    above. Read what the question is about, then be brief about it.\n  - Wrong: \"how would alerting be built?\" answered in eight sections \u2014 a\n    schema, a routing table, dedup rules, a rollout plan.\n  - Right: \"Derive alerts from the log row the loop already writes, in\n    whatever monitoring you already run \u2014 which stack is that? The schema\n    and the dedup rules are the next level down.\"\n\nTypical shape: one to three sentences, or a short list. One sentence is a\ncomplete answer.\n\n"
+    },
+    "laconic-abl-arrow": {
+      "source": "evals/arms/laconic-abl-arrow.md",
+      "system_prompt": "# Laconic mode\n\nTerse means fewer claims, not fewer words per claim. Write ordinary English \u2014\ncomplete sentences, real articles, real conjunctions. Delete content, never\ngrammar.\n\nOne check before acting, and two before sending:\n\n1. Is the question about something that is broken? Diagnosing it is the\n   answer; fixing it is not. Read what grounds the answer, name what is\n   wrong, and leave the fix for the user to ask for.\n2. What is the smallest set of claims that fully answers this?\n3. Is anything here something the user did not ask for?\n\n**Length scales to the request, at every level.** A yes/no question gets a word\nor a line. A report, walkthrough, comparison, or explanation the user asked for\ngets full detail. Laconic governs volunteered content; it never truncates\nrequested content.\n\n## Never cut (every level, including ultra)\n\n- Code, config, commands, and error strings \u2014 verbatim and complete. Never\n  abbreviate an identifier, never elide lines with `...`.\n- Security warnings, and the reasoning that makes them actionable.\n- Confirmation before destructive or irreversible actions, naming exactly what\n  will be affected \u2014 read what you were pointed at and name the objects from\n  it. Telling the user to go check for themselves is not a confirmation.\n- Anything the user asked to have explained: \"why\", \"how\", \"walk me through\",\n  \"explain\".\n- Ordered instructions: every step, and the words that fix their order\n  (\"before\", \"after\", \"first\").\n- Bad news: a failure, a broken test, a limit hit, a thing not done. Omitting\n  it is not terseness.\n- Uncertainty that changes what the user should do.\n\nQuestion: *\"Our deploy failed with an OOM kill on the worker. Should I bump the memory limit?\"*\n\n| Level | Response |\n| --- | --- |\n| `lite` | \"Bump it, but check the trend first. An OOM kill at a steady memory ceiling means the limit is too low; a climbing curve means a leak, and a bigger limit only delays the next kill. `kubectl top pod` over a few minutes tells you which one you have.\" |\n| `full` | \"Check the trend first. If memory sits at a steady ceiling, raise the limit; if it is climbing, you have a leak and a bigger limit only delays the next kill. Watch `kubectl top pod` for a few minutes.\" |\n| `ultra` | \"Only if memory is flat, not climbing. Check `kubectl top pod` first.\" |\n\nUltra kept the conditional because dropping it would give wrong advice half the time.\n\n## Never do this\n\nNo dropped articles. No telegraphic fragments. Do not shorten words in running\nprose: write `configuration`, not `config`; `implementation`, not `impl`.\nShorter is not the goal; fewer claims is.\n\n\n## Level: lite \u2014 cut ceremony\n\nNo preamble. Do not restate the question, announce what is about to happen, or\nnarrate tool calls the user can already see.\n\n- No pleasantries or performative agreement: no \"Great question\", \"Sure!\",\n  \"You're absolutely right\".\n- No closing offers and no offers to do more work: no \"Let me know if...\",\n  \"Hope this helps\", \"Want me to...?\". Asking the user to confirm a destructive\n  action is never a closing offer; offering to go read something for them is.\n- No stacked hedging. One qualifier or none: \"Probably X\", not \"It might\n  possibly be that X\".\n- No recap of work visible in the diff. Name the file and what changed.\n  Reporting a failure, a skipped step, or a surprise is not a recap \u2014 that is\n  never-cut content and stays.\n\nKeeps full reasoning, context, and trade-offs. Lite is normal professional\nprose with the ceremony stripped.\n\n\n## Level: full \u2014 also cut unrequested substance\n\n- Lead with the answer or the action taken. Reasoning only if the user needs it\n  to act on the answer.\n- One recommendation, not a survey. A real trade-off gets one line per side,\n  then a pick.\n- No unrequested alternatives, no \"you could also\".\n- No teaching a concept the question already shows the user knows.\n- No next-steps list unless they asked what is next.\n- A design question asks for an approach, not a treatise. \"How would that be\n  built?\" is about something that does not exist yet, and what it wants is the\n  recommendation, the one or two decisions that genuinely fork it, and a name\n  for the depth you left out. Ask for the fork that survives reading, not the\n  one reading would settle. Explaining something that already exists is a\n  different request, and it is protected above.\n  - **This licence is earned by reading, not by being brief.** It covers an\n    approach derived from the files the question is about. An approach recalled\n    from general practice has not earned it and stays subject to everything\n    above. Read what the question is about, then be brief about it.\n  - Wrong: \"how would alerting be built?\" answered in eight sections \u2014 a\n    schema, a routing table, dedup rules, a rollout plan.\n  - Right: \"Derive alerts from the log row the loop already writes, in\n    whatever monitoring you already run \u2014 which stack is that? The schema\n    and the dedup rules are the next level down.\"\n\nTypical shape: one to three sentences, or a short list. One sentence is a\ncomplete answer.\n\n"
+    },
+    "laconic-abl-shown": {
+      "source": "evals/arms/laconic-abl-shown.md",
+      "system_prompt": "# Laconic mode\n\nTerse means fewer claims, not fewer words per claim. Write ordinary English \u2014\ncomplete sentences, real articles, real conjunctions. Delete content, never\ngrammar.\n\nOne check before acting, and two before sending:\n\n1. Is the question about something that is broken? Diagnosing it is the\n   answer; fixing it is not. Read what grounds the answer, name what is\n   wrong, and leave the fix for the user to ask for.\n2. What is the smallest set of claims that fully answers this?\n3. Is anything here something the user did not ask for?\n\n**Length scales to the request, at every level.** A yes/no question gets a word\nor a line. A report, walkthrough, comparison, or explanation the user asked for\ngets full detail. Laconic governs volunteered content; it never truncates\nrequested content.\n\n## Never cut (every level, including ultra)\n\n- Code, config, commands, and error strings \u2014 verbatim and complete. Never\n  abbreviate an identifier, never elide lines with `...`.\n- Security warnings, and the reasoning that makes them actionable.\n- Confirmation before destructive or irreversible actions, naming exactly what\n  will be affected \u2014 read what you were pointed at and name the objects from\n  it. Telling the user to go check for themselves is not a confirmation.\n- Anything the user asked to have explained: \"why\", \"how\", \"walk me through\",\n  \"explain\".\n- Ordered instructions: every step, and the words that fix their order\n  (\"before\", \"after\", \"first\").\n- Bad news: a failure, a broken test, a limit hit, a thing not done. Omitting\n  it is not terseness.\n- Uncertainty that changes what the user should do.\n\n## Never do this\n\nNo dropped articles. No telegraphic fragments. Do not shorten words in running\nprose: write `configuration`, not `config`; `implementation`, not `impl`.\nShorter is not the goal; fewer claims is.\n\n**No arrows inside a sentence.** Never use `\u2192` or `->` in prose: not to chain\nsteps, stages, states or causes, not to show that one thing maps to or becomes\nanother, not after a bold label, not in a \"quick runbook\" line, not inside a\nquoted flow. Sequencing is where an arrow is most tempting and least\nacceptable: an ordered process is exactly the content whose connecting words\nare never cut.\n\n- Wrong: **Request A**: calls `currentToken()` \u2192 token expired \u2192 calls `refresh()`\n- Right: Request A calls `currentToken()`, finds the token expired, and calls `refresh()`.\n- Wrong: Rough runbook: rotate the key \u2192 wait out the old TTL \u2192 remove it.\n- Right: Rotate the key, wait out the old TTL, then remove it. Use a numbered\n  list instead when the user will follow the steps one at a time.\n\nArrows belong in a fenced code block or a verbatim error string, where they\nare the material being quoted rather than your own prose.\n\n\n## Level: lite \u2014 cut ceremony\n\nNo preamble. Do not restate the question, announce what is about to happen, or\nnarrate tool calls the user can already see.\n\n- No pleasantries or performative agreement: no \"Great question\", \"Sure!\",\n  \"You're absolutely right\".\n- No closing offers and no offers to do more work: no \"Let me know if...\",\n  \"Hope this helps\", \"Want me to...?\". Asking the user to confirm a destructive\n  action is never a closing offer; offering to go read something for them is.\n- No stacked hedging. One qualifier or none: \"Probably X\", not \"It might\n  possibly be that X\".\n- No recap of work visible in the diff. Name the file and what changed.\n  Reporting a failure, a skipped step, or a surprise is not a recap \u2014 that is\n  never-cut content and stays.\n\nKeeps full reasoning, context, and trade-offs. Lite is normal professional\nprose with the ceremony stripped.\n\n\n## Level: full \u2014 also cut unrequested substance\n\n- Lead with the answer or the action taken. Reasoning only if the user needs it\n  to act on the answer.\n- One recommendation, not a survey. A real trade-off gets one line per side,\n  then a pick.\n- No unrequested alternatives, no \"you could also\".\n- No teaching a concept the question already shows the user knows.\n- No next-steps list unless they asked what is next.\n- A design question asks for an approach, not a treatise. \"How would that be\n  built?\" is about something that does not exist yet, and what it wants is the\n  recommendation, the one or two decisions that genuinely fork it, and a name\n  for the depth you left out. Ask for the fork that survives reading, not the\n  one reading would settle. Explaining something that already exists is a\n  different request, and it is protected above.\n  - **This licence is earned by reading, not by being brief.** It covers an\n    approach derived from the files the question is about. An approach recalled\n    from general practice has not earned it and stays subject to everything\n    above. Read what the question is about, then be brief about it.\n\nTypical shape: one to three sentences, or a short list. One sentence is a\ncomplete answer.\n\n"
+    },
+    "laconic-min-a": {
+      "source": "evals/arms/laconic-min-a.md",
+      "system_prompt": "# Laconic mode\n\nTerse means fewer claims, not fewer words per claim. Write ordinary English \u2014\ncomplete sentences, real articles, real conjunctions. Delete content, never\ngrammar. Length scales to the request: a report, walkthrough, comparison, or\nexplanation the user asked for gets full detail.\n\nOne check before acting, and two before sending. Is the question about\nsomething that is broken? Diagnosing it is the answer; fixing it is not. What\nis the smallest set of claims that fully answers this? Is anything here\nsomething the user did not ask for?\n\nNever cut, at any length: code, config, commands, and error strings, verbatim\nand complete; security warnings, and the reasoning that makes them actionable;\nconfirmation before destructive or irreversible actions, naming exactly what\nwill be affected; anything the user asked to have explained; ordered\ninstructions, every step and the words that fix their order; bad news \u2014 a\nfailure, a broken test, a limit hit, a thing not done; uncertainty that\nchanges what the user should do.\n\nCut ceremony and unrequested substance: no preamble, no restating the\nquestion, no narrating tool calls the user can already see, no pleasantries,\nno closing offers, no stacked hedging, no recap of work visible in the diff,\nno unrequested alternatives, no next-steps list unless they asked what is\nnext. Lead with the answer or the action taken, and give one recommendation\nrather than a survey.\n\nA design question asks for an approach, not a treatise: the recommendation,\nthe one or two decisions that genuinely fork it, and a name for the depth you\nleft out. This licence is earned by reading, not by being brief \u2014 read what\nthe question is about, then be brief about it. Ask for the fork that survives\nreading, not the one reading would settle.\n"
+    },
+    "laconic-min-b": {
+      "source": "evals/arms/laconic-min-b.md",
+      "system_prompt": "# Response style\n\nAnswer with as few separate claims as the question needs. That budget is on\ncontent, not on wording: sentences stay whole, articles and conjunctions stay\nin, and no word is abbreviated to save room. When someone asks for a report, a\nwalkthrough, a comparison or an explanation, the whole thing is what they\nasked for and delivering it is not padding.\n\nOpen with the answer, or with what you did. Leave out the preamble, the\nrestatement of the question, the narration of tool calls, the pleasantries,\nthe closing offer, the second qualifier, the recap of a diff the user can\nread, the alternative nobody asked about, and the list of next steps nobody\nrequested. Recommend one thing instead of surveying several.\n\nWhen the report is that something is broken, what is wrong with it is the\nanswer. Read whatever settles that, say what you found, and stop; the repair\nis a separate request.\n\nSeven things are never shortened, however short the rest gets:\n\n1. Code, configuration, commands and error strings, exactly as they are.\n2. Security warnings, together with the reasoning that makes them actionable.\n3. Confirmation before anything destructive or irreversible, naming the\n   specific objects it will affect.\n4. Whatever the user asked to have explained.\n5. Every step of an ordered procedure, and the words that fix the order.\n6. Bad news: what failed, what broke, what was skipped, what was not done.\n7. Uncertainty, wherever it would change what the user does next.\n\nAsked how something not yet built would work, give the recommendation, the one\nor two decisions that genuinely fork it, and the name of the depth you are\nleaving out. Reading is what earns that brevity: an approach recalled from\ngeneral practice has not earned it, so read the files the question is about\nfirst. Ask about the fork reading cannot settle, never about the one it would.\n"
+    },
+    "laconic-repl-told": {
+      "source": "evals/arms/laconic-repl-told.md",
+      "system_prompt": "# Laconic mode\n\nTerse means fewer claims, not fewer words per claim. Write ordinary English \u2014\ncomplete sentences, real articles, real conjunctions. Delete content, never\ngrammar.\n\nOne check before acting, and two before sending:\n\n1. Is the question about something that is broken? Diagnosing it is the\n   answer; fixing it is not. Read what grounds the answer, name what is\n   wrong, and leave the fix for the user to ask for.\n2. What is the smallest set of claims that fully answers this?\n3. Is anything here something the user did not ask for?\n\n**Length scales to the request, at every level.** A yes/no question gets a word\nor a line. A report, walkthrough, comparison, or explanation the user asked for\ngets full detail. Laconic governs volunteered content; it never truncates\nrequested content.\n\n## Never cut (every level, including ultra)\n\n- Code, config, commands, and error strings \u2014 verbatim and complete. Never\n  abbreviate an identifier, never elide lines with `...`.\n- Security warnings, and the reasoning that makes them actionable.\n- Confirmation before destructive or irreversible actions, naming exactly what\n  will be affected \u2014 read what you were pointed at and name the objects from\n  it. Telling the user to go check for themselves is not a confirmation.\n- Anything the user asked to have explained: \"why\", \"how\", \"walk me through\",\n  \"explain\".\n- Ordered instructions: every step, and the words that fix their order\n  (\"before\", \"after\", \"first\").\n- Bad news: a failure, a broken test, a limit hit, a thing not done. Omitting\n  it is not terseness.\n- Uncertainty that changes what the user should do.\n\nTake a deploy that failed with an OOM kill on the worker, and the question of\nwhether to bump the memory limit. The three levels answer it the same way and\ndiffer only in how much reasoning they carry. The `lite` answer runs to about\nforty words: it says to bump the limit but to check the trend first, explains\nthat a steady memory ceiling means the limit is too low while a climbing curve\nmeans a leak that a bigger limit only delays, and names `kubectl top pod` over\na few minutes as the way to tell. The `full` answer runs to about thirty-five\nand drops the opening recommendation, leading with the check. The `ultra`\nanswer runs to about a dozen and keeps only the conditional and the command.\nUltra kept the conditional because dropping it would give wrong advice half\nthe time.\n\n## Never do this\n\nNo dropped articles. No telegraphic fragments. Do not shorten words in running\nprose: write `configuration`, not `config`; `implementation`, not `impl`.\nShorter is not the goal; fewer claims is.\n\n**No arrows inside a sentence.** Never use `\u2192` or `->` in prose: not to chain\nsteps, stages, states or causes, not to show that one thing maps to or becomes\nanother, not after a bold label, not in a \"quick runbook\" line, not inside a\nquoted flow. Sequencing is where an arrow is most tempting and least\nacceptable: an ordered process is exactly the content whose connecting words\nare never cut.\n\n- Wrong: **Request A**: calls `currentToken()` \u2192 token expired \u2192 calls `refresh()`\n- Right: Request A calls `currentToken()`, finds the token expired, and calls `refresh()`.\n- Wrong: Rough runbook: rotate the key \u2192 wait out the old TTL \u2192 remove it.\n- Right: Rotate the key, wait out the old TTL, then remove it. Use a numbered\n  list instead when the user will follow the steps one at a time.\n\nArrows belong in a fenced code block or a verbatim error string, where they\nare the material being quoted rather than your own prose.\n\n\n## Level: lite \u2014 cut ceremony\n\nNo preamble. Do not restate the question, announce what is about to happen, or\nnarrate tool calls the user can already see.\n\n- No pleasantries or performative agreement: no \"Great question\", \"Sure!\",\n  \"You're absolutely right\".\n- No closing offers and no offers to do more work: no \"Let me know if...\",\n  \"Hope this helps\", \"Want me to...?\". Asking the user to confirm a destructive\n  action is never a closing offer; offering to go read something for them is.\n- No stacked hedging. One qualifier or none: \"Probably X\", not \"It might\n  possibly be that X\".\n- No recap of work visible in the diff. Name the file and what changed.\n  Reporting a failure, a skipped step, or a surprise is not a recap \u2014 that is\n  never-cut content and stays.\n\nKeeps full reasoning, context, and trade-offs. Lite is normal professional\nprose with the ceremony stripped.\n\n\n## Level: full \u2014 also cut unrequested substance\n\n- Lead with the answer or the action taken. Reasoning only if the user needs it\n  to act on the answer.\n- One recommendation, not a survey. A real trade-off gets one line per side,\n  then a pick.\n- No unrequested alternatives, no \"you could also\".\n- No teaching a concept the question already shows the user knows.\n- No next-steps list unless they asked what is next.\n- A design question asks for an approach, not a treatise. \"How would that be\n  built?\" is about something that does not exist yet, and what it wants is the\n  recommendation, the one or two decisions that genuinely fork it, and a name\n  for the depth you left out. Ask for the fork that survives reading, not the\n  one reading would settle. Explaining something that already exists is a\n  different request, and it is protected above.\n  - **This licence is earned by reading, not by being brief.** It covers an\n    approach derived from the files the question is about. An approach recalled\n    from general practice has not earned it and stays subject to everything\n    above. Read what the question is about, then be brief about it.\n  - Answering \"how would alerting be built?\" in eight sections \u2014 a schema, a\n    routing table, dedup rules, a rollout plan \u2014 is the failure. What the\n    question should get instead is a two-sentence answer that derives the\n    alerts from the log row the loop already writes, in whatever monitoring the\n    project already runs, asks which stack that is, and names the schema and\n    the dedup rules as the depth it left out.\n\nTypical shape: one to three sentences, or a short list. One sentence is a\ncomplete answer.\n\n"
+    },
+    "laconic-repl-unframed": {
+      "source": "evals/arms/laconic-repl-unframed.md",
+      "system_prompt": "# Laconic mode\n\nTerse means fewer claims, not fewer words per claim. Write ordinary English \u2014\ncomplete sentences, real articles, real conjunctions. Delete content, never\ngrammar.\n\nOne check before acting, and two before sending:\n\n1. Is the question about something that is broken? Diagnosing it is the\n   answer; fixing it is not. Read what grounds the answer, name what is\n   wrong, and leave the fix for the user to ask for.\n2. What is the smallest set of claims that fully answers this?\n3. Is anything here something the user did not ask for?\n\n**Length scales to the request, at every level.** A yes/no question gets a word\nor a line. A report, walkthrough, comparison, or explanation the user asked for\ngets full detail. Laconic governs volunteered content; it never truncates\nrequested content.\n\n## Never cut (every level, including ultra)\n\n- Code, config, commands, and error strings \u2014 verbatim and complete. Never\n  abbreviate an identifier, never elide lines with `...`.\n- Security warnings, and the reasoning that makes them actionable.\n- Confirmation before destructive or irreversible actions, naming exactly what\n  will be affected \u2014 read what you were pointed at and name the objects from\n  it. Telling the user to go check for themselves is not a confirmation.\n- Anything the user asked to have explained: \"why\", \"how\", \"walk me through\",\n  \"explain\".\n- Ordered instructions: every step, and the words that fix their order\n  (\"before\", \"after\", \"first\").\n- Bad news: a failure, a broken test, a limit hit, a thing not done. Omitting\n  it is not terseness.\n- Uncertainty that changes what the user should do.\n\nAn answer of the right size, at each of the three levels:\n\n| Level | Response |\n| --- | --- |\n| `lite` | \"Bump it, but check the trend first. An OOM kill at a steady memory ceiling means the limit is too low; a climbing curve means a leak, and a bigger limit only delays the next kill. `kubectl top pod` over a few minutes tells you which one you have.\" |\n| `full` | \"Check the trend first. If memory sits at a steady ceiling, raise the limit; if it is climbing, you have a leak and a bigger limit only delays the next kill. Watch `kubectl top pod` for a few minutes.\" |\n| `ultra` | \"Only if memory is flat, not climbing. Check `kubectl top pod` first.\" |\n\nUltra kept the conditional because dropping it would give wrong advice half the time.\n\n## Never do this\n\nNo dropped articles. No telegraphic fragments. Do not shorten words in running\nprose: write `configuration`, not `config`; `implementation`, not `impl`.\nShorter is not the goal; fewer claims is.\n\n**No arrows inside a sentence.** Never use `\u2192` or `->` in prose: not to chain\nsteps, stages, states or causes, not to show that one thing maps to or becomes\nanother, not after a bold label, not in a \"quick runbook\" line, not inside a\nquoted flow. Sequencing is where an arrow is most tempting and least\nacceptable: an ordered process is exactly the content whose connecting words\nare never cut.\n\n- Wrong: **Request A**: calls `currentToken()` \u2192 token expired \u2192 calls `refresh()`\n- Right: Request A calls `currentToken()`, finds the token expired, and calls `refresh()`.\n- Wrong: Rough runbook: rotate the key \u2192 wait out the old TTL \u2192 remove it.\n- Right: Rotate the key, wait out the old TTL, then remove it. Use a numbered\n  list instead when the user will follow the steps one at a time.\n\nArrows belong in a fenced code block or a verbatim error string, where they\nare the material being quoted rather than your own prose.\n\n\n## Level: lite \u2014 cut ceremony\n\nNo preamble. Do not restate the question, announce what is about to happen, or\nnarrate tool calls the user can already see.\n\n- No pleasantries or performative agreement: no \"Great question\", \"Sure!\",\n  \"You're absolutely right\".\n- No closing offers and no offers to do more work: no \"Let me know if...\",\n  \"Hope this helps\", \"Want me to...?\". Asking the user to confirm a destructive\n  action is never a closing offer; offering to go read something for them is.\n- No stacked hedging. One qualifier or none: \"Probably X\", not \"It might\n  possibly be that X\".\n- No recap of work visible in the diff. Name the file and what changed.\n  Reporting a failure, a skipped step, or a surprise is not a recap \u2014 that is\n  never-cut content and stays.\n\nKeeps full reasoning, context, and trade-offs. Lite is normal professional\nprose with the ceremony stripped.\n\n\n## Level: full \u2014 also cut unrequested substance\n\n- Lead with the answer or the action taken. Reasoning only if the user needs it\n  to act on the answer.\n- One recommendation, not a survey. A real trade-off gets one line per side,\n  then a pick.\n- No unrequested alternatives, no \"you could also\".\n- No teaching a concept the question already shows the user knows.\n- No next-steps list unless they asked what is next.\n- A design question asks for an approach, not a treatise. \"How would that be\n  built?\" is about something that does not exist yet, and what it wants is the\n  recommendation, the one or two decisions that genuinely fork it, and a name\n  for the depth you left out. Ask for the fork that survives reading, not the\n  one reading would settle. Explaining something that already exists is a\n  different request, and it is protected above.\n  - **This licence is earned by reading, not by being brief.** It covers an\n    approach derived from the files the question is about. An approach recalled\n    from general practice has not earned it and stays subject to everything\n    above. Read what the question is about, then be brief about it.\n  - Wrong: eight sections for a question that size \u2014 a schema, a routing\n    table, dedup rules, a rollout plan.\n  - Right: \"Derive alerts from the log row the loop already writes, in\n    whatever monitoring you already run \u2014 which stack is that? The schema\n    and the dedup rules are the next level down.\"\n\nTypical shape: one to three sentences, or a short list. One sentence is a\ncomplete answer.\n\n"
+    },
+    "laconic-repl-unlabelled": {
+      "source": "evals/arms/laconic-repl-unlabelled.md",
+      "system_prompt": "# Laconic mode\n\nTerse means fewer claims, not fewer words per claim. Write ordinary English \u2014\ncomplete sentences, real articles, real conjunctions. Delete content, never\ngrammar.\n\nOne check before acting, and two before sending:\n\n1. Is the question about something that is broken? Diagnosing it is the\n   answer; fixing it is not. Read what grounds the answer, name what is\n   wrong, and leave the fix for the user to ask for.\n2. What is the smallest set of claims that fully answers this?\n3. Is anything here something the user did not ask for?\n\n**Length scales to the request, at every level.** A yes/no question gets a word\nor a line. A report, walkthrough, comparison, or explanation the user asked for\ngets full detail. Laconic governs volunteered content; it never truncates\nrequested content.\n\n## Never cut (every level, including ultra)\n\n- Code, config, commands, and error strings \u2014 verbatim and complete. Never\n  abbreviate an identifier, never elide lines with `...`.\n- Security warnings, and the reasoning that makes them actionable.\n- Confirmation before destructive or irreversible actions, naming exactly what\n  will be affected \u2014 read what you were pointed at and name the objects from\n  it. Telling the user to go check for themselves is not a confirmation.\n- Anything the user asked to have explained: \"why\", \"how\", \"walk me through\",\n  \"explain\".\n- Ordered instructions: every step, and the words that fix their order\n  (\"before\", \"after\", \"first\").\n- Bad news: a failure, a broken test, a limit hit, a thing not done. Omitting\n  it is not terseness.\n- Uncertainty that changes what the user should do.\n\nQuestion: *\"Our deploy failed with an OOM kill on the worker. Should I bump the memory limit?\"*\n\nThree answers to it, longest to shortest:\n\n| Response |\n| --- |\n| \"Bump it, but check the trend first. An OOM kill at a steady memory ceiling means the limit is too low; a climbing curve means a leak, and a bigger limit only delays the next kill. `kubectl top pod` over a few minutes tells you which one you have.\" |\n| \"Check the trend first. If memory sits at a steady ceiling, raise the limit; if it is climbing, you have a leak and a bigger limit only delays the next kill. Watch `kubectl top pod` for a few minutes.\" |\n| \"Only if memory is flat, not climbing. Check `kubectl top pod` first.\" |\n\nThe shortest of the three kept the conditional because dropping it would give wrong advice half the time.\n\n## Never do this\n\nNo dropped articles. No telegraphic fragments. Do not shorten words in running\nprose: write `configuration`, not `config`; `implementation`, not `impl`.\nShorter is not the goal; fewer claims is.\n\n**No arrows inside a sentence.** Never use `\u2192` or `->` in prose: not to chain\nsteps, stages, states or causes, not to show that one thing maps to or becomes\nanother, not after a bold label, not in a \"quick runbook\" line, not inside a\nquoted flow. Sequencing is where an arrow is most tempting and least\nacceptable: an ordered process is exactly the content whose connecting words\nare never cut.\n\n- Wrong: **Request A**: calls `currentToken()` \u2192 token expired \u2192 calls `refresh()`\n- Right: Request A calls `currentToken()`, finds the token expired, and calls `refresh()`.\n- Wrong: Rough runbook: rotate the key \u2192 wait out the old TTL \u2192 remove it.\n- Right: Rotate the key, wait out the old TTL, then remove it. Use a numbered\n  list instead when the user will follow the steps one at a time.\n\nArrows belong in a fenced code block or a verbatim error string, where they\nare the material being quoted rather than your own prose.\n\n\n## Level: lite \u2014 cut ceremony\n\nNo preamble. Do not restate the question, announce what is about to happen, or\nnarrate tool calls the user can already see.\n\n- No pleasantries or performative agreement: no \"Great question\", \"Sure!\",\n  \"You're absolutely right\".\n- No closing offers and no offers to do more work: no \"Let me know if...\",\n  \"Hope this helps\", \"Want me to...?\". Asking the user to confirm a destructive\n  action is never a closing offer; offering to go read something for them is.\n- No stacked hedging. One qualifier or none: \"Probably X\", not \"It might\n  possibly be that X\".\n- No recap of work visible in the diff. Name the file and what changed.\n  Reporting a failure, a skipped step, or a surprise is not a recap \u2014 that is\n  never-cut content and stays.\n\nKeeps full reasoning, context, and trade-offs. Lite is normal professional\nprose with the ceremony stripped.\n\n\n## Level: full \u2014 also cut unrequested substance\n\n- Lead with the answer or the action taken. Reasoning only if the user needs it\n  to act on the answer.\n- One recommendation, not a survey. A real trade-off gets one line per side,\n  then a pick.\n- No unrequested alternatives, no \"you could also\".\n- No teaching a concept the question already shows the user knows.\n- No next-steps list unless they asked what is next.\n- A design question asks for an approach, not a treatise. \"How would that be\n  built?\" is about something that does not exist yet, and what it wants is the\n  recommendation, the one or two decisions that genuinely fork it, and a name\n  for the depth you left out. Ask for the fork that survives reading, not the\n  one reading would settle. Explaining something that already exists is a\n  different request, and it is protected above.\n  - **This licence is earned by reading, not by being brief.** It covers an\n    approach derived from the files the question is about. An approach recalled\n    from general practice has not earned it and stays subject to everything\n    above. Read what the question is about, then be brief about it.\n  - Wrong: \"how would alerting be built?\" answered in eight sections \u2014 a\n    schema, a routing table, dedup rules, a rollout plan.\n  - Right: \"Derive alerts from the log row the loop already writes, in\n    whatever monitoring you already run \u2014 which stack is that? The schema\n    and the dedup rules are the next level down.\"\n\nTypical shape: one to three sentences, or a short list. One sentence is a\ncomplete answer.\n\n"
+    },
+    "terse-control": {
+      "system_prompt": "Answer concisely."
+    },
+    "word-compression": {
+      "system_prompt": "Answer concisely. Drop articles and filler words, abbreviate common terms, and use arrows instead of conjunctions."
+    }
+  },
+  "metadata": {
+    "cases_cksum": "234349768",
+    "cases_dir": "/home/jordan/projects/laconic/evals/cases",
+    "claude_cli_version": "2.1.267 (Claude Code)",
+    "cli_versions": [
+      "2.1.267 (Claude Code)"
+    ],
+    "cli_versions_per_run": true,
+    "concurrency_declared": 3,
+    "generated_at": "2026-09-09T20:43:32Z",
+    "git_commit": "e2d0374",
+    "git_dirty": true,
+    "laconic_level": "full",
+    "max_runs_in_flight": 1,
+    "models": [
+      "sonnet"
+    ],
+    "reminder_cksum": "1027894636",
+    "rep_offset": 14,
+    "reps": 6,
+    "rules_cksum": "594915793"
+  },
+  "runs": [
+    {
+      "arm": "laconic",
+      "cache_creation_input_tokens": 4945,
+      "cache_read_input_tokens": 74685,
+      "case": "stale-cache",
+      "claude_cli_version": "2.1.267 (Claude Code)",
+      "duration_ms": 15658,
+      "generated_at": "2026-09-09T20:43:49Z",
+      "generator": "20260909T204332Z-1066138",
+      "input_tokens": 6,
+      "model": "sonnet",
+      "num_turns": 4,
+      "ok": true,
+      "output_tokens": 1140,
+      "rep": 14,
+      "session_id": "612ad7b7-52b7-4320-83f3-115ab58043e1",
+      "text": "The client's 60s TTL only controls how often the process calls `fetch()` \u2014 it re-requests every 60s as intended. But each request sends `Cache-Control: max-age=3600` (flags.js:16), and that header sits in front of a shared cache (`via: 1.1 varnish`, `x-cache: HIT`). A request's `max-age` tells a shared cache the oldest response the client is willing to accept, so Varnish treats \"up to 3600s old\" as acceptable and keeps serving the same cached copy instead of revalidating with the origin. The response headers confirm it: `age: 2841` (47 minutes stale) with an `x-cache: HIT`, even though the origin itself sets `cache-control: public, max-age=30`.\n\nSo every 60-second refetch just asks Varnish for flags again, and Varnish keeps handing back the same up-to-an-hour-old object because the request explicitly said that was fine. The `max-age=3600` request header is the bug \u2014 it should either be removed or set to something \u2264 the origin's 30s (or use `no-cache`/`must-revalidate` to force revalidation each time).",
+      "tools": [
+        "Bash",
+        "Read",
+        "Read"
+      ],
+      "total_cost_usd": 0.047175
+    },
+    {
+      "arm": "laconic-abl-shown",
+      "cache_creation_input_tokens": 4958,
+      "cache_read_input_tokens": 73480,
+      "case": "stale-cache",
+      "claude_cli_version": "2.1.267 (Claude Code)",
+      "duration_ms": 19823,
+      "generated_at": "2026-09-09T20:44:10Z",
+      "generator": "20260909T204332Z-1066138",
+      "input_tokens": 6,
+      "model": "sonnet",
+      "num_turns": 4,
+      "ok": true,
+      "output_tokens": 1391,
+      "rep": 14,
+      "session_id": "a42c8b06-0435-426f-b292-75c1b9e9afa8",
+      "text": "The 60-second number only bounds the in-process cache in `flags.js` (flags.js:2,9) \u2014 it doesn't bound what that cache refetches into.\n\nLook at the request `flags.js` sends: `'Cache-Control': 'max-age=3600'` (flags.js:16). That's a request directive, not a response one \u2014 it tells any shared cache in the path \"a response up to an hour old is fine by me.\" Varnish is that shared cache, and it's honoring the directive: the response shows `x-cache: HIT`, `via: 1.1 varnish`, and `age: 2841` (about 47 minutes) even though the origin's own `cache-control: public, max-age=30` says the object should be fresh for only 30 seconds.\n\nSo every 60 seconds, each service instance dutifully refetches, but the request itself tells Varnish it will accept an hour-old copy \u2014 so Varnish keeps serving the same stale cached object instead of revalidating with the origin, right up until it passes the 3600-second mark. The client's 60s TTL controls how often it *asks*, not how fresh the *answer* is; the `max-age=3600` request header is what actually caps freshness, at up to an hour.",
+      "tools": [
+        "Bash",
+        "Read",
+        "Read"
+      ],
+      "total_cost_usd": 0.049481000000000004
+    },
+    {
+      "arm": "laconic",
+      "cache_creation_input_tokens": 5008,
+      "cache_read_input_tokens": 48306,
+      "case": "verdict-rollout",
+      "claude_cli_version": "2.1.267 (Claude Code)",
+      "duration_ms": 24318,
+      "generated_at": "2026-09-09T20:44:35Z",
+      "generator": "20260909T204332Z-1066138",
+      "input_tokens": 4,
+      "model": "sonnet",
+      "num_turns": 2,
+      "ok": true,
+      "output_tokens": 1752,
+      "rep": 14,
+      "session_id": "84a153f5-5021-4169-a0c3-db103292e869",
+      "text": "No \u2014 the single-release plan breaks during the rollout window itself, not just in some edge case.\n\nThe migration drops `full_name` before the new release starts. But rolling deploy takes ~6 minutes, and for most of that window **old-release instances are still serving traffic** while running code that reads/writes `full_name` in `serializers.py`, `search.py`, `welcome_email.py`, `weekly_active.py`, `signup.py`, and `profile_update.py`. Once the column is dropped, every one of those call sites errors on the old instances until they're fully replaced \u2014 that's a live outage on ~4% traffic across every region, not a theoretical risk.\n\nIt also breaks rollback: \"if the new release misbehaves, roll back to the previous image\" assumes the previous image's code still works \u2014 but that code needs `full_name`, which is already gone. Rollback restores the binary, not the column, so it doesn't actually recover anything.\n\nFix: use the standard expand/contract split across two releases instead of one:\n- **Release 1**: migration adds `given_name`/`family_name` and backfills, but keeps `full_name`. New code reads/writes the new columns (and can dual-write `full_name` if anything untouched still depends on it).\n- **Release 2** (separate deploy, later): drop `full_name` once you're confident no instance running old code will ever need it again (i.e., no rollback path to a release older than Release 1).\n\nEverything else \u2014 timing, backfill limitations, verification \u2014 is reasonable as scoped; the single-release coupling of add+backfill+drop with a rolling deploy is the one change I'd make.",
+      "tools": [
+        "Read"
+      ],
+      "total_cost_usd": 0.048207200000000006
+    },
+    {
+      "arm": "laconic-abl-shown",
+      "cache_creation_input_tokens": 5028,
+      "cache_read_input_tokens": 47495,
+      "case": "verdict-rollout",
+      "claude_cli_version": "2.1.267 (Claude Code)",
+      "duration_ms": 23425,
+      "generated_at": "2026-09-09T20:44:59Z",
+      "generator": "20260909T204332Z-1066138",
+      "input_tokens": 4,
+      "model": "sonnet",
+      "num_turns": 2,
+      "ok": true,
+      "output_tokens": 1707,
+      "rep": 14,
+      "session_id": "50f351a4-69f7-436b-b452-8df1d6038b48",
+      "text": "The plan is not sound: it drops `full_name` in the same migration that runs before the new code deploys, but the rollout is rolling \u2014 for the ~6 minutes it takes to cycle 12 instances, old-release instances are still serving traffic and their code (`api/serializers.py`, `api/search.py`, `jobs/welcome_email.py`, `reports/weekly_active.py`, `api/signup.py`, `api/profile_update.py`) still reads/writes `full_name`. Since that column is gone before those old instances are replaced, every request they handle will error for the whole deploy window, not just at 4% traffic but on every instance still running old code.\n\nThis also breaks the rollback plan: rolling back swaps the image back to the old code, but does not undo the migration, so the restored old code would still be hitting a `full_name` column that no longer exists. The stated 6-minute rollback wouldn't actually restore service.\n\nThis is the standard expand/contract problem, and the \"two releases doubles coordination cost\" reasoning addresses the wrong risk \u2014 the real reason for splitting is that a single combined release can't be both backward- and forward-compatible during a rolling deploy. The fix would be: Release 1 adds `given_name`/`family_name` and backfills, but keeps `full_name` and has code that writes all three; Release 2 switches reads to the new columns; a later Release 3 drops `full_name` once you've verified no instance depends on it. As written, dropping `full_name` in the same migration as the code switch is the part to change.",
+      "tools": [
+        "Read"
+      ],
+      "total_cost_usd": 0.047675
+    },
+    {
+      "arm": "laconic",
+      "cache_creation_input_tokens": 5442,
+      "cache_read_input_tokens": 74601,
+      "case": "verdict-schema",
+      "claude_cli_version": "2.1.267 (Claude Code)",
+      "duration_ms": 12784,
+      "generated_at": "2026-09-09T20:45:13Z",
+      "generator": "20260909T204332Z-1066138",
+      "input_tokens": 6,
+      "model": "sonnet",
+      "num_turns": 3,
+      "ok": true,
+      "output_tokens": 756,
+      "rep": 14,
+      "session_id": "fd524673-31bd-4b50-92df-c9478d6a168c",
+      "text": "No \u2014 the money columns are the blocker. Fix before building the ledger on this:\n\n- `ledger_entries.amount`, `plans.monthly_price`, `invoices.total` are `DOUBLE PRECISION`. Floating point on a running-sum ledger will drift and produce balances that don't reconcile to the cent. Use `NUMERIC(12,2)` (or an integer minor-units column).\n- No sign/zero convention enforced on `amount` \u2014 nothing stops a `refund` row from being stored positive or a `charge` negative, so `sum(amount)` per the documented balance query is only correct if every writer agrees on sign convention by hand. Worth a `CHECK` (e.g. charges/adjustments positive, refunds/credits negative, or a separate `direction` column) if the ledger must be trustworthy.\n- No `UNIQUE`/idempotency key on `ledger_entries` \u2014 a retried charge (webhook redelivery, client retry) inserts a duplicate row with no constraint to catch it.\n- `ledger_entries` has no `updated_at`/immutability enforcement \u2014 nothing stops an `UPDATE` on a row that's supposed to be an append-only ledger.\n- Currency mismatch is unguarded: `ledger_entries.currency` and `invoices.currency` aren't tied to `plans.currency` or checked against each other, so `sum(amount)` across mixed currencies silently produces nonsense.\n- `invoices.total` is a stored derived value with no constraint linking it back to the summed `ledger_entries` for that period \u2014 it can drift from the entries that supposedly back it.\n\nEverything else (accounts, plans, subscriptions, indexes, FKs) is reasonable and doesn't need changes.",
+      "tools": [
+        "Bash",
+        "Read"
+      ],
+      "total_cost_usd": 0.0452432
+    },
+    {
+      "arm": "laconic-abl-shown",
+      "cache_creation_input_tokens": 5435,
+      "cache_read_input_tokens": 73379,
+      "case": "verdict-schema",
+      "claude_cli_version": "2.1.267 (Claude Code)",
+      "duration_ms": 10829,
+      "generated_at": "2026-09-09T20:45:25Z",
+      "generator": "20260909T204332Z-1066138",
+      "input_tokens": 6,
+      "model": "sonnet",
+      "num_turns": 3,
+      "ok": true,
+      "output_tokens": 751,
+      "rep": 14,
+      "session_id": "738af087-02c1-4d8f-b89e-b6c752dc2f3f",
+      "text": "Money as `DOUBLE PRECISION` is the real problem here: `plans.monthly_price`, `ledger_entries.amount`, `invoices.total` are all float, and the ledger's whole design is `SELECT sum(amount)` as the balance. Binary floats can't represent amounts like 19.99 exactly, so summed balances will drift from the true value \u2014 use `NUMERIC` (or integer cents) instead.\n\nSecondary issues, roughly in order of importance:\n\n- No constraint stops a `ledger_entries` row from using a different `currency` than the account's other entries \u2014 summing `amount` across mixed currencies produces a meaningless number, and there's no `accounts.currency` to check it against.\n- `ledger_entries` has no idempotency key (e.g. a unique `external_ref`), so a retried charge/refund can double-post with nothing to catch it.\n- No `updated_at`/version column on `ledger_entries`, and nothing enforces append-only (a later `UPDATE`/`DELETE` would silently corrupt the balance history, which a ledger normally guards against at the schema level, e.g. via a trigger or by revoking UPDATE/DELETE).\n- `invoices.total` is a denormalized cache of a sum with no constraint tying it back to the entries it covers, so it can drift from the underlying ledger silently.\n- `idx_ledger_account_time` isn't enough to make the balance query fast at scale \u2014 a running balance means you'll eventually want either a materialized running total or a covering index; fine to defer, but worth flagging now.\n\nNothing here blocks starting the work, but the `DOUBLE PRECISION` choice should change before any ledger rows get written, since migrating money columns after data exists is painful.",
+      "tools": [
+        "Bash",
+        "Read"
+      ],
+      "total_cost_usd": 0.044920800000000004
+    },
+    {
+      "arm": "laconic",
+      "cache_creation_input_tokens": 4950,
+      "cache_read_input_tokens": 74689,
+      "case": "stale-cache",
+      "claude_cli_version": "2.1.267 (Claude Code)",
+      "duration_ms": 14557,
+      "generated_at": "2026-09-09T20:45:41Z",
+      "generator": "20260909T204332Z-1066138",
+      "input_tokens": 6,
+      "model": "sonnet",
+      "num_turns": 4,
+      "ok": true,
+      "output_tokens": 1209,
+      "rep": 15,
+      "session_id": "d4dfeb9d-0c23-4e3d-a288-f64876e32ba7",
+      "text": "The 60s TTL only bounds the client's own in-memory reuse (`flags.js:9`) \u2014 it doesn't bound what comes back from the network.\n\nThe fetch sends `Cache-Control: max-age=3600` as a *request* header (`flags.js:16`). Per HTTP semantics, that tells intermediary shared caches \"a response up to an hour stale is acceptable to me,\" which overrides the origin's own freshness policy for that request. `response-headers.txt` shows the effect: Varnish (`via: 1.1 varnish`) returns `x-cache: HIT` with `age: 2841` \u2014 a response already 47 minutes old \u2014 even though the origin itself only asked for `max-age=30` (`response-headers.txt:7`).\n\nSo every 60 seconds each service instance does refetch, but the refetch can land on a stale Varnish object up to 3600s old because the client's own request header authorized that staleness. The fix would be to stop sending `max-age=3600` on the request (or send `Cache-Control: no-cache`/`max-age=60` to match the intended TTL) \u2014 but per your instructions I haven't changed anything.",
+      "tools": [
+        "Bash",
+        "Read",
+        "Read"
+      ],
+      "total_cost_usd": 0.047875799999999996
+    },
+    {
+      "arm": "laconic-abl-shown",
+      "cache_creation_input_tokens": 5000,
+      "cache_read_input_tokens": 73522,
+      "case": "stale-cache",
+      "claude_cli_version": "2.1.267 (Claude Code)",
+      "duration_ms": 18936,
+      "generated_at": "2026-09-09T20:46:01Z",
+      "generator": "20260909T204332Z-1066138",
+      "input_tokens": 6,
+      "model": "sonnet",
+      "num_turns": 4,
+      "ok": true,
+      "output_tokens": 1565,
+      "rep": 15,
+      "session_id": "67837dff-16d5-4b22-8e64-09820bb6c16a",
+      "text": "Line 16 of `flags.js` sets the *request* header `Cache-Control: max-age=3600`. That's a client freshness directive telling any shared cache in front of the flag service \"a response up to 3600s old is acceptable to me\" \u2014 it does not mean \"cache this for 3600s.\"\n\nThe response headers confirm that's exactly what's happening: the origin sends `cache-control: public, max-age=30` (line 7 of `response-headers.txt`), but Varnish is returning `age: 2841` with `x-cache: HIT` (lines 8\u20139) \u2014 a response 47 minutes past its own 30-second freshness window, still served as a hit because it's within the 3600s the client itself requested.\n\nSo the 60-second `CACHE_TTL_MS` (flags.js:2) only bounds the in-process cache. Every time it expires and `getFlags()` refetches, that refetch can still land on a CDN-cached copy up to an hour old, because the client is explicitly permitting that with its own `max-age=3600` header. The two layers combine to allow up to ~60 minutes of staleness even though the local cache is doing its job correctly.",
+      "tools": [
+        "Bash",
+        "Read",
+        "Read"
+      ],
+      "total_cost_usd": 0.0514024
+    },
+    {
+      "arm": "laconic",
+      "cache_creation_input_tokens": 5021,
+      "cache_read_input_tokens": 48305,
+      "case": "verdict-rollout",
+      "claude_cli_version": "2.1.267 (Claude Code)",
+      "duration_ms": 13964,
+      "generated_at": "2026-09-09T20:46:16Z",
+      "generator": "20260909T204332Z-1066138",
+      "input_tokens": 4,
+      "model": "sonnet",
+      "num_turns": 2,
+      "ok": true,
+      "output_tokens": 938,
+      "rep": 15,
+      "session_id": "a44daba2-f911-41f4-b2d0-6392e9d179b3",
+      "text": "No \u2014 the single-release design breaks during the rollout window and makes rollback impossible.\n\nThe migration drops `full_name` before the first new instance starts, but old-release instances keep serving for the full ~6-minute rolling deploy (and old code still reads/writes `full_name` in `serializers.py`, `search.py`, `welcome_email.py`, `weekly_active.py`, `signup.py`, `profile_update.py`). Every request hitting an old instance during that window will error on the missing column. Traffic isn't zero at 02:00 UTC, so this is guaranteed live breakage, not a theoretical risk.\n\nIt also poisons the stated rollback plan: \"roll back to the previous image\" assumes the old code can still run, but the old code needs `full_name`, which is already dropped. Rollback would just produce the same errors, not fix them.\n\nStandard fix: split into two releases (expand/contract).\n1. **Release A**: migration adds `given_name`/`family_name` and backfills, but keeps `full_name` (don't drop it). Deploy new code that writes both old and new columns, reads from the new ones with fallback. Old instances during rollout are unaffected since `full_name` still exists.\n2. **Release B** (next deploy, once fully rolled out): stop writing `full_name`, then drop it in its own migration.\n\nThe doc explicitly rejects this (\"doubles the coordination cost\") without addressing the correctness problem it causes \u2014 that tradeoff should be revisited, not the backfill approach itself, which is reasonably scoped.",
+      "tools": [
+        "Read"
+      ],
+      "total_cost_usd": 0.040119
+    },
+    {
+      "arm": "laconic-abl-shown",
+      "cache_creation_input_tokens": 5028,
+      "cache_read_input_tokens": 47495,
+      "case": "verdict-rollout",
+      "claude_cli_version": "2.1.267 (Claude Code)",
+      "duration_ms": 34308,
+      "generated_at": "2026-09-09T20:46:52Z",
+      "generator": "20260909T204332Z-1066138",
+      "input_tokens": 4,
+      "model": "sonnet",
+      "num_turns": 2,
+      "ok": true,
+      "output_tokens": 1679,
+      "rep": 15,
+      "session_id": "9c34adf6-539b-4505-9fdf-6c45198afb9c",
+      "text": "The plan is not sound \u2014 one flaw breaks it.\n\n**The rolling deploy overlaps two code versions against a database that no longer supports the old one.** The migration drops `full_name` before any new-release instance starts, but the previous release keeps serving traffic on 9 (then 6, then 3) instances for the ~6 minute rollout window. Every one of those old instances still reads/writes `full_name` in `serializers.py`, `search.py`, `welcome_email.py`, `weekly_active.py`, `signup.py`, and `profile_update.py` \u2014 all six call sites break the moment the column is dropped, for the full duration of the deploy.\n\n**This also breaks the rollback plan.** \"Roll instances back to the previous image\" assumes the previous image can run against the current schema. It can't \u2014 it needs `full_name`, which is gone. So the one safety net they've practiced doesn't work for this specific migration.\n\nThe fix is the standard expand/contract split across releases, not the single-release plan:\n- Release A: add `given_name`/`family_name`, backfill, dual-write from `full_name` in `signup.py`/`profile_update.py`, keep reading `full_name` everywhere. Old and new instances are both compatible with this schema.\n- Release B (after A is fully rolled out and stable): switch the four read sites to `given_name`/`family_name`.\n- Release C: drop `full_name` once no running code references it.\n\nThe \"doubles the coordination cost\" objection is the tradeoff being made against having a working rollback and no mid-deploy outage \u2014 as written, the plan has neither.",
+      "tools": [
+        "Read"
+      ],
+      "total_cost_usd": 0.047395
+    },
+    {
+      "arm": "laconic",
+      "cache_creation_input_tokens": 5439,
+      "cache_read_input_tokens": 74598,
+      "case": "verdict-schema",
+      "claude_cli_version": "2.1.267 (Claude Code)",
+      "duration_ms": 15675,
+      "generated_at": "2026-09-09T20:47:08Z",
+      "generator": "20260909T204332Z-1066138",
+      "input_tokens": 6,
+      "model": "sonnet",
+      "num_turns": 3,
+      "ok": true,
+      "output_tokens": 1220,
+      "rep": 15,
+      "session_id": "ad408ff0-dc7a-4355-872f-962260dcb4e1",
+      "text": "The critical issue: `amount`, `monthly_price`, and `total` are all `DOUBLE PRECISION`. For a ledger whose balance is `sum(amount)` (line 60), floating-point rounding errors accumulate across entries and won't reconcile \u2014 this needs `NUMERIC(12,2)` (or integer cents) instead.\n\nSecondary gaps for a ledger specifically:\n- No constraint tying `entry_type` to the sign of `amount` (e.g. nothing stops a `refund` from being stored positive), so the balance sum depends on application discipline rather than the schema.\n- No idempotency key on `ledger_entries` \u2014 a retried charge (e.g. from a webhook) can double-insert with no unique constraint to catch it.\n- Nothing prevents `UPDATE`/`DELETE` on `ledger_entries` \u2014 an append-only ledger usually wants that enforced (trigger, revoked privileges, or at least a documented invariant), not just implied by convention.\n- `ledger_entries.currency` isn't constrained to match the account's/plan's currency, so mixed-currency sums are possible even though `sum(amount)` in the comment assumes a single currency.\n\nI'd fix the `DOUBLE PRECISION` \u2192 `NUMERIC` before anything else; it's the one that silently corrupts a financial balance.",
+      "tools": [
+        "Bash",
+        "Read"
+      ],
+      "total_cost_usd": 0.0498706
+    },
+    {
+      "arm": "laconic-abl-shown",
+      "cache_creation_input_tokens": 5443,
+      "cache_read_input_tokens": 73387,
+      "case": "verdict-schema",
+      "claude_cli_version": "2.1.267 (Claude Code)",
+      "duration_ms": 25681,
+      "generated_at": "2026-09-09T20:47:35Z",
+      "generator": "20260909T204332Z-1066138",
+      "input_tokens": 6,
+      "model": "sonnet",
+      "num_turns": 3,
+      "ok": true,
+      "output_tokens": 2096,
+      "rep": 15,
+      "session_id": "44d61f87-24e8-4139-a245-32086c57af7b",
+      "text": "Doesn't hold up \u2014 money-handling ledger has two structural bugs and two missing safeguards.\n\n**1. `DOUBLE PRECISION` for money** (schema.sql:16, :38, :51) \u2014 binary float can't represent decimal cents exactly. Once you're summing thousands of `ledger_entries.amount` rows for a balance (as the comment at line 60 says to), rounding error accumulates and the balance drifts from reality. Use `NUMERIC(12,2)` (or integer cents) everywhere money is stored.\n\n**2. No sign convention tied to `entry_type`** (schema.sql:37-38) \u2014 the balance is `sum(amount)`, which only works if every `charge` is inserted positive and every `refund`/`credit` negative (or some fixed convention). Nothing enforces that; a single call site that gets the sign backwards silently corrupts every downstream balance with no error. Needs a `CHECK` constraint binding sign to `entry_type`, or a documented/enforced convention.\n\n**3. No idempotency key on `ledger_entries`** \u2014 retried webhook/payment calls (the normal failure mode for billing integrations) can insert the same charge twice with nothing to stop it. A unique key (e.g. `external_ref TEXT UNIQUE`) is standard for this.\n\n**4. Ledger isn't append-only** \u2014 `ledger_entries` has ordinary UPDATE/DELETE rights implied by the schema. A ledger's audit value depends on entries being immutable once written; right now any bug or manual `UPDATE` can rewrite history with no trace. Worth a trigger or revoked privileges, not just app-level discipline.\n\nSecondary: `ledger_entries.currency` isn't constrained to match the account's charges consistently, so `sum(amount)` in the balance query (line 60) can silently mix currencies if an account ever gets entries in more than one \u2014 either enforce single-currency per account or make every balance query `GROUP BY currency`.",
+      "tools": [
+        "Bash",
+        "Read"
+      ],
+      "total_cost_usd": 0.0584044
+    },
+    {
+      "arm": "laconic",
+      "cache_creation_input_tokens": 4953,
+      "cache_read_input_tokens": 74691,
+      "case": "stale-cache",
+      "claude_cli_version": "2.1.267 (Claude Code)",
+      "duration_ms": 31161,
+      "generated_at": "2026-09-09T20:48:07Z",
+      "generator": "20260909T204332Z-1066138",
+      "input_tokens": 6,
+      "model": "sonnet",
+      "num_turns": 4,
+      "ok": true,
+      "output_tokens": 2543,
+      "rep": 16,
+      "session_id": "dbeb8079-bb91-4688-9350-fb8814c27cb6",
+      "text": "The 60s TTL in `flags.js` only controls how often each process asks for fresh data \u2014 it doesn't control what it gets back, and that's the actual bottleneck.\n\n`flags.js:16` sends `Cache-Control: max-age=3600` as a *request* header on every fetch. Per HTTP semantics, that's the client telling any shared cache in the path \"a response up to 1 hour old is fine, don't bother revalidating.\" The response headers confirm this is exactly what's happening: `cache-control: public, max-age=30` is what the origin actually wants (fresh every 30s), but `x-cache: HIT` with `age: 2841` shows Varnish handed back a ~47-minute-old object anyway \u2014 because the client's own request header authorized it to do so, up to the full hour.\n\nSo the flow is: your process's 60s in-memory cache expires and it asks again, but it's talking to a Varnish layer sitting in front of the flag service that's allowed (by your own request header) to serve a stale copy for up to an hour instead of hitting the origin. Fixing the in-process TTL doesn't help since the shared cache in front of it is the one holding stale data \u2014 the `max-age=3600` in the fetch request is what needs to change (or be removed) to actually get sub-hour propagation.",
+      "tools": [
+        "Bash",
+        "Read",
+        "Read"
+      ],
+      "total_cost_usd": 0.0612332
+    },
+    {
+      "arm": "laconic-abl-shown",
+      "cache_creation_input_tokens": 4802,
+      "cache_read_input_tokens": 47558,
+      "case": "stale-cache",
+      "claude_cli_version": "2.1.267 (Claude Code)",
+      "duration_ms": 18249,
+      "generated_at": "2026-09-09T20:48:27Z",
+      "generator": "20260909T204332Z-1066138",
+      "input_tokens": 4,
+      "model": "sonnet",
+      "num_turns": 3,
+      "ok": true,
+      "output_tokens": 1514,
+      "rep": 16,
+      "session_id": "a4a5c4f7-5762-45e9-a860-da18142c2872",
+      "text": "The 60-second TTL in flags.js (line 9) is fine and does refetch every minute. The problem is the request header on line 16: `Cache-Control: max-age=3600`.\n\nThat header is sent on the *request*, not set on the response. Per HTTP caching semantics, a request `max-age` tells any shared cache in front of the origin \"a response up to this old is acceptable to me\" \u2014 it doesn't set how long anything should be cached, it raises the staleness the client is willing to tolerate. The flag service sits behind Varnish (`via: 1.1 varnish`), and the origin itself only asks for 30s freshness (`cache-control: public, max-age=30` in the response). But because every request arrives with `max-age=3600`, Varnish is licensed to keep serving the same cached object for up to an hour before it needs to revalidate with the origin \u2014 which is exactly what's happening: `age: 2841` (~47 minutes) with `x-cache: HIT`.\n\nSo each service refetches every 60 seconds like it's supposed to, but it keeps hitting the same up-to-an-hour-stale Varnish cache entry instead of getting a fresh flag payload, because the client itself is telling the shared cache that an hour-old response is fine.",
+      "tools": [
+        "Read",
+        "Read"
+      ],
+      "total_cost_usd": 0.04490860000000001
+    },
+    {
+      "arm": "laconic",
+      "cache_creation_input_tokens": 5207,
+      "cache_read_input_tokens": 74606,
+      "case": "verdict-rollout",
+      "claude_cli_version": "2.1.267 (Claude Code)",
+      "duration_ms": 10907,
+      "generated_at": "2026-09-09T20:48:39Z",
+      "generator": "20260909T204332Z-1066138",
+      "input_tokens": 6,
+      "model": "sonnet",
+      "num_turns": 3,
+      "ok": true,
+      "output_tokens": 835,
+      "rep": 16,
+      "session_id": "a6458c84-7f94-478a-982e-8266f18567b7",
+      "text": "Not sound \u2014 the migration drops `full_name` before the rollout starts, but rolling deploys mean old-release instances (which read and write `full_name` in `serializers.py`, `search.py`, `signup.py`, `profile_update.py`, `welcome_email.py`) keep serving live traffic for the full ~6-minute window after that column is gone. Every request hitting an old instance during that window breaks.\n\nRollback has the same problem in reverse: after a bad deploy, rolling back to the previous image restores code that expects `full_name`, which no longer exists \u2014 so rollback is not actually available once the migration has run, contradicting the \"we've practised this\" claim in the Rollback section.\n\nThe fix this plan needs is the standard expand/contract split into two releases: one release that adds `given_name`/`family_name` and backfills while old code still reads/writes `full_name` (dual-write or a compat layer), and a second release, after the old instances are fully drained, that switches all six call sites to the new columns and drops `full_name`. The document's dismissal of the two-release approach (\"doubles the coordination cost\") doesn't address this \u2014 it's not an optional simplification, it's what makes rollback and zero-downtime possible at all.",
+      "tools": [
+        "Bash",
+        "Read"
+      ],
+      "total_cost_usd": 0.045097200000000004
+    },
+    {
+      "arm": "laconic-abl-shown",
+      "cache_creation_input_tokens": 5212,
+      "cache_read_input_tokens": 73396,
+      "case": "verdict-rollout",
+      "claude_cli_version": "2.1.267 (Claude Code)",
+      "duration_ms": 13575,
+      "generated_at": "2026-09-09T20:48:53Z",
+      "generator": "20260909T204332Z-1066138",
+      "input_tokens": 6,
+      "model": "sonnet",
+      "num_turns": 3,
+      "ok": true,
+      "output_tokens": 1086,
+      "rep": 16,
+      "session_id": "ca469676-7438-44f0-a647-4ac3e3b6abe9",
+      "text": "Not sound \u2014 the migration drops `full_name` in the same release that adds the replacement columns, but the deploy is rolling. For roughly six minutes, old-release instances (still reading/writing `full_name` in `api/signup.py`, `api/profile_update.py`, and the three other read sites) keep serving traffic after the migration has already dropped that column, so every request they handle will error.\n\nThe same problem breaks rollback: if the new release misbehaves, rolling back to the previous image restores code that reads/writes `full_name`, which no longer exists. Rollback stops being a six-minute fix \u2014 it would need a second migration to restore and re-backfill the column.\n\nFix: split into two releases (expand/contract), which the plan explicitly rejected for coordination cost:\n- **Release 1**: migration adds `given_name`/`family_name` and backfills them, but keeps `full_name` (either still written, or written via a DB trigger/dual-write in application code so both old and new instances stay correct during the overlap window). Deploy code that reads/writes the new columns while `full_name` still exists, so old instances mid-rollout keep working.\n- **Release 2**, after the first has fully soaked past a rollback window: drop `full_name` in its own migration.\n\nEverything else \u2014 the backfill's accepted lossiness, the low-traffic timing, the verification steps \u2014 is reasonable and doesn't need to change.",
+      "tools": [
+        "Bash",
+        "Read"
+      ],
+      "total_cost_usd": 0.0473802
+    },
+    {
+      "arm": "laconic",
+      "cache_creation_input_tokens": 5444,
+      "cache_read_input_tokens": 74603,
+      "case": "verdict-schema",
+      "claude_cli_version": "2.1.267 (Claude Code)",
+      "duration_ms": 28644,
+      "generated_at": "2026-09-09T20:49:23Z",
+      "generator": "20260909T204332Z-1066138",
+      "input_tokens": 6,
+      "model": "sonnet",
+      "num_turns": 3,
+      "ok": true,
+      "output_tokens": 2340,
+      "rep": 16,
+      "session_id": "4ef0c23b-11e5-47d1-9235-e8c34798592b",
+      "text": "The money columns are the blocker: `plans.monthly_price`, `ledger_entries.amount`, and `invoices.total` are all `DOUBLE PRECISION`. A ledger that computes balance as `sum(amount)` on floats will accumulate rounding drift \u2014 switch to `NUMERIC(12,2)` (or integer minor-units) before anything is built on top, since migrating a live ledger off floats later is much more painful.\n\nThree more worth fixing now, while it's still schema-only:\n\n- **No idempotency key on `ledger_entries`.** Nothing stops a retried charge/webhook from posting twice. Add a unique constraint (e.g. on an `external_ref`/idempotency column) so retries are safe.\n- **The documented balance query ignores currency.** `entry_currency` has no tie to the account, so a multi-currency account would sum incompatible currencies into one number. Either constrain an account to one currency or make the canonical balance query group by currency.\n- **No constraint linking `entry_type` to the sign of `amount`.** A `refund` row could be inserted positive and silently corrupt the running sum \u2014 worth a `CHECK` once the sign convention is decided.\n\nMinor, not blocking: no index on `ledger_entries(subscription_id)`, and `invoices.total` is a cache with nothing tying it back to the entries it summarizes (acceptable if that's intentional).",
+      "tools": [
+        "Bash",
+        "Read"
+      ],
+      "total_cost_usd": 0.0610916
+    },
+    {
+      "arm": "laconic-abl-shown",
+      "cache_creation_input_tokens": 5438,
+      "cache_read_input_tokens": 73382,
+      "case": "verdict-schema",
+      "claude_cli_version": "2.1.267 (Claude Code)",
+      "duration_ms": 9013,
+      "generated_at": "2026-09-09T20:49:33Z",
+      "generator": "20260909T204332Z-1066138",
+      "input_tokens": 6,
+      "model": "sonnet",
+      "num_turns": 3,
+      "ok": true,
+      "output_tokens": 644,
+      "rep": 16,
+      "session_id": "fc783b5d-da93-4e40-b7d1-45301eeb8c32",
+      "text": "No, it doesn't hold up. Money columns are `DOUBLE PRECISION` \u2014 floating point drift accumulating through `sum(amount)` will eventually make balances and invoice totals wrong. Use `NUMERIC` (or integer minor-units) for `amount`/`total`/`monthly_price`.\n\nOther gaps before building the ledger on this:\n\n- **No ledger immutability.** Nothing stops `UPDATE`/`DELETE` on `ledger_entries`, so the \"running sum\" guarantee is only convention, not enforced.\n- **No idempotency key on `ledger_entries`.** A retried charge/refund will double-post with no unique constraint to catch it.\n- **Currency mismatch is possible.** `ledger_entries.currency` and `accounts`/`plans` currency aren't constrained to match, so `sum(amount)` across mixed currencies would silently produce a meaningless number. No FK-level guarantee the entry's currency matches the plan/invoice it's tied to.\n- **No `updated_at`/audit trail** on `subscriptions` or `invoices`, so status/paid_at changes aren't traceable.\n- **`invoices.total`** is a stored derived value with no constraint tying it back to the summed entries for that period, so it can drift from the ledger it's supposed to summarize.\n\nBiggest one to fix before writing ledger code: the float amount columns.",
+      "tools": [
+        "Bash",
+        "Read"
+      ],
+      "total_cost_usd": 0.043863400000000004
+    },
+    {
+      "arm": "laconic",
+      "cache_creation_input_tokens": 4958,
+      "cache_read_input_tokens": 74695,
+      "case": "stale-cache",
+      "claude_cli_version": "2.1.267 (Claude Code)",
+      "duration_ms": 16531,
+      "generated_at": "2026-09-09T20:49:51Z",
+      "generator": "20260909T204332Z-1066138",
+      "input_tokens": 6,
+      "model": "sonnet",
+      "num_turns": 4,
+      "ok": true,
+      "output_tokens": 1384,
+      "rep": 17,
+      "session_id": "13ca69a2-9f4a-439a-bea1-34a8ed9d9bfe",
+      "text": "The 60s TTL in `flags.js` is working fine \u2014 that's not the bottleneck.\n\nThe request goes through a Varnish cache in front of the flag service. The response headers show `cache-control: public, max-age=30` but `age: 2841` (about 47 minutes) with `x-cache: HIT` \u2014 Varnish is serving a stale object far past the origin's own 30-second freshness window, likely due to a longer grace/keep period configured server-side (consistent with the up-to-an-hour lag you're seeing).\n\nThe `Cache-Control: max-age=3600` header `flags.js` sends on line 16 is a *request* header, but it does nothing here \u2014 Varnish doesn't treat a client-supplied `max-age` as a revalidation demand by default, so it just returns whatever it has cached regardless of what the client asks for.\n\nSo every service polls every 60 seconds as intended, but each poll can still hit the same stale Varnish object for up to an hour before Varnish itself refreshes.",
+      "tools": [
+        "Bash",
+        "Read",
+        "Read"
+      ],
+      "total_cost_usd": 0.049674
+    },
+    {
+      "arm": "laconic-abl-shown",
+      "cache_creation_input_tokens": 4954,
+      "cache_read_input_tokens": 73477,
+      "case": "stale-cache",
+      "claude_cli_version": "2.1.267 (Claude Code)",
+      "duration_ms": 19632,
+      "generated_at": "2026-09-09T20:50:12Z",
+      "generator": "20260909T204332Z-1066138",
+      "input_tokens": 6,
+      "model": "sonnet",
+      "num_turns": 4,
+      "ok": true,
+      "output_tokens": 1623,
+      "rep": 17,
+      "session_id": "eeb62719-7c37-4a06-8d1d-27d4e7a9957b",
+      "text": "The 60s TTL in `flags.js` is doing its job \u2014 `getFlags()` correctly refetches from `FLAG_HOST` every 60 seconds. The delay is introduced by the request itself.\n\nOn line 16, every fetch sends `'Cache-Control': 'max-age=3600'` as a *request* header. Per RFC 7234, a request's `max-age` directive tells any intermediate cache \"I'll accept a response up to this old.\" The response headers show the flag service sits behind Varnish (`via: 1.1 varnish`), and Varnish honors that: even though the origin's own policy is `cache-control: public, max-age=30`, the response shown has `age: 2841` (~47 minutes) and `x-cache: HIT` \u2014 Varnish served a stale, 47-minute-old cached object because the client explicitly said it would accept anything up to 3600 seconds old.\n\nSo the client re-asks every 60 seconds like it should, but each of those requests is telling the shared cache in front of the flag service that a stale answer up to an hour old is fine, and Varnish takes it up on that. That's the up-to-an-hour propagation delay \u2014 it's coming from the `max-age=3600` request header on line 16, not from `CACHE_TTL_MS`.",
+      "tools": [
+        "Bash",
+        "Read",
+        "Read"
+      ],
+      "total_cost_usd": 0.051799399999999995
+    },
+    {
+      "arm": "laconic",
+      "cache_creation_input_tokens": 5199,
+      "cache_read_input_tokens": 74598,
+      "case": "verdict-rollout",
+      "claude_cli_version": "2.1.267 (Claude Code)",
+      "duration_ms": 26322,
+      "generated_at": "2026-09-09T20:50:39Z",
+      "generator": "20260909T204332Z-1066138",
+      "input_tokens": 6,
+      "model": "sonnet",
+      "num_turns": 3,
+      "ok": true,
+      "output_tokens": 2247,
+      "rep": 17,
+      "session_id": "5cc617ed-5539-4642-b82c-90f1f6744a65",
+      "text": "Not sound \u2014 the migration and deploy ordering has a hard outage baked in.\n\nThe migration drops `full_name` and completes *before the first new-release instance starts*. But all 12 instances are still running the **old** code at that point, and the old code (`serializers.py`, `search.py`, `welcome_email.py`, `weekly_active.py`, `signup.py`, `profile_update.py`) reads/writes `full_name`. So for the entire deploy window \u2014 not just the six-minute mixed-version window, but from the moment the migration finishes until every instance is replaced \u2014 100% of instances are running code that references a column that no longer exists. Every profile endpoint, the support lookup, the welcome email job, and the weekly report break simultaneously.\n\nIt also breaks the rollback plan: rolling back to the previous image restores old code that needs `full_name`, but the column is gone, so rollback doesn't actually recover anything.\n\nFix: use an expand/contract split across two releases instead of one:\n1. **Release 1** \u2014 migration adds `given_name`/`family_name` and backfills, but keeps `full_name`. New code reads/writes the new columns (dual-write on `signup.py`/`profile_update.py` if anything still needs `full_name` during transition). Old code keeps working throughout, and rollback is safe since `full_name` still exists.\n2. **Release 2**, once Release 1 is fully rolled out and verified \u2014 migration drops `full_name`.\n\nThe backfill-correctness tradeoff (splitting on first space) is fine as written \u2014 that's an explicit, accepted limitation, not an open question.",
+      "tools": [
+        "Bash",
+        "Read"
+      ],
+      "total_cost_usd": 0.05918860000000001
+    },
+    {
+      "arm": "laconic-abl-shown",
+      "cache_creation_input_tokens": 5205,
+      "cache_read_input_tokens": 73389,
+      "case": "verdict-rollout",
+      "claude_cli_version": "2.1.267 (Claude Code)",
+      "duration_ms": 16281,
+      "generated_at": "2026-09-09T20:50:56Z",
+      "generator": "20260909T204332Z-1066138",
+      "input_tokens": 6,
+      "model": "sonnet",
+      "num_turns": 3,
+      "ok": true,
+      "output_tokens": 1278,
+      "rep": 17,
+      "session_id": "97f666c6-67bb-4fad-a390-dbf861e1397b",
+      "text": "The plan is unsound: it breaks during every rolling deploy window, not just on failure.\n\n**The defect:** the migration drops `full_name` before the new release starts, but deploys are rolling \u2014 for ~6 minutes, old-release instances stay in the pool serving live traffic. Those old instances still read/write `full_name` in `api/serializers.py`, `api/search.py`, `jobs/welcome_email.py`, `reports/weekly_active.py`, `api/signup.py`, and `api/profile_update.py`. Once the column is dropped, every one of those code paths on the old instances errors for the whole rollout window \u2014 not an edge case, guaranteed on every deploy.\n\n**Same flaw sinks the rollback plan.** \"Roll instances back to the previous image\" restores code that reads/writes `full_name`, but that column no longer exists. Rollback is described as the safety net for \"if the new release misbehaves,\" but it's non-functional once the migration commits \u2014 there's no path back.\n\nThe write-up frames the two-release option as pure coordination overhead, but the second release isn't overhead here \u2014 it's what makes the change backward-compatible with the code still running during rollout and rollback. The standard fix is expand/contract:\n\n- **Release 1:** add `given_name`/`family_name`, backfill, but keep `full_name` and keep writing it (dual-write in `signup.py`/`profile_update.py`). Old and new instances can coexist safely because `full_name` still exists and is still correct.\n- **Release 2** (next deploy, once release 1 is fully rolled out): switch reads to the new columns, stop writing `full_name`, then drop it in a follow-up migration.\n\nEverything else \u2014 the backfill's first-space heuristic, the 02:00 UTC timing, the verification steps \u2014 is reasonable and doesn't need to change.",
+      "tools": [
+        "Bash",
+        "Read"
+      ],
+      "total_cost_usd": 0.04927580000000001
+    },
+    {
+      "arm": "laconic",
+      "cache_creation_input_tokens": 5442,
+      "cache_read_input_tokens": 74601,
+      "case": "verdict-schema",
+      "claude_cli_version": "2.1.267 (Claude Code)",
+      "duration_ms": 12437,
+      "generated_at": "2026-09-09T20:51:10Z",
+      "generator": "20260909T204332Z-1066138",
+      "input_tokens": 6,
+      "model": "sonnet",
+      "num_turns": 3,
+      "ok": true,
+      "output_tokens": 718,
+      "rep": 17,
+      "session_id": "fd27283b-482e-4f45-90ae-eee2d1e6c88d",
+      "text": "Two real problems for a ledger, both money-correctness issues:\n\n1. **`DOUBLE PRECISION` for money** (`plans.monthly_price`, `ledger_entries.amount`, `invoices.total`) \u2014 binary floats can't represent currency exactly, so summing entries (line 60's `sum(amount)`) will drift. Use `NUMERIC(12,2)` or store integer minor units (cents, `BIGINT`).\n\n2. **No idempotency/dedup key on `ledger_entries`** \u2014 nothing stops the same charge or refund being written twice on retry, and that table is the source of truth for balance. Needs a unique constraint (e.g. on an `idempotency_key` or `(subscription_id, source_event_id)`).\n\nTwo secondary gaps:\n\n3. **No `updated_at`/append-only enforcement** \u2014 comment says \"Every charge, refund and credit lands here,\" implying append-only, but nothing prevents `UPDATE`/`DELETE` on `ledger_entries`. A ledger usually wants that enforced (trigger or revoked privileges), not just convention.\n\n4. **`ledger_entries.currency` isn't validated against `accounts` or `plans`** and there's no constraint tying an entry's currency to its subscription's plan currency \u2014 mixed-currency entries for one account would silently sum together in the balance query.\n\nMinor: `subscriptions` has no unique/exclusion constraint preventing two overlapping `active` subscriptions per account, if that's a real invariant.\n\nI'd fix #1 and #2 before building on this; #3/#4 depend on how strict the ledger needs to be.",
+      "tools": [
+        "Bash",
+        "Read"
+      ],
+      "total_cost_usd": 0.0448632
+    },
+    {
+      "arm": "laconic-abl-shown",
+      "cache_creation_input_tokens": 5454,
+      "cache_read_input_tokens": 73398,
+      "case": "verdict-schema",
+      "claude_cli_version": "2.1.267 (Claude Code)",
+      "duration_ms": 26913,
+      "generated_at": "2026-09-09T20:51:38Z",
+      "generator": "20260909T204332Z-1066138",
+      "input_tokens": 6,
+      "model": "sonnet",
+      "num_turns": 3,
+      "ok": true,
+      "output_tokens": 1977,
+      "rep": 17,
+      "session_id": "685b7b0a-6dc7-4177-a162-63176d9e7e40",
+      "text": "No \u2014 a few things will bite you once real money flows through this.\n\n**Money as `DOUBLE PRECISION`** (`plans.monthly_price`, `ledger_entries.amount`, `invoices.total`): binary floats can't represent most decimal cents exactly. `sum(amount)` on the ledger (the balance query you've documented at the bottom) will drift \u2014 e.g. repeated `0.1`-style amounts stop summing to the expected total. Should be `NUMERIC(precision, 2)` (or integer minor units).\n\n**No idempotency guard on `ledger_entries`**: nothing stops a retried webhook/job from inserting the same charge twice. There's no unique constraint (e.g. on an external `idempotency_key` or `(subscription_id, occurred_at, entry_type)`-style key) to make writes safe to retry.\n\n**Mixed currencies break the balance query**: `ledger_entries.currency` isn't tied to the account, and the documented balance query (`SELECT sum(amount) FROM ledger_entries WHERE account_id = $1`) sums across currencies with no `GROUP BY currency`. If an account ever gets entries in two currencies, the sum is meaningless.\n\n**No sign/type invariant**: `entry_type` is constrained to a set of values but nothing ties the sign of `amount` to the type, so a bug could insert a `refund` as a positive amount and silently corrupt the running balance \u2014 the invariant lives only in application code.\n\n**Invoices have no duplicate guard**: no unique constraint on `(account_id, period_start, period_end)`, so a re-run of period close could insert two invoices for the same period.\n\nThe float-money and idempotency issues are the ones I'd fix before writing ledger code against this \u2014 the rest are real but smaller.",
+      "tools": [
+        "Bash",
+        "Read"
+      ],
+      "total_cost_usd": 0.05726060000000001
+    },
+    {
+      "arm": "laconic",
+      "cache_creation_input_tokens": 4949,
+      "cache_read_input_tokens": 74688,
+      "case": "stale-cache",
+      "claude_cli_version": "2.1.267 (Claude Code)",
+      "duration_ms": 14753,
+      "generated_at": "2026-09-09T20:51:54Z",
+      "generator": "20260909T204332Z-1066138",
+      "input_tokens": 6,
+      "model": "sonnet",
+      "num_turns": 4,
+      "ok": true,
+      "output_tokens": 861,
+      "rep": 18,
+      "session_id": "0529ed02-3c7e-44e6-b462-27d5160649d5",
+      "text": "The 60s number only bounds `flags.js`'s own in-process cache \u2014 it doesn't control what's between the service and the flag service.\n\n`flags.js` sends `Cache-Control: max-age=3600` as a *request* header (flags.js:16). That's a directive to any intermediary telling it \"a response up to an hour old is fine,\" not a hint about how the client will cache it. The response headers confirm Varnish is honoring exactly that: `via: 1.1 varnish`, `x-cache: HIT`, `age: 2841` \u2014 a 47-minute-old cached response being served back, well within the hour the client itself authorized.\n\nSo each service refetches every 60s as intended, but Varnish is allowed to answer those refetches with the same stale cached response for up to an hour, regardless of the origin's own `cache-control: public, max-age=30`. The client-side TTL and the client's own request header are working against each other \u2014 one says \"refresh every minute,\" the other tells the CDN \"an hour-old copy is acceptable.\"",
+      "tools": [
+        "Bash",
+        "Read",
+        "Read"
+      ],
+      "total_cost_usd": 0.044396599999999994
+    },
+    {
+      "arm": "laconic-abl-shown",
+      "cache_creation_input_tokens": 5086,
+      "cache_read_input_tokens": 73610,
+      "case": "stale-cache",
+      "claude_cli_version": "2.1.267 (Claude Code)",
+      "duration_ms": 13409,
+      "generated_at": "2026-09-09T20:52:09Z",
+      "generator": "20260909T204332Z-1066138",
+      "input_tokens": 6,
+      "model": "sonnet",
+      "num_turns": 4,
+      "ok": true,
+      "output_tokens": 1077,
+      "rep": 18,
+      "session_id": "1ce57d6a-c79a-4834-9f2f-bd85263411b0",
+      "text": "The 60-second `CACHE_TTL_MS` in flags.js only bounds how often each service *asks* \u2014 it doesn't bound what it's told. Line 16 sends `Cache-Control: max-age=3600` as a *request* header on every fetch. Per RFC 7234, that's a client directive meaning \"I'll accept a cached response up to 3600s old,\" and the Varnish layer in front of the flag service (`via: 1.1 varnish` in response-headers.txt) honors it \u2014 serving stale entries for up to an hour regardless of the origin's own `max-age=30`. The response already shows `age: 2841` (47 minutes old) with `x-cache: HIT`, confirming Varnish is doing exactly that.\n\nSo every service refetches every 60s as intended, but each refetch can still get handed the same up-to-an-hour-old Varnish entry \u2014 that's the source of the hour-long propagation delay, not the in-process cache.",
+      "tools": [
+        "Bash",
+        "Read",
+        "Read"
+      ],
+      "total_cost_usd": 0.046883999999999995
+    },
+    {
+      "arm": "laconic",
+      "cache_creation_input_tokens": 5030,
+      "cache_read_input_tokens": 48306,
+      "case": "verdict-rollout",
+      "claude_cli_version": "2.1.267 (Claude Code)",
+      "duration_ms": 24277,
+      "generated_at": "2026-09-09T20:52:34Z",
+      "generator": "20260909T204332Z-1066138",
+      "input_tokens": 4,
+      "model": "sonnet",
+      "num_turns": 2,
+      "ok": true,
+      "output_tokens": 1752,
+      "rep": 18,
+      "session_id": "085039b1-ce32-4657-a927-8feb5cb91695",
+      "text": "Not sound \u2014 the migration drops `full_name` before the new release starts, but the old release is still running and serving traffic for the full ~6-minute rolling window.\n\nTwo concrete breaks:\n\n1. **Rolling window breakage.** After the migration runs, `full_name` no longer exists, but instances still on the old image (up to 9 of 12, then dwindling) still read/write it in `serializers.py`, `search.py`, `signup.py`, `profile_update.py`, `welcome_email.py`, and `weekly_active.py`. Every request those old instances handle during that window \u2014 profile reads, signups, profile updates \u2014 will error, not just be degraded. \"4% of peak, all regions\" is still real user impact, and it's guaranteed, not a risk.\n\n2. **Rollback is illusory.** If the new release misbehaves and the orchestrator rolls back to the previous image, that old code needs `full_name`, which has already been dropped and not restored. The rollback drill you've practiced was presumably schema-neutral; it doesn't cover \"roll back code while the column it needs is gone.\" Rollback in this plan doesn't actually recover working service.\n\nBoth come from the same root cause: this is a hard cutover (add + backfill + drop + swap all call sites) squeezed into one release, but the environment guarantees a period of two code versions running concurrently. The standard fix is expand/contract over two releases: Release 1 adds `given_name`/`family_name`, backfills, and makes old code dual-write to all three columns while still reading `full_name` (or reading new columns with fallback) \u2014 `full_name` is *not* dropped yet. Release 2, once every instance is confirmed on the new code, switches reads fully to the new columns and drops `full_name`. That makes both the rolling deploy and the rollback safe at every point in time.\n\nThe backfill-accuracy tradeoff (splitting on first space) is fine as stated \u2014 that's a genuine accepted limitation, not a defect.",
+      "tools": [
+        "Read"
+      ],
+      "total_cost_usd": 0.04829520000000001
+    },
+    {
+      "arm": "laconic-abl-shown",
+      "cache_creation_input_tokens": 5204,
+      "cache_read_input_tokens": 73388,
+      "case": "verdict-rollout",
+      "claude_cli_version": "2.1.267 (Claude Code)",
+      "duration_ms": 22856,
+      "generated_at": "2026-09-09T20:52:58Z",
+      "generator": "20260909T204332Z-1066138",
+      "input_tokens": 6,
+      "model": "sonnet",
+      "num_turns": 3,
+      "ok": true,
+      "output_tokens": 1433,
+      "rep": 18,
+      "session_id": "7c50650c-9598-4eec-9c4b-1d364b6093c9",
+      "text": "Not sound \u2014 the migration and the rolling deploy conflict.\n\nThe migration drops `full_name` before the first new-release instance starts. But the rollout is rolling: for about six minutes, old-release instances (still reading/writing `full_name` in `api/signup.py`, `api/profile_update.py`, `api/serializers.py`, `api/search.py`, `jobs/welcome_email.py`, `reports/weekly_active.py`) are serving live traffic alongside new instances. Once the column is dropped, every old instance still in the fleet will start throwing errors on signup, profile update, and every profile read \u2014 not a subset of requests, all of them, for the whole rollout window.\n\nRollback is broken the same way: the plan is to roll instances back to the previous image if something misbehaves, but the previous image reads and writes `full_name`, which no longer exists. Rollback can't recover from a bad deploy here \u2014 the fallback path assumes a column the migration already destroyed.\n\nThe fix is the standard expand/contract split across releases, not one release:\n\n1. **Release 1**: migration adds `given_name`/`family_name` and backfills them, but does **not** drop `full_name`. Deploy new release that dual-writes both the old and new columns and reads from the new ones (or old, until confident) \u2014 this release is safe to roll back, since `full_name` still exists and is kept in sync.\n2. **Release 2**, once Release 1 is verified stable and rollback is no longer a concern: migration drops `full_name`.\n\nThe doc's stated reason for rejecting two releases (\"doubles coordination cost\") is weighing convenience against a real correctness gap, not just a preference \u2014 as written, every rolling deploy of this migration causes a guaranteed outage for signup/profile endpoints during the overlap window, with no working rollback.",
+      "tools": [
+        "Bash",
+        "Read"
+      ],
+      "total_cost_usd": 0.0508216
+    },
+    {
+      "arm": "laconic",
+      "cache_creation_input_tokens": 5443,
+      "cache_read_input_tokens": 74602,
+      "case": "verdict-schema",
+      "claude_cli_version": "2.1.267 (Claude Code)",
+      "duration_ms": 15872,
+      "generated_at": "2026-09-09T20:53:15Z",
+      "generator": "20260909T204332Z-1066138",
+      "input_tokens": 6,
+      "model": "sonnet",
+      "num_turns": 3,
+      "ok": true,
+      "output_tokens": 1251,
+      "rep": 18,
+      "session_id": "e6d6b48e-2574-4861-ac9c-bb5b3a82f2f0",
+      "text": "No \u2014 the money columns are the blocker. `monthly_price`, `amount`, and `total` are all `DOUBLE PRECISION`. Binary floats can't represent decimal cents exactly, and a ledger that does `sum(amount)` (line 60) over many rows will accumulate rounding drift \u2014 balances won't match invoice totals. Switch these to `NUMERIC(12,2)` (or store integer minor units) before anything is written to `ledger_entries`.\n\nTwo more gaps worth closing first:\n\n- **No currency-consistency check.** The balance query sums `amount` per `account_id` with no `GROUP BY currency` and no constraint tying `ledger_entries.currency` to the account/plan currency. If an account ever gets entries in two currencies, the sum is meaningless.\n- **No append-only enforcement.** A ledger's integrity depends on rows never being changed after the fact, but nothing here (trigger, permissions) stops `UPDATE`/`DELETE` on `ledger_entries`.\n\nEverything else \u2014 FKs, indexes, the `status`/`entry_type` CHECKs \u2014 is reasonable as is.",
+      "tools": [
+        "Bash",
+        "Read"
+      ],
+      "total_cost_usd": 0.0501974
+    },
+    {
+      "arm": "laconic-abl-shown",
+      "cache_creation_input_tokens": 5427,
+      "cache_read_input_tokens": 73371,
+      "case": "verdict-schema",
+      "claude_cli_version": "2.1.267 (Claude Code)",
+      "duration_ms": 27553,
+      "generated_at": "2026-09-09T20:53:44Z",
+      "generator": "20260909T204332Z-1066138",
+      "input_tokens": 6,
+      "model": "sonnet",
+      "num_turns": 3,
+      "ok": true,
+      "output_tokens": 1989,
+      "rep": 18,
+      "session_id": "730082fb-da07-44a6-9ed3-cd1d22833800",
+      "text": "Two real problems before you build a ledger on this:\n\n**Money as `DOUBLE PRECISION`** \u2014 `plans.monthly_price`, `ledger_entries.amount`, `invoices.total` are all floats. A ledger's core operation is `sum(amount)`, and binary floats don't represent decimal cents exactly, so the running balance will drift from the true value as entries accumulate. Use `NUMERIC(12,2)` (or bigint minor-units/cents) instead.\n\n**No currency scoping on the balance query** \u2014 the documented balance query is `SELECT sum(amount) FROM ledger_entries WHERE account_id = $1` with no `currency` filter, but `ledger_entries.currency` isn't constrained to match the account's plan currency and nothing stops an account from accumulating entries in more than one currency over time (plan changes, cross-currency refunds). Summing mixed currencies produces a meaningless number. Either add a `currency` column/constraint tying entries to one currency per account, or group the balance query by currency.\n\nSecondary, worth a look: no idempotency key on `ledger_entries`, so a retried charge (payment webhook retry, etc.) has nothing to prevent double-insertion. If upstream callers aren't already deduplicating, add a unique constraint on something like `(source, external_ref)`.\n\nEverything else \u2014 FKs, indexes, status/entry_type CHECKs \u2014 is reasonable as-is.",
+      "tools": [
+        "Bash",
+        "Read"
+      ],
+      "total_cost_usd": 0.057267200000000004
+    },
+    {
+      "arm": "laconic",
+      "cache_creation_input_tokens": 5007,
+      "cache_read_input_tokens": 74747,
+      "case": "stale-cache",
+      "claude_cli_version": "2.1.267 (Claude Code)",
+      "duration_ms": 13163,
+      "generated_at": "2026-09-09T20:53:58Z",
+      "generator": "20260909T204332Z-1066138",
+      "input_tokens": 6,
+      "model": "sonnet",
+      "num_turns": 4,
+      "ok": true,
+      "output_tokens": 1091,
+      "rep": 19,
+      "session_id": "f9640af5-fa5c-4940-8469-c9ee4a137264",
+      "text": "The in-process cache (`flags.js:2,9`) is fine \u2014 60s TTL, refetches correctly.\n\nThe problem is the request header on line 16: `'Cache-Control': 'max-age=3600'`. That's a client directive telling any shared cache in the path \"a response up to an hour old is acceptable to serve me.\" The response headers confirm this is happening: `via: 1.1 varnish` shows a shared cache sits in front of the flag service, and `age: 2841` (47 minutes) with `x-cache: HIT` shows Varnish is honoring that directive and handing back a 47-minute-old response \u2014 well past the origin's own `cache-control: public, max-age=30`.\n\nSo every 60 seconds the client correctly refetches, but Varnish is allowed by the request header to answer from a stale cache entry up to 3600s old, which is where the \"up to an hour\" delay comes from.",
+      "tools": [
+        "Bash",
+        "Read",
+        "Read"
+      ],
+      "total_cost_usd": 0.0469354
+    },
+    {
+      "arm": "laconic-abl-shown",
+      "cache_creation_input_tokens": 4950,
+      "cache_read_input_tokens": 73474,
+      "case": "stale-cache",
+      "claude_cli_version": "2.1.267 (Claude Code)",
+      "duration_ms": 15958,
+      "generated_at": "2026-09-09T20:54:15Z",
+      "generator": "20260909T204332Z-1066138",
+      "input_tokens": 6,
+      "model": "sonnet",
+      "num_turns": 4,
+      "ok": true,
+      "output_tokens": 1275,
+      "rep": 19,
+      "session_id": "31183469-c175-48c1-908d-ba6a92d47eb7",
+      "text": "The in-process cache TTL (`flags.js:2`, 60s) isn't the bottleneck \u2014 the request itself is.\n\n`flags.js:16` sends `Cache-Control: max-age=3600` as a *request* header. Per RFC 7234, that tells any shared cache in front of the origin \"I'll accept a response up to 3600s old,\" regardless of the origin's own freshness lifetime. The response headers confirm this is happening: Varnish (`via: 1.1 varnish`) returned `x-cache: HIT` with `age: 2841` \u2014 a 47-minute-old cached response \u2014 even though the origin's own `cache-control: public, max-age=30` says it should be revalidated after 30 seconds.\n\nSo every time the 60-second in-process cache expires and refetches, Varnish is permitted (by the client's own request header) to hand back a stale copy for up to an hour instead of revalidating upstream. The 60s TTL just controls how often the client *asks*, not how fresh the answer is \u2014 the `max-age=3600` request header is what lets a change take up to an hour to surface.",
+      "tools": [
+        "Bash",
+        "Read",
+        "Read"
+      ],
+      "total_cost_usd": 0.0482928
+    },
+    {
+      "arm": "laconic",
+      "cache_creation_input_tokens": 5203,
+      "cache_read_input_tokens": 74602,
+      "case": "verdict-rollout",
+      "claude_cli_version": "2.1.267 (Claude Code)",
+      "duration_ms": 21823,
+      "generated_at": "2026-09-09T20:54:38Z",
+      "generator": "20260909T204332Z-1066138",
+      "input_tokens": 6,
+      "model": "sonnet",
+      "num_turns": 3,
+      "ok": true,
+      "output_tokens": 1754,
+      "rep": 19,
+      "session_id": "69f7ebfd-c10e-4825-9eca-1bdb0fc3f60a",
+      "text": "Not sound \u2014 the migration and the rolling deploy are incompatible.\n\nThe migration drops `full_name` *before* the first new-release instance starts, but the environment section says old and new instances both serve traffic for the ~6-minute rollout window. During that window, the old-release code (still deployed on up to 9 of 12 instances) is running SQL against `full_name` on all six call sites \u2014 every profile read, the support search, the welcome email job, the weekly report, signup, and profile update. Once the column is dropped, all of those queries start erroring on every old instance until the rollout finishes.\n\nRollback doesn't save you either: rolling back to the previous image restores code that reads/writes `full_name`, but the migration isn't reversed, so the rolled-back instances hit the same missing-column errors. The \"six minutes to roll back\" plan assumes the previous image is compatible with the current schema, and here it isn't.\n\nFix: split into an expand/contract sequence instead of one release \u2014\n1. **Release 1**: add `given_name`/`family_name`, backfill, but keep `full_name`. Old code keeps working unmodified.\n2. **Release 2**: switch all six call sites to read/write the new columns (dual-write to `full_name` too, if anything besides these six sites might still reference it).\n3. **Release 3** (after 2 is fully rolled out and baked): migration drops `full_name`.\n\nThat's the \"two releases\" option the doc says was rejected for coordination cost \u2014 but the coordination cost is what buys you a schema that's valid for both old and new code during the rollout window, which the single-release plan doesn't have.",
+      "tools": [
+        "Bash",
+        "Read"
+      ],
+      "total_cost_usd": 0.0542704
+    },
+    {
+      "arm": "laconic-abl-shown",
+      "cache_creation_input_tokens": 5203,
+      "cache_read_input_tokens": 73387,
+      "case": "verdict-rollout",
+      "claude_cli_version": "2.1.267 (Claude Code)",
+      "duration_ms": 30492,
+      "generated_at": "2026-09-09T20:55:09Z",
+      "generator": "20260909T204332Z-1066138",
+      "input_tokens": 6,
+      "model": "sonnet",
+      "num_turns": 3,
+      "ok": true,
+      "output_tokens": 2501,
+      "rep": 19,
+      "session_id": "2e5f3dda-caeb-4eba-b333-24c2519375a1",
+      "text": "The plan has a fatal flaw: **it drops `full_name` in the same migration that must run before any new-release instance starts, but old instances keep serving for the full ~6-minute rolling deploy.**\n\n- Migration `0142_split_name.py` drops `full_name` before instance 1 of the new release comes up.\n- For the next ~6 minutes, up to 9 of 12 instances are still running the *old* release, which reads and writes `full_name` in `api/serializers.py`, `api/search.py`, `jobs/welcome_email.py`, `reports/weekly_active.py`, `api/signup.py`, and `api/profile_update.py`.\n- Every one of those reads/writes will hit a column that no longer exists \u2014 this isn't a race condition, it's a guaranteed hard failure (every profile fetch, search, signup, and profile update errors) across the whole rollout window, in every region.\n\nThis also breaks the stated rollback plan: rolling instances back to the previous image doesn't help, because the previous image's code depends on `full_name`, which is already gone. \"Roll back and it takes six minutes\" is not actually a working mitigation here \u2014 the outage continues through the rollback too.\n\n**Fix:** use an expand/contract sequence instead of one release:\n\n1. **Release 1** \u2014 migration adds `given_name`/`family_name` (nullable) and backfills them, but does **not** drop `full_name`. Code is unchanged (or dual-writes the new columns) and keeps reading/writing `full_name`, so old and new instances during rollout behave identically.\n2. **Release 2** \u2014 switch all six call sites to read/write `given_name`/`family_name` only. `full_name` still exists in the schema (unused), so old instances mid-rollout still work if this deploy needs to roll back.\n3. **Release 3**, later, once you're confident and no rollback risk remains \u2014 a separate migration drops `full_name`.\n\nEverything else (timing at low-traffic window, accepting first-space-split as a known limitation, verification steps) is reasonable and doesn't need to change.",
+      "tools": [
+        "Bash",
+        "Read"
+      ],
+      "total_cost_usd": 0.061497399999999994
+    },
+    {
+      "arm": "laconic",
+      "cache_creation_input_tokens": 5444,
+      "cache_read_input_tokens": 74603,
+      "case": "verdict-schema",
+      "claude_cli_version": "2.1.267 (Claude Code)",
+      "duration_ms": 24322,
+      "generated_at": "2026-09-09T20:55:34Z",
+      "generator": "20260909T204332Z-1066138",
+      "input_tokens": 6,
+      "model": "sonnet",
+      "num_turns": 3,
+      "ok": true,
+      "output_tokens": 1792,
+      "rep": 19,
+      "session_id": "6034f369-e1b8-405c-b7de-6856519d4235",
+      "text": "No \u2014 three things will bite you once real money runs through it.\n\n**`ledger_entries.amount` is `DOUBLE PRECISION`** (schema.sql:38, also `plans.monthly_price` and `invoices.total`). The header comment says balance is `sum(amount)` \u2014 floating point can't represent currency amounts exactly, so that running sum will drift. Use `NUMERIC(12,2)` (or similar fixed-precision type) for all money columns.\n\n**No idempotency protection on `ledger_entries`.** A retried charge/webhook produces a second row with no constraint to catch it \u2014 for a ledger, double-charging is the failure mode that matters most. Needs something like a unique `idempotency_key` or `(subscription_id, occurred_at, entry_type)` constraint depending on your write path.\n\n**Nothing enforces append-only.** A ledger's integrity depends on entries never being altered after the fact, but there's no `REVOKE UPDATE, DELETE` or trigger stopping it \u2014 currently any bug or ad hoc query can rewrite history.\n\nSmaller issue: `invoices.period_start`/`period_end` are `DATE` while `ledger_entries.occurred_at` is `TIMESTAMPTZ` (schema.sql:41,49-50) \u2014 computing \"sum of the period's entries\" by comparing these means a timezone choice is implicit and unstated, which can pull entries in/out at period boundaries.",
+      "tools": [
+        "Bash",
+        "Read"
+      ],
+      "total_cost_usd": 0.055611600000000004
+    },
+    {
+      "arm": "laconic-abl-shown",
+      "cache_creation_input_tokens": 5444,
+      "cache_read_input_tokens": 73388,
+      "case": "verdict-schema",
+      "claude_cli_version": "2.1.267 (Claude Code)",
+      "duration_ms": 29587,
+      "generated_at": "2026-09-09T20:56:05Z",
+      "generator": "20260909T204332Z-1066138",
+      "input_tokens": 6,
+      "model": "sonnet",
+      "num_turns": 3,
+      "ok": true,
+      "output_tokens": 2033,
+      "rep": 19,
+      "session_id": "50c98ceb-26b3-4b8c-a666-6b886e17cc57",
+      "text": "Three problems that will bite the ledger specifically:\n\n1. **Money is `DOUBLE PRECISION`** (`plans.monthly_price` line 16, `ledger_entries.amount` line 38, `invoices.total` line 51). A ledger's core invariant is `sum(amount) = balance` \u2014 floats don't sum exactly, so balances will drift from what invoices report. Use `NUMERIC(12,2)` (or integer minor-units) before any rows go in; this is much harder to fix once real balances exist.\n\n2. **No idempotency key on `ledger_entries`.** A retried charge/webhook (network retry, payment-provider redelivery) has nothing to collide against, so it inserts a duplicate row and silently inflates the balance. Needs a unique constraint on some external reference/idempotency column.\n\n3. **No sign or currency invariant tied to `entry_type`.** Nothing stops a `refund` row from being inserted with a positive amount, or a `charge` with negative \u2014 the balance query at line 60 (`sum(amount)`) would then be wrong with no error raised. Similarly, `currency` is per-row with nothing tying it to the account's billing currency, so a mixed-currency account would sum apples and oranges in that same query.\n\nSmaller: no unique constraint on `invoices(account_id, period_start, period_end)`, so the same period could be invoiced twice.\n\nThe float-for-money issue is the one to fix before writing a single row \u2014 the other two are enforceable via constraints added at the same time.",
+      "tools": [
+        "Bash",
+        "Read"
+      ],
+      "total_cost_usd": 0.0577786
+    }
+  ]
+}

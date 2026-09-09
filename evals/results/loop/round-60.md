@@ -1,0 +1,438 @@
+# Round 60 — which of the three things the demonstration block does?
+
+**Registered 2026-09-09, before any run. No rule edit.** A replacement round for
+[#277]: five arms in one interleaved batch, the shipped `full` slice at the
+ceiling, round 59's ablation at the floor, and three word-matched rungs between
+them.
+
+## Why the round exists
+
+[Round 59](round-59.md) deleted 209 words of rendered demonstration from the
+shipped slice and answers came out **1.119x longer overall and 1.284x longer on
+the three `design-*` cells**, while a word-matched 165-word block of on-topic
+prohibition did nothing. The block is load-bearing. But round 59 registered in
+advance that it tests a block and not a mechanism, because those 209 words are
+three things at once:
+
+1. the file's only **rendered** short answer, as against a described one;
+2. the file's only side-by-side **calibration** of `lite`, `full` and `ultra`;
+3. the only **worked application** of the rule to a specific question — the OOM
+   example, plus the design licence's own `Wrong:`/`Right:` pair.
+
+Any of the three explains the result. Separating them is what this round buys.
+
+## The arms
+
+Each arm is `laconic-abl-shown` with a substitute put back at **both** sites
+that arm deletes from, and each removes exactly **one** of the three properties
+while keeping the other two. So every rung is one difference away from the
+shipped slice, not one difference away from the rung below it.
+
+| arm | words | rendered | mapped to a level | worked from a question |
+|---|--:|---|---|---|
+| `laconic` (ceiling) | 1,041 | yes | yes | yes |
+| `laconic-repl-told` | 1,049 | **no** — the same content in prose | described | described |
+| `laconic-repl-unlabelled` | 1,042 | yes | **no** — three answers, no level names | yes |
+| `laconic-repl-unframed` | 1,034 | yes | yes | **no** — the answers stand free |
+| `laconic-abl-shown` (floor) | 832 | no | no | no |
+
+**Both anchors are regenerated inside this round.** Round 59's 1.284x was
+measured against a different CLI build and the CLI ships several times a day
+([#272]); a rung positioned against a number from a previous round would be
+positioned against a different instrument.
+
+`tests/test_bench.py` holds every rung to pure replacement: each must contain
+every line of `laconic-abl-shown.md` in order, so nothing the floor keeps can be
+dropped or reworded, and each must land within 20 words of the shipped slice.
+Because the floor is itself checked line-by-line against the live hook output,
+an edit to `rules/laconic.md` that moves the block fails all five arms at once.
+
+## Four registered deviations from [#277]'s proposed ladder
+
+[#277] proposed a cumulative ladder — the table replaced by prose, then the
+calibration collapsed to one row, then the question removed — with the effect of
+each rung read against the rung below it. All four changes below were made
+before generating and each has a reason.
+
+1. **Single removal rather than cumulative.** In [#277]'s ladder the first rung
+   changes all three properties at once, so its contrast identifies "the
+   canonical block against a prose rendering of it" and not showing against
+   telling. `codex` named this on `tools/consult.sh` and it is right: with one
+   property removed per arm, each contrast against the ceiling is a main effect.
+2. **The rungs are word-matched to the shipped slice, within +8 and −7 words.**
+   [#277]'s literal ladder produces rungs of about 1,041, 1,000 and 960 words,
+   so arm length would have tracked ladder position — the exact confound the
+   round exists to remove. Round 59's `abl-arrow` null is **not** an adequate
+   defence, and checking rather than assuming is what showed it: pooled over six
+   cells that arm reads 0.967x, but re-scored on the three design cells alone it
+   reads **1.058x with a 95% interval reaching 1.119x**, which bounds bulk at
+   1.070x per 100 words. A 20-word band bounds it at 1.014x. Both targets
+   independently rejected padding with new prose as trading one confound for
+   another; word-matching the substitutes avoids needing either.
+3. **Scope narrows from six cells to the three `design-*` cells.** Round 59's
+   exploratory finding is that the whole effect is there. Measured on round 59's
+   own 720 runs the within-(case, arm) standard deviation of log prose words is
+   **0.224 on the design cells and 0.467 on the contract cells**, so the three
+   dropped cells were contributing most of the noise and none of the signal.
+   This is the single largest source of resolution in the design.
+4. **The tie-break is a registered interaction, not a second table.** [#277]
+   asks for cases that separate "the block governs advice-shaped questions" from
+   "design cells are where this file has room to move". `codex` pointed out that
+   two contrasts reported side by side is an anecdote and that the estimand is
+   their difference, so it is computed and printed as one number with an
+   interval.
+
+*Origin: deviations 1, 2 and 4 came from the `codex` target on
+`bash tools/consult.sh`. `kimi` independently made the same call on the word
+count and on the tie-break cells, and argued for reporting the share of the
+block effect each rung recovers rather than pairwise p-values alone, which is
+adopted below. `deepseek` was asked and did not answer.*
+
+## Scope and depth
+
+Sonnet only, **720 generations**, no judging in step 1, one `rules_cksum`.
+
+- **Ladder pass: 5 arms × 3 cells × 40 reps = 600.** `design-cache`,
+  `design-realtime`, `design-upload` — the sanctioned `one_turn` scope and the
+  three cells that can tell a fixture-derived answer from a recalled one
+  ([#88]). Three shards splitting the rep range (`run.py --rep-offset`), so
+  every shard runs every case and the per-shard printout is a real robustness
+  check rather than a restatement of which cases a process owned.
+- **Tie-break pass: 2 arms × 3 cells × 20 reps = 120.** Ceiling and floor only,
+  on `stale-cache`, `verdict-schema`, `verdict-rollout`.
+
+**Why those three tie-break cells, and why not `walkthrough`.** The cells have
+to be long at baseline — so "no room to move" cannot explain a null — and not
+advice-shaped, so the two readings make opposite predictions. These three read
+a fixture and return a diagnosis or a verdict, and their historical `laconic`
+sonnet medians are 163, 269 and 273 words against the design cells' 170 to 225,
+so if anything they have *more* room than the primary scope does. `walkthrough`
+is the obvious long cell and it is disqualified: at 418 words it is the longest
+in the suite, but the rules explicitly protect content the user asked to have
+explained, so a null on it would read as "the contract exempted it" rather than
+"the block does not generalise". Both delegate targets reached that
+disqualification independently and neither was told the other's answer.
+
+## Endpoints, registered before generation
+
+**Primary: mean log prose words, blocked on the case, three rungs against
+`laconic` at Bonferroni α = 0.0167**, permutation on arm labels within block at
+seed 58, reported as a geometric-mean ratio with a 95% percentile interval from
+4,000 bootstrap draws. Each block contributes the difference of its two arm
+means and every block weighs the same.
+
+**Reported with the primary, and the reason the round stays readable when a
+contrast misses: the share.** For each rung, the fraction of the ceiling-to-
+floor gap that removing its property gives back,
+
+    share = (rung − ceiling) / (floor − ceiling)
+
+on the same bootstrap draws, so the numerator and denominator move together. A
+rung can be non-significant against both anchors and still carry a share
+interval that excludes 0 or excludes 1, and that is a result rather than an
+absence of one. If the three properties are additive and exhaustive the three
+shares sum to about 1; they are not constrained to, and a sum far from 1 is
+itself reportable.
+
+**Also reported: each rung against the floor**, which asks whether that delivery
+form buys anything at all rather than whether it buys everything.
+
+**Secondaries**, none of them the primary: the same contrasts additionally
+blocked on the reading stratum (`grounded()` is `num_turns > 1`, which is
+post-treatment, so it cannot be the primary — round 59's reasoning, unchanged);
+the primary per shard as a diagnostic, where a contrast carried by one process
+is a warning and not a finding; and the per-cell median sign test as a
+robustness display, which with three cells cannot reach any useful p and is
+printed only because round 58 and 59 printed it.
+
+**The tie-break, registered as one number.** The floor-against-ceiling contrast
+on the three design cells minus the same contrast on the three verdict cells,
+with a 95% interval. An interval excluding 1 says the block's effect is specific
+to advice-shaped questions; an interval containing 1 with both families
+substantially above 1 says it generalises to any cell with room to move.
+
+**Guardrail: reading rate** on the three `design-*` cells, share with
+`num_turns > 1`, against `laconic` at the registered 15-point non-inferiority
+margin. [#278] fixed the verdict to three outcomes and this round inherits both
+the fix and its consequence: at 120 runs an arm the margin certifies only an arm
+that falls by less than 5.0 points, and the scorer prints that line beside the
+result. So this guardrail can report **HARMED**, and it can report
+**inconclusive**, and a non-inferior verdict is available only for a very small
+observed fall. That is the guardrail this round has and it is stated in advance
+rather than reinterpreted after.
+
+**No never-cut contract guardrail this round, and the reason is not thrift.**
+The check needs the three contract cells, which are out of scope for the reasons
+in deviation 3, and adding them back at a usable rep count costs more
+generations than the round's primary. What replaces it is stronger for these
+particular arms than it was for round 59's: every rung is a *replacement*, the
+never-cut contract text is byte-identical in all five arms, and
+`tests/test_bench.py` proves it on every one. Round 59's arms deleted material
+and needed a behavioural check; these do not delete any.
+
+**The manipulation check is the file invariant, and there is no behavioural
+one.** Round 59 could check that `abl-arrow` produced more arrows, because the
+rule it deleted prohibits an observable behaviour. Nothing here deletes a
+prohibition — the three properties are presentational — so no response-level
+counter can confirm a rung received its treatment. The test suite proving each
+arm is the floor plus its registered substitute is what this round has instead,
+and it is weaker: it establishes what the file says, not that the model
+attended to it. Named here rather than left for a reader to notice.
+
+## Power, and what a null would mean
+
+The within-(case, arm) standard deviation of log prose words on the three design
+cells, measured on round 59's own 720 runs, is **0.224**. At 120 runs per arm
+over three blocks that gives a standard error near 0.029 on each contrast and a
+**minimum detectable ratio of about 1.101x** at α = 0.0167 with 80% power.
+
+The floor-to-ceiling gap on these cells was **1.284x** in round 59, so the
+detection floor is about 39% of the range. That is the honest limit of this
+design: a rung sitting at either anchor resolves cleanly, and a rung sitting
+near the midpoint will be non-significant against both. It is why the share is
+registered as a co-primary display rather than an afterthought — the midpoint
+rung is exactly the case where a pairwise p-value says nothing and a share
+interval of, say, [0.2, 0.8] still rules out both "this property is the whole
+story" and "this property does nothing".
+
+Dropping a rung to buy resolution was considered and rejected. Four arms at 50
+reps moves the detectable ratio from 1.101x to 1.087x, which does not change
+which rungs resolve, and it costs one of the three questions [#277] asks.
+
+The tie-break pass has 60 runs per arm over three blocks. At the historical
+standard deviation of those cells, near 0.19, its detectable ratio is about
+1.10x against a design-cell effect of 1.284x, so it can see an effect one third
+the size. The interaction of the two contrasts detects about 1.135x.
+
+## The registered reading
+
+Fixed before the numbers. "At the ceiling" below means not separated from
+`laconic` and separated from the floor; "at the floor" means the reverse.
+
+- **`repl-told` at the floor, the other two at the ceiling.** Showing rather
+  than telling is the mechanism: the same information delivered as prose buys
+  nothing, and neither the level mapping nor the worked question matters once
+  something is rendered. This is the speculation round 59 named and refused to
+  claim.
+- **`repl-unlabelled` at the floor, the other two at the ceiling.** The
+  calibration is the mechanism — what the block does is show three lengths and
+  say which level each belongs to, and a rendered answer with no level attached
+  is no better than a described one.
+- **`repl-unframed` at the floor, the other two at the ceiling.** The worked
+  application is the mechanism: an example needs a question to be an example of.
+- **Every rung at the ceiling.** No single property carries it; the block
+  degrades only when all three go, which is an interaction rather than a set of
+  main effects, and the next round is a factorial with two properties removed at
+  a time.
+- **Every rung at the floor.** Any disturbance to the block costs its whole
+  effect. Not predicted by anything and it would be reported as such — the most
+  likely mundane explanation, that the substitutes are simply worse writing,
+  cannot be excluded by this design and the round would say so.
+- **Nothing resolves.** Every rung's interval spans both anchors. Then the
+  shares are the result: they are reported with their intervals, and the round
+  states what they exclude rather than reporting a null.
+
+Anything reported outside these endpoints is exploratory and says so where it is
+written.
+
+## Addendum, registered 2026-09-09 after registration and before any number was read
+
+Two things came up during generation that the registration did not cover.
+Both were settled on `bash tools/consult.sh` and written down here before the
+scorer was pointed at the snapshots. Neither changes an arm, an endpoint, the
+primary test or the Bonferroni correction.
+
+**1. The share is guarded by its own denominator.** The registered share
+divides by the ceiling-to-floor gap, which is itself estimated, and a bootstrap
+draw whose denominator lands near zero produces an enormous share — a
+Fieller-type problem whose naive percentile bounds are both very wide and
+misleadingly finite. `share_usable()` now reports the share only when the gap's
+own 95% interval lies entirely above zero, and otherwise prints
+`share uninterpretable` beside the two absolute contrasts, which are printed
+either way. The fraction of draws at or below zero is printed as a descriptive
+line and decides nothing. **2.5% in one tail is not a threshold this round
+chose**; it is the 95% level already registered, which is the whole reason this
+is not a post-hoc rule.
+
+**2. The ladder was generated in two sittings, and the pause is reported.** The
+first three shards died with 464 of 600 runs written and a resume filled the
+rest four and a half hours later. The CLI version is byte-identical across the
+pause (2.1.266) and `rules_cksum` and `cases_cksum` are unchanged, so both
+existing guards pass and neither says anything: **wall-clock is not something
+this repository records anywhere a reader would look.**
+
+> **This paragraph is wrong about the CLI and is left in place.** The version
+> was read before the resume rather than after it, and 2.1.267 landed during
+> the pause. `release.py` found it afterwards; see the Result section, which
+> reports the composition and the balance test. Nothing else in this addendum
+> is affected — the guard and the diagnostic below were registered for the
+> pause and they are what caught the release too. Interleaving is the
+design's defence — every rep generates all five arms back to back and the
+estimator differences arms inside a case, so anything moving all five together
+is absorbed — but that is an argument, not a check. `continuity()` locates the
+pause from the run stamps, prints the block effect on each side of it with the
+interaction between them, and prints the pre-pause ladder underneath as a
+sensitivity.
+
+**Its action is registered with it.** It filters nothing, it is not an endpoint,
+and it does not decide inclusion. A null says the share's denominator is one
+quantity rather than a mixture of two; a large interaction says the round needs
+replication and the pre-pause ladder is what a reader falls back to. A null here
+is also weak, because the post-pause epoch is the smaller of the two: it cannot
+rule out a gap effect much below the interval it prints, and the round says so
+rather than reading it as clean.
+
+*Origin: all three delegate targets — `codex`, `deepseek` and `kimi` — gave the
+denominator-interval gate independently, and all three rejected the sign-flip
+threshold proposed to them, on the ground that a cutoff chosen here is a cutoff
+chosen for appearance. `codex` supplied the rule that a continuity diagnostic
+must have its action registered with it and must never be used to exclude data
+after the fact, and named joint resampling of the blocks as the one
+implementation detail that would silently invalidate the share. `deepseek`
+supplied the pre-pause fallback and the warning about the smaller epoch. `kimi`
+asked for the sensitivity to be printed rather than described.*
+
+## Result
+
+600 ladder runs, no failures in the file, one `rules_cksum`, sonnet only.
+`python3 evals/pilot/score_dilution.py evals/snapshots/loop/round-60-{a,b,c}.json
+--floor laconic-abl-shown`.
+
+**The block effect replicates.** Floor against ceiling on these three cells is
+**1.286x [1.212, 1.363]**, against round 59's 1.284x measured on a different CLI
+build. The denominator the shares divide by is 44 standard errors clear of zero
+and no bootstrap draw of 4,000 fell at or below it, so the share is
+interpretable under the registered gate.
+
+| rung | property removed | vs ceiling | p | vs floor | share of the gap |
+|---|---|--:|--:|--:|--:|
+| `repl-told` | rendered | 0.960x [0.904, 1.020] | 0.1774 | 0.746x | **−0.16** [−0.47, +0.07] |
+| `repl-unlabelled` | mapped to a level | 1.057x [1.002, 1.117] | 0.0515 | 0.822x | **+0.22** [+0.01, +0.41] |
+| `repl-unframed` | worked from a question | **1.140x** [1.080, 1.206] | **0.0000** | 0.887x | **+0.52** [+0.33, +0.72] |
+
+Bonferroni α = 0.0167 over the three rungs. Every rung is separated from the
+floor at p ≤ 0.0001, so no rung is a disguised deletion.
+
+**The worked question is the largest single thing the block does, and it is
+about half of it.** `repl-unframed` keeps the rendered answers and keeps their
+level labels, and deletes only the question they answer — the OOM scenario and
+the design licence's `Wrong:`/`Right:` pair — replacing both with the same
+answers standing free. That alone costs 1.140x of the 1.286x gap, clears the
+correction on its own, and its share interval excludes both 0 and 1. An example
+needs a question to be an example of.
+
+**Rendering as such is none of it.** `repl-told` describes the same three
+answers in prose and shows nothing, and it is indistinguishable from the shipped
+slice — its point estimate is on the *short* side of the ceiling and its share
+interval reaches only +0.07. This is the reading round 59 speculated and refused
+to claim, and it is wrong. Showing rather than telling is not the mechanism.
+
+**The level mapping carries a little.** `repl-unlabelled` misses the corrected
+threshold at p = 0.0515, so by the registered rule it sits at the ceiling; but
+its share is +0.22 with an interval excluding zero. That is the exact case the
+share was registered for — a rung a pairwise test calls null while the interval
+says it recovers a fifth of the gap. It is reported as a small positive effect
+the pairwise test could not resolve, not as a null.
+
+**The three shares do not add up, and that is a finding.** −0.16 + 0.22 + 0.52 =
+**0.58**. If the three properties were additive and exhaustive the shares would
+sum to about 1. Two fifths of the block effect is therefore not a main effect of
+any one property: it lives in some combination of them, or in something all
+three substitutes preserved. The registration said a sum far from 1 is itself
+reportable, and this is that.
+
+Against the registered outcome map, the result is **none of the six patterns
+exactly**. The nearest is "`repl-unframed` at the floor, the other two at the
+ceiling", and it fails on the word *floor*: `repl-unframed` is separated from
+both anchors. The round anticipated a midpoint rung and registered the share
+precisely because a pairwise test says nothing there.
+
+### The tie-break
+
+120 further runs, ceiling and floor only, on `stale-cache`, `verdict-schema`
+and `verdict-rollout` — cells that read a fixture and return a diagnosis or a
+verdict, and are not advice-shaped.
+
+| family | cells | floor against ceiling |
+|---|---|--:|
+| A | the three `design-*` cells | 1.286x |
+| B | the three verdict cells | 1.079x (p = 0.0153) |
+| | **A over B (the registered interaction)** | **1.192x [1.094, 1.296]** |
+
+The interval excludes 1, which is the registered reading for **the block's
+effect is specific to advice-shaped questions**. That is the answer [#277] asked
+for: round 59 could not tell "the block governs design answers" from "design
+answers are where this file has room to move", and the difference is now
+estimated rather than inferred from two nulls side by side.
+
+**It is specific, not exclusive, and the round says both.** Family B is itself
+above 1 at p = 0.0153, so the block lengthens a verdict answer too — about a
+third as much in logs. The registration's two branches did not anticipate an
+interval excluding 1 *and* a second family significantly above 1, and the honest
+statement of what was found is that the effect generalises weakly and is roughly
+2.7x larger where the deleted material is about the question being asked.
+
+**One premise came in weaker than registered.** The tie-break cells were chosen
+to be long at baseline so that "no room to move" could not explain a small
+effect, on historical `laconic` sonnet medians of 163, 269 and 273 words. They
+came in at **139.5, 169.0 and 200.5** — not longer than the design cells, as
+predicted, but the same length as them (140.5, 181.0, 188.0). The premise still
+does the job it was there for, because these are the lengths at which family A
+moved 1.286x, so the room existed. It does not do the stronger job the
+registration claimed for it.
+
+### Diagnostics
+
+- **The pause.** A 3.7-hour gap at 2026-09-09T20:23:13Z separates 464 ladder
+  runs from 136. The block effect is 1.283x before it and 1.300x after, an interaction of
+  **1.013x [0.900, 1.151]**. The pre-pause ladder alone reproduces every
+  conclusion above — 1.283x block effect, `repl-unframed` at 1.141x, `repl-told`
+  at 0.949x, `repl-unlabelled` at 1.065x, shares +0.53, −0.21 and +0.25. As
+  registered, this is a weak null: the post-pause epoch is 23% of the runs and
+  the interval reaches 1.151x, so it rules out a large differential time effect
+  and not a small one.
+- **The pause spans a CLI release, and the addendum below is wrong about that.**
+  Written before generation resumed, it says the version is byte-identical
+  across the gap. It is not: `python3 evals/bench/release.py` reports
+  **2.1.266 and 2.1.267**, with the new build carrying 12% of the runs and
+  landing entirely after the pause. What saves the round is that the arms are
+  interleaved within a rep, so every arm took the same share of each build:
+  release.py reports no arm imbalanced across the boundary, at Fisher p between
+  0.43 and 1.00 on every arm in every shard. The continuity diagnostic above is
+  therefore also the release check, which is the reason it is reported here
+  rather than deleted as a false alarm. The mistake was mine — the version was
+  read before the resume rather than after it — and it is left in place with
+  this correction beside it rather than edited away.
+- **Per shard.** All nine ladder processes read the floor above the ceiling
+  (1.201x to 1.409x), as do all three tie-break processes on family B (1.027x to
+  1.114x). `repl-unframed` reads above 1.12x in five of six ladder shards and
+  1.008x in one, so the headline is not carried by one process.
+- **Reading rate, the guardrail.** `laconic` reads 39.2%. `repl-told` at 40.0%
+  and `repl-unlabelled` at 44.2% are certified **non-inferior**; `abl-shown`
+  (−5.0 pts) and `repl-unframed` (−10.0 pts) are **inconclusive**, neither
+  certified nor ruled against. Nothing is **HARMED**. The scorer prints the
+  reason the middle verdict is common here: at 120 runs an arm this design
+  certifies only a fall smaller than 4.2 points ([#278]), so a 10-point fall is
+  outside what these reps can resolve in either direction. `repl-unframed` is
+  the arm that both lengthens most and reads least, which is worth a follow-up
+  and is not something this round can settle.
+- **Not endpoints.** No arm dropped a never-cut keyword, and no arm differs from
+  the control on arrows carried — expected, since nothing here deletes a
+  prohibition. The per-cell sign test cannot reach a useful p with three cells
+  and is printed only because rounds 58 and 59 printed it.
+- **`python3 evals/bench/concurrency.py` reports no round-60 arm-day above its
+  declaration.** The nineteen it flags repository-wide are the pre-existing ones
+  in [`concurrency-audit.md`](concurrency-audit.md).
+
+## Bound, fatal to the round
+
+A single `rules_cksum` across every snapshot, and any pass crossing a CLI
+release is reported through `python3 evals/bench/release.py` before a contrast
+is read out of it ([#272]). `python3 evals/bench/concurrency.py` must read the
+declared fan-out on every snapshot.
+
+[#88]: https://github.com/JordanMPDS/laconic/issues/88
+[#272]: https://github.com/JordanMPDS/laconic/issues/272
+[#275]: https://github.com/JordanMPDS/laconic/issues/275
+[#277]: https://github.com/JordanMPDS/laconic/issues/277
+[#278]: https://github.com/JordanMPDS/laconic/issues/278

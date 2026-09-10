@@ -69,7 +69,21 @@ ARM_OUTPUT_STYLES = {"concise-style": "Concise"}
 # main() refuses the combination rather than generating an arm whose hook never
 # fires - the same failure output_style_reaches_model exists to catch, and it
 # would publish "enforcement changes nothing" as a finding.
-ARM_STOP_HOOKS = {"laconic-enforced"}
+#
+# The value is the block reason the arm's hook gives, which is #283's question:
+# `laconic-enforced` quotes the one rule that fired, `laconic-enforced-reminder`
+# quotes none and is otherwise the same sentence. They are two arms rather than
+# one arm with a coin flip inside the hook because run.py's whole bookkeeping -
+# the run key, the interleave, the judge, report.py - is keyed on the arm, and a
+# treatment that lived only in the hook record would be invisible to all of it.
+# `codex` argued on tools/consult.sh for assigning the reason at the moment the
+# hook fires instead, which would balance the fired stratum exactly rather than
+# in expectation; round 62 declines it for the cost above and reports the fired
+# count and detector mix per arm as the balance check it gives up.
+ARM_STOP_HOOKS = {
+    "laconic-enforced": "named",
+    "laconic-enforced-reminder": "reminder",
+}
 
 # Benchmark-only rule texts, one file per arm, read at import so the arm is
 # whatever `evals/arms/` says today rather than a copy pasted in here. They go
@@ -113,9 +127,11 @@ ARMS = {
     "laconic-repl-told": _arm_file("laconic-repl-told"),
     "laconic-repl-unlabelled": _arm_file("laconic-repl-unlabelled"),
     "laconic-repl-unframed": _arm_file("laconic-repl-unframed"),
-    # Both placeholders, replaced at runtime with the same real hook output, so
-    # the enforcement arm cannot drift from the rules it is meant to enforce.
+    # All placeholders, replaced at runtime with the same real hook output, so
+    # the enforcement arms cannot drift from the rules they are meant to
+    # enforce, or from each other.
     "laconic-enforced": "",
+    "laconic-enforced-reminder": "",
     "laconic": "",
 }
 
@@ -865,7 +881,7 @@ def stop_hook_settings(command, timeout=30):
                                            "timeout": timeout}]}]}}
 
 
-def stop_hook_command(level, never_cut=(), record=None):
+def stop_hook_command(level, never_cut=(), record=None, reason_mode="named"):
     """The command line the Stop hook runs, as one shell string.
 
     The case's never-cut keywords reach the hook as arguments rather than
@@ -873,10 +889,15 @@ def stop_hook_command(level, never_cut=(), record=None):
     capture what the response wrote (#231), and a file the harness put there
     would be recorded as an artifact the model authored. The record path is
     outside the workspace for the same reason.
+
+    `reason_mode` is always passed rather than left to the hook's default, so a
+    snapshot's arm and the reason its responses actually got cannot come apart
+    through a default moving underneath them (#283).
     """
     parts = [shlex.quote(sys.executable),
              shlex.quote(str(Path(__file__).resolve().parent / "stop_hook.py")),
-             "--level", shlex.quote(level)]
+             "--level", shlex.quote(level),
+             "--reason-mode", shlex.quote(reason_mode)]
     if record:
         parts += ["--record", shlex.quote(str(record))]
     if never_cut:
@@ -1350,8 +1371,9 @@ def main():
                         if arm in ARM_STOP_HOOKS:
                             fd, log = tempfile.mkstemp(suffix=".jsonl")
                             os.close(fd)
-                            hook_cmd = stop_hook_command(args.level, never_cut,
-                                                         log)
+                            hook_cmd = stop_hook_command(
+                                args.level, never_cut, log,
+                                ARM_STOP_HOOKS[arm])
                         try:
                             if fixture.is_dir():
                                 shutil.copytree(fixture, scratch,

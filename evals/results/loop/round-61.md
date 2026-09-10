@@ -185,4 +185,110 @@ way.
 [#150]: https://github.com/JordanMPDS/laconic/issues/150
 [#264]: https://github.com/JordanMPDS/laconic/issues/264
 [#268]: https://github.com/JordanMPDS/laconic/issues/268
+[#283]: https://github.com/JordanMPDS/laconic/issues/283
+[#278]: https://github.com/JordanMPDS/laconic/issues/278
 [#269]: https://github.com/JordanMPDS/laconic/issues/269
+
+## Result
+
+**120 generations, 0 failed. 120 judgments, 0 judge failures. One `rules_cksum`
+(594915793), one CLI release (2.1.267), sequential, `--concurrency 1`. Safe mode
+off on both arms, as registered. $16.70.**
+
+**The primary is null and the manipulation check is the largest effect this loop
+has recorded on it.** In the order the registration fixed:
+
+| endpoint | control | treatment | |
+|---|--:|--:|---|
+| `quality_fails` (ITT, all runs) | 5/34 | 4/32 | p = 1.000 |
+| `safety_fails` (ITT, all runs) | 0/20 | 0/20 | p = 1.000 |
+| never-cut keyword failures | 0/60 | 0/60 | — |
+| responses with >= 1 level-`full` finding | **12/60** | **1/60** | **p = 0.0020** |
+
+`quality_fails` denominators are the quality-graded runs the trap exercised;
+`design-upload` returned `not_exercised` 6/10 on haiku in both arms and 0/10
+against 2/10 on sonnet. The safety cells are 20/20 pass in both arms, which by
+the rule of three bounds a safety failure rate at about 15% and is the limit of
+what 10 reps a side can say. **No registered gate moved, in either direction.**
+
+The manipulation check is not a gate and the registration said so in advance,
+but it is the number the round was built to produce: 20.0% of control responses
+carry a finding the shipped rules were supposed to prevent (95% CI
+[10.8%, 32.3%]), against 1.7% under enforcement ([0.0%, 8.9%]). By detector, the
+control's twelve are seven `preamble`, four `symbol_connectors` and one
+`sentence_initial_lowercase`; the treatment's one is `symbol_connectors`.
+
+**Fire rate 10/60, 16.7% [8.3%, 28.5%]** — statistically the control's own
+finding rate (12/60, p = 0.814), which is the check that the hook selects what
+the detectors find and nothing else. Per cell: `walkthrough`/haiku 5/10,
+`walkthrough`/sonnet 2/10, `fail-open`/haiku 2/10, `design-upload`/haiku 1/10,
+and zero in the two remaining sonnet cells.
+
+**Revision success 9 of 10, 95% CI [55.5%, 99.7%].** No threshold was
+pre-registered and this interval is why: nine of ten is compatible with a true
+rate anywhere from just over half to essentially certain. It is a reading, not a
+result.
+
+**The named-against-unnamed discrimination was never exercised, and that is a
+design finding.** All ten blocks had exactly one detector fire, so there was no
+unnamed residual to score and deepseek's estimator had nothing to estimate. It
+needs cells where detectors co-fire; these three at 10 reps do not supply one.
+
+**The one residual is the mechanism's own commentary, not a surviving
+violation.** `walkthrough`/sonnet rep 9 rewrote the offending line correctly and
+then prepended `Found it — "No refresh token → throws" used an arrow.
+Rewritten:` — the detector fires on the quotation of the arrow, inside a
+sentence the block reason caused. The other nine revisions edited in place and
+announced nothing. Revisions are surgical rather than rewrites: median word
+delta **-3** on a median 336-word original, six shorter and four longer, range
+-97 (a deleted preamble) to +13.
+
+**Guardrail: no reading damage detectable.** The stored `tools` field is a list
+of tool names rather than of calls, so the registered narrow definition is
+realised as a `Read` in a workspace that holds a copy of the case fixture and
+nothing else — a `Read` there is a fixture file opened, and "any tool ran" would
+have counted 8/20 where this counts 7/20 on the one cell they differ. Pooled over
+the three fixture cases, 47/60 control against 44/60 treatment, p = 0.670. `fail-open` and
+`walkthrough` read 20/20 in both arms; all the variance is `design-upload`, 7/20
+against 4/20. The design certifies nothing small — this is the third round to
+report that limit ([#278]) — but the mechanism is not visibly costing the
+reading [#264] is about. Final `output_tokens` inside the reading stratum,
+descriptive as registered: haiku 1030 against 1080, sonnet 1731 against 1952.
+
+**The cost is concentrated on the responses the hook touches, and invisible in
+the arm median.** Within model, arm medians are $0.0549 against $0.0543 on haiku
+and $0.1698 against $0.1724 on sonnet. Inside the treatment arm, blocked haiku
+responses cost $0.0655 and 20.1s against $0.0522 and 12.2s for unblocked ones;
+the two blocked sonnet responses cost $0.2164 at 44.1s. A 17% fire rate charges
+roughly a quarter more on the responses it fires on and approximately nothing on
+the round.
+
+**The round's one concession did not show up as a regime change.** Safe mode had
+to be off for both arms, which makes this round's absolute rates formally
+incomparable with the archive's. Measured anyway: the control's pooled level-`full`
+finding rate is 12/60 (20%) here against 82/563 (15%) on every stored `laconic`
+run at this same `rules_cksum` with safe mode on, p = 0.2578 — and in the
+direction that would understate the mechanism, not overstate it. One cell moved
+and it is the cell the scope was chosen from: `walkthrough`/haiku reads 15/15 in
+the archive against 7/10 here, p = 0.0522. At n = 10 that is one cell's noise,
+and it is reported because the registration quoted its 100%.
+
+### What [#268] gets, and what it does not
+
+The issue asked whether post-hoc enforcement does what an in-context rule could
+not. **On the policy it enforces, yes and decisively.** Twenty rounds of rule
+edits have never moved the deterministic violation rate on these cells the way
+one deterministic rewrite does, from 20% to 1.7% in a single turn, and the one
+survivor is an artefact of the block reason rather than an unfixed violation.
+
+**On whether the answers are better, no — and the round registered that as the
+decision endpoint.** The blind judge cannot tell the arms apart, at a design that
+could only ever have detected large harms. Nothing here says enforcement improves
+an answer. What it says is that in these three cells the mechanism clears the
+syntactic failures at no measured quality, safety, reading or arm-level cost,
+which is the evidence a shipping decision needed and did not have.
+
+Shipping is a separate decision and a separate cost: `evals/bench/stop_hook.py`
+is benchmark code, and the shipped mechanism would need the bash and PowerShell
+paths kept in sync. That, and kimi's reminder-only variant which this round
+declined, are filed as [#283].

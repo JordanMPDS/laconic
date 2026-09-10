@@ -4866,6 +4866,168 @@ with tempfile.TemporaryDirectory() as td_multi:
                                    ["design-cache", "design-upload"]))
 
 
+# --- #285: a round whose cells are not a full rectangle ---------------------
+#
+# --cases and --models are independent scopes that get crossed, so round 62's
+# three cells - walkthrough on haiku and sonnet, fail-open on haiku - could
+# only be asked for as four. It generated two shards and merged instead, and
+# paid merge.py's concurrency inflation for a round that ran sequentially.
+# Splitting into two invocations against one snapshot is not available: each
+# names a different subset of the cases, so each computes a different
+# cases_cksum, and the #69 guard reads that as an edited case.
+_ALL = sorted(d.name for d in (ROOT / "evals" / "cases").iterdir()
+              if (d / "prompt.md").exists())
+
+check("--cells names a ragged design in one invocation",
+      bench_run.parse_cells(
+          "walkthrough:haiku,walkthrough:sonnet,fail-open:haiku", _ALL)
+      == [("fail-open", "haiku"), ("walkthrough", "haiku"),
+          ("walkthrough", "sonnet")])
+check("the case half of a cell is a glob, so it reads like --cases",
+      bench_run.parse_cells("verdict-*:haiku", _ALL)
+      == [("verdict-experiment", "haiku"), ("verdict-rollout", "haiku"),
+          ("verdict-schema", "haiku")])
+check("overlapping globs resolve to one cell each, not to duplicates",
+      bench_run.parse_cells("walkthrough:haiku, *:haiku", _ALL)
+      == sorted((c, "haiku") for c in _ALL))
+
+
+def _cells_error(spec):
+    try:
+        bench_run.parse_cells(spec, _ALL)
+    except ValueError as e:
+        return str(e)
+    return ""
+
+
+check("a cell with no colon is refused rather than read as a case",
+      "not case:model" in _cells_error("walkthrough,fail-open:haiku"))
+check("a cell with an empty half is refused",
+      "not case:model" in _cells_error("walkthrough:")
+      and "not case:model" in _cells_error(":haiku"))
+# The typo that would otherwise buy a round of nothing: a misspelled case
+# silently contributes no cells, and the pass generates the rest as if the
+# design were what was asked for.
+check("a cell naming no case is refused, not dropped",
+      "no case matched" in _cells_error("walkthrouhg:haiku"))
+check("the stored form is resolved pairs, not the selector text",
+      bench_run.cells_of([("b", "haiku"), ("a", "sonnet")])
+      == [{"case": "a", "model": "sonnet"}, {"case": "b", "model": "haiku"}])
+
+
+def _run_cells(td, cells, *extra, **env):
+    """_run_py without --cases and --models, which --cells replaces."""
+    stub = Path(td) / "claude"
+    stub.write_text(_SEQ_STUB)
+    stub.chmod(0o755)
+    e = dict(os.environ, CFILE=str(Path(td) / "calls"), OK_ALL="1")
+    e.update(env)
+    return subprocess.run(
+        [sys.executable, str(ROOT / "evals" / "bench" / "run.py"),
+         "--claude-bin", str(stub), "--arms", "laconic", "--reps", "1",
+         "--cells", cells,
+         "--snapshot", str(Path(td) / "gen.json")] + list(extra),
+        capture_output=True, text=True, env=e)
+
+
+_R62 = "walkthrough:haiku,walkthrough:sonnet,fail-open:haiku"
+
+with tempfile.TemporaryDirectory() as td_cells:
+    _r = _run_cells(td_cells, _R62)
+    _snap = json.loads((Path(td_cells) / "gen.json").read_text())
+    check("run.py generates exactly the cells named and no fourth one",
+          _r.returncode == 0
+          and sorted((r["case"], r["model"]) for r in _snap["runs"])
+          == [("fail-open", "haiku"), ("walkthrough", "haiku"),
+              ("walkthrough", "sonnet")])
+    check("the budget prices the cells, not the rectangle they sit in",
+          "budget: 3 call(s) to make, of 3 cell(s) in this pass" in _r.stdout)
+    check("the snapshot records the design, so three cells cannot be read as "
+          "a 2x2 with one cell that failed to generate",
+          _snap["metadata"]["cells"]
+          == [{"case": "fail-open", "model": "haiku"},
+              {"case": "walkthrough", "model": "haiku"},
+              {"case": "walkthrough", "model": "sonnet"}])
+    check("and one cases_cksum over the union of the cases the cells name",
+          _snap["metadata"]["cases_cksum"]
+          == bench_run.cases_cksum(ROOT / "evals" / "cases",
+                                   ["fail-open", "walkthrough"]))
+    check("metadata.models is the union of the models the cells name",
+          _snap["metadata"]["models"] == ["haiku", "sonnet"])
+
+    # cases_cksum covers the case union, not the cells, so it cannot see this:
+    # dropping walkthrough/sonnet leaves both cases in the round and the
+    # checksum unmoved. Narrowing buys nothing anyway - a completed key is
+    # skipped already - so there is no legitimate resume this refuses.
+    _r2 = _run_cells(td_cells, "walkthrough:haiku,fail-open:haiku")
+    check("a resume that drops a cell is refused, which cases_cksum cannot do",
+          _r2.returncode != 0
+          and "started on a different set of cells" in _r2.stderr
+          and "walkthrough:sonnet" in _r2.stderr)
+    _r3 = _run_cells(td_cells, _R62 + ",floor:haiku")
+    check("and a resume that adds one is refused too, rather than unioned",
+          _r3.returncode != 0
+          and "started on a different set of cells" in _r3.stderr)
+    _r4 = _run_cells(td_cells, "fail-open:haiku,walkthrough:sonnet,walkthrough:haiku")
+    check("the same cells in another order resume, because the stored form is "
+          "sorted pairs rather than the text that named them",
+          _r4.returncode == 0 and "0 call(s) to make" in _r4.stdout)
+
+with tempfile.TemporaryDirectory() as td_conflict:
+    _r = _run_cells(td_conflict, _R62, "--models", "haiku")
+    check("--cells and --models together are refused rather than crossed",
+          _r.returncode != 0 and "--cells names the case-by-model cells" in _r.stderr)
+    _r = _run_cells(td_conflict, _R62, "--cases", "walkthrough")
+    check("--cells and --cases together are refused too",
+          _r.returncode != 0 and "--cells names the case-by-model cells" in _r.stderr)
+
+# The rectangular path is declared the same way, which is what closes the older
+# hole: cases_cksum never saw a resume that narrowed --models, because the case
+# union is unchanged by it.
+with tempfile.TemporaryDirectory() as td_rect:
+    _r = _run_py(td_rect, "--cases", "design-cache", "--models", "haiku,sonnet",
+                 OK_ALL="1")
+    _snap = json.loads((Path(td_rect) / "gen.json").read_text())
+    check("an ordinary rectangular round declares its cells as well",
+          _snap["metadata"]["cells"]
+          == [{"case": "design-cache", "model": "haiku"},
+              {"case": "design-cache", "model": "sonnet"}])
+    _r2 = _run_py(td_rect, "--cases", "design-cache", "--models", "haiku",
+                  OK_ALL="1")
+    check("so a resume that narrows --models is caught, which it never was",
+          _r2.returncode != 0
+          and "started on a different set of cells" in _r2.stderr)
+
+with tempfile.TemporaryDirectory() as td_legacy:
+    _r = _run_py(td_legacy, "--cases", "design-cache", OK_ALL="1")
+    _p = Path(td_legacy) / "gen.json"
+    _snap = json.loads(_p.read_text())
+    del _snap["metadata"]["cells"]
+    _p.write_text(json.dumps(_snap))
+    _r2 = _run_py(td_legacy, "--cases", "design-cache", OK_ALL="1")
+    check("a snapshot written before the field resumes with a note, not a "
+          "refusal, so every committed snapshot stays resumable",
+          _r2.returncode == 0
+          and "predates the cell declaration" in _r2.stdout)
+
+# The carry source is usually the previous round and usually wider. Without a
+# filter a round scoped to one cell inherits control runs for every cell the
+# source had - runs nothing in this round pairs with, in a file whose metadata
+# declares the narrow design.
+_carry_src = {"__path": "src.json", "metadata": {"rules_cksum": "1"}, "runs": [
+    {"case": c, "arm": "baseline", "model": m, "rep": 0, "ok": True, "text": "t"}
+    for c in ("walkthrough", "floor") for m in ("haiku", "sonnet")]}
+_carried = bench_run.carry_arms(
+    {"metadata": {}, "runs": []}, _carry_src, ["laconic"],
+    {("walkthrough", "haiku")})
+check("carry_arms copies only the cells this round declares",
+      sorted((r["case"], r["model"]) for r in _carried["runs"])
+      == [("walkthrough", "haiku")])
+check("and copies everything when no design is given, as it always did",
+      len(bench_run.carry_arms({"metadata": {}, "runs": []},
+                               _carry_src, ["laconic"])["runs"]) == 4)
+
+
 # --- #120: a snapshot records how many CLI invocations produced it ----------
 #
 # run.py is sequential, so a reader would reasonably assume one call at a time.
@@ -5293,6 +5455,11 @@ with tempfile.TemporaryDirectory() as td_merge:
                                    ["badnews", "floor"]))
     check("merge records where every run came from",
           [s["shard"] for s in merged["metadata"]["shards"]] == ["a", "b"])
+    check("a merge of shards that predate the cell declaration derives the "
+          "design from the records, so an old shard still merges",
+          merged["metadata"]["cells"]
+          == [{"case": c, "model": m} for c in ("badnews", "floor")
+              for m in ("haiku", "sonnet")])
     check("merge never declares less concurrency than the merge itself shows",
           merged["metadata"]["concurrency_declared"] >= 2)
 
@@ -5329,6 +5496,48 @@ with tempfile.TemporaryDirectory() as td_merge:
     proc_self = _merge_cli([a, b, "--out", a])
     check("merge refuses an output that is also an input",
           proc_self.returncode != 0)
+
+    # #285: shards that declare a design are merged on the declaration, not on
+    # what their records happen to show. A cell whose every rep failed is in
+    # the design and absent from the usable runs, and deriving would drop it -
+    # taking its case out of cases_cksum and its gap out of the note below,
+    # which are the two places a reader looks to find out that it failed.
+    def _declared(model, cases, cells, ok=True):
+        s = _shard(model, cases, ok=ok)
+        s["metadata"]["cells"] = [{"case": c, "model": m} for c, m in cells]
+        return s
+
+    e = _write("e.json", _declared("haiku", ["floor", "badnews"],
+                                  [("floor", "haiku"), ("badnews", "haiku")]))
+    f = _write("f.json", _declared("sonnet", ["floor"], [("floor", "sonnet")]))
+    out3 = str(td / "merged3.json")
+    proc3 = _merge_cli([e, f, "--out", out3, "--cases-dir",
+                        str(ROOT / "evals" / "cases")])
+    merged3 = bench_run.load_snapshot(out3)
+    check("merge unions the declared cells of a ragged round",
+          merged3["metadata"]["cells"]
+          == [{"case": "badnews", "model": "haiku"},
+              {"case": "floor", "model": "haiku"},
+              {"case": "floor", "model": "sonnet"}])
+    check("and reports a ragged round as complete rather than as a gap, which "
+          "is what makes the note worth reading when there is a real one",
+          proc3.returncode == 0 and "note: " not in proc3.stdout)
+    check("the merged file says how many cells it holds",
+          "cells: 3" in proc3.stdout)
+
+    g = _write("g.json", _declared("haiku", ["floor"], [("floor", "haiku")]))
+    h = _write("h.json", _declared("sonnet", ["badnews"],
+                                   [("badnews", "sonnet")], ok=False))
+    out4 = str(td / "merged4.json")
+    proc4 = _merge_cli([g, h, "--out", out4, "--cases-dir",
+                        str(ROOT / "evals" / "cases")])
+    merged4 = bench_run.load_snapshot(out4)
+    check("a cell whose every rep failed keeps its case in cases_cksum",
+          merged4["metadata"]["cases_cksum"]
+          == bench_run.cases_cksum(str(ROOT / "evals" / "cases"),
+                                   ["badnews", "floor"]))
+    check("and is reported as the gap it is",
+          "4 usable run(s) against 8 for the 2 declared cell(s)" in proc4.stdout)
 
 
 # The reminder is a second copy of a string that lives in hooks/laconic.sh, and

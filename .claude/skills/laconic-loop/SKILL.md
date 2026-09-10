@@ -341,6 +341,26 @@ python3 evals/bench/run.py --arms baseline,terse-control,word-compression,concis
   --snapshot "evals/snapshots/loop/round-$N.json"
 ```
 
+**A round scoped by fire rate rather than by case family names its cells.**
+`--cases` and `--models` are crossed, so round 62's three cells — `walkthrough`
+on haiku and sonnet, `fail-open` on haiku only — could only be asked for as
+four. `--cells` names them directly and replaces both flags:
+
+```bash
+python3 evals/bench/run.py --arms laconic --reps 30 \
+  --cells 'walkthrough:haiku,walkthrough:sonnet,fail-open:haiku' \
+  --snapshot "evals/snapshots/loop/round-$N.json"
+```
+
+Any round about a *mechanism* will scope this way, because the cells where a
+mechanism is observable are measured rather than named. Do not reach for two
+invocations into one snapshot instead: each names a different subset of the
+cases, so each computes a different `cases_cksum`, and the [#69] guard reads
+that as an edited case and refuses — correctly, since it cannot tell the two
+apart. The resolved design is recorded as `metadata.cells` and a resume must
+name the same cells, so name them all, including the ones already finished; a
+completed run key costs nothing to name because it is skipped.
+
 **Generate 10 reps a side, score, and extend only if the round needs it.**
 `run.py` resumes by key, so extending a snapshot from 10 reps to 25 costs only
 the 15 new ones — the staged round and the full one buy exactly the same data if

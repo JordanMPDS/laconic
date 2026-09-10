@@ -77,8 +77,21 @@ def merge(paths, cases_dir=None):
     runs = R.dedupe([r for s in snaps for r in s.get("runs", [])])
 
     cases_dir = cases_dir or fm.get("cases_dir") or str(R.CASES)
-    cases = sorted({r["case"] for r in runs})
-    models = sorted({r["model"] for r in runs})
+    # The design, from the shards that declare one (#285). Declared beats
+    # observed because a cell whose every rep failed is present in the design
+    # and absent from the runs, and dropping it would take its case out of
+    # cases_cksum and out of the completeness check below - the two places a
+    # reader looks to find out that it failed. A shard written before the
+    # field existed has no declaration, so the merge falls back to what the
+    # records show, over every record rather than the usable ones, which is
+    # the closest an old file can come to naming a cell that produced nothing.
+    declared = [s["metadata"].get("cells") for s in snaps]
+    if all(d is not None for d in declared):
+        cells = sorted({(c["case"], c["model"]) for d in declared for c in d})
+    else:
+        cells = sorted({(r["case"], r["model"]) for r in runs})
+    cases = sorted({c for c, _ in cells})
+    models = sorted({m for _, m in cells})
 
     out = {
         "metadata": dict(fm),
@@ -89,6 +102,7 @@ def merge(paths, cases_dir=None):
     meta["generated_at"] = min(s["metadata"]["generated_at"] for s in snaps)
     meta["cases_cksum"] = R.cases_cksum(cases_dir, cases)
     meta["cases_dir"] = cases_dir
+    meta["cells"] = R.cells_of(cells)
     meta["models"] = models
     meta["reps"] = max(s["metadata"].get("reps") or 0 for s in snaps)
     meta["concurrency_declared"] = max(
@@ -138,9 +152,9 @@ def main():
     meta = snap["metadata"]
     print("wrote %s: %d usable run(s) of %d record(s), from %d shard(s)"
           % (args.out, len(usable), len(runs), len(meta["shards"])))
-    print("  models: %s | cases: %d | cases_cksum %s | reps %d"
-          % (", ".join(meta["models"]), len({r["case"] for r in runs}),
-             meta["cases_cksum"], meta["reps"]))
+    print("  models: %s | cases: %d | cells: %d | cases_cksum %s | reps %d"
+          % (", ".join(meta["models"]), len({c["case"] for c in meta["cells"]}),
+             len(meta["cells"]), meta["cases_cksum"], meta["reps"]))
     # A merged round is exactly the case #120 was filed about, so the merged
     # file says what it reconstructs to rather than waiting for the sweep.
     print("  concurrency: declared %d, timestamps reconstruct to %d in flight"
@@ -150,13 +164,17 @@ def main():
               "--concurrency %d to the generating run.py invocations (#120)"
               % meta["max_runs_in_flight"])
     # The shape a reader checks first, and the one the hand merge got wrong.
-    expected = len({r["case"] for r in runs}) * len(meta["models"]) * meta["reps"] \
-        * len({r["arm"] for r in usable})
+    # Counted over the cells the round declared rather than over the case-by-
+    # model rectangle: a ragged design is complete at three cells where the
+    # rectangle wants four, and reporting that as a gap every time would teach
+    # a reader to ignore the line that exists to catch an under-merge (#285).
+    expected = len(meta["cells"]) * meta["reps"] * len({r["arm"] for r in usable})
     if len(usable) != expected:
-        print("note: %d usable run(s) against %d for a full case x model x arm x "
-              "rep grid. That is a round with gaps - not an error here, but the "
-              "gaps are not evenly spread unless the shards say so."
-              % (len(usable), expected))
+        print("note: %d usable run(s) against %d for the %d declared cell(s) at "
+              "%d rep(s) and %d arm(s). That is a round with gaps - not an error "
+              "here, but the gaps are not evenly spread unless the shards say so."
+              % (len(usable), expected, len(meta["cells"]), meta["reps"],
+                 len({r["arm"] for r in usable})))
 
 
 if __name__ == "__main__":

@@ -390,8 +390,11 @@ def main():
         # different case sets and reports a case change that did not happen -
         # which made --cases unusable on any snapshot holding more cases than
         # the filter names. prefer.py already reads the snapshot unfiltered.
-        live = bench_run.cases_cksum(
-            CASES, sorted({r["case"] for r in snap["runs"]}))
+        # From the declared design when the snapshot has one (#285), because
+        # the runs present are the wrong denominator for a round that stopped
+        # early: a cell that never generated takes its case out of the
+        # recomputation and the mismatch reads as an edited case file.
+        live = bench_run.cases_cksum(CASES, bench_run.snapshot_cases(snap))
         if stored != live and not args.allow_case_change:
             sys.exit("the case material changed since these runs were generated "
                      "(cases_cksum %s vs %s). Judging now would grade them against "

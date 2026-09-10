@@ -374,8 +374,7 @@ that `merge.py` sets `concurrency_declared` to at least the shard count, so the
 merged file declares 2 for a round that ran strictly sequentially;
 `max_runs_in_flight` reconstructs to 1 from the timestamps and the two together
 say what happened. **A round whose cells are not a full case-by-model cross
-product cannot be generated in one snapshot**, and that is filed as its own
-issue.
+product cannot be generated in one snapshot**, and that is [#285].
 
 **The judged denominators are thin on quality.** Only `fail-open` is
 quality-graded here and it contributes 30 runs an arm, against round 61's two
@@ -391,6 +390,7 @@ here is affected — but the committed snapshot carries them and a later reader
 should not mistake them for model output.
 
 [#69]: https://github.com/JordanMPDS/laconic/issues/69
+[#285]: https://github.com/JordanMPDS/laconic/issues/285
 [#231]: https://github.com/JordanMPDS/laconic/issues/231
 
 ### What [#283] gets, and what it does not

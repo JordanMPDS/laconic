@@ -620,7 +620,7 @@ def dedupe(runs):
     return out
 
 
-def carry_arms(snap, source, keep_arms):
+def carry_arms(snap, source, keep_arms, cells=None):
     """Copy every usable run whose arm is not being regenerated.
 
     A rule edit changes only the treatment arm - no control carries rules in
@@ -635,9 +635,20 @@ def carry_arms(snap, source, keep_arms):
     out from an arm that was never generated. concise-style is the first arm
     newer than the snapshots it would be carried from, and it will not be the
     last, so missing_arms records the gap and main() prints it.
+
+    `cells` scopes the copy to this round's design. The source is usually the
+    previous round's snapshot and is usually wider, so without it a round
+    scoped to three cells inherits control runs for every cell the source had
+    - runs no treatment arm in this round pairs with, sitting in a file whose
+    metadata declares the narrow design (#285). Rep is deliberately not
+    filtered: a carry source with more reps than this round is an ordinary
+    asymmetry the report already handles per arm, and the cell is the unit
+    this guard is about.
     """
+    keep = None if cells is None else set(cells)
     carried = [dict(r) for r in usable(source.get("runs", []))
-               if r["arm"] not in keep_arms]
+               if r["arm"] not in keep_arms
+               and (keep is None or (r.get("case"), r.get("model")) in keep)]
     snap["runs"].extend(carried)
     carried_arms = sorted(set(r["arm"] for r in carried))
     snap["metadata"]["carried_arms_from"] = {
@@ -655,7 +666,7 @@ def _now():
 
 def new_snapshot(reps, models, level, rules_cksum, arms, claude_bin="claude",
                  cases_ck=None, cases_dir=None, concurrency_declared=1,
-                 rep_offset=0):
+                 rep_offset=0, cells=None):
     arms_dict = {}
     for k, v in arms.items():
         entry = {"system_prompt": v}
@@ -674,6 +685,17 @@ def new_snapshot(reps, models, level, rules_cksum, arms, claude_bin="claude",
             "git_dirty": _git_dirty(),
             "cases_cksum": cases_ck,
             "cases_dir": cases_dir,
+            # The design, resolved, and written for a rectangular round as
+            # well as a ragged one (#285). A ragged round is unreadable
+            # without it - metadata naming two cases and two models beside
+            # runs for three cells reads as a 2x2 with one cell that failed to
+            # generate, which is a different and much worse story than a
+            # design that never asked for it. Writing it always is `codex`'s
+            # argument on tools/consult.sh: it makes the resume guard below
+            # one comparison rather than a special rule for ragged rounds, and
+            # it closes the older hole where a resume could narrow --models
+            # without the cases_cksum guard noticing.
+            "cells": cells_of(cells) if cells else None,
             "concurrency_declared": concurrency_declared,
             "laconic_level": level,
             "max_runs_in_flight": 0,
@@ -713,6 +735,78 @@ def match_case(name, patterns):
     uses, so the two flags read alike.
     """
     return any(fnmatch.fnmatch(name, p.strip()) for p in patterns.split(","))
+
+
+def parse_cells(spec, case_names):
+    """`case:model,case:model` resolved to the concrete pairs it names (#285).
+
+    `--cases` and `--models` are independent scopes that get crossed, so a
+    round whose cells are not a full case-by-model rectangle cannot be asked
+    for in one invocation. Round 62 wanted `walkthrough` on haiku and sonnet
+    and `fail-open` on haiku only; asking for those cases and those models
+    means asking for four cells and dropping one. Two invocations into one
+    snapshot is not the escape either, because cases_cksum covers the cases
+    the invocation names and the #69 guard reads a narrowed scope as an
+    edited case - correctly, since it cannot tell them apart.
+
+    Scoping by measured fire rate rather than by case family is not a one-off:
+    rounds 61 and 62 both did it, and any round about a mechanism will, because
+    the cells where a mechanism is observable are measured rather than named.
+
+    The case half is a glob, matched by match_case, so `verdict-*:haiku` reads
+    like `--cases`. The model half is literal. Returns sorted, de-duplicated
+    (case, model) pairs.
+    """
+    cells = set()
+    for raw in spec.split(","):
+        item = raw.strip()
+        if not item:
+            continue
+        # Partitioned at the last colon, so a diagnostic about a stray one
+        # names the whole item rather than silently taking half of it.
+        pat, _, model = item.rpartition(":")
+        if not pat or not model:
+            raise ValueError(
+                "cell %r is not case:model. A cell names one case (a glob is "
+                "allowed) and one model, separated by a colon" % item)
+        matched = [c for c in case_names if match_case(c, pat)]
+        if not matched:
+            raise ValueError("no case matched %r in cell %r" % (pat, item))
+        cells.update((c, model.strip()) for c in matched)
+    if not cells:
+        raise ValueError("--cells named no cells")
+    return sorted(cells)
+
+
+def cells_of(cells):
+    """The snapshot form of a cell list: sorted records, not `case:model` text.
+
+    Storing the selector text would make the colon a permanent snapshot-format
+    contract and would leave overlapping globs unresolved in the file; storing
+    the resolved pairs is what the resume guard compares. `codex` argued for
+    this on tools/consult.sh and it is adopted.
+    """
+    return [{"case": c, "model": m} for c, m in sorted(cells)]
+
+
+def snapshot_cases(snap):
+    """The case names a snapshot's cases_cksum was stamped over.
+
+    The declared design when there is one, the cases the records show
+    otherwise. The two agree on a finished round and come apart on one that
+    stopped early: a cell that never generated leaves no record, so deriving
+    from the runs drops its case and every downstream #69 check recomputes a
+    different checksum and reports a case change that did not happen (#285).
+    """
+    declared = (snap.get("metadata") or {}).get("cells")
+    if declared:
+        return sorted({c["case"] for c in declared})
+    return sorted({r["case"] for r in snap.get("runs", [])})
+
+
+def _cell_text(cells):
+    """A cell list as `case:model` for a diagnostic, never for a stored field."""
+    return ", ".join("%s:%s" % (c["case"], c["model"]) for c in cells) or "none"
 
 
 def cases_cksum(cases_dir, names):
@@ -1032,7 +1126,10 @@ def main():
                          "40 holds, so it is what a resume of one needs. "
                          "Required whenever the pass has multi-turn work left, "
                          "and recorded as metadata.turn_delivery")
-    ap.add_argument("--models", default="haiku,sonnet")
+    ap.add_argument("--models", default=None,
+                    help="comma-separated models, crossed with --cases. "
+                         "Defaults to haiku,sonnet. Not accepted alongside "
+                         "--cells, which names the cross product directly")
     ap.add_argument("--allow-opus", metavar="REASON", default=None,
                     help="why this hypothesis needs opus. Required whenever "
                          "--models names an opus model, and recorded as "
@@ -1051,7 +1148,20 @@ def main():
                          "case instead confounds case with shard, and "
                          "therefore with wall-clock time and with any CLI "
                          "release that lands mid-round")
-    ap.add_argument("--cases", default="*")
+    ap.add_argument("--cases", default=None,
+                    help="comma-separated case globs, crossed with --models. "
+                         "Defaults to every case. Not accepted alongside "
+                         "--cells, which names the cross product directly")
+    ap.add_argument("--cells", default=None,
+                    help="the case-by-model cells this round generates, as "
+                         "case:model,case:model - the case half may be a glob "
+                         "(#285). For a round whose design is not a full "
+                         "rectangle: --cells "
+                         "'walkthrough:haiku,walkthrough:sonnet,fail-open:haiku' "
+                         "is three cells, which --cases and --models can only "
+                         "ask for as four. Replaces both flags rather than "
+                         "narrowing them, and the resolved pairs are recorded "
+                         "as metadata.cells, which a resume must match")
     ap.add_argument("--arms", default=",".join(ARMS))
     ap.add_argument("--snapshot", default=str(SNAPSHOT))
     ap.add_argument("--claude-bin", default="claude")
@@ -1120,7 +1230,17 @@ def main():
 
     claude_bin = require_claude_bin(args.claude_bin)
 
-    models = [m.strip() for m in args.models.split(",") if m.strip()]
+    # --cells replaces the two scopes rather than narrowing them, so the
+    # design has exactly one source. Accepting all three would leave "which
+    # wins" to be worked out from the code, and the answer would be recorded
+    # in metadata for a reader who cannot see the command line.
+    if args.cells is not None and (args.cases is not None
+                                   or args.models is not None):
+        sys.exit("--cells names the case-by-model cells directly, so --cases "
+                 "and --models do not apply. Drop them, or drop --cells (#285)")
+    models = [m.strip()
+              for m in (args.models if args.models is not None
+                        else "haiku,sonnet").split(",") if m.strip()]
     arm_names = [a.strip() for a in args.arms.split(",") if a.strip()]
     bad_arms = [a for a in arm_names if a not in ARMS]
     if bad_arms:
@@ -1137,11 +1257,22 @@ def main():
     cases_dir = Path(args.cases_dir)
     if not cases_dir.is_dir():
         sys.exit("no such case directory: %s" % args.cases_dir)
-    cases = sorted(d for d in cases_dir.iterdir()
-                   if (d / "prompt.md").exists()
-                   and match_case(d.name, args.cases))
-    if not cases:
-        sys.exit("no cases matched: %s" % args.cases)
+    available = sorted(d for d in cases_dir.iterdir()
+                       if (d / "prompt.md").exists())
+    if args.cells is not None:
+        try:
+            cells = parse_cells(args.cells, [d.name for d in available])
+        except ValueError as e:
+            sys.exit("%s (#285)" % e)
+        wanted = {c for c, _ in cells}
+        cases = [d for d in available if d.name in wanted]
+        models = sorted({m for _, m in cells})
+    else:
+        cases = [d for d in available if match_case(d.name, args.cases or "*")]
+        if not cases:
+            sys.exit("no cases matched: %s" % (args.cases or "*"))
+        cells = sorted((d.name, m) for d in cases for m in models)
+    cellset = set(cells)
     # The gate, placed as early as the numbers allow: after the scope is known,
     # so the refusal can price the round, and before the snapshot is opened, so
     # a refused round leaves nothing behind. The count is the whole plan rather
@@ -1149,8 +1280,8 @@ def main():
     # direction for a warning about spending.
     opus_reason = require_opus_reason(
         models, args.allow_opus,
-        calls=len(cases) * args.reps * len(arm_names)
-        * sum(1 for m in models if "opus" in m))
+        calls=args.reps * len(arm_names)
+        * sum(1 for _, m in cells if "opus" in m))
 
     # The snapshot-level stamp is written when the file is created and never
     # again, so a round assembled into a pre-seeded file inherits that file's
@@ -1186,13 +1317,13 @@ def main():
         snap = new_snapshot(args.reps, models, args.level, cksum, arms, claude_bin,
                             cases_ck=case_ck, cases_dir=str(cases_dir),
                             concurrency_declared=args.concurrency,
-                            rep_offset=args.rep_offset)
+                            rep_offset=args.rep_offset, cells=cells)
         if args.carry_arms_from:
             source = load_snapshot(args.carry_arms_from)
             if source is None:
                 sys.exit("no snapshot to carry arms from: %s" % args.carry_arms_from)
             source["__path"] = args.carry_arms_from
-            carry_arms(snap, source, arm_names)
+            carry_arms(snap, source, arm_names, cellset)
             # Carried runs bring their own stamps, so a fresh file is only
             # per-run-stamped if the file it actually took runs from was (#272).
             if snap["runs"] and not (
@@ -1210,6 +1341,31 @@ def main():
                  "move it aside before regenerating"
                  % (snap["metadata"].get("rules_cksum"), cksum))
     else:
+        # The design's own guard, and the reason metadata.cells is written for
+        # every round rather than only for ragged ones (#285). cases_cksum
+        # covers the case union, not the cells, so a resume that drops one
+        # model from one case leaves the checksum untouched and silently turns
+        # a pre-registered design into a different one. Narrowing buys nothing
+        # anyway - completed keys are skipped already - so there is no
+        # legitimate resume this refuses.
+        #
+        # Checked before the case-material guard, because a resume that names
+        # a different scope moves cases_cksum too, and #69's message would
+        # then report a changed scope as an edited case file. That is the
+        # conflation #285 is about, and with the design declared the older
+        # guard no longer has to carry both meanings.
+        stored_cells = snap["metadata"].get("cells")
+        if stored_cells is None:
+            print("note: this snapshot predates the cell declaration (#285), so "
+                  "a resume that changes the design cannot be detected in it")
+        elif stored_cells != cells_of(cells):
+            sys.exit(
+                "this snapshot was started on a different set of cells "
+                "(%s, against %s now). Resuming would produce one round "
+                "generated from two designs. Name the cells it was started "
+                "with; a cell that is already complete costs nothing to name, "
+                "because a completed run key is skipped (#285)"
+                % (_cell_text(stored_cells), _cell_text(cells_of(cells))))
         # The same guard the rules have had since the beginning, for the case
         # material (#69). A snapshot written before this field existed carries
         # None and is resumed with a note rather than refused - refusing would
@@ -1277,7 +1433,7 @@ def main():
           for i, r in enumerate(snap["runs"])}
     done = completed_keys(snap)
 
-    total = len(cases) * len(arm_names) * len(models) * args.reps
+    total = len(cells) * len(arm_names) * args.reps
     # A multi-turn case (#166) is one cell and several CLI calls, so the two
     # numbers come apart and the call count is the one a subscription limit is
     # denominated in. Priced per case rather than per cell.
@@ -1286,7 +1442,8 @@ def main():
     reps = range(args.rep_offset, args.rep_offset + args.reps)
     left_cells = [(d.name, a, m, rep) for rep in reps for d in cases
                   for m in models for a in arm_names
-                  if run_key(d.name, a, m, rep) not in done]
+                  if (d.name, m) in cellset
+                  and run_key(d.name, a, m, rep) not in done]
     left = len(left_cells)
     left_calls = sum(turns_per_case[c] for c, _, _, _ in left_cells)
     probes = sum(1 for a in arm_names if a in ARM_OUTPUT_STYLES)
@@ -1346,6 +1503,12 @@ def main():
             case = case_dir.name
             turns = split_turns((case_dir / "prompt.md").read_text())
             for model in models:
+                # A ragged design is generated by walking the rectangle and
+                # skipping what it does not name, so the rep/case/model/arm
+                # order - arms innermost, sampled at adjacent moments - is the
+                # same one every earlier round was generated in (#285).
+                if (case, model) not in cellset:
+                    continue
                 for arm in arm_names:  # innermost: arms sampled at adjacent moments
                     n += 1
                     if run_key(case, arm, model, rep) in done:

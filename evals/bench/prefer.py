@@ -315,7 +315,11 @@ def main():
     # neither was asked.
     stored = snap.get("metadata", {}).get("cases_cksum")
     if stored is not None:
-        live = bench_run.cases_cksum(CASES, sorted({r["case"] for r in snap["runs"]}))
+        # From the declared design when the snapshot has one (#285): a
+        # round that stopped early has cells with no records, and
+        # deriving the case set from the runs would report their
+        # absence as an edited case file.
+        live = bench_run.cases_cksum(CASES, bench_run.snapshot_cases(snap))
         if stored != live and not args.allow_case_change:
             sys.exit("the case material changed since these runs were generated "
                      "(cases_cksum %s vs %s). Restore the cases, or pass "

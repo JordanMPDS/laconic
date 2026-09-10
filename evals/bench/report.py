@@ -29,7 +29,8 @@ ARM_ORDER = ["baseline", "terse-control", "word-compression",
              "concise-style", "laconic-min-a", "laconic-min-b",
              "laconic-abl-shown", "laconic-abl-arrow",
              "laconic-repl-told", "laconic-repl-unlabelled",
-             "laconic-repl-unframed", "laconic-enforced", "laconic"]
+             "laconic-repl-unframed", "laconic-enforced",
+             "laconic-enforced-reminder", "laconic"]
 # A ratio of small integers is not evidence: floor/sonnet laconic (26 words,
 # 0 auxiliary verbs) and code-fidelity/haiku baseline (49 words, ~1 auxiliary
 # verb) both clear a *rate* floor trivially - one short correct answer with

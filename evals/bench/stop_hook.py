@@ -4,7 +4,7 @@ completed turn and asks for one revision when it broke a rule already in the
 model's context.
 
     python3 evals/bench/stop_hook.py --level full [--never-cut 401 ...] \
-        [--record <path>]
+        [--reason-mode named|reminder] [--record <path>]
     python3 evals/bench/stop_hook.py --selftest
 
 Claude Code hands a `Stop` hook a JSON payload on stdin and reads a JSON
@@ -45,8 +45,39 @@ consulted target argued for which):
   uninterpretable - it cannot distinguish a weak mechanism from underspecified
   feedback.
 
+## Why there are now two reason modes (#283, round 62)
+
+The second alternative is no longer hypothetical. Round 61 answered its own
+question - the named block clears the violation - so a null under the unnamed
+one is no longer the uninterpretable thing that argument was about, and the
+comparison became buyable on the same cells. `--reason-mode reminder` is that
+variant: the same sentence with the quoted rule taken out, and nothing else
+changed.
+
+It is a shipping question rather than a curiosity. Both modes need the
+detectors. Only `named` additionally needs `metrics.POLICY_RULE`, the
+detector-to-rule-text table, which the shipped hook would have to carry down
+both the bash and the PowerShell path and keep in step with
+`rules/laconic.md`. If a sentence works as well as the table, the shipped
+mechanism is materially smaller and has one fewer thing that can drift.
+
+## Why both reasons end by asking for no commentary
+
+Round 61's one residual was not a surviving violation. The response rewrote the
+offending line correctly and then prepended `Found it - "No refresh token ->
+throws" used an arrow. Rewritten:`, and the detector fired on the arrow inside
+that quotation - on commentary the block reason itself caused. A reason that
+does not name the rule invites exactly that narration, so the artefact would
+load the `reminder` arm differentially and could manufacture a difference out
+of nothing. The clause is in both reasons for that reason, and it is `codex`'s
+on `tools/consult.sh`; `kimi` argued instead for keeping round 61's text
+byte-identical and classifying the residuals after the fact. The cost of the
+choice taken is that round 62's `named` arm is an internal replication of round
+61 rather than a reuse of its number, which the round document says.
+
 [#268]: https://github.com/JordanMPDS/laconic/issues/268
 [#269]: https://github.com/JordanMPDS/laconic/issues/269
+[#283]: https://github.com/JordanMPDS/laconic/issues/283
 """
 import argparse
 import json
@@ -58,17 +89,41 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 import metrics  # noqa: E402
 
 # Named once so the round's reason text is a fact about this file rather than
-# a description of it in a document. The second sentence is the one that keeps
-# the revision from being a cosmetic substitution: a rewrite that swaps an
-# arrow for a semicolon and drops the content is the failure the round is
-# looking for, and asking for it not to happen is what makes a residual
-# meaningful rather than tautological.
-REASON = (
-    'Your completed reply broke this rule, which was already in your '
-    'instructions: "%s". Rewrite the reply once so it complies, keeping every '
-    'piece of content the answer needs. Do not satisfy the rule by swapping '
-    'punctuation or wording while leaving the problem in place.'
+# a description of it in a document. The two modes share every sentence but the
+# first, and that is the whole point: #283 asks whether the block has to quote
+# the rule, so the arms must differ in rule specificity and in nothing else.
+#
+# `%s` in the `named` reason is the one quoted `metrics.POLICY_RULE` line. The
+# `reminder` reason takes no substitution and deliberately does not say "find
+# it" either - an extra instruction is a second difference, and it is the one
+# most likely to provoke the narration the last sentence exists to stop.
+#
+# Sentence by sentence, and each is load-bearing:
+#   1. what happened, with or without the rule quoted - the treatment.
+#   2. rewrite once, keeping the content - a rewrite that complies by deleting
+#      the answer is the failure the never-cut detector is watching for.
+#   3. no cosmetic substitution - swapping an arrow for a semicolon and losing
+#      the content is what makes a residual tautological rather than meaningful.
+#   4. no commentary - round 61's only residual was the model quoting its own
+#      offending line back inside a "Found it - ... Rewritten:" preamble, and
+#      the detector fired on the quotation. Without this, that artefact loads
+#      the unnamed arm differentially and manufactures the round's own effect.
+_TAIL = (
+    'Rewrite the reply once so it complies, keeping every piece of content the '
+    'answer needs. Do not satisfy the rule by swapping punctuation or wording '
+    'while leaving the problem in place. Reply with only the rewritten answer '
+    'and no commentary.'
 )
+
+REASONS = {
+    "named": 'Your completed reply broke this rule, which was already in your '
+             'instructions: "%s". ' + _TAIL,
+    "reminder": 'Your completed reply broke one of the rules that was already '
+                'in your instructions. ' + _TAIL,
+}
+
+# Round 61's arm, kept as a name rather than a default spelled in three places.
+DEFAULT_REASON_MODE = "named"
 
 
 def choose(fired):
@@ -82,7 +137,7 @@ def choose(fired):
     return min(sorted(fired), key=lambda n: metrics.POLICY_RANK[n])
 
 
-def decide(payload, level, never_cut=()):
+def decide(payload, level, never_cut=(), mode=DEFAULT_REASON_MODE):
     """The hook's whole decision, as (stdout dict, record dict).
 
     Separated from I/O so the tests exercise the real thing. The record is what
@@ -91,6 +146,13 @@ def decide(payload, level, never_cut=()):
     never fired" are indistinguishable in the snapshot, and the revision
     success rate - the one number in this round that is not tautological - is
     unmeasurable.
+
+    `named` is recorded in **both** modes, and it is the target detector rather
+    than a transcript of the reason: under `reminder` the rule is chosen and
+    then not quoted. Without it, "did the model clear the violation the hook
+    was actually reacting to?" is unanswerable in the arm that most needs
+    asking, because a response with two findings could clear either one
+    (`codex` on `tools/consult.sh`, #283).
     """
     text = payload.get("last_assistant_message") or ""
     fired = metrics.decisions(text, level, never_cut)
@@ -102,6 +164,7 @@ def decide(payload, level, never_cut=()):
         "named": None,
         "level": level,
         "never_cut": list(never_cut),
+        "reason_mode": mode,
     }
     # The revision is allowed to be worse than what it replaced, and the hook
     # accepts it anyway. Blocking twice is a retry loop with a model on the
@@ -111,8 +174,10 @@ def decide(payload, level, never_cut=()):
         return {}, record
     named = choose(fired)
     record.update({"blocked": True, "named": named})
+    reason = REASONS[mode]
     return {"decision": "block",
-            "reason": REASON % metrics.POLICY_RULE[named]}, record
+            "reason": reason % metrics.POLICY_RULE[named]
+                      if "%s" in reason else reason}, record
 
 
 PROBE_SENTINEL = "ENFORCED"
@@ -153,6 +218,14 @@ def main(argv=None):
                          "detector can have an opinion at all. Absent, it "
                          "cannot fire - which is a caller's omission and not "
                          "a pass")
+    ap.add_argument("--reason-mode", default=DEFAULT_REASON_MODE,
+                    choices=tuple(REASONS),
+                    help="whether the block quotes the rule that fired. "
+                         "'named' is round 61's arm; 'reminder' is #283's, the "
+                         "same sentence with the quotation taken out and "
+                         "nothing else changed. The choice is recorded on "
+                         "every firing, because a snapshot that does not say "
+                         "which reason a response got cannot be reanalysed")
     ap.add_argument("--record", default=None,
                     help="path to append this firing's record to, as one JSON "
                          "object per line")
@@ -180,7 +253,8 @@ def main(argv=None):
         # response in the arm into a failed run. Passing is the safe direction:
         # it under-reports enforcement rather than destroying the pass.
         payload = {}
-    out, record = decide(payload, args.level, tuple(args.never_cut))
+    out, record = decide(payload, args.level, tuple(args.never_cut),
+                         args.reason_mode)
     if args.record:
         try:
             append_record(args.record, record)
@@ -215,6 +289,39 @@ def selftest():
     check("the record names the detector quoted",
           rec["named"] == "symbol_connectors")
     check("the record says it blocked", rec["blocked"] is True)
+    check("the record says which reason it gave, so a snapshot can be "
+          "reanalysed without knowing how it was launched",
+          rec["reason_mode"] == "named")
+
+    # #283's arm. The two reasons must differ in rule specificity and in
+    # nothing else, because that is the whole contrast the round buys.
+    rout, rrec = decide({"last_assistant_message": arrowed}, "full",
+                        mode="reminder")
+    check("the reminder reason blocks on the same finding",
+          rout.get("decision") == "block")
+    check("the reminder reason quotes no rule at all",
+          metrics.POLICY_RULE["symbol_connectors"] not in rout["reason"])
+    check("no POLICY_RULE line leaks into the reminder reason, not just the "
+          "one that fired",
+          not any(r and r in rout["reason"]
+                  for r in metrics.POLICY_RULE.values()))
+    check("the reminder record still names the target detector, so clearance "
+          "of the finding the hook reacted to stays measurable",
+          rrec["named"] == "symbol_connectors")
+    check("the reminder record says which reason it gave",
+          rrec["reason_mode"] == "reminder")
+    check("the two reasons differ only in their first sentence",
+          out["reason"].split(". ", 1)[1] == rout["reason"].split(". ", 1)[1])
+    check("both reasons end by asking for no commentary, which is what keeps "
+          "round 61's narration artefact from loading one arm",
+          all(r.endswith("Reply with only the rewritten answer and no "
+                         "commentary.") for r in REASONS.values()))
+    check("the reminder reason takes no substitution",
+          "%s" not in REASONS["reminder"])
+    check("only the named reason takes one", "%s" in REASONS["named"])
+    check("neither reason tells the model to go looking, which would be a "
+          "second difference between the arms",
+          not any("find it" in r.lower() for r in REASONS.values()))
 
     out, rec = decide({"last_assistant_message": arrowed,
                        "stop_hook_active": True}, "full")
@@ -257,6 +364,8 @@ def selftest():
     out, rec = decide({}, "full")
     check("an empty payload passes rather than crashing", out == {})
     check("an empty payload records an empty text", rec["text"] == "")
+    check("a pass records its reason mode too, so an unfired response is not "
+          "a hole in the arm's record", rec["reason_mode"] == "named")
 
     check("the probe blocks a first reply", probe({}).get("decision") == "block")
     check("the probe asks for the sentinel run.py looks for",

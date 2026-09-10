@@ -15,6 +15,7 @@ ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "evals" / "bench"))
 import run as bench_run  # noqa: E402
 import metrics as bench_metrics  # noqa: E402
+import stop_hook as bench_stop_hook  # noqa: E402
 
 fails = 0
 
@@ -263,10 +264,11 @@ try:
 finally:
     bench_run.call = _orig_call
 
-check("arms include all thirteen",
+check("arms include all fourteen",
       sorted(bench_run.ARMS) == ["baseline", "concise-style", "laconic",
                                  "laconic-abl-arrow", "laconic-abl-shown",
                                  "laconic-enforced",
+                                 "laconic-enforced-reminder",
                                  "laconic-min-a", "laconic-min-b",
                                  "laconic-repl-told",
                                  "laconic-repl-unframed",
@@ -307,9 +309,42 @@ check("laconic is a placeholder for the same reason, so the two arms resolve "
       "from one hook call and cannot differ",
       bench_run.ARMS["laconic"] == "")
 
+# #283's second enforcement arm. It exists to answer whether the block has to
+# quote the rule, so the one thing that must hold is that the two arms differ
+# in that and in nothing else - a difference anywhere else, in the rules text
+# or in a second instruction, and the round is measuring something it cannot
+# name.
+check("both enforcement arms are hooked, and they are the only ones",
+      set(bench_run.ARM_STOP_HOOKS)
+      == {"laconic-enforced", "laconic-enforced-reminder"})
+check("each hooked arm names the block reason its hook gives",
+      set(bench_run.ARM_STOP_HOOKS.values()) == set(bench_stop_hook.REASONS))
+check("the two arms take different reasons, so they are not one arm twice",
+      len(set(bench_run.ARM_STOP_HOOKS.values()))
+      == len(bench_run.ARM_STOP_HOOKS))
+check("the two block reasons differ only in their first sentence",
+      bench_stop_hook.REASONS["named"].split(". ", 1)[1]
+      == bench_stop_hook.REASONS["reminder"].split(". ", 1)[1])
+check("only the named reason carries a rule quotation",
+      "%s" in bench_stop_hook.REASONS["named"]
+      and "%s" not in bench_stop_hook.REASONS["reminder"])
+check("no rule text reaches the reminder reason by any other route",
+      not any(r and r in bench_stop_hook.REASONS["reminder"]
+              for r in bench_metrics.POLICY_RULE.values()))
+
 _hook_cmd = bench_run.stop_hook_command("ultra", ("401", "refresh"), "/tmp/l")
 check("the hook command names the level the pass is running at",
       "--level ultra" in _hook_cmd)
+check("the hook command always names a reason mode rather than relying on the "
+      "hook's default, so an arm and the reason it gave cannot come apart",
+      all("--reason-mode %s" % m
+          in bench_run.stop_hook_command("full", (), "/tmp/l", m)
+          for m in bench_stop_hook.REASONS))
+check("the default reason mode is round 61's named one",
+      "--reason-mode named" in _hook_cmd)
+check("every hooked arm's reason mode is one the hook will accept",
+      all(m in bench_stop_hook.REASONS
+          for m in bench_run.ARM_STOP_HOOKS.values()))
 check("the hook command carries the case's never-cut keywords",
       _hook_cmd.rstrip().endswith("--never-cut 401 refresh"))
 check("the never-cut list is last, so its nargs='*' cannot swallow a flag",
@@ -2011,7 +2046,7 @@ check("carrying stamps the source and its cksum",
 check("carrying names the arms it could not carry",
       carried["metadata"]["carried_arms_from"]["missing_arms"]
       == ["concise-style", "laconic-abl-arrow", "laconic-abl-shown",
-          "laconic-enforced",
+          "laconic-enforced", "laconic-enforced-reminder",
           "laconic-min-a", "laconic-min-b", "laconic-repl-told",
           "laconic-repl-unframed", "laconic-repl-unlabelled",
           "word-compression"])
@@ -2071,6 +2106,7 @@ with tempfile.TemporaryDirectory() as td_gap:
           json.loads(gap_out.read_text())["metadata"]["carried_arms_from"]
           ["missing_arms"] == ["concise-style", "laconic-abl-arrow",
                                "laconic-abl-shown", "laconic-enforced",
+                               "laconic-enforced-reminder",
                                "laconic-min-a",
                                "laconic-min-b", "laconic-repl-told",
                                "laconic-repl-unframed",

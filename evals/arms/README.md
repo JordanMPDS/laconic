@@ -105,5 +105,37 @@ can be dropped or reworded, and the arm must land within 20 words of the shipped
 slice. Because the floor is itself checked against the live hook output, an edit
 to `rules/laconic.md` that moves the block fails all five arms at once.
 
+## `laconic-precheck-off.md`, `laconic-precheck-read.md` — the [#264] arms
+
+Round 56 measured the pre-action check costing 7.8 points of reading rate on
+`design-*`/sonnet with no quality cost the loop can resolve, and proposed a
+mechanism it could not test: the check's trigger is a broken thing, a design
+question has none, so the clause still in force is the one about not acting —
+and answering without acting means answering without reading.
+
+These two arms are the narrowest construction in this directory. **Each is the
+shipped `full` slice with the opening numbered list swapped and every other
+byte identical**, so `tests/test_bench.py` checks them by exact equality
+against the live hook output rather than structurally. Any edit to
+`rules/laconic.md`, inside the block or outside it, fails both.
+
+| arm | words | the list it carries |
+|---|--:|---|
+| `laconic-precheck-off` | 1,000 | the two-item list the file carried before round 55 — the check deleted, nothing put back |
+| `laconic` (shipped) | 1,041 | the check as round 55 accepted it |
+| `laconic-precheck-read` | 1,041 | the check with the reading instruction hoisted out of the broken-thing conditional |
+
+`-read` is **word-matched to the shipped slice**, which is the property that
+makes the recovery contrast interpretable: the two arms differ in where one
+instruction sits and not in how much file there is. `-off` is 41 words shorter,
+and those 41 words are the check itself — the thing round 55 bought.
+
+`-off` is not a rung on a ladder, it is a positive control. It re-establishes
+that the check costs reading *in the round's own window* before the round asks
+whether a rewording gives it back, which the loop needs because a control
+generated in a different window has misread this repo before.
+
+[#264]: https://github.com/JordanMPDS/laconic/issues/264
+
 [#275]: https://github.com/JordanMPDS/laconic/issues/275
 [#277]: https://github.com/JordanMPDS/laconic/issues/277

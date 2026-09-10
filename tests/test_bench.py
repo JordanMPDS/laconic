@@ -6453,5 +6453,106 @@ for _pilot in _pilots:
     if _got.returncode != 0:
         print(_got.stdout[-4000:] or _got.stderr[-4000:])
 
+# --- transcripts.py: what a Stop hook would have seen in a real session ----
+# The reconstruction is the whole audit (#283): a denominator that lets in tool
+# results, subagent turns or a resumed session's copied history reports a rate
+# for a population no hook ever meets. Every exclusion registered in
+# evals/results/loop/production-turns-283.md gets a case here.
+import transcripts as bench_transcripts  # noqa: E402
+
+def _entry(kind, uuid, content, **kw):
+    d = {"type": kind, "uuid": uuid, "message": {"role": kind, "content": content}}
+    d.update(kw)
+    return d
+
+_TRANSCRIPT = [
+    _entry("user", "u1", "walk me through the flow", entrypoint="cli",
+           timestamp="2026-09-01T00:00:00Z"),
+    _entry("assistant", "a1", [{"type": "tool_use", "id": "t1", "name": "Read",
+                                "input": {}}]),
+    _entry("user", "u2", [{"type": "tool_result", "tool_use_id": "t1",
+                           "content": "file body"}]),
+    _entry("assistant", "a2", [{"type": "thinking", "thinking": "x"}]),
+    _entry("assistant", "a3", [{"type": "text", "text": "Here's the flow:"}]),
+    _entry("user", "u3", "and the refresh path?", entrypoint="cli",
+           timestamp="2026-09-01T00:01:00Z"),
+    _entry("assistant", "a4", [{"type": "text", "text": "It refreshes once."}]),
+    _entry("user", "u4", "<local-command>x</local-command>", isMeta=True),
+    _entry("assistant", "a5", [{"type": "text", "text": "Here's the answer:"}],
+           isSidechain=True),
+]
+
+_turns = bench_transcripts.turns_of(_TRANSCRIPT, "proj", "sess")
+check("a tool result does not start a turn", len(_turns) == 2)
+check("the hook input is the last assistant text of the turn",
+      _turns[0]["text"] == "Here's the flow:")
+check("a turn that called a tool is marked as one", _turns[0]["tools"] is True)
+check("a turn that called none is not", _turns[1]["tools"] is False)
+check("an isMeta user entry does not start a turn",
+      _turns[1]["text"] == "It refreshes once.")
+check("a sidechain reply is not the turn's last message, because the subagent "
+      "fires SubagentStop rather than Stop",
+      all(t["text"] != "Here's the answer:" for t in _turns))
+
+_CUT_SHORT = [
+    _entry("user", "c1", "look at the backlog"),
+    _entry("assistant", "c2", [{"type": "text", "text": "Here's the plan:"}]),
+    _entry("assistant", "c3", [{"type": "tool_use", "id": "t9", "name": "Bash",
+                                "input": {}}]),
+]
+_cut = bench_transcripts.turns_of(_CUT_SHORT, "proj", "sess")
+check("a turn cut short after a tool call is not scored as its own opening "
+      "line, because Stop never fired on it",
+      len(_cut) == 1 and _cut[0]["text"] is None)
+
+_MIXED = [
+    _entry("user", "m1", "and now?"),
+    _entry("assistant", "m2", [{"type": "text", "text": "Reading it."},
+                               {"type": "tool_use", "id": "t8", "name": "Read",
+                                "input": {}}]),
+    _entry("user", "m3", [{"type": "tool_result", "tool_use_id": "t8",
+                           "content": "body"}]),
+    _entry("assistant", "m4", [{"type": "thinking", "thinking": "x"}]),
+    _entry("assistant", "m5", [{"type": "text", "text": "One line, no arrows."}]),
+]
+_mixed = bench_transcripts.turns_of(_MIXED, "proj", "sess")
+check("a trailing thinking entry does not end a turn",
+      len(_mixed) == 1 and _mixed[0]["text"] == "One line, no arrows.")
+
+_scored = bench_transcripts.score_turns([dict(t) for t in _turns], "full")
+check("the audit scores a turn with the detectors the hook blocks on",
+      _scored[0]["decisions"] == ["preamble"] and _scored[1]["decisions"] == [])
+
+with tempfile.TemporaryDirectory() as _td_tr:
+    _root = Path(_td_tr)
+    (_root / "proj-a").mkdir()
+    (_root / "-tmp-workspace").mkdir()
+    _lines = [json.dumps(e) for e in _TRANSCRIPT]
+    (_root / "proj-a" / "one.jsonl").write_text("\n".join(_lines) + "\n")
+    # A resumed session: the same entries copied into a second transcript,
+    # plus one turn of its own.
+    _resumed = _lines + [
+        json.dumps(_entry("user", "u9", "anything else?", entrypoint="cli")),
+        json.dumps(_entry("assistant", "a9", [{"type": "text", "text": "No."}])),
+    ]
+    (_root / "proj-a" / "two.jsonl").write_text("\n".join(_resumed) + "\n{ broken\n")
+    # Distinct uuids: the tmp tree is a different session, and the uuid dedupe
+    # is global.
+    _gen = [json.dumps(dict(e, uuid=e["uuid"] + "-gen")) for e in _TRANSCRIPT]
+    (_root / "-tmp-workspace" / "gen.jsonl").write_text("\n".join(_gen) + "\n")
+    _all = bench_transcripts.scan(_root)
+    check("a resumed session's copied history is counted once", len(_all) == 3)
+    check("a malformed line does not cost the file",
+          any(t["text"] == "No." for t in _all))
+    check("the benchmark's own tmp workspaces are out by default",
+          all(t["project"] == "proj-a" for t in _all))
+    check("--include-tmp lets them back in",
+          len(bench_transcripts.scan(_root, include_tmp=True)) > len(_all))
+
+_lo, _hi = bench_transcripts.wilson(0, 40)
+check("a zero-hit Wilson lower bound is not negative", _lo == 0.0 and _hi > 0.0)
+_lo, _hi = bench_transcripts.wilson(30, 40)
+check("Wilson brackets the point estimate", _lo < 0.75 < _hi)
+
 print("\n%d failure(s)" % fails)
 sys.exit(1 if fails else 0)

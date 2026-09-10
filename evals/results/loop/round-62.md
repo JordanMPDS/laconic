@@ -237,4 +237,173 @@ do and registered as nothing.
 
 ## Result
 
-Pending: registered above, before generation.
+**180 generations, 0 failed. 180 judgments, 0 judge failures. One `rules_cksum`
+(594915793, unchanged from round 61), one CLI release (2.1.267), sequential,
+safe mode off on both arms as registered, two delivery probes (one per shard).
+$23.18.**
+
+**The primary fired, in the registered direction, and it is one detector.**
+
+| endpoint, fired stratum | `laconic-enforced` | `laconic-enforced-reminder` | |
+|---|--:|--:|---|
+| **any level-`full` finding on the final response** | **1/22 (4.5%)** | **11/18 (61.1%)** | **p = 0.0002** |
+| the target detector still fires | 1/22 (4.5%) | 8/18 (44.4%) | p = 0.0055 |
+| a finding not present before the revision | 0/22 | 0/18 | — |
+
+**+56.6 points, 95% CI [+28.2, +75.5]**, Fisher two-sided p = 0.0002, one-sided
+p = 0.0001. The within-cell permutation test on the arm label registered in
+advance agrees: observed difference +0.566, one-sided p = 0.00027 over 200,000
+permutations at seed 62. Per cell, `walkthrough`/haiku reads 1/14 against 8/12
+and `walkthrough`/sonnet 0/5 against 3/6, both in the same direction.
+
+The effect is larger than the round was designed to see. The registered power
+table gave 94% at a 40-point difference and the observed one is 57.
+
+### The whole difference is `preamble`, and that is the finding
+
+Scored per detector — of the blocks where a detector was present, how often it
+still fires afterwards:
+
+| detector | `laconic-enforced` | `laconic-enforced-reminder` |
+|---|--:|--:|
+| `preamble` | **0/16** | **11/12** |
+| `symbol_connectors` | 1/6 | 0/9 |
+
+**An unnamed block clears the arrow every time and the preamble almost never**
+(p = 5.6e-07 on the `preamble` split; the arrow split is 1/6 against 0/9,
+p = 0.400, if anything the other way). Told only that it broke a rule, the model
+reliably finds a `→` in its prose and reliably does not consider `Here's the
+token refresh flow:` a violation of anything. The residuals are not subtle and
+not artefacts: eleven of the twelve reopen with a fresh preamble in the answer
+proper.
+
+The three responses in the `reminder` arm where two detectors fired say the same
+thing from inside one response. All three were `preamble` plus
+`symbol_connectors`, and all three came back with the arrow gone and the
+preamble intact.
+
+**So the round answers [#283]'s shipping question, and the answer is no.** The
+block has to quote the rule. A hook that ships a sentence would clear the
+readability findings that a model already agrees are wrong and leave the ones
+the rules exist to teach — which are the ones the plugin is for. The shipped
+mechanism needs `metrics.POLICY_RULE` down both paths, and the maintenance
+burden [#283] priced is the price of the mechanism working at all rather than an
+implementation detail that could be optimised away.
+
+### The registered artefact control worked
+
+Round 61's only residual was the model quoting its own offending line back
+inside a `Found it — ... Rewritten:` preamble, and this round added a
+no-commentary sentence to both reasons to stop that from loading the `reminder`
+arm differentially. **No residual in either arm is that artefact.** All eleven
+`reminder` residuals are ordinary preambles in the answer, and the single
+`named` residual is not commentary either — it is an arrow the revision left in
+a markdown heading:
+
+> `## Normal flow: `currentToken()` → `refresh()``
+
+which is the one place the rewrite did not look, having cleared the arrows from
+the prose around it. The `symbol_connectors` detector does not distinguish a
+heading from a sentence and the rule it implements says "inside a sentence", so
+this is a detector-scope observation rather than a rule violation, and it is
+reported rather than screened.
+
+### Guardrails, all null and all bounded rather than certified
+
+| guardrail | `laconic-enforced` | `laconic-enforced-reminder` |
+|---|--:|--:|
+| `safety_fails` (`walkthrough`, ITT) | 0/60 | 0/60 |
+| `quality_fails` (`fail-open`, ITT) | 0/30 | 0/30 |
+| never-cut keyword failures (all runs) | 0/90 | 0/90 |
+| reading rate, a `Read` in the fixture workspace | 90/90 | 90/90 |
+
+**The judge returned `pass` on all 180 runs and no `not_exercised`.** So the
+worry that drove the guardrail — a model hunting for an unnamed violation and
+mangling the answer — did not show up, and neither arm is distinguishable from
+the other on quality or safety. The rule of three bounds a safety failure rate
+at about 2.5% per arm and a never-cut failure at about 1.7%; the reading rate is
+at ceiling in every cell and certifies nothing beyond not being destroyed. This
+is a smaller judged design than round 61's and it agrees with it.
+
+**The `reminder` arm rewrites rather than edits.** Word delta from pre-revision
+to post-revision: `named` median **−6** words on a median 349.5-word original,
+16 shorter and 6 longer; `reminder` median **+6** on a median 363.0-word
+original, 3 shorter and 12 longer. Round 61 reported surgical revisions at a
+median of −3, and the `named` arm replicates that. A model that has to find the
+violation itself produces a different kind of revision, and a longer one.
+
+### Balance, as registered
+
+The fire decision is pre-treatment and any difference is sampling noise, so
+these are checks that the design ran as described rather than findings:
+
+- **Fire count 22/90 against 18/90** (p = 0.5910), pooled fire rate 40/180 =
+  22.2% [16.8%, 28.8%].
+- **Detector mix at fire**: 16 `preamble` and 6 `symbol_connectors` under
+  `named`, 12 and 9 under `reminder`.
+- **Co-firing responses**: 0 under `named`, 3 under `reminder`. This is the
+  imbalance that matters most and it went the wrong way for [#283]'s other
+  leftover — the named-against-unnamed residual estimator needs co-firing in the
+  **named** arm, and there was none again. Two rounds have now failed to supply
+  it on these cells, and the estimator needs a scope chosen to produce co-fires
+  rather than one chosen for fire rate.
+- **`fail-open`/haiku fired 3/30 under `named` and 0/30 under `reminder`**, so
+  that cell contributes nothing to the primary. Its fire rate was 2/10 in round
+  61 and the round planned for about 6 per arm; it delivered 3 and 0. The
+  primary rests on `walkthrough` at both models.
+
+### Cost
+
+Within model, arm medians are $0.0572 against $0.0566 on haiku and $0.1827
+against $0.1891 on sonnet. Inside each arm the cost is on the responses the hook
+fires on: blocked haiku responses cost $0.0650 at 19.8s under `named` and
+$0.0708 at 29.0s under `reminder`, against $0.0561 and 13.2s unblocked. **The
+unnamed block is the more expensive one** — it takes longer and produces a
+longer answer while clearing less.
+
+### Three disclosures
+
+**The round was generated as two shards and merged, and it did not plan to be.**
+`cases_cksum` covers the cases an invocation names, so a second invocation into
+the same snapshot scoping to `fail-open` was refused by the [#69] guard even
+though no case file had changed — the guard cannot tell a narrowed scope from an
+edited case, and `--allow-case-change` would have stamped the snapshot with a
+claim that was false. `evals/bench/merge.py` is the supported path and
+recomputes `cases_cksum` over the union, which is what was used. The cost is
+that `merge.py` sets `concurrency_declared` to at least the shard count, so the
+merged file declares 2 for a round that ran strictly sequentially;
+`max_runs_in_flight` reconstructs to 1 from the timestamps and the two together
+say what happened. **A round whose cells are not a full case-by-model cross
+product cannot be generated in one snapshot**, and that is filed as its own
+issue.
+
+**The judged denominators are thin on quality.** Only `fail-open` is
+quality-graded here and it contributes 30 runs an arm, against round 61's two
+quality cells. A round scoped for fire rate is not scoped for judging, and the
+0/60 above should be read as "nothing visible at this size" rather than as
+evidence of equivalence.
+
+**Every workspace picked up a `.remember/` tree.** An unrelated plugin's hooks
+write into the generation workspace, and `run.py`'s workspace diff ([#231])
+records them as artifacts the response authored. They appear in both arms
+identically and nothing in this round reads the artifact field, so no number
+here is affected — but the committed snapshot carries them and a later reader
+should not mistake them for model output.
+
+[#69]: https://github.com/JordanMPDS/laconic/issues/69
+[#231]: https://github.com/JordanMPDS/laconic/issues/231
+
+### What [#283] gets, and what it does not
+
+**The reminder-only variant is answered and it loses.** The comparison the issue
+said was buyable on the same cells was buyable, and the block needs the rule
+quoted. `kimi`'s argument before round 61 — that naming the rule tests
+enforcement-as-instruction rather than enforcement-as-reminder — is right about
+the distinction and the distinction turns out to matter: this mechanism works as
+an instruction, and as a reminder it works only on the violations the model
+would have agreed with anyway.
+
+**The shipping half of [#283] is not answered and this round does not move it.**
+Round 61 left it open on a null primary, this round's judge is null again at a
+smaller size, and nothing here says a `Stop` hook should ship. What it does say
+is that if one ships, it ships the table.

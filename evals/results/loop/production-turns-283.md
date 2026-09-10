@@ -169,3 +169,189 @@ synthetic examples only. `transcripts.py` prints excerpts only when asked and
 writes nothing into the repository.
 
 [#283]: https://github.com/JordanMPDS/laconic/issues/283
+
+## Result: the hook does not ship
+
+**1,429 turns from 133 sessions across 17 projects, 2026-08-06 to 2026-09-10,
+scored at level `full`. 681 turns ended on a tool call rather than on text and
+are excluded, as registered — 311 `sdk-py`, 280 `cli`, 90 `sdk-cli`.**
+
+**Block rate: 93/1,429 (6.5%), 95% [5.3%, 7.9%].** One turn in fifteen would
+have been blocked, and each block costs the user a whole extra generation.
+
+| detector | turns it fired on | share of all turns |
+|---|--:|--:|
+| `symbol_connectors` | 37 | 2.6% |
+| `closing_offers` | 32 | 2.2% |
+| `sentence_initial_lowercase` | 24 | 1.7% |
+| `preamble` | 2 | 0.1% |
+| `abbreviated_prose` | 0 | 0.0% |
+
+`never_cut_missing` cannot fire without a case's keywords and is not a clean
+sheet.
+
+| stratum | turns | blocked |
+|---|--:|--:|
+| tool-bearing | 1,105 | 81 (7.3%) |
+| prose-only | 324 | 12 (3.7%) |
+| 200+ words | 420 | 54 (12.9%) |
+| 60 to 200 words | 398 | 29 (7.3%) |
+| 20 to 60 words | 203 | 3 (1.5%) |
+| under 20 words | 408 | 7 (1.7%) |
+| `cli` entrypoint | 947 | 70 (7.4%) |
+| `sdk-cli` entrypoint | 479 | 23 (4.8%) |
+
+Per project the rate runs from 4.4% (this repository, 926 turns) to 13.4%
+(`spendid`, 67 turns); the four projects with fewer than ten turns are noise and
+are in the raw output rather than here.
+
+### The predictions
+
+| # | prediction | read |
+|---|---|---|
+| 1 | block rate below 15% | **held** — 6.5% |
+| 2 | `preamble` is the most frequent detector | **failed** — it is the rarest that fires at all, 2 of 93 |
+| 3 | tool-bearing turns fire higher than prose-only | **held, mechanism wrong** — 7.3% against 3.7%, but not through the narration branch it named |
+| 4 | adjudicated precision at or above 70% | **failed** — 62.5% by hand, 50.0% blind |
+
+**Prediction 2 is the substantive one and it inverts the benchmark.** Round 62's
+`named` arm blocked on `preamble` 16 times and on `symbol_connectors` 6; in
+production the ratio is 2 to 37. The benchmark's cells were `walkthrough` and
+`fail-open`, where a model opens with `Here's the token refresh flow:`. Real
+turns report work already done, and what they carry is an arrow between two
+states, a closing offer, or a telegraphic status line. **A mechanism validated
+almost entirely on preamble would, in production, spend 98% of its blocks on
+rules it has never been measured enforcing.**
+
+Prediction 3 held in direction and not in mechanism, which is worth saying
+plainly rather than counting as a hit: the registration attributed the excess to
+the preamble detector's tool-narration branch, and that branch fired twice in
+1,429 turns. The excess is `symbol_connectors` and `sentence_initial_lowercase`
+on turns that report finished work.
+
+### Adjudication: 40 firings, drawn at seed 283, two readings
+
+| reading | called a real violation | 95% |
+|---|--:|---|
+| hand | 25/40 (62.5%) | [47.0%, 75.8%] |
+| blind `claude -p`, sonnet | 20/40 (50.0%) | [35.2%, 64.8%] |
+
+**Both are below the registered bar of 70%, and both lower bounds sit at or
+below 50%.** They agree on 27 of 40, Cohen's κ = 0.350, and the aggregate
+closeness hides the fact that they disagree systematically and in opposite
+directions per detector:
+
+| rule the block would quote | firings | hand | blind |
+|---|--:|--:|--:|
+| `symbol_connectors` | 18 | 16 (89%) | 8 (44%) |
+| `closing_offers` | 13 | 6 (46%) | 9 (69%) |
+| `sentence_initial_lowercase` | 9 | 3 (33%) | 3 (33%) |
+
+The `sentence_initial_lowercase` row agrees on the count and not on the items:
+two disagreements cancel.
+
+**Where they split is where the rule is undecided, and both splits are
+substantive rather than sloppy.**
+
+- **The arrow.** Sixteen of the eighteen arrows are in a markdown table cell, a
+  UI breadcrumb (`Settings → Branches → Require status checks`), or after a bold
+  label (`**Panel frames 2 → 1.**`). The rule prohibits an arrow "inside a
+  sentence" and then lists "not after a bold label, not in a 'quick runbook'
+  line" — so the hand reading calls them violations by the list and the blind
+  reading clears them by the headline. Round 62 met this once, in the heading its
+  single `named` residual left an arrow in, and called it a detector-scope
+  observation. **In production it is not an edge case: it is the modal block.**
+- **The closing offer.** Seven of the thirteen are the carve-out — *"Asking the
+  user to confirm a destructive action is never a closing offer"*. `Want me to
+  merge #99 and #100 once #100's checks land?` is authorisation for a production
+  merge, not an offer of extra work, and two of the seven are the phrase
+  appearing inside a quotation the answer is analysing. The detector cannot see
+  the difference; the hand reading applied the carve-out and the blind reading
+  mostly did not.
+- **The lowercase sentence.** Six of the nine are not degraded grammar at all:
+  two are lowercase proper nouns starting a sentence (`laconic is 84%, tied
+  with…`, `mechanics-review was responding to…`), three are a sentence split at
+  a false boundary, and one is the whole reply `ok`. This is the detector the
+  audit reads worst on, and it is a grammar *proxy* — quoting its rule at a user
+  tells them they dropped an article when they capitalised a product name.
+
+### The decision, against the bars registered above
+
+| bar | registered | measured | |
+|---|---|---|---|
+| block rate | ≤ 5% of turns | **6.5%**, 95% [5.3%, 7.9%] | **fails** |
+| precision | ≥ 70%, lower bound > 50% | **62.5%** hand [47.0%, 75.8%], 50.0% blind | **fails** |
+| not concentrated where a rewrite is nonsense | — | 1.7% on turns under 20 words, 12.9% on turns over 200 | **holds** |
+
+**Two of three fail, so the hook does not ship.** `evals/bench/stop_hook.py`
+stays benchmark instrumentation, and [#283] closes on this number.
+
+The third bar holding is the part worth keeping: the worry that drove it — a
+hook interrupting a one-line acknowledgement to rewrite it — is not what the
+data shows. Blocks land on long answers, which is where the rules are about
+something. The mechanism fails on precision and volume, not on absurdity.
+
+**What would reopen it**, named here so a later round does not have to invent
+it: a fire set restricted to detectors with a *measured production* precision
+above the bar, re-audited on this corpus before shipping rather than after.
+Nothing here licenses assembling that set post hoc from the table above — three
+detectors at n = 9 to 18 on one operator's transcripts is a reason to measure
+again, not a ranking to ship. And the two readings disagree most on exactly the
+detector that would carry such a set.
+
+### What this changes about the benefit half, which is nothing
+
+Rounds 61 and 62 stand as they are. The mechanism clears what it names, no
+large quality harm was detected in two small studies, and neither of those
+claims is touched by a corpus that contains no arms. What the audit changes is
+the population those claims are about: **the benchmark measured the hook on the
+violation it almost never meets in production.** A round wanting to license
+shipping would have to be scoped to the production mix — arrows in tables and
+breadcrumbs, closing offers next to their carve-out — and both of those are
+places where the rule itself is what needs deciding first.
+
+`kimi`'s framing on `tools/consult.sh` deserves recording, because it is the
+strongest argument against the way this document was set up and it survives the
+result: compliance is the mechanism and not the outcome, so a mechanism with no
+measured outcome benefit is evidence that the mechanism misfires or the rules
+are wrong, not that the judge measured the wrong thing. The audit is consistent
+with that reading. Half of these blocks would have been the rules misfiring.
+
+### Disclosures
+
+**The reconstruction was corrected once, mid-audit, and the first labels were
+discarded.** The first implementation took the last text-bearing assistant entry
+in a turn rather than the last entry, which the registration above already ruled
+out in as many words. It scored the opening line of turns that were cut short
+after a tool call — an agentic turn opens with `I'll start by reading the
+backlog.` — and it read 13.5% over 1,824 turns with `symbol_connectors` at 144
+and `preamble` at 49. Correcting it to the registered rule removed 681 turns,
+including 311 structured-output agent turns that end every turn on a tool call,
+and halved the rate. A sample of 40 had already been drawn and blind-judged
+under the wrong denominator; it was discarded, the sample redrawn at the same
+seed from the corrected population, and every number above is from the second
+draw. **The uncorrected figure is stated here rather than dropped**, because the
+two differ by a factor of two and a reader deciding how much to trust the
+denominator is entitled to see what it was sensitive to.
+
+**One operator, one model family, one dominant repository.** 926 of 1,429 turns
+are this repository's own work, and every session ran under the operator's
+`CLAUDE.md` as well as the plugin's rules. A different user writes differently
+and a different corpus would read differently.
+
+**The hand labels and the design are the same author.** The bars were registered
+before the labels existed, which is what a procedure can fix; that the labeller
+also wanted an answer is disclosed and not fixed. The blind pass is a partial
+check and `codex` is right that it is not an independent one — it is a model
+from the same family as the one whose turns are being judged.
+
+**The blind pass sent 40 sampled replies to the API.** They are the operator's
+own text and they were generated in sessions that already ran against it. No
+transcript text is in this document or anywhere in the repository, and
+`transcripts.py` writes a sample only to a path it is told to use.
+
+**One thing this measured is a fact about a hook, not about the loop's
+scoring.** These detectors were validated as scorers of benchmark responses and
+the audit says nothing against that. What it says is that scoring an arm and
+blocking a user's turn are different jobs, and a precision that is adequate for
+the first is not automatically adequate for the second.

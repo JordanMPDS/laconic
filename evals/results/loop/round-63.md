@@ -368,4 +368,170 @@ reading rather than a longer sentence asserting it.
 
 # Results
 
-> Not yet generated.
+**Gate 1 does not fire. The round is ASSAY-INCONCLUSIVE**, which the
+registration named in advance. Gate 2 was not tested, nothing ships,
+`rules/laconic.md` is untouched, and [#264] stays open with this round recorded
+against it as a failed assay.
+
+Per the registration, and stated here rather than left to a reader: **this is
+not evidence that the pre-action check is harmless.** The design cannot deliver
+that, and the sentence forbidding that reading was written before the numbers
+were in for exactly this outcome.
+
+1,740 generations, sonnet, no judgments, 0 failed calls. Generated 2026-09-10
+and resumed 2026-09-14 after a usage limit stopped all three design shards at
+the 8-consecutive-failure rule; no failed key counts as done, so the resume
+regenerated exactly what was missing.
+
+## Gate 1, the assay
+
+| arm | unread | rate |
+|---|--:|--:|
+| `laconic-precheck-off` | 226/420 | 53.8% |
+| `laconic` | 232/420 | 55.2% |
+
+Difference **+1.4 points**, 90% CI **[-4.2, +7.1]**. Mantel-Haenszel
+**z = +0.428, one-sided p = 0.3343** over 6 strata; within-case permutation
+**p = 0.3619**. The two agree, so the normal approximation is not the issue.
+
+The sign is the direction round 56 predicted and the magnitude is not. The
+interval excludes both round 56's headline **+7.8** and its **+10.4** on these
+six cells, so this is a well-powered null against the effect the round was
+built for, not an absence of data. Registered power was 0.944 for gate 1 alone
+at this n against +7.8.
+
+## What actually moved, and why the positive control earned its cost
+
+Round 56's `design-*` contrast, recomputed on the six cells this round scores —
+`design-alerting` and `design-audit-log` were excluded in advance for reading
+0/40 unread on both sides, so they contribute nothing:
+
+| | no check | check | difference |
+|---|--:|--:|--:|
+| round 56 (2026-09-08) | 112/240 (46.7%) | 137/240 (57.1%) | **+10.4 pts** |
+| round 63 (this round) | 226/420 (53.8%) | 232/420 (55.2%) | **+1.4 pts** |
+
+Difference of differences +9.0 points, **z = 1.579, two-sided p = 0.1142**. The
+two rounds are therefore **not formally distinguishable**, and this round does
+not claim round 56 measured an artefact. What it claims is narrower and is what
+its own data support: with a control generated beside the treatment, the gap
+is not there.
+
+**The drift is on the no-check arm.** The check arm barely moved between the two
+windows, 57.1% to 55.2%; the arm without the check went 46.7% to **53.8%**, up
+7.1 points. That is the era effect this repository has been bitten by before,
+and it lands on precisely the arm a round would have been tempted not to buy.
+
+Had this round cited round 56's control instead of generating
+`laconic-precheck-off` in the same window, it would have read:
+
+> 55.2% against 46.7% = **+8.6 points, one-sided p = 0.0168** — gate 1 fires.
+
+The round would then have gone on to test gate 2 and could have shipped a
+wording on the strength of a control from another window. Round 31 registered a
+count against a three-day-old control that read 31 where its own simultaneous
+control read 46; this is the same failure, caught the same way, and it is the
+strongest argument in the archive for the positive-control arm being
+non-negotiable rather than a nicety.
+
+## Per-cell disclosure
+
+No second alpha rides on these.
+
+| cell | `-off` | `laconic` | `-read` |
+|---|--:|--:|--:|
+| `design-cache` | 40/70 (57%) | 32/70 (46%) | 33/70 (47%) |
+| `design-rate-limit` | 26/70 (37%) | 30/70 (43%) | 23/70 (33%) |
+| `design-realtime` | 24/70 (34%) | 38/70 (54%) | 31/70 (44%) |
+| `design-retry` | 46/70 (66%) | 39/70 (56%) | 33/70 (47%) |
+| `design-search` | 35/70 (50%) | 38/70 (54%) | 38/70 (54%) |
+| `design-upload` | 55/70 (79%) | 55/70 (79%) | 44/70 (63%) |
+
+The check raises the unread rate on two cells, lowers it on two, and ties on
+two. That dispersion is what a +1.4-point round-wide difference looks like from
+underneath, and it is why the round-wide reading is the registered one.
+
+## Guardrails
+
+All reported, though with nothing shipping none of them gate anything.
+
+| guardrail | result | |
+|---|--:|---|
+| prose length, `-read` against `laconic`, all runs | 1.057x | within the 1.10x margin |
+| prose length, blocked on the reading stratum ([#131]) | 1.055x | within margin |
+| median turns per run, `laconic-precheck-off` | 1 (mean 3.59) | |
+| median turns per run, `laconic` | 1 (mean 3.54) | |
+| median turns per run, `laconic-precheck-read` | **4** (mean 4.01) | disclosure |
+
+**The sentinel is clean on the endpoint it was built for.** Across the four
+cases that ship no fixture, every arm opened nothing:
+
+| arm | opened something | tool calls |
+|---|--:|--:|
+| `laconic-precheck-off` | 0/160 (0.0%) | 0 |
+| `laconic` | 0/160 (0.0%) | 0 |
+| `laconic-precheck-read` | 0/160 (0.0%) | 0 |
+
+An unconditional "read what grounds the answer" produced **no** gratuitous
+reading where there is nothing to read. That was the larger of the two
+additions `codex` and `kimi` both asked for, and it answers its question
+cleanly even though the round it was attached to did not.
+
+**The sentinel's prose length does not clear the margin.** `-read` against
+`laconic` is **1.103x, p = 0.0004** on both scopes, against a 1.10x margin.
+Four cells is below the six a scoped sign test needs, so per the registration
+this is published as a disclosure and gates nothing — but it is the one signal
+in the round that would have needed answering before `-read` could ship, and
+any future round proposing this wording inherits it.
+
+**Context, not a gate:** the check itself buys real compression. `laconic`
+against `laconic-precheck-off` is **0.894x** all-runs and **0.881x** on the
+reading stratum, both at p < 0.0001. Whatever it costs, it is not costing
+nothing in return.
+
+## Instrument audits
+
+- **Release ([#272]).** The round spans 2.1.267 and 2.1.270.
+  `evals/bench/release.py` flags the day split, which is 39%/61% rather than
+  50/50. The question that matters is whether release is correlated with *arm*,
+  and it is not: the three arms sit at 39.0%, 39.3% and 38.8% on 2.1.267, a
+  chi-square of arm against release of **0.020, dof 2, p = 0.99**. The endpoint
+  itself is flat across the boundary, 52.2% unread on 2.1.267 against 52.5% on
+  2.1.270. One interleaved pass is what bought that, as registered.
+- **Concurrency ([#120]).** Scoped to this round's five snapshots,
+  `evals/bench/concurrency.py` reports **no arm-day exceeds its declared
+  concurrency** and exits 0. Three shards in flight against the 4 declared, and
+  under the [#255] ceiling. The archive-wide run still exits 1 on the legacy
+  snapshots `AGENTS.md` already documents.
+
+## Disclosure: the scorer was run on partial data mid-round
+
+After the first generation window stopped, `score_precheck.py` was run against a
+scratch copy of the then-incomplete snapshots to verify the merge-and-score
+pipeline executed end to end. It read assay-inconclusive then as well. This
+changed nothing: the decision rule is mechanical and fixed in this file, the
+round completed to its registered n regardless, and no arm, case, scope or
+threshold was altered afterwards. It is recorded because this loop does not
+discover its analyses at the end.
+
+## What this leaves
+
+[#264] keeps all three of its questions. Its second one — whether hoisting the
+reading instruction is the mechanism — is **not answered**, because the sequence
+is registered and gate 1 gates gate 2. `laconic-precheck-read` is measured and
+not judged, and what exists on it is the length signal above rather than a
+reading result.
+
+The finding worth carrying forward is not about the wording at all. It is that
+**round 56's reading cost did not reproduce against a simultaneous control**,
+and that a design citing the older control would have shipped on it. Whether
+round 56's effect was era or is real and merely smaller than 10 points is open,
+and the arithmetic round 55 recorded still applies: an effect of the size this
+round's interval permits is not one the loop can buy its way to on
+`quality_fails`.
+
+[#120]: https://github.com/JordanMPDS/laconic/issues/120
+[#131]: https://github.com/JordanMPDS/laconic/issues/131
+[#255]: https://github.com/JordanMPDS/laconic/issues/255
+[#264]: https://github.com/JordanMPDS/laconic/issues/264
+[#272]: https://github.com/JordanMPDS/laconic/issues/272

@@ -5266,6 +5266,18 @@ _expected_concurrent = {
     # was resumed by key; the resume is still one sequential invocation, so
     # it widens the span without widening what was in flight.
     "round-56-control.json", "round-56-edit.json",
+    # Round 63 is a one-tree, three-arm round sharded by rep range into three,
+    # each strictly sequential and each declaring --concurrency 4 for the four
+    # run.py processes the registration budgeted. Only the merge reaches the
+    # sweep, and it reconstructs to exactly the three shards that produced it.
+    # The sentinel is its own snapshot rather than a merge partner, because
+    # `cases_cksum` covers the cases a snapshot names (#69), and it is one
+    # sequential shard that does not reach the sweep. The merge spans four days
+    # because a usage limit stopped all three design shards at the
+    # eight-consecutive-failure rule and they were resumed by key; a resume is
+    # still one sequential invocation, so it widens the span without widening
+    # what was in flight.
+    "round-63.json",
 }
 _found = set()
 for _p in sorted((ROOT / "evals" / "snapshots").rglob("*.json")):

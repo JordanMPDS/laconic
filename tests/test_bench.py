@@ -264,12 +264,14 @@ try:
 finally:
     bench_run.call = _orig_call
 
-check("arms include all fourteen",
+check("arms include all sixteen",
       sorted(bench_run.ARMS) == ["baseline", "concise-style", "laconic",
                                  "laconic-abl-arrow", "laconic-abl-shown",
                                  "laconic-enforced",
                                  "laconic-enforced-reminder",
                                  "laconic-min-a", "laconic-min-b",
+                                 "laconic-precheck-off",
+                                 "laconic-precheck-read",
                                  "laconic-repl-told",
                                  "laconic-repl-unframed",
                                  "laconic-repl-unlabelled",
@@ -508,6 +510,64 @@ _gone_shown = set(_slice_lines) - set(_shown.split("\n")) - {""}
 _gone_arrow = set(_slice_lines) - set(_arrow.split("\n")) - {""}
 check("no line is removed by both ablation arms",
       _gone_shown and _gone_arrow and not (_gone_shown & _gone_arrow))
+
+
+# The #264 pre-action-check arms. A fourth kind, and the narrowest: each is the
+# shipped `full` slice with the opening numbered list swapped for one specific
+# alternative and every other byte identical. So the invariant can be exact
+# rather than structural - build the arm from the live slice here and compare
+# it to the file on disk. An edit to rules/laconic.md anywhere, inside the
+# block or outside it, fails this and the arm has to be rebuilt, which is the
+# point: round 63's whole claim is that the three arms differ in one list and
+# nothing else.
+_PRECHECK_BLOCK = """One check before acting, and two before sending:
+
+1. Is the question about something that is broken? Diagnosing it is the
+   answer; fixing it is not. Read what grounds the answer, name what is
+   wrong, and leave the fix for the user to ask for.
+2. What is the smallest set of claims that fully answers this?
+3. Is anything here something the user did not ask for?
+"""
+_PRECHECKS = {
+    # arm -> the list it carries in place of the shipped one
+    "laconic-precheck-off": """Two checks before sending:
+
+1. What is the smallest set of claims that fully answers this?
+2. Is anything here something the user did not ask for?
+""",
+    "laconic-precheck-read": """One check before acting, and two before sending:
+
+1. Before writing, read what grounds the answer. If the question is about
+   something that is broken, diagnose it rather than fix it: name what is
+   wrong and leave the fix for the user to ask for.
+2. What is the smallest set of claims that fully answers this?
+3. Is anything here something the user did not ask for?
+""",
+}
+_precheck_slice = bench_run.laconic_rules(ROOT, "full")
+check("the shipped slice carries the pre-action check exactly once",
+      _precheck_slice.count(_PRECHECK_BLOCK) == 1)
+for _pre, _block in _PRECHECKS.items():
+    _text = bench_run.ARMS[_pre]
+    check("%s is the shipped slice with only the check block swapped" % _pre,
+          _text == _precheck_slice.replace(_PRECHECK_BLOCK, _block))
+    check("%s no longer carries the shipped check block" % _pre,
+          _PRECHECK_BLOCK not in _text)
+
+# `-read` is word-matched to the shipped slice and `-off` is not, and both
+# facts are load-bearing. The recovery contrast is arm against arm at equal
+# length, so a length artefact cannot explain it; the assay contrast is against
+# a slice 41 words shorter, which is the check's own weight and is the thing
+# round 55 bought. Registered here so a rewording that drifts either way fails.
+check("laconic-precheck-read is word-matched to the shipped slice",
+      len(bench_run.ARMS["laconic-precheck-read"].split())
+      == len(_precheck_slice.split()))
+check("laconic-precheck-off is the slice minus the check's 41 words",
+      len(_precheck_slice.split())
+      - len(bench_run.ARMS["laconic-precheck-off"].split()) == 41)
+check("the two pre-action arms are two different texts",
+      bench_run.ARMS["laconic-precheck-off"]
+      != bench_run.ARMS["laconic-precheck-read"])
 
 
 rules = bench_run.laconic_rules(ROOT, "full")
@@ -2047,7 +2107,9 @@ check("carrying names the arms it could not carry",
       carried["metadata"]["carried_arms_from"]["missing_arms"]
       == ["concise-style", "laconic-abl-arrow", "laconic-abl-shown",
           "laconic-enforced", "laconic-enforced-reminder",
-          "laconic-min-a", "laconic-min-b", "laconic-repl-told",
+          "laconic-min-a", "laconic-min-b",
+          "laconic-precheck-off", "laconic-precheck-read",
+          "laconic-repl-told",
           "laconic-repl-unframed", "laconic-repl-unlabelled",
           "word-compression"])
 check("an arm being regenerated is not reported as missing",
@@ -2108,7 +2170,10 @@ with tempfile.TemporaryDirectory() as td_gap:
                                "laconic-abl-shown", "laconic-enforced",
                                "laconic-enforced-reminder",
                                "laconic-min-a",
-                               "laconic-min-b", "laconic-repl-told",
+                               "laconic-min-b",
+                               "laconic-precheck-off",
+                               "laconic-precheck-read",
+                               "laconic-repl-told",
                                "laconic-repl-unframed",
                                "laconic-repl-unlabelled", "terse-control",
                                "word-compression"])
@@ -5201,6 +5266,18 @@ _expected_concurrent = {
     # was resumed by key; the resume is still one sequential invocation, so
     # it widens the span without widening what was in flight.
     "round-56-control.json", "round-56-edit.json",
+    # Round 63 is a one-tree, three-arm round sharded by rep range into three,
+    # each strictly sequential and each declaring --concurrency 4 for the four
+    # run.py processes the registration budgeted. Only the merge reaches the
+    # sweep, and it reconstructs to exactly the three shards that produced it.
+    # The sentinel is its own snapshot rather than a merge partner, because
+    # `cases_cksum` covers the cases a snapshot names (#69), and it is one
+    # sequential shard that does not reach the sweep. The merge spans four days
+    # because a usage limit stopped all three design shards at the
+    # eight-consecutive-failure rule and they were resumed by key; a resume is
+    # still one sequential invocation, so it widens the span without widening
+    # what was in flight.
+    "round-63.json",
 }
 _found = set()
 for _p in sorted((ROOT / "evals" / "snapshots").rglob("*.json")):

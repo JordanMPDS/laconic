@@ -98,6 +98,17 @@ ARM_STOP_HOOKS = {
 # to a different invariant in tests/test_bench.py, because minimality, pure
 # deletion and pure replacement are different properties and an arm that
 # silently stopped having its own would isolate nothing.
+#
+# `laconic-precheck-*` are #264's two rewrites of the pre-action check, and
+# they differ from every arm above in touching one numbered list and nothing
+# else. `-off` deletes the check and restores the two-item list the file
+# carried before round 55; `-read` keeps it and hoists the reading instruction
+# out of the broken-thing conditional, so the clause that survives a question
+# with nothing broken is the one that says to read rather than the one that
+# says not to act. Both are the shipped `full` slice outside that block, which
+# tests/test_bench.py checks against the live hook output, so an edit to
+# `rules/laconic.md` anywhere else fails both arms rather than confounding the
+# round with it.
 ARM_FILES = {
     "laconic-min-a": "laconic-min-a.md",
     "laconic-min-b": "laconic-min-b.md",
@@ -106,6 +117,8 @@ ARM_FILES = {
     "laconic-repl-told": "laconic-repl-told.md",
     "laconic-repl-unlabelled": "laconic-repl-unlabelled.md",
     "laconic-repl-unframed": "laconic-repl-unframed.md",
+    "laconic-precheck-off": "laconic-precheck-off.md",
+    "laconic-precheck-read": "laconic-precheck-read.md",
 }
 
 
@@ -127,6 +140,8 @@ ARMS = {
     "laconic-repl-told": _arm_file("laconic-repl-told"),
     "laconic-repl-unlabelled": _arm_file("laconic-repl-unlabelled"),
     "laconic-repl-unframed": _arm_file("laconic-repl-unframed"),
+    "laconic-precheck-off": _arm_file("laconic-precheck-off"),
+    "laconic-precheck-read": _arm_file("laconic-precheck-read"),
     # All placeholders, replaced at runtime with the same real hook output, so
     # the enforcement arms cannot drift from the rules they are meant to
     # enforce, or from each other.

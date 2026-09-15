@@ -131,6 +131,20 @@ one that catches stale generated files, and it is the easiest to skip by acciden
   carries it under a `## The edit` heading. A round that does neither is
   undeclared and the script asks rather than guessing.
 
+- **A scratch worktree under `/tmp` is memory on this machine, and the round
+  that made it cannot be the thing that removes it.** `/tmp` is tmpfs, so the
+  control worktree a simultaneous round adds is 145 MiB of RAM held until the
+  directory goes. Nothing removed them: on 2026-09-15 seven mutation copies and
+  two spent control worktrees held 1.7 GiB of 7.6 GiB, and the loop supervisor
+  was killed for low memory with no generation shard running at all. A round
+  cannot reliably clean up after itself because the way a round ends badly is
+  being killed, and a killed process runs no trap — so `tools/loop.sh` runs
+  `bash tools/reclaim-scratch.sh` at the top of every iteration. It removes a
+  registered worktree only when no process is working inside it, it holds no
+  untracked file, and its HEAD has already landed on `origin/master`; it prints
+  why it kept each of the others, and `--dry-run` says what would go. Remove
+  your own worktree when a round is scored rather than waiting for it.
+
 - **A benchmark round reads the working tree for hours, so editing `rules/laconic.md`
   or anything under `evals/cases/` while one is running corrupts it.** Both are
   checksummed into every snapshot (`rules_cksum`, `cases_cksum`), and `run.py`,

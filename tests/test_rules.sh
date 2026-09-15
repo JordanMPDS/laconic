@@ -298,7 +298,7 @@ fi
 # iteration reads, so a check that only one of them carries is a check half the
 # loop never runs.
 LOOPSH="$ROOT/tools/loop.sh"
-for tool in release-due candidate-due; do
+for tool in release-due candidate-due reclaim-scratch; do
   if grep -q "$tool.sh" "$LOOPSH"; then
     ok "unattended loop runs $tool.sh"
   else
@@ -306,10 +306,10 @@ for tool in release-due candidate-due; do
   fi
 done
 
-# Both scripts ship a --selftest and until now nothing ran either one. An
+# Each of these ships a --selftest and until now nothing ran any of them. An
 # enforcement script that is never exercised is the same failure as a rule that
 # is never shipped: it passes by not being looked at.
-for tool in release-due candidate-due; do
+for tool in release-due candidate-due reclaim-scratch; do
   if out=$(bash "$ROOT/tools/$tool.sh" --selftest 2>&1); then
     ok "tools/$tool.sh --selftest passes"
   else

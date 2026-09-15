@@ -291,6 +291,14 @@ while :; do
       echo "loop: $(git branch --show-current) is already merged — returning to master"
       git checkout -q master 2>/dev/null && git merge --ff-only -q origin/master 2>/dev/null
     fi
+    # A round that compares against master adds a control worktree under /tmp,
+    # which is tmpfs here: 145 MiB of memory each, and nothing removed them. On
+    # 2026-09-15 that plus seven mutation copies held 1.7 GiB of a 7.6 GiB
+    # machine and this supervisor was killed for low memory with no generation
+    # shard running. A killed round runs no trap, so the reclaim has to belong
+    # to the next iteration rather than the last one. It keeps any worktree a
+    # process is still working inside.
+    bash tools/reclaim-scratch.sh
   fi
 
   # `< /dev/null` because print mode reads stdin for piped input and waits on

@@ -538,6 +538,27 @@ cd /tmp/laconic-control && python3 evals/bench/run.py --arms laconic \
 Declare `--concurrency 2` on **both**, because two CLI invocations really are in
 flight. Each snapshot still reconstructs to one generator of its own, so the
 [#120] audit is satisfied and the declaration is conservative rather than false.
+
+**Remove the worktree when the round is scored, and know what it costs while it
+is there.** `/tmp` on this machine is tmpfs, so a control worktree is 145 MiB of
+*memory*, not disk, held until the directory is removed. Nothing removed them:
+on 2026-09-15 seven mutation copies and two spent control worktrees held 1.7 GiB
+of a 7.6 GiB machine, and the supervisor was killed for low memory at 04:58 with
+no generation shard running at all — the round it was registering had to be
+recovered from an uncommitted working tree.
+
+```bash
+git worktree remove --force /tmp/laconic-control
+```
+
+**A round cannot be relied on to do this, because the way a round ends badly is
+being killed, and a killed process runs no trap.** So the reclaim is also a
+command the *next* iteration runs: `bash tools/reclaim-scratch.sh`, called from
+the supervisor's tidy step, removes every registered worktree that no process is
+working inside, that holds no untracked file, and whose HEAD has already landed
+on `origin/master`. It keeps a live one — it is the round in flight that is the
+most expensive thing in this repository to destroy — and prints why it kept it.
+Run it by hand with `--dry-run` to see what would go.
 Round 38's two sides tracked within two runs of each other for 90 runs a side.
 
 It costs nothing extra, halves wall time, and makes era and regime cancel between

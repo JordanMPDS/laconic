@@ -404,5 +404,48 @@ PYEOF
   fi
 done
 
+# `explain-*` and `reexplain-*` are round 68's pair for #298. They share one
+# fixture with `deep-*` and ask one byte-identical graded question; the only
+# difference is that `reexplain-*` asks `deep-*`'s open diagnosis question first,
+# so the rationale is already in the transcript when the definition request
+# arrives. `explain-*` carries the read instruction that `reexplain-*`'s turn 1
+# already carried, which is exactly how `confirm-*` is `recall-*`'s cold twin.
+# If the graded question drifts between the two, or if either stops sharing the
+# fixture, the contrast measures the case instead of whether the content was
+# already delivered.
+for stem in index metric rollback; do
+  if python3 - "$ROOT/evals/cases/deep-$stem" "$ROOT/evals/pilot/explain-$stem" \
+              "$ROOT/evals/pilot/reexplain-$stem" <<'PYEOF'
+import json, sys
+from pathlib import Path
+deep, cold, warm = (Path(a) for a in sys.argv[1:4])
+tc = cold.joinpath("prompt.md").read_text().split("<!-- turn -->")
+tw = warm.joinpath("prompt.md").read_text().split("<!-- turn -->")
+assert len(tc) == 1, "the cold case must be one turn"
+assert len(tw) == 2, "the warm case must be two turns"
+assert tw[0] == deep.joinpath("prompt.md").read_text().split("<!-- turn -->")[0], \
+    "the warm case's turn 1 must be deep's turn 1"
+cold_turn, warm_turn = tc[0].strip(), tw[1].strip()
+assert cold_turn.endswith(warm_turn), "the graded question differs between the two"
+head = cold_turn[:-len(warm_turn)]
+assert head.startswith("read ") and head.endswith(" — "), \
+    "the cold case may differ only by the read instruction, got %r" % head
+for t in (tc[0], tw[1]):
+    assert "Don't edit anything." in t, "every turn must forbid editing"
+ec, ew = (json.loads(p.joinpath("expect.json").read_text()) for p in (cold, warm))
+for k in ("trap", "never_cut", "grading"):
+    assert ec[k] == ew[k], "%s differs" % k
+assert ec["grading"] == "quality", "the pair grades answer quality"
+for p in (cold, warm):
+    assert p.joinpath("fixture").resolve() == deep.joinpath("fixture").resolve(), \
+        "the pair must share deep-%s's fixture" % deep.name.split("-", 1)[1]
+PYEOF
+  then
+    ok "explain-$stem is reexplain-$stem asked cold"
+  else
+    fail "explain-$stem is reexplain-$stem asked cold"
+  fi
+done
+
 printf '\n%d failure(s)\n' "$fails"
 [ "$fails" -eq 0 ]

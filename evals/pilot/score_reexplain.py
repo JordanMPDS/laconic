@@ -108,10 +108,13 @@ def log_words(groups):
 def sign_test(diffs):
     """Two-sided exact sign test over per-cell differences. Ties dropped.
 
-    Six cells is the registered scope and 6 of 6 reads p = 0.031, which is the
-    only outcome that reaches alpha; 5 of 6 is p = 0.219. That ceiling is
-    stated in the round document rather than discovered here - `kimi`, via
-    `tools/consult.sh`, is why the scope is six cells rather than three.
+    Three stems is the scope, and three cells cannot reach alpha: the minimum
+    two-sided p over three is 0.25. That ceiling is registered in the round
+    document rather than discovered here. `kimi`, via `tools/consult.sh`, is
+    why it is stated at all - its recommendation was six cells, and six is not
+    available, because there are three fixtures and the only other route is a
+    second model this family has no stored runs for. So this reading is a
+    consistency check and carries no verdict.
     """
     vals = [d for d in diffs if abs(d) > 1e-12]
     n = len(vals)
@@ -197,7 +200,7 @@ def main():
               % (math.exp(difference_of_differences(logged)),
                  fmt(interaction(logged, seed))))
 
-    print("\n## Secondary: the same interaction per cell, six cells")
+    print("\n## Secondary: the same interaction per cell (consistency, not a verdict)")
     print("%-9s %-7s %19s %19s %9s"
           % ("stem", "model", "explain c/e", "reexplain c/e", "log DiD"))
     diffs = []

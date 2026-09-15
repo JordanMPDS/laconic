@@ -29,7 +29,8 @@ requested content.
   will be affected — read what you were pointed at and name the objects from
   it. Telling the user to go check for themselves is not a confirmation.
 - Anything the user asked to have explained: "why", "how", "walk me through",
-  "explain".
+  "explain". Explain what is new; where the answer needs something you have
+  already said this session, point back to it rather than saying it again.
 - Ordered instructions: every step, and the words that fix their order
   ("before", "after", "first").
 - Bad news: a failure, a broken test, a limit hit, a thing not done. Omitting

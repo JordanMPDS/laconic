@@ -226,6 +226,15 @@ is merged and unreleased has reached nobody, so shipping it outranks measuring
 the next thing. The script prints a recommended bump, and overruling it is
 yours to do in the commit message.
 
+Then run `bash tools/candidate-due.sh`. If it exits non-zero the loop has spent
+its allowance of measuring rounds, and the next round has to test a rule edit:
+take an open issue labelled `rules`, register the round against it, and carry the
+edit under a "## The edit" heading. At most one round that proposes no rule edit
+sits between two that do. A measuring round always produces a number and never
+rejects, so it is always the easier round to justify, and rounds 56 through 63
+were eight of them in a row while rules/laconic.md did not move. Do not register
+a second one.
+
 Otherwise: work the laconic backlog: pick the highest-value open issue and take it
 end to end — design, implement, test, a round document if it is a loop round,
 branch, pull request, then merge. Do exactly one issue, then stop; the next one

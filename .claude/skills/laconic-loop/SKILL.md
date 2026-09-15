@@ -8,7 +8,8 @@ description: Use when improving rules/laconic.md against the benchmark — runni
 One round: benchmark, review the failures, propose one rule edit, confirm it,
 and either ship it or throw it away. **A round ends at a release, not at an
 accept.** Merging is the loop's own since 2026-09-01; what it may not do is
-leave an accepted edit sitting in master unreleased, which is step 11.
+leave an accepted edit sitting in master unreleased, which is step 11. **And a
+round that proposes no rule edit may not follow another**, which is step 0.
 
 Design and the reasoning behind every threshold:
 `docs/superpowers/specs/2026-08-01-rules-loop-design.md`.
@@ -277,6 +278,48 @@ haiku and sonnet.
 Size the round before buying it. The staged rule below already says to open at
 10 reps and extend only if the round needs it; that matters most on the arm that
 costs nine times the others.
+
+## Step 0: is this round allowed to measure?
+
+```bash
+bash tools/candidate-due.sh
+```
+
+**At most one round that proposes no rule edit sits between two that do.** Exit 1
+means the allowance is spent and this round has to carry a candidate.
+
+The drift this caps is not laziness, which is why an intention cannot hold it
+back. A round that measures the instrument always produces a publishable number,
+never rejects, and always suggests the next measurement, so it is always the
+easier round to justify — and every one of these was worth running:
+
+| round | what it measured |
+|---|---|
+| 56 | the pre-action check's quality cost, at 0.95 power |
+| 57 | which clause of it costs the reading |
+| 58 | whether most of `rules/laconic.md` is dilution (it inverted) |
+| 59 | which 750 words carry the compression |
+| 60 | which of the three things the demonstration block does |
+| 61 | post-hoc enforcement, the first round to change the mechanism |
+| 62 | whether the block has to quote the rule |
+| 63 | the reading cost assay, which did not fire |
+
+Eight rounds, 2026-09-08 to 2026-09-14, and `rules/laconic.md` did not move in
+any of them. The last edit the loop proposed was [round 55](../../../evals/results/loop/round-55.md).
+
+The script reads the last round document, because that is where a round states
+its own design before any generation. An instrument round disclaims the edit in
+its registration preamble — "**This round proposes no rule edit.**" — and a
+candidate round carries the edit under a `## The edit` heading. Write one or the
+other; a round that does neither is undeclared and the script refuses to guess,
+since guessing wrong resets the cap.
+
+When it exits 1, the round comes from an open issue labelled `rules`. [#116] and
+[#46] both carry user-visible failure reports, which is the strongest kind of
+lead this loop gets.
+
+[#116]: https://github.com/JordanMPDS/laconic/issues/116
+[#46]: https://github.com/JordanMPDS/laconic/issues/46
 
 ## Steps 1-3: measure the round you have (405 calls at n=5)
 
@@ -1092,6 +1135,7 @@ condition was wrong.
 ## What this loop will not do
 
 - Register the next round while a release is owed.
+- Register a second round in a row that proposes no rule edit.
 - Push a rule change to master without a pull request whose checks pass.
 - Optimize against a `rule-adherence` case.
 - Cite preference from a round at or above the flip-rate ceiling.

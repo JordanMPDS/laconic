@@ -263,12 +263,24 @@ if [ -f "$LOOP" ]; then
       fail "loop skill covers: $phrase"
     fi
   done
-  # The loop proposes and a human merges. A skill that lost this line would
-  # read as authorisation to push rule changes straight to master.
-  if grep -qi 'human merges' "$LOOP"; then
-    ok "loop skill keeps the merge with a human"
+  # This guard used to require the words "a human merges". Autonomous merges
+  # were granted on 2026-09-01 and the loop has merged its own rounds since —
+  # tools/loop.sh has told each iteration to "branch, pull request, then merge"
+  # the whole time — so the skill and this test agreed with each other and with
+  # nothing else. What the guard was actually protecting is still worth
+  # enforcing, and is not about who clicks the button: a rule change reaches
+  # master through a pull request whose checks passed, never a direct push.
+  if grep -qi 'pull request' "$LOOP" && grep -qi 'checks pass' "$LOOP"; then
+    ok "loop skill routes rule changes through a pull request"
   else
-    fail "loop skill no longer says a human merges"
+    fail "loop skill no longer routes rule changes through a pull request"
+  fi
+  # An accept that never ships is the failure this replaced: round 55 accepted
+  # on 2026-09-08 and sat merged and unreleased for six days.
+  if grep -q 'release-due.sh' "$LOOP"; then
+    ok "loop skill ends a round at a release"
+  else
+    fail "loop skill no longer ends a round at a release"
   fi
 else
   fail "laconic-loop skill exists"

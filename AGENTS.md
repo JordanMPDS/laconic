@@ -133,7 +133,11 @@ one that catches stale generated files, and it is the easiest to skip by acciden
 Do not modify without being asked explicitly:
 
 - `.claude-plugin/plugin.json` — the version there is released; bumping it is a
-  release decision, not part of a code change.
+  release decision, not part of a code change. Cutting a release *is* that
+  decision, and is the one context in which the file may be edited without
+  asking: `bash tools/release-due.sh` says whether one is owed, names every
+  shipped file that moved since the last `laconic--v*` tag, and recommends
+  patch or minor. Never bump it alongside unrelated work.
 - `rules/dist/` by hand — regenerate it instead, per the convention above.
 - `.github/workflows/` — CI configuration.
 - `evals/snapshots/` — recorded benchmark runs. They are evidence, not code, and

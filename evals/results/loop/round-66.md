@@ -333,3 +333,16 @@ this machine is tighter today than the four-shard ceiling [#255] assumes. Each
 comparison is still generated simultaneously against its own control, which is
 the property the design needs; what the split gives up is wall-clock, not
 balance. Both processes declare `--concurrency 2`.
+
+**The working tree was switched to master and back at 14:24 while the edit
+shard was still generating, which is the thing `AGENTS.md` forbids mid-round.**
+Recorded here rather than left silent, with the check that settles it. `run.py`
+resolves the rules slice once in `main()` and passes that in-memory string to
+every generation, so an in-flight shard keeps the text it started with and the
+switch could not reach it. The snapshots carry the checksums that follow from
+that: the edit side reads `rules_cksum` 4035212029, which is this branch's
+slice, the control side reads 594915793, which is master's, and both read
+`cases_cksum` 2774319889. Had the process instead crashed and been resumed
+inside that window, the [#69] guard would have refused the resume rather than
+producing one round from two instruments — which is the case the guard exists
+for and is not the case that occurred.

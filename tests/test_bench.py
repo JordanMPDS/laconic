@@ -5340,6 +5340,14 @@ _expected_concurrent = {
     # still one sequential invocation, so it widens the span without widening
     # what was in flight.
     "round-63.json",
+    # Round 67 is a one-tree, two-arm pilot round sharded by case stem into
+    # three, each strictly sequential and each declaring --concurrency 3 for
+    # the three run.py processes really in flight. The shard boundary is the
+    # stem rather than the rep range because both families and both arms of
+    # every contrast are generated inside one process: the split is across
+    # contrasts, never inside one. Only the merge reaches the sweep, and it
+    # reconstructs to exactly the three shards that produced it.
+    "round-67.json",
 }
 _found = set()
 for _p in sorted((ROOT / "evals" / "snapshots").rglob("*.json")):

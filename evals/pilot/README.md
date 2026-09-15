@@ -58,4 +58,27 @@ moves `cases_cksum` for every future round and needs a seeded baseline first.
 
 [#60]: https://github.com/JordanMPDS/laconic/issues/60
 
+## `work-index`, `work-metric`, `work-rollback`
+
+`register-*`'s sibling, and the same pair shape against the same `deep-*`
+control: turn 1 and turn 5 byte-identical, one fixture by symlink, the trap and
+the grading unchanged, and only turns 2 to 4 manipulated. Where `register-*`
+lengthens those turns, `work-*` moves their deliverable out of the reply and
+into the fixture file — the same three questions, answered by writing a section
+into `FINDINGS.md`, `ANALYSIS.md` or `INCIDENT.md`.
+
+It exists for the one explanation
+[`over-length-cluster.md`](../results/loop/over-length-cluster.md) has left for
+the gap between the field reports and the instrument: *a real session
+interleaves work with questions*, and every turn of the scored suite ends
+`Don't edit anything.` The graded turn keeps that clause, which is what holds
+`CRITERIA.md`'s rule — turn 5 is the only turn that produces a verdict — and
+which incidentally holds standing permission constant on the turn being
+measured, so a movement there cannot be the permission.
+
+`tests/test_evals_layout.sh` holds the pair to the same contract as
+`register-*`, plus a second check that the editing prohibition is on the graded
+turn and on no other. Scored by `score_register.py <snapshot> 67 work`;
+registered in [`round-67.md`](../results/loop/round-67.md).
+
 [#136]: https://github.com/JordanMPDS/laconic/issues/136

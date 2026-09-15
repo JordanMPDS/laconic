@@ -119,6 +119,18 @@ one that catches stale generated files, and it is the easiest to skip by acciden
   the answer as `metadata.turn_delivery`. Use `plugin` for any claim about the
   product and `repeat` to resume or extend a snapshot below round 40.
 
+- **A round says whether it proposes a rule edit, and two that do not may not
+  run back to back.** A round that measures the instrument always produces a
+  publishable number and never rejects, so it is always the easier round to
+  justify: rounds 56 through 63 were eight of them in a row, every one worth
+  running, over which `rules/laconic.md` did not move at all.
+  `bash tools/candidate-due.sh` exits 1 when the next round has to carry a
+  candidate, reading the last round document for the declaration each round
+  already makes — an instrument round disclaims the edit in its registration
+  preamble ("**This round proposes no rule edit.**") and a candidate round
+  carries it under a `## The edit` heading. A round that does neither is
+  undeclared and the script asks rather than guessing.
+
 - **A benchmark round reads the working tree for hours, so editing `rules/laconic.md`
   or anything under `evals/cases/` while one is running corrupts it.** Both are
   checksummed into every snapshot (`rules_cksum`, `cases_cksum`), and `run.py`,

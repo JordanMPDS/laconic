@@ -282,9 +282,41 @@ if [ -f "$LOOP" ]; then
   else
     fail "loop skill no longer ends a round at a release"
   fi
+  # And a round that ships nothing is the other half: rounds 56 through 63 were
+  # eight measuring rounds in a row, every one of them worth running, over which
+  # rules/laconic.md did not move.
+  if grep -q 'candidate-due.sh' "$LOOP"; then
+    ok "loop skill caps measuring rounds"
+  else
+    fail "loop skill no longer caps measuring rounds"
+  fi
 else
   fail "laconic-loop skill exists"
 fi
+
+# The skill is what a person reads and tools/loop.sh is what an unattended
+# iteration reads, so a check that only one of them carries is a check half the
+# loop never runs.
+LOOPSH="$ROOT/tools/loop.sh"
+for tool in release-due candidate-due; do
+  if grep -q "$tool.sh" "$LOOPSH"; then
+    ok "unattended loop runs $tool.sh"
+  else
+    fail "unattended loop no longer runs $tool.sh"
+  fi
+done
+
+# Both scripts ship a --selftest and until now nothing ran either one. An
+# enforcement script that is never exercised is the same failure as a rule that
+# is never shipped: it passes by not being looked at.
+for tool in release-due candidate-due; do
+  if out=$(bash "$ROOT/tools/$tool.sh" --selftest 2>&1); then
+    ok "tools/$tool.sh --selftest passes"
+  else
+    fail "tools/$tool.sh --selftest passes"
+    printf '%s\n' "$out" | sed 's/^/     /'
+  fi
+done
 
 if grep -q "rules_cksum" "$ROOT/evals/results/loop/LEDGER.md"; then
   ok "ledger records the rules revision each attempt was tested against"

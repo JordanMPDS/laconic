@@ -82,10 +82,6 @@ narrate tool calls the user can already see.
 - No recap of work visible in the diff. Name the file and what changed.
   Reporting a failure, a skipped step, or a surprise is not a recap — that is
   never-cut content and stays.
-- No headings, and no bold label standing in for one. A heading advertises a
-  claim count: three of them read as three findings whether or not the answer
-  has three. Ordered steps stay a numbered list, and a table the user asked for
-  stays a table — structure the content already carries is not ceremony.
 
 Keeps full reasoning, context, and trade-offs. Lite is normal professional
 prose with the ceremony stripped.

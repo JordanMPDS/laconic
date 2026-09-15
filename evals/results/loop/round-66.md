@@ -323,7 +323,121 @@ buys twenty on the target and forty on the bound.
 
 ---
 
-## Results
+## Result: the prohibition does not separate, and the registered falsifier fired
+
+**Reject.** The primary moves in the predicted direction and does not reach
+alpha, which is exactly the outcome the falsifier named in advance.
+
+| endpoint | control | edit | test |
+|---|---|---|---|
+| **Primary: design responses carrying a bold label** | **104/160 (65.0%)** | **93/160 (58.1%)** | Fisher two-sided **p = 0.250** |
+| Secondary: prose words, design cells pooled | 187.5 | 197.0 | permutation p = 0.220 |
+| Bound 1: `ordered-steps` with 4+ numbered lines | 35/40 | 39/40 | one-sided p = 0.987 |
+| Bound 3: reading rate, design cells | 81/160 (50.6%) | 90/160 (56.2%) | one-sided p = 0.869 |
+
+Per cell, on the registered disclosure: **6 of 8 cells fell on `any_bold`**,
+two-sided sign test p = 0.289, and 1 of 8 fell on median words, p = 0.070.
+
+| case | any_bold c | any_bold e | bold/run c | bold/run e | med words c | med words e |
+|---|--:|--:|--:|--:|--:|--:|
+| `design-alerting` | 18/20 | 16/20 | 2.35 | 1.90 | 198.0 | 241.0 |
+| `design-audit-log` | 17/20 | 15/20 | 1.95 | 1.65 | 223.5 | 224.5 |
+| `design-cache` | 14/20 | 11/20 | 1.50 | 1.10 | 186.5 | 202.0 |
+| `design-rate-limit` | 11/20 | 9/20 | 1.10 | 0.90 | 170.5 | 174.0 |
+| `design-realtime` | 9/20 | 6/20 | 0.90 | 0.65 | 162.5 | 172.0 |
+| `design-retry` | 17/20 | 15/20 | 2.55 | 2.00 | 226.0 | 208.5 |
+| `design-search` | 4/20 | 6/20 | 0.40 | 0.60 | 119.5 | 133.5 |
+| `design-upload` | 14/20 | 15/20 | 1.55 | 1.65 | 188.5 | 190.5 |
+
+### Why this is a real null and not an underpowered one
+
+The round was sized for the movement it argued was the only plausible one.
+[Round 65](round-65.md)'s shipped check moved its counter from 30.0% to 5.8%,
+and this registration said so in advance: *"an explicit prohibition naming the
+form it prohibits is expected to move this hard or not at all."* The published
+power table gives **0.891 against a fall to 40%** and 0.984 against 35%. The
+observed edit rate is **58.1%**, a fall of 6.9 points — inside the band the
+round declared it was deliberately not buying, and nowhere near the effect the
+design was built to detect. A larger round would resolve whether 6.9 points is
+real; it would not make a 6.9-point effect the thing [#46] reports.
+
+### The secondary says the little movement there was is reformatting
+
+This is the reading the cluster had no measurement of, and it is the one part
+of this round that is new information rather than another null. **Prose words
+did not fall — they rose slightly**, 187.5 to 197.0, and only 1 of 8 cells fell
+on words while 6 of 8 fell on labels. So to the extent the rule removed
+scaffolding at all, **the claims it was wrapping stayed in the answer.** The
+bold labels came off and the text did not shorten.
+
+That closes the mechanism question the registration opened. Scaffolding on
+these cells is presentation, not a carrier of claim count, so removing it was
+never going to shorten the answer [#46] complains about. **The structure half of
+[#46] and [#113] is not a lever on the length half.** Both remain open; what is
+now measured is that they are two problems and not one.
+
+### The bounds held, and one moved the other way
+
+Bound 1 did not fall: `ordered-steps` responses carrying four or more numbered
+lines went **35/40 to 39/40**, and numbered lines per run 3.95 to 4.40. The
+exemption written into the rule — *"Ordered steps stay a numbered list"* — did
+its job, and on this cell the edit also cut median words from 171.0 to 155.0.
+That is a harm check passing, not a finding: it is one cell, it was not the
+round's endpoint, and it is reported here only because the round bought it.
+
+Bound 3 held too: reading rate rose, 50.6% to 56.2%. The edit did not buy its
+number by stopping the model opening the fixture, which is the [#131]
+stratum-crossing failure this family is most prone to.
+
+**`walkthrough`'s never-cut keyword check**: `401` appears in 20/20 control and
+20/20 edit responses. The requested explanation kept its content.
+
+### Bound 2 was not bought, and that is the buying order working
+
+The registered order stops at the first failure. The primary failed, so the 80
+`ordered-steps` judgments in step 2 and the round-wide laconic arm in step 3
+were not purchased — about 300 calls not spent on an edit that cannot ship.
+Bound 2 is therefore **unmeasured, not passed**, and this round may not be
+quoted as evidence that the edit is safe for `ordered-steps`'s safety verdict.
+Bound 1 is a deterministic count of list items and cannot see an ordering word
+being dropped, which is the whole reason bound 2 was registered separately.
+
+### What the cluster looks like after this
+
+Ten rounds have now attempted the over-length family and none has shipped:
+
+| rounds | what was edited | verdict |
+|---|---|---|
+| 07, 08, 09, 10, 15 | a design-question licence, placed five ways | one relocation accepted, four rejected |
+| [29](round-29.md), [49](round-49.md) | the length-scaling licence's own wording | reject on two instruments |
+| [40](round-40.md), [47](round-47.md), [48](round-48.md) | a self-check on the answer's length | reject, three times, byte-identical text |
+| [64](round-64.md) | a second worked `Wrong:`/`Right:` example | reject, one cell of three |
+| **66** | **a prohibition on the answer's form** | **reject, p = 0.250** |
+
+[Round 48](round-48.md)'s bound was *instructing the model to check its own
+length does not change its length.* This round tested the distinction it left
+open — that a prohibition on a form is not an instruction to check a length —
+and the distinction is not worth anything on this instrument. The edit is
+reverted.
+
+**The headings clause is untested, as disclosed before the round ran.** Headings
+read 0.00 per run on both sides of every scored cell. Nothing here is evidence
+about headings in either direction.
+
+### Disclosures
+
+Bullets fell 0.71 to 0.57 per run on the design cells, which the rule does not
+mention and which nothing here tests.
+
+## Registration and generation notes
+
+**All 440 runs are on one CLI release**, 2.1.272, on both sides of both pairs,
+with per-run stamps. `python3 evals/bench/release.py` reports no unreadable span
+and no arm imbalanced across a boundary, so nothing here needs stratifying —
+which is the exposure [round 57](round-57.md) had and [round 63](round-63.md)
+had to learn twice. `python3 evals/bench/concurrency.py` reads one generator in
+flight per snapshot against a declared 2, so no arm-day exceeds its declaration.
+
 **Generation deviated from the buying plan above in one respect, recorded here
 before any of it was scored.** The registration launches all four shards at
 once. They were run as two pairs instead — the design cells first, then

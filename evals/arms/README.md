@@ -63,9 +63,9 @@ anywhere in it. So `abl-shown` moving while `abl-arrow` does not separates
 
 `tests/test_bench.py` holds both to pure deletion: every line has to be a line
 of the shipped slice, in order, and the removed word count has to be exactly
-the figure round 59 registered. An edit to `rules/laconic.md` that moves either
-block fails that check, which is correct — the arm would no longer isolate what
-it was built to isolate.
+the figure round 59 registered. An edit to `rules/laconic.md` retires that
+check rather than failing it, because the arm would no longer isolate what it
+was built to isolate — see **Staleness** below.
 
 ## `laconic-repl-*.md` — the [#277] replacement arms
 
@@ -103,7 +103,8 @@ something this ladder had to design out rather than argue away.
 `laconic-abl-shown.md` must appear in it, in order, so nothing the floor keeps
 can be dropped or reworded, and the arm must land within 20 words of the shipped
 slice. Because the floor is itself checked against the live hook output, an edit
-to `rules/laconic.md` that moves the block fails all five arms at once.
+to `rules/laconic.md` that moves the block retires all five arms at once — see
+**Staleness** below.
 
 ## `laconic-precheck-off.md`, `laconic-precheck-read.md` — the [#264] arms
 
@@ -117,7 +118,8 @@ These two arms are the narrowest construction in this directory. **Each is the
 shipped `full` slice with the opening numbered list swapped and every other
 byte identical**, so `tests/test_bench.py` checks them by exact equality
 against the live hook output rather than structurally. Any edit to
-`rules/laconic.md`, inside the block or outside it, fails both.
+`rules/laconic.md`, inside the block or outside it, retires both — see
+**Staleness** below.
 
 | arm | words | the list it carries |
 |---|--:|---|
@@ -136,6 +138,39 @@ whether a rewording gives it back, which the loop needs because a control
 generated in a different window has misread this repo before.
 
 [#264]: https://github.com/JordanMPDS/laconic/issues/264
+
+## Staleness: `BUILT-FROM.json`
+
+Seven of these arms are not free-standing texts. `laconic-abl-*`,
+`laconic-repl-*` and `laconic-precheck-*` are each defined as a transformation
+of the shipped `full` slice, so each one means what the section above says it
+means only against the slice it was cut from. `BUILT-FROM.json` records that
+slice's `rules_cksum` per arm.
+
+When `rules/laconic.md` moves, those arms go **stale**, and stale is a third
+state rather than a synonym for wrong. The text still reads as a plausible
+rules file and would go on producing numbers; what it no longer is, is a
+transformation of the file on disk. `laconic-abl-shown` is "the slice minus its
+rendered demonstrations", and against a slice carrying a demonstration it never
+saw, it is a deletion of something else.
+
+Two things follow, and round 64 added both:
+
+- `tests/test_bench.py` skips the invariants of a stale arm rather than failing
+  them, because "removes exactly 209 words" is a claim about a file that is no
+  longer there.
+- `evals/bench/run.py` **refuses to generate with a stale arm**, naming it and
+  both checksums, before anything is written. `--allow-stale-arm` is the
+  override, for a round that deliberately compares against the older text.
+
+The refusal is what replaces the skipped checks, so the protection moves rather
+than lapsing. Rebuilding a stale arm belongs to whichever round next needs it:
+doing it silently inside a rules edit would produce a text no round ever ran,
+while this file went on describing the old one.
+
+Round 64 left all seven stale at `594915793`, the slice rounds 59 through 63
+measured. The word counts in the tables above are that slice's.
+
 
 [#275]: https://github.com/JordanMPDS/laconic/issues/275
 [#277]: https://github.com/JordanMPDS/laconic/issues/277

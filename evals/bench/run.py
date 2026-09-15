@@ -126,6 +126,31 @@ def _arm_file(name):
     return (ROOT / "evals" / "arms" / ARM_FILES[name]).read_text()
 
 
+# Seven of those arms are not free-standing texts: each is defined as a
+# transformation of the shipped `full` slice - a deletion, a replacement, a
+# swapped block - and means nothing except against the slice it was cut from.
+# So each records that slice's rules_cksum, and an edit to rules/laconic.md
+# makes it stale rather than silently wrong. A stale arm still reads as a
+# plausible rules file and would go on producing numbers, which is exactly the
+# failure this catches: `laconic-abl-shown` is "the slice minus its rendered
+# demonstrations", and against a slice carrying a demonstration it never saw it
+# is a deletion of something else. Rebuilding one is a deliberate act that
+# belongs to the round that needs it, so run.py refuses to generate with a
+# stale arm and tests/test_bench.py stops asserting invariants that cannot
+# hold. The laconic-min-* arms carry no entry: they are rewrites to a content
+# specification rather than transformations, so a rules edit does not make
+# them mean something else.
+BUILT_FROM = {k: v for k, v in json.loads(
+    (ROOT / "evals" / "arms" / "BUILT-FROM.json").read_text()).items()
+    if not k.startswith("_")}
+
+
+def stale_arms(live_cksum):
+    """The derived arms whose base slice is no longer the one on disk."""
+    return sorted(a for a, base in BUILT_FROM.items()
+                  if base != str(live_cksum))
+
+
 # The laconic entry is a placeholder here and is replaced at runtime with the
 # real hook output, so the benchmark cannot drift from what ships.
 ARMS = {
@@ -1178,6 +1203,10 @@ def main():
                          "narrowing them, and the resolved pairs are recorded "
                          "as metadata.cells, which a resume must match")
     ap.add_argument("--arms", default=",".join(ARMS))
+    ap.add_argument("--allow-stale-arm", action="store_true",
+                    help="generate with a derived arm whose base slice is not "
+                         "this tree's. Only for a round that deliberately "
+                         "compares against the older rules text.")
     ap.add_argument("--snapshot", default=str(SNAPSHOT))
     ap.add_argument("--claude-bin", default="claude")
     ap.add_argument("--cases-dir", default=str(CASES),
@@ -1325,6 +1354,22 @@ def main():
     for a in ARM_STOP_HOOKS:
         arms[a] = arms["laconic"]
     cksum = str(zlib.crc32(arms["laconic"].encode()))
+
+    # A derived arm cut from a different slice is not a smaller version of this
+    # round's control, it is a transformation of a file that no longer exists.
+    # Refuse it here rather than at read time, because the snapshot it would
+    # write looks exactly like a valid one.
+    requested_stale = sorted(set(arm_names) & set(stale_arms(cksum)))
+    if requested_stale and not args.allow_stale_arm:
+        sys.exit(
+            "stale arm(s): %s\n"
+            "Each was built from the full slice at rules_cksum %s and this tree's "
+            "slice is %s, so the arm no longer isolates what evals/arms/README.md "
+            "says it does. Rebuild it against this slice and update "
+            "evals/arms/BUILT-FROM.json, or pass --allow-stale-arm if the round "
+            "means to compare against the older text."
+            % (", ".join(requested_stale),
+               ", ".join(sorted({BUILT_FROM[a] for a in requested_stale})), cksum))
 
     snap = load_snapshot(args.snapshot)
     fresh = snap is None

@@ -341,3 +341,130 @@ round next needs one.
 [#272]: https://github.com/JordanMPDS/laconic/issues/272
 
 <!-- RESULTS BELOW THIS LINE -->
+
+## Result: one cell of three, and the registered falsifier fired
+
+420 runs, **0 failed**, sonnet only, generated 2026-09-15 in four simultaneous
+shards. The two sides are separated by `rules_cksum`, **594915793** on the
+control against **245017430** on the edit; `cases_cksum` is identical within
+each contrast (3619612294 on the target pair, 686366200 on the discriminant).
+Every snapshot is per-run CLI-stamped and `python3 evals/bench/release.py`
+reports **all 420 runs on 2.1.272** with no boundary to stratify on. Each shard
+reconstructs to one generator of its own against a declared `--concurrency 4`,
+so the declaration is conservative rather than false.
+
+```
+python3 evals/pilot/score_closed.py \
+  evals/snapshots/loop/round-64-control-confirm.json \
+  evals/snapshots/loop/round-64-edit-confirm.json \
+  evals/snapshots/loop/round-64-control-open.json \
+  evals/snapshots/loop/round-64-edit-open.json
+```
+
+### The target
+
+| cell | control median | edit median | delta | p | read c/e | edits |
+|---|--:|--:|--:|--:|---|--:|
+| `confirm-index` | 57.0 (sd 8.0) | 51.0 (sd 8.5) | **−6.0** | **0.01324** | 40/40 40/40 | 0 |
+| `confirm-metric` | 66.5 (sd 13.1) | 70.5 (sd 13.0) | +4.0 | 0.40887 | 40/40 40/40 | 0 |
+| `confirm-rollback` | 66.5 (sd 13.7) | 61.0 (sd 9.1) | −5.5 | 0.12226 | 40/40 40/40 | 0 |
+
+**2 of 3 voting cells fell, two-sided sign test p = 1.000.** Pooled median 62.0
+to 57.5, disclosure only.
+
+**The falsifier fired.** It was registered as *"fewer than 3 of 3 cells falling,
+or any cell separating upward at p < 0.05"*, and the first clause obtains. The
+edit is reverted in full, including `confirm-index`, which is the loop's
+standing rule and is the right rule here: with three cells tested, one hit at
+p = 0.013 is what three tests produce.
+
+Nothing else was bought. Stage 1b's 240 judgments and stage 2's 220 generations
+were never generated, per the standing order to stop at the first step that
+fails. Round 23 established that order and it saved this round about 645 calls.
+
+**All three cells read the fixture 40 of 40 on both sides**, so no [#131]
+stratum crossed and every cell voted. **Zero mutating runs** on either side, so
+no cell was refused under [#209]. Both guards are reported because they were
+registered, not because either fired.
+
+### The discriminant
+
+| cell | control median | edit median | delta | p |
+|---|--:|--:|--:|--:|
+| `fail-open` | 73.5 (sd 12.6) | 73.5 (sd 13.3) | 0.0 | 1.00000 |
+| `silent-success` | 69.0 (sd 13.6) | 68.5 (sd 15.3) | −0.5 | 0.99870 |
+| `stale-cache` | 145.0 (sd 19.4) | 140.5 (sd 22.6) | −4.5 | 0.61964 |
+
+Flat, at 30 a side with a detection floor of about 11 words. **This is registered
+reading 3, "neither moves", and not reading 1.** A flat discriminant is only
+evidence of specificity when the target moved, and it did not. What the
+discriminant does establish is that the 51 added words bought no general
+compression either, which is the narrower claim it can support on its own and
+is consistent with round 59's bound of about 1.036x for a bulk-length artefact
+of this size.
+
+## Why this is a real null and not an underpowered one
+
+The round was sized against sd = 15 and detects a 10-word shift at about 0.90
+power. Two things make the observed spread better than that, not worse: the
+control standard deviations came in at 8.0, 13.1 and 13.7, and the reading rate
+was 40 of 40 on every cell, so no cell lost runs to a stratum.
+
+**But the room was smaller than the archive said, and that is worth recording.**
+The registration quoted archive medians of 72.0, 81.0 and 82.0 at `rules_cksum`
+136269960. This round's own control read **57.0, 66.5 and 66.5** — 15 to 20
+words shorter on all three. The registration is why that costs the round
+nothing: a count target takes its baseline from the round's own control, and it
+did.
+
+What the difference is *not* is a measured finding. Two things changed between
+those numbers besides the rules: the calendar and the CLI. [Round 37](round-37.md)
+measured a syntactic behaviour moving 4.7x in five days at byte-identical rules,
+so a cross-era comparison of this shape cannot separate round 55's pre-action
+check from drift. It is disclosed as a caveat on the power estimate and claimed
+as nothing else.
+
+## What the cluster looks like after this
+
+This is the **eighth null** in the over-length cluster and the first about a
+worked example rather than a sentence. That matters for what the cluster's
+negative result now covers.
+
+[Round 48](round-48.md) bounded the sentence class: *"instructing the model to
+check its own length does not change its length."* Round 60 then found the
+worked question carrying half the demonstration block's effect and pointed at
+exactly the intervention this round bought. It did not transfer.
+
+The honest reading is narrower than "worked examples do not work", because
+round 60's result stands and is a within-file measurement of the block that
+ships. What this round adds is that **adding a second worked example to a file
+that already has one is not the same intervention as having the first one.**
+Round 60 measured the gap between a demonstration and no demonstration; this
+round measured the gap between one demonstration and two, on a rule the second
+one was written for, and found it at one cell of three. A diminishing return on
+the second example is a coherent reading of both results together, and it is
+untested.
+
+**What [#136] keeps.** The issue's proposal 1 is now scored and rejected on this
+instrument. Proposals 2 and 3 are untouched: proposal 2 is a telling sentence
+and round 60 prices that class at −0.16 of the gap, so it is a weak candidate
+rather than an untried one; proposal 3 is a detector, which is a different kind
+of work from a rule edit and does not need a round to justify it. And the gap
+`codex` named still stands between the report and every instrument the loop has:
+these are cold single-turn fixtures, and [#136]'s failure was a register
+inherited from four turns of the model's own prose. [Round 32](round-32.md) and
+the [register pilot](register-inheritance-136.md) both say so.
+
+## The harness change stays
+
+The rules edit is reverted; the staleness mechanism is not, and it is the part
+of this round with a life beyond it. `evals/arms/BUILT-FROM.json`,
+`run.py`'s refusal and `test_bench.py`'s skip are what let *any* rule edit be
+proposed now. Both branches were exercised in this round's own history: the
+seven arms were stale while the edit was in the tree, and fresh again after the
+revert, and the suite passes on both sides of that.
+
+## Cost
+
+420 generations, 0 judgments, 0 failed runs. The round-wide arm and the scoped
+judging pass were both refused by the stopping rule before they were bought.

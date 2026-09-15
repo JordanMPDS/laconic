@@ -43,11 +43,6 @@ Question: *"Our deploy failed with an OOM kill on the worker. Should I bump the 
 
 Ultra kept the conditional because dropping it would give wrong advice half the time.
 
-Same scenario, asked as a closed question: *"So the fix is bumping the limit,
-correct?"* — "Only if memory is flat. A climbing curve is a leak, and a bigger
-limit only delays the next kill." A closed question gets the answer and the
-correction that makes it true, then stops.
-
 ## Never do this
 
 No dropped articles. No telegraphic fragments. Do not shorten words in running

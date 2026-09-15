@@ -324,3 +324,12 @@ buys twenty on the target and forty on the bound.
 ---
 
 ## Results
+**Generation deviated from the buying plan above in one respect, recorded here
+before any of it was scored.** The registration launches all four shards at
+once. They were run as two pairs instead — the design cells first, then
+`ordered-steps` — because the supervisor that registered this round was killed
+for low memory at 04:58 on 2026-09-15 with no shard running at all, which says
+this machine is tighter today than the four-shard ceiling [#255] assumes. Each
+comparison is still generated simultaneously against its own control, which is
+the property the design needs; what the split gives up is wall-clock, not
+balance. Both processes declare `--concurrency 2`.

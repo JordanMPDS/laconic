@@ -1,0 +1,326 @@
+# Round 66: the scaffolding no rule has ever named
+
+**Registration. Nothing below the results line has been computed**, with the
+exception of the archive figures marked as computed and dated in place, which
+come from already-committed snapshots and are why this round has the scope it
+has. This file, the edit, the regenerated `rules/dist/*.md` and the scorer are
+committed in one commit before any generation, following
+[round 38](round-38.md) through [round 65](round-65.md).
+
+**This round proposes a rule edit**, carried under [The edit](#the-edit).
+`bash tools/candidate-due.sh` exits 1: [round 65](round-65.md) measured and
+spent the allowance, so round 66 has to carry a candidate.
+
+## Why this round exists
+
+[#46](https://github.com/JordanMPDS/laconic/issues/46) is one of the two
+user-visible failure reports this loop treats as its strongest leads. It reports
+a bare design question — *"multiple areas talk about alerting. how would that be
+built?"* — answered at level `full` in about 1,400 words. The shape of the
+answer is as much of the report as its length:
+
+> Answered with ~1,400 words across 8 H2 sections, including a code block, a
+> 9-row routing table, and a closing offer.
+
+[#113](https://github.com/JordanMPDS/laconic/issues/113) names the same thing
+from a different session and says what is missing:
+
+> The second answer had six bolded section headers on a conversational reply.
+> Laconic's lever is claim count, and headers *advertise* a claim count: six
+> headers read as six independent findings whether or not there are six.
+> Nothing in the rule text mentions structure, so a response can stay within its
+> claim budget and still present as a report. Possibly out of scope — flagging
+> rather than proposing.
+
+It is not out of scope, and it is the loop's own highest-ranked class. `review.py`
+ranks **unruled** above everything else — *"the benchmark checks something
+`rules/laconic.md` never mentions"* — and scaffolding is unruled in the strict
+sense: `metrics.structure_markers()` has counted bullets, numbered lines and
+bold labels since [#20], and `metrics.POLICY_RANK` does not list any of them,
+because no line of `rules/laconic.md` says anything about the form of an answer.
+Every counter the file does implement has a verbatim rule behind it that
+`tests/test_bench.py` locates between the level markers.
+
+**And it is an intervention class this cluster has never tried.** Nine rounds
+have now attempted the over-length family and all of them edited length or the
+licence that grants it:
+
+| rounds | what was edited | verdict |
+|---|---|---|
+| 07, 08, 09, 10, 15 | a design-question licence, placed five ways | one relocation accepted, four rejected |
+| [29](round-29.md), [49](round-49.md) | the length-scaling licence's own wording | reject on two instruments |
+| [40](round-40.md), [47](round-47.md), [48](round-48.md) | *"would this be the same answer if this were the session's first turn?"* in the rules slice and in the reminder | reject, three times, byte-identical text |
+| [64](round-64.md) | a second worked `Wrong:`/`Right:` example for closed questions | reject, one cell of three |
+
+[Round 48](round-48.md) stated the bound those produce: **instructing the model
+to check its own length does not change its length.** A prohibition on a form is
+not an instruction to check a length. Whether that distinction is worth anything
+is what this round buys.
+
+## The edit
+
+`rules/laconic.md`, the `lite` ceremony list, one item appended:
+
+```diff
+ - No recap of work visible in the diff. Name the file and what changed.
+   Reporting a failure, a skipped step, or a surprise is not a recap — that is
+   never-cut content and stays.
++- No headings, and no bold label standing in for one. A heading advertises a
++  claim count: three of them read as three findings whether or not the answer
++  has three. Ordered steps stay a numbered list, and a table the user asked for
++  stays a table — structure the content already carries is not ceremony.
+```
+
+Forty-four words, and `rules/dist/*.md` is regenerated in the same commit.
+
+**It goes in the `lite` block on purpose, and the placement is the part of this
+edit that is an argument rather than a guess.** Rounds 07 to 10 established
+that where a rule lives outranks what it says about where it lives: the same
+design-question licence rejected three times in the "Never cut" list with a
+precedence sentence bolted on, and was accepted in `level: full` with no
+precedence sentence at all. `## Level: lite — cut ceremony` is the section whose
+header already carries the limit this rule needs, and scaffolding on an answer
+whose content does not carry it is ceremony in exactly the sense the other four
+items in that list are. It therefore ships at all three levels, which is correct
+— the harm is reported at `full` and there is no reading on which `ultra` wants
+more scaffolding than `full`.
+
+**The two exemptions are in the rule rather than in a note about the rule,** for
+the same reason. An ordered procedure is never-cut content and a table the user
+asked for is requested content, and both would otherwise be casualties of a
+prohibition written without them.
+
+## What is being measured, and why it has room
+
+**Computed 2026-09-15 from committed snapshots, no generation calls.** Every
+`laconic` sonnet response in the archive at the current master `rules_cksum`
+594915793, deduplicated on its text, by case, ordered by median prose words:
+
+| case | n | median words | carries a bold label | bold labels / run | bullets / run | headings / run |
+|---|--:|--:|--:|--:|--:|--:|
+| `badnews` | 65 | 22 | 0.0% | 0.00 | 2.40 | 0.00 |
+| `conditional` | 371 | 59 | 0.0% | 0.00 | 0.00 | 0.00 |
+| `fail-open` | 150 | 70 | 0.0% | 0.00 | 0.00 | 0.00 |
+| `destructive` | 80 | 124 | 47.5% | 1.27 | 1.04 | 0.00 |
+| **`design-search`** | 200 | 125 | **28.0%** | 0.56 | 0.30 | 0.00 |
+| `stale-cache` | 160 | 140 | 4.4% | 0.06 | 0.19 | 0.00 |
+| **`design-realtime`** | 311 | 149 | **39.2%** | 0.80 | 0.35 | 0.00 |
+| `ordered-steps` | 50 | 150 | 28.0% | 1.16 | 0.56 | 0.00 |
+| **`design-rate-limit`** | 201 | 170 | **42.8%** | 0.99 | 0.77 | 0.00 |
+| **`design-upload`** | 321 | 180 | **66.4%** | 1.44 | 1.02 | 0.00 |
+| **`design-cache`** | 311 | 185 | **57.2%** | 1.21 | 0.59 | 0.00 |
+| **`design-alerting`** | 56 | 212 | **71.4%** | 1.68 | 0.36 | 0.00 |
+| **`design-retry`** | 206 | 222 | **78.6%** | 2.16 | 0.96 | 0.00 |
+| **`design-audit-log`** | 56 | 236 | **80.4%** | 1.80 | 1.02 | 0.00 |
+| `walkthrough` | 20 | 368 | 95.0% | 3.90 | 3.60 | 0.35 |
+
+Three readings of that table are load-bearing and are stated now rather than
+after the numbers are in:
+
+- **`#` headings are already at zero.** The operative half of the edit is the
+  bold label, and the heading clause is a prohibition on something the
+  instrument cannot see moving. That is disclosed here so the result is not
+  later read as evidence about headings.
+- **The design family is where the room is.** Eight cases, pooled around 58%,
+  and they are the family [#46] is about. On [round 63](round-63.md)'s two
+  master-rules shards the same six-cell pool reads 56.2% against 48.6% at
+  Fisher p = 0.233, which is the scorer run against two halves of one batch and
+  is this round's null check on its own instrument.
+- **Scaffolding tracks length across the suite**, so a fall in bold labels with
+  no fall in words would say the answers were reformatted, and a fall in both
+  would say the scaffolding was carrying claims. Both are informative and only
+  one of them is the primary.
+
+## The registered claim
+
+> Adding a ceremony item prohibiting headings and bold labels should **lower the
+> share of `design-*` responses carrying a bold label**, laconic arm, sonnet,
+> against a control generated simultaneously from master.
+
+**Primary, and the decision endpoint:** the pooled share of responses carrying
+at least one bold label over the eight `design-*` cells. Fisher exact,
+two-sided, alpha 0.05. Predicted direction: down.
+
+**Falsifier, registered in advance:** the primary failing to separate at
+p < 0.05, or separating upward. Either result says a prohibition on form joins
+the nine nulls on length, and [#46] and [#113] keep their structure half
+unanswered.
+
+**Registered secondary, gating nothing: prose words on the same responses.** It
+is the mechanism test and it cannot reject. Down with the labels means the
+scaffolding was carrying claims; flat means the answer was reformatted and
+nothing was removed. The cluster has no measurement of which, and this is the
+first round in a position to make one.
+
+**Registered per-cell disclosure:** how many of the eight cells fall on each of
+the two, with a two-sided exact sign test. At eight cells only a clean sweep
+reaches alpha, so this is disclosure and not a second gate — the same limit
+[#49]'s `turns` target carries and for the same reason.
+
+## Three bounds, each fatal on its own
+
+1. **`ordered-steps` keeps its numbered list.** The one case in the suite whose
+   criterion is that four steps survive in an unmistakable order, and the one
+   place this edit can do real harm: a procedure delivered as prose loses its
+   step boundaries. Scored as the share of responses carrying four or more
+   numbered lines, one-sided Fisher on a fall. The archive reads **41 of 50
+   (82.0%)** at master on sonnet, mean 3.98 numbered lines.
+2. **`ordered-steps` keeps its safety verdict.** The deterministic check above
+   counts list items and cannot see an ordering word being dropped, which is
+   what the criterion actually grades. Judged, sonnet, one-sided Fisher on a
+   fall. `ordered-steps`/sonnet fails 2 of 60 under master rules ([#78],
+   measured 2026-08-11), so this sits near a ceiling where per [#94] a fall
+   registers and a rise cannot.
+3. **The reading rate on the design cells must not fall.** An edit that bought
+   its number by stopping the model opening the fixture has won nothing — that
+   is the [#131] stratum-crossing failure and the [#46]/[#138] one at once, and
+   it is the failure mode this family is most prone to.
+
+**`walkthrough` carries its never-cut keyword**, `401`, as a fourth check. It is
+a requested explanation at 368 median words and 95% scaffolding, so it is where
+a form prohibition is most likely to cost content. Everything else about that
+cell is disclosure; the substring check is fatal.
+
+## Power, stated before the numbers
+
+Fisher exact, two-sided, alpha 0.05, against a control of 58%, 2,000
+simulations a cell:
+
+| edit rate | n = 160 a side |
+|---|--:|
+| 45% | 0.585 |
+| **40%** | **0.891** |
+| 35% | 0.984 |
+| 30% | 0.999 |
+
+160 a side is bought for a fall to 40 points, and it is thin against a fall to
+45. That is the deliberate trade: [round 65](round-65.md)'s check moved its
+counter from 30.0% to 5.8%, so an explicit prohibition naming the form it
+prohibits is expected to move this hard or not at all, and a round sized for a
+13-point shift would cost three times as much to resolve a result this family
+has never produced.
+
+Bound 1 at 40 a side, one-sided, against a control of 82%: detection 0.886
+against a fall to 50%, 0.631 against a fall to 60%, 0.263 against a fall to 70%.
+It is a bound on a large loss and is not powered for a small one, which is why
+bound 2 is judged rather than inferred from it.
+
+## What the round buys
+
+Sonnet throughout, single-turn, so `--turn-delivery` does not apply. Two
+worktrees generating simultaneously, which is what makes era and the CLI release
+cancel between the sides instead of confounding them — [round 63](round-63.md)
+is the round that had to learn this twice, and its control arm moved 7.1 points
+in six days at byte-identical rules.
+
+```sh
+git worktree add /tmp/laconic-66-control master
+
+# edit side, from this branch
+python3 evals/bench/run.py --arms laconic --models sonnet --reps 20 \
+  --cases 'design-*,walkthrough' --concurrency 4 \
+  --snapshot evals/snapshots/loop/round-66-edit.json &
+python3 evals/bench/run.py --arms laconic --models sonnet --reps 40 \
+  --cases ordered-steps --concurrency 4 \
+  --snapshot evals/snapshots/loop/round-66-edit-ordered.json &
+
+# control side, from the worktree, writing back here
+cd /tmp/laconic-66-control && python3 evals/bench/run.py --arms laconic \
+  --models sonnet --reps 20 --cases 'design-*,walkthrough' --concurrency 4 \
+  --snapshot <abs>/evals/snapshots/loop/round-66-control.json &
+cd /tmp/laconic-66-control && python3 evals/bench/run.py --arms laconic \
+  --models sonnet --reps 40 --cases ordered-steps --concurrency 4 \
+  --snapshot <abs>/evals/snapshots/loop/round-66-control-ordered.json &
+```
+
+**440 generations, 80 judgments.** Four shards, which is the ceiling [#255]
+sets and not a coincidence: the two snapshots per side are separate because
+`ordered-steps` is bought at twice the reps, and a second invocation naming a
+different case subset computes a different `cases_cksum`, which the [#69] guard
+correctly refuses to write into one file.
+
+Scored by `python3 evals/pilot/score_structure.py`, which is committed with this
+registration and whose null behaviour on two halves of one master-rules batch is
+quoted above.
+
+## Buying order, stopping at the first failure
+
+[Round 23](round-23.md)'s order, which saved [round 64](round-64.md) about 645
+calls:
+
+1. **The scoped batch and its deterministic endpoints** — the primary, the
+   secondary, bound 1, bound 3 and the `walkthrough` substring check. 440
+   generations.
+2. **Bound 2**, the 80 `ordered-steps` judgments.
+3. **The round-wide laconic arm and its judgments** for the four fatal
+   counters, which an edit in the shared block has to clear before it can ship.
+4. **Replication and holdout**, for an edit that has passed all three.
+
+## What this round cannot establish
+
+- **It is about bold labels.** Headings read 0.00 per run on every scored cell
+  except `walkthrough`, so the heading clause of the edit is untested by
+  construction, and a result here may not be quoted as evidence about headings.
+- **It is eight design cells on sonnet.** [#113]'s report is a conversational
+  reply deep in a session and these are cold single-turn fixtures. That is the
+  same wall [round 32](round-32.md) and [round 64](round-64.md) hit, and it is
+  unmoved.
+- **The secondary is a within-round mechanism reading, not a compression
+  result.** A fall in words on the design cells would be an
+  `output_tokens`-shaped claim scored on a counter that is not `output_tokens`
+  and without the [#131] reading stratification that target requires. It is
+  registered as a reading and will be reported as one.
+- **Nothing here says scaffolding is harmful.** The round measures whether a
+  rule removes it and whether the answer shortens with it. Whether a reader
+  prefers the result is a preference question, and preference is not part of a
+  round.
+
+## Origin of the design
+
+`bash tools/consult.sh` was run before this round was committed to. `deepseek`
+and `kimi` did not answer inside the timeout, which is recorded here rather than
+left as silence. `codex` answered, and **it killed the design this round
+started as.**
+
+The registration began as a fourth item in the pre-send checklist — *"Did the
+previous answer run long because it was asked to? That licence expired with
+it."* — scored on the [register pilot](register-inheritance-136.md). `codex`
+declined it in one line:
+
+> This is the already-rejected intervention class. Rounds 47 and 48 tested the
+> near-equivalent "Would this be the same answer if this were the session's
+> first turn?" in both the rules slice and the immediate reminder; neither moved
+> this exact instrument.
+
+That is correct and was verified against both round documents before the design
+changed: round 47 reads p = 0.9815 on that instrument and round 48 reads
+p = 0.6595, and [round 49](round-49.md) then closed the licence-wording route by
+arithmetic rather than by a p-value — an elasticity of 0.44 means removing the
+carry-forward needs the licensed stretch cut to under a third, which its own
+fatal bound refuses. `codex`'s general prescription, *"change the licence's
+wording itself, not add another self-check"*, is the half this round does not
+adopt, because round 49 had already bought it. What survives is its diagnosis of
+the class, and the class this round chose instead is the one neither of us had
+named: the form of the answer rather than its length or its licence.
+
+Its two further points are adopted directly. It asked for an equivalence margin
+rather than a non-significant difference wherever a bound claims something did
+not move, which is why bounds 1 and 2 are one-sided tests on a fall with their
+detection curves published above rather than two-sided nulls. And it argued
+against ten reps for a primary that has to carry a specificity claim; this round
+buys twenty on the target and forty on the bound.
+
+[#20]: https://github.com/JordanMPDS/laconic/issues/20
+[#46]: https://github.com/JordanMPDS/laconic/issues/46
+[#49]: https://github.com/JordanMPDS/laconic/issues/49
+[#69]: https://github.com/JordanMPDS/laconic/issues/69
+[#78]: https://github.com/JordanMPDS/laconic/issues/78
+[#94]: https://github.com/JordanMPDS/laconic/issues/94
+[#113]: https://github.com/JordanMPDS/laconic/issues/113
+[#131]: https://github.com/JordanMPDS/laconic/issues/131
+[#138]: https://github.com/JordanMPDS/laconic/issues/138
+[#255]: https://github.com/JordanMPDS/laconic/issues/255
+
+---
+
+## Results

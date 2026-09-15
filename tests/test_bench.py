@@ -9,6 +9,7 @@ import shutil
 import subprocess
 import sys
 import tempfile
+import zlib
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -389,6 +390,28 @@ for _min_arm, _fname in bench_run.ARM_FILES.items():
         check("%s keeps the never-cut contract: %r" % (_min_arm, _probe),
               _probe in _low)
 
+# Seven arms below are derived arms: each is defined as a transformation of the
+# shipped `full` slice, so its invariant is a statement about that slice and
+# cannot be checked against a different one. evals/arms/BUILT-FROM.json records
+# the rules_cksum each was cut from. When rules/laconic.md moves they go stale,
+# and the checks that follow are skipped rather than failed - not to be lenient,
+# but because "removes exactly 209 words" is not a claim about this file. What
+# replaces them is the refusal: a stale arm may not generate. Rebuilding one is
+# the job of whichever round next needs it, and doing it silently inside a rules
+# edit would produce a text no round ever ran while the README kept describing
+# the old one.
+_LIVE_CKSUM = str(zlib.crc32(bench_run.laconic_rules(ROOT, "full").encode()))
+_STALE = set(bench_run.stale_arms(_LIVE_CKSUM))
+
+check("BUILT-FROM covers every derived arm and no other",
+      set(bench_run.BUILT_FROM)
+      == {a for a in bench_run.ARM_FILES if not a.startswith("laconic-min-")})
+check("a stale arm is one whose recorded base is not this tree's slice",
+      bench_run.stale_arms("nosuchcksum") == sorted(bench_run.BUILT_FROM))
+check("no arm is stale against its own recorded base",
+      all(not bench_run.stale_arms(b) or a in bench_run.stale_arms(b)
+          for a, b in bench_run.BUILT_FROM.items()))
+
 # The #275 ablation arms. These are a different kind of thing from the minimal
 # slices above and need a different invariant: an ablation arm is the shipped
 # `full` slice with one named block deleted and *nothing else changed*, so the
@@ -412,6 +435,8 @@ def _is_subsequence(small, big):
 
 
 for _abl, _removed in _ABLATIONS.items():
+    if _abl in _STALE:
+        continue
     _text = bench_run.ARMS[_abl]
     check("%s is pure deletion from the shipped full slice" % _abl,
           _is_subsequence(_text.split("\n"), _slice_lines))
@@ -482,6 +507,8 @@ _shown_lines = _shown.split("\n")
 _slice_words = len(" ".join(_slice_lines).split())
 
 for _repl, (_present, _absent) in _REPLACEMENTS.items():
+    if _repl in _STALE:
+        continue
     _text = bench_run.ARMS[_repl]
     check("%s is pure replacement over the abl-shown floor" % _repl,
           _is_subsequence(_shown_lines, _text.split("\n")))
@@ -508,8 +535,9 @@ check("the three replacement arms are three different texts",
 # go with every cut, so they are not evidence of overlap and are excluded.
 _gone_shown = set(_slice_lines) - set(_shown.split("\n")) - {""}
 _gone_arrow = set(_slice_lines) - set(_arrow.split("\n")) - {""}
-check("no line is removed by both ablation arms",
-      _gone_shown and _gone_arrow and not (_gone_shown & _gone_arrow))
+if not (_STALE & set(_ABLATIONS)):
+    check("no line is removed by both ablation arms",
+          _gone_shown and _gone_arrow and not (_gone_shown & _gone_arrow))
 
 
 # The #264 pre-action-check arms. A fourth kind, and the narrowest: each is the
@@ -548,6 +576,8 @@ _precheck_slice = bench_run.laconic_rules(ROOT, "full")
 check("the shipped slice carries the pre-action check exactly once",
       _precheck_slice.count(_PRECHECK_BLOCK) == 1)
 for _pre, _block in _PRECHECKS.items():
+    if _pre in _STALE:
+        continue
     _text = bench_run.ARMS[_pre]
     check("%s is the shipped slice with only the check block swapped" % _pre,
           _text == _precheck_slice.replace(_PRECHECK_BLOCK, _block))
@@ -559,12 +589,13 @@ for _pre, _block in _PRECHECKS.items():
 # length, so a length artefact cannot explain it; the assay contrast is against
 # a slice 41 words shorter, which is the check's own weight and is the thing
 # round 55 bought. Registered here so a rewording that drifts either way fails.
-check("laconic-precheck-read is word-matched to the shipped slice",
-      len(bench_run.ARMS["laconic-precheck-read"].split())
-      == len(_precheck_slice.split()))
-check("laconic-precheck-off is the slice minus the check's 41 words",
-      len(_precheck_slice.split())
-      - len(bench_run.ARMS["laconic-precheck-off"].split()) == 41)
+if not (_STALE & set(_PRECHECKS)):
+    check("laconic-precheck-read is word-matched to the shipped slice",
+          len(bench_run.ARMS["laconic-precheck-read"].split())
+          == len(_precheck_slice.split()))
+    check("laconic-precheck-off is the slice minus the check's 41 words",
+          len(_precheck_slice.split())
+          - len(bench_run.ARMS["laconic-precheck-off"].split()) == 41)
 check("the two pre-action arms are two different texts",
       bench_run.ARMS["laconic-precheck-off"]
       != bench_run.ARMS["laconic-precheck-read"])
@@ -869,6 +900,37 @@ with tempfile.TemporaryDirectory() as td_e2e:
           proc.returncode != 0)
     check("subprocess: guard runs before any work, no snapshot written",
           not snap_path.exists())
+
+# The stale-arm refusal, end to end. This is what stands in for the invariants
+# skipped above, so testing stale_arms() alone would leave the hole it fills:
+# the predicate could be correct and never consulted. A stub claude that
+# answers --version gets past the binary guard, and the refusal has to fire
+# before anything is generated or written.
+with tempfile.TemporaryDirectory() as td_stale:
+    stub = Path(td_stale) / "claude"
+    stub.write_text("#!/bin/sh\necho '1.2.3 (Claude Code)'\n")
+    stub.chmod(0o755)
+    stale_snap = Path(td_stale) / "stale.json"
+    _an_arm = sorted(bench_run.BUILT_FROM)[0]
+    proc_stale = subprocess.run(
+        [sys.executable, str(ROOT / "evals" / "bench" / "run.py"),
+         "--claude-bin", str(stub), "--models", "haiku", "--reps", "1",
+         "--cases", "floor", "--arms", _an_arm,
+         "--snapshot", str(stale_snap)],
+        capture_output=True, text=True,
+    )
+    _refused = proc_stale.returncode != 0 and "stale arm" in (
+        proc_stale.stdout + proc_stale.stderr)
+    if _STALE:
+        check("subprocess: a stale arm is refused before anything is generated",
+              _refused)
+        check("subprocess: the refusal names the arm and both checksums",
+              _an_arm in (proc_stale.stdout + proc_stale.stderr)
+              and _LIVE_CKSUM in (proc_stale.stdout + proc_stale.stderr))
+        check("subprocess: a refused round writes no snapshot",
+              not stale_snap.exists())
+    else:
+        check("subprocess: a fresh arm is not refused as stale", not _refused)
 
 with tempfile.TemporaryDirectory() as td:
     snap_path = Path(td) / "results.json"

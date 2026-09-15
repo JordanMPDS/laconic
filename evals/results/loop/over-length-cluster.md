@@ -94,22 +94,38 @@ laconic at +36.8% under `repeat`; under `plugin` the same manipulation reads
 **The gap between the reports and the instrument is the cluster's central
 question**, and it is now a narrower one: not "what lengthens the answer" but
 "why does laconic fail in the field where it binds hardest here". Two candidate
-explanations, neither tested:
+explanations, **both now tested, and neither closes the gap**:
 
 - **The harness's earlier turns are not the reports' earlier turns.** Both
   reports describe a session whose prior answers were *legitimately long* —
   [#136] says the turn before the failure was "a real explanation with a table",
   which was the correct response. The `deep-*` turns are short analysis answers
   about a one-page fixture. A register can only be inherited from a register that
-  was set.
+  was set. **Tested** as `evals/pilot/register-*` in
+  [`register-inheritance-136.md`](register-inheritance-136.md): the mechanism
+  reproduces, laconic 31.0 words to 52.0 at 1.677x and p < 0.00001 against a
+  baseline arm that does not move, three stems of three. It reproduces at
+  roughly an eighth of [#136]'s reported ~400 words, so it is a mechanism
+  finding and not a reproduction of the report.
 - **A real session interleaves work with questions.** Every turn in these cases
   ends `Don't edit anything.`, which `CRITERIA.md` requires so the diagnosis
   lands in the response rather than the diff.
   [`closing-offers.md`](closing-offers.md) already found this shape-dependence
   for a different metric, and it was task shape rather than that clause.
+  **Tested** as `evals/pilot/work-*` in [`round-67.md`](round-67.md), and
+  **refuted in sign**: with turns 2 to 4 doing the work in 30 of 30 runs against
+  0 of 30 on the control family, nothing rose on the graded turn in either arm.
+  Laconic fell 56.0 to 37.5 and baseline fell with it, 188.5 to 145.0, at a
+  log-scale ratio of ratios of 1.015 (p = 0.9559) — so the movement is the case
+  family rather than the rules, and a session of work does not inflate the
+  laconic answer on the turn that follows it.
 
-Both are case-authoring problems rather than rule problems, and neither is worth
-buying until the measurement below is in.
+Both were case-authoring problems rather than rule problems, and both have now
+been bought. The first is a real mechanism at an eighth of the reported size;
+the second is not a mechanism at all. **So the magnitude gap has no remaining
+named candidate.** Naming a third is the cluster's open work, and round 67
+registered that outcome in advance as its own finding rather than discovering it
+afterwards.
 
 ## The six issues are three groups, not one
 

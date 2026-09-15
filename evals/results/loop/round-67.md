@@ -268,6 +268,188 @@ be scored on it.
 *Nothing above this line has been computed. Nothing below it had been computed
 when the commit carrying this file was made.*
 
+**The cluster's second candidate is refuted in sign, and the movement it did
+produce belongs to the case rather than to the rules.** 120 runs, 0 failed, one
+interleaved batch, `rules_cksum` 594915793, `cases_cksum` 3011707677,
+`turn_delivery` `plugin`. Nothing rose on the graded turn in either arm. The
+laconic arm fell, the baseline arm fell with it, and on the log scale the two
+falls are indistinguishable — so the registered control clause governs: *a
+`work-*` movement that appears on both arms is the case, not the rules.*
+
+## Both manipulation checks passed, the first of them at ceiling
+
+**Check 1, the registered bar of 24 of 30.** Read off the per-turn tool list, on
+turns 2 to 4 only:
+
+| arm | `deep-*` | `work-*` |
+|---|---:|---:|
+| baseline | 0/30 | **30/30** |
+| laconic | 0/30 | **30/30** |
+
+The run-level `artifacts` field reads the same fact identically, 0/30 and 30/30
+in both arms. The registration named this the round's live risk, because laconic
+suppresses *volunteered* edits hard — 30.0% to 5.8% on `conditional` in
+[round 65](round-65.md) — and it did not materialise: asked-for work is done
+every time. The control family is a clean 0 of 30, so the clause is the whole
+difference in behaviour as well as in text.
+
+**Check 2, the measurement.** Prose words summed over turns 2 to 4, per run:
+
+| arm | `deep-*` | `work-*` | p |
+|---|---:|---:|---:|
+| baseline | 964.5 | 254.5 | 0.0000 |
+| laconic | 181.0 | 37.0 | 0.0000 |
+
+Work displaces prose in both arms, which is the quantity the two accounts of the
+cluster disagree about.
+
+## Primary: nothing rises, and both arms fall together
+
+Median prose words on the graded turn 5, two-sided permutation on the family
+label at seed 67:
+
+| arm | n | `deep-*` | `work-*` | ratio | p |
+|---|---:|---:|---:|---:|---:|
+| baseline | 30 | 188.5 | 145.0 | 0.769 | 0.0000 |
+| **laconic** | 30 | **56.0** | **37.5** | **0.670** | **0.0058** |
+
+Interaction, laconic rise minus baseline rise: p = 0.1650 on raw words — the
+test round 42 recorded as broken rather than conservative, computed because the
+registration named it — and on log words a **ratio of ratios of 1.015,
+p = 0.9559**. The manipulation multiplies the graded answer by about the same
+factor in both arms.
+
+By stem, and this is where the laconic result is weakest:
+
+| arm | stem | `deep-*` | `work-*` | p |
+|---|---|---:|---:|---:|
+| baseline | index | 172.0 | 132.5 | 0.0001 |
+| baseline | metric | 238.0 | 178.0 | 0.0000 |
+| baseline | rollback | 171.5 | 142.0 | 0.0001 |
+| laconic | index | 63.0 | 37.0 | 0.0000 |
+| laconic | metric | 57.0 | 53.5 | 0.8750 |
+| laconic | rollback | 35.0 | 30.0 | 0.8388 |
+
+**The baseline separates on three stems of three; laconic separates on one.**
+The pooled laconic fall is carried by `index` alone, and the other two stems sit
+at 57.0 against 53.5 and 35.0 against 30.0. Read together with the log
+interaction, the reading is that the case family moves both arms and the laconic
+arm — already at 35 to 63 words — has little room to move further.
+
+## Harm check, and a rule-adherence reading the round got for free
+
+The `index` stem's never-cut keyword `date_trunc` is present on the graded turn
+in **10 of 10** runs of every one of the four cells. Nothing was cut.
+
+Turn 5 forbids editing in both families, and **no run in the batch called a
+workspace-changing tool on it** — 0 of 30 in all four cells. That is not a
+registered endpoint; it is stated because the manipulation check deliberately
+excludes turn 5 so that a violation there could not clear it, which leaves the
+count worth reporting rather than assuming.
+
+## Which registered branch this is, and the clause that resolved it
+
+**None of the three exactly.** Branch 1 needed a laconic rise; nothing rose.
+Branches 2 and 3 both required the baseline arm to hold still, and it did not —
+it separated on all three stems at p ≤ 0.0001.
+
+The registration anticipated this case in the control's own definition rather
+than in the branch list: *"A `work-*` movement that appears on both arms is the
+case, not the rules."* That clause decides it, and the log-scale interaction is
+the formal statement of it (1.015, p = 0.9559). So the outcome is branch 2's
+**conclusion** reached without branch 2's **premise**, and it is the stronger of
+the two readings for the cluster: under branch 2 the candidate closes because
+laconic answered the manipulation downward, and here it closes because the
+manipulation does not distinguish the arms at all.
+
+**The cluster's second candidate closes as an explanation for the magnitude
+gap.** [#136] locates the pull "when the model has a lot of recent context it is
+proud of" and [#116]'s failure sits deep in a session of work; on this
+instrument, a session of work does not inflate the laconic answer on the turn
+that follows it. The gap between six field reports and what the benchmark can
+produce now has **no remaining named candidate**, which the registration stated
+in advance would itself be the finding.
+
+Set beside the pilot it was built to extend — same control family, same graded
+turn, same scorer:
+
+| pilot | laconic `deep-*` | laconic treatment | ratio | baseline moved? |
+|---|---:|---:|---:|---|
+| [`register-*`](register-inheritance-136.md) | 31.0 | 52.0 | **1.677** | no (185.5 to 190.5, p = 0.9135) |
+| `work-*` (this round) | 56.0 | 37.5 | **0.670** | **yes** (188.5 to 145.0, p = 0.0000) |
+
+An inherited *register* moves the laconic arm and only the laconic arm.
+Inherited *work* moves both arms alike. Those are different mechanisms, and only
+the first of them is a rules effect.
+
+## Instrument disclosures
+
+**The delivered rule slice is not the register pilot's, and the difference is
+named.** `register-136.json` was generated on 2026-09-05 at `rules_cksum`
+136269960, a 5,778-byte `full` slice; this round is at 594915793, 5,997 bytes.
+`rules/laconic.md` has not been edited since, but [round 55](round-55.md)'s
+accepted edit for [#116] — the pre-action check, *"One check before acting, and
+two before sending"* and its diagnosis clause — landed between the two pilots,
+and that is the entire diff between the slices. The shared `deep-*` control
+moved accordingly: laconic **31.0 to 56.0** across the two pilots while baseline
+did not move (185.5 to 188.5).
+
+Three consequences, stated rather than argued around:
+
+- **Round 67's own contrast is untouched.** Every run in the table above was
+  generated in one batch at one `rules_cksum`, which is exactly why the design
+  regenerates its control instead of reading the stored one.
+- **The cross-pilot comparison the registration invited is confounded** by that
+  edit, and the table above is offered as a description of two mechanisms, not
+  as a measured contrast between them. Ten days and several CLI releases also
+  separate the two, so the 31.0-to-56.0 shift has two named candidates and this
+  round separates neither.
+- **The registered power table was computed from the wrong distribution.** It
+  used `register-136.json`'s control (median 31.0, log sd 0.498). Resampling
+  this round's *own* control (median 56.0, log sd 0.375) at 30 against 30 under
+  the round's own permutation, 300 trials a point:
+
+  | true ratio | registered power | realized power |
+  |---:|---:|---:|
+  | 0.70 | 0.89 | **0.96** |
+  | 0.80 | 0.48 | **0.69** |
+  | 1.25 | 0.51 | **0.72** |
+  | 1.40 | 0.86 | **0.95** |
+
+  The round was better powered than registered at every point, because its own
+  control is tighter on the log scale. The observed laconic ratio of 0.670 sits
+  inside the powered band, and the unpowered band narrows from roughly 0.8-1.25
+  to something inside it — so branch 3 would have been a tighter null than
+  registered had it fired.
+
+**Release audit.** All three shards ran entirely on CLI 2.1.272:
+`python3 evals/bench/release.py` reports "no unreadable span, and no arm is
+imbalanced across a release". The round did not span a release.
+
+**Concurrency audit.** `--concurrency 3` declared on every shard; each shard
+reconstructs to 1 invocation and the merged file to 3, so nothing exceeds its
+declaration. `python3 evals/bench/concurrency.py --quiet` names no round-67
+file; its non-zero exit is the archive's ten known predates, unchanged by this
+round.
+
+## What this round did not establish, beyond what the registration disclosed
+
+Every limit registered above still holds — no mechanism is identified, the
+model's prior output lands in the fixture on `work-*`, and this is one batch on
+one date. Two things to add:
+
+- **The laconic fall is one stem of three.** Do not read 0.670 as a stable
+  quantity; read the round as "laconic did not rise, and did not move
+  differently from baseline".
+- **Nothing was judged.** Every endpoint here is deterministic, as registered,
+  so this round says nothing about whether the `work-*` answers are *better* —
+  only how long they are and that the never-cut keyword survived. The graded
+  turn's trap is still unspent.
+
+**No rule edit was proposed, as registered.** The triple stays in `evals/pilot`.
+`bash tools/candidate-due.sh` exits 1 after this round: round 68 has to carry an
+edit.
+
 [#46]: https://github.com/JordanMPDS/laconic/issues/46
 [#60]: https://github.com/JordanMPDS/laconic/issues/60
 [#94]: https://github.com/JordanMPDS/laconic/issues/94

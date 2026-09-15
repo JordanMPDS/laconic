@@ -130,7 +130,7 @@ def fmt(p):
     return "-" if p is None else "%.4f" % p
 
 
-def load(path, side, graded, cell, kept, counts):
+def load(path, side, graded, cell, kept, counts, raw):
     snap = json.loads(Path(path).read_text())
     for r in bench_run.usable(snap["runs"]):
         family, stem = r["case"].split("-", 1)
@@ -139,6 +139,7 @@ def load(path, side, graded, cell, kept, counts):
         words = metrics.score(r.get("text", ""))["words"]
         counts[side] += 1
         graded[(side, family)].append(words)
+        raw[(side, family)].append(len(r.get("text", "").split()))
         cell[(side, family, stem, r["model"])].append(words)
         expect = json.loads(
             (Path(__file__).resolve().parent / r["case"] / "expect.json").read_text())
@@ -158,9 +159,10 @@ def main():
     cell = defaultdict(list)
     kept = defaultdict(list)
     counts = defaultdict(int)
+    raw = defaultdict(list)
     snaps = {}
     for side, path in (("control", sys.argv[1]), ("edit", sys.argv[2])):
-        snaps[side] = load(path, side, graded, cell, kept, counts)
+        snaps[side] = load(path, side, graded, cell, kept, counts, raw)
 
     for side in ("control", "edit"):
         m = snaps[side]["metadata"]
@@ -230,6 +232,18 @@ def main():
     p, neg, n = sign_test(diffs)
     print("\n   %d of %d cells negative, two-sided exact sign test p = %s"
           % (neg, n, fmt(p)))
+
+    print("\n## Format check: the same text counted without excluding code")
+    print("   `metrics.score` drops fenced blocks and inline spans, and a definition")
+    print("   answer carries its formula in one. So the prose count is reported here")
+    print("   beside a raw whitespace-token count over the whole response, to show")
+    print("   whether a family/side contrast is content or only markup.")
+    print("%-11s %-8s %9s %9s" % ("family", "side", "prose", "raw"))
+    for fam in FAMILIES:
+        for side in ("control", "edit"):
+            print("%-11s %-8s %9.1f %9.1f"
+                  % (fam, side, metrics.median(graded[(side, fam)]),
+                     metrics.median(raw[(side, fam)])))
 
     print("\n## Harm check: the index stem's never-cut keyword on the graded turn")
     for fam in FAMILIES:

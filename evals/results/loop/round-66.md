@@ -346,3 +346,30 @@ slice, the control side reads 594915793, which is master's, and both read
 inside that window, the [#69] guard would have refused the resume rather than
 producing one round from two instruments — which is the case the guard exists
 for and is not the case that occurred.
+
+**`evals/pilot/score_structure.py` was changed after registration and before
+any of this round was scored, in two ways that move no arithmetic.** Both are
+recorded here because the scorer was committed with the registration precisely
+so that it could not be tuned against the result.
+
+1. **Each side now accepts a comma-separated list of snapshots.** The buying
+   plan above splits every side in two, because `ordered-steps` is bought at
+   twice the reps and a second invocation naming a different case subset
+   computes a different `cases_cksum`. The scorer as registered took one file
+   per side, so both bounds on `ordered-steps` would have reported "not
+   generated in these snapshots" — the registration specified four files and a
+   scorer that could read two. Merging snapshots that cover disjoint cases
+   changes nothing: every endpoint is computed per case and pooled over a fixed
+   case tuple. A merge whose two files disagree on `rules_cksum` is refused,
+   since a side pooled across two instruments is the failure this round is
+   built to avoid.
+2. **The three bounds are renumbered to match this document.** The scorer
+   printed the reading-rate bound as 1 and the two `ordered-steps` bounds as 2
+   and 3; the registration numbers them the other way. The registration is what
+   was written first, so the scorer now follows it, and the sections print in
+   that order.
+
+Neither change was made with any of this round's numbers in view. The check
+that says so is the published null: run against round 63's two master-rules
+shards before and after, the scorer reads 56.2% against 48.6% at Fisher
+p = 0.232995 both times, to the last digit.

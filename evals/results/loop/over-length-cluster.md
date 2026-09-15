@@ -127,6 +127,35 @@ named candidate.** Naming a third is the cluster's open work, and round 67
 registered that outcome in advance as its own finding rather than discovering it
 afterwards.
 
+**[Round 68](round-68.md) names it: session depth, and it names it by failing to
+find the harm at one turn.** [#298] is a seventh field report in this cluster and
+the sharpest one — a seven-word definition request answered in 342 prose words,
+239 of them restating claims earlier turns had already delivered, where 66 words
+were correct. `evals/pilot/{explain,reexplain}-*` puts that question **one turn**
+after the turn that delivered the rationale. The harm does not merely fail to
+reproduce; it inverts. At master rules the already-told question is answered in
+27.0 prose words against the cold question's 65.0 — a ratio of **0.415 at
+p = 0.0000**, geometric-mean 0.357 with a 95% interval of 0.287 to 0.444, all
+three stems agreeing, and the graded turn making **0 tool calls in 90/90** warm
+runs against 1 or 2 in 90/90 cold ones. Given the material once, the model
+neither refetches nor restates it.
+
+That is the third short-instrument result to land the same way, and together
+they make depth the candidate rather than a leftover:
+
+| instrument | turns of prior context | what it found |
+|---|--:|---|
+| `register-*` ([register-inheritance-136.md](register-inheritance-136.md)) | 1 | mechanism present, ~1/8 of the reported size |
+| `work-*` ([round 67](round-67.md)) | 4 | nothing, in either arm |
+| `explain`/`reexplain-*` ([round 68](round-68.md)) | 1 | the reverse, at 0.415x |
+
+Every field report in this cluster describes a session that had been running for
+a while; every instrument that has failed to reproduce one puts the graded turn
+within a few turns of the start. **The cluster's open work is no longer naming a
+candidate but building an instrument deep enough to test this one** — which is a
+case-authoring problem again, and a more expensive one, because depth is bought
+by the turn.
+
 ## The six issues are three groups, not one
 
 ### Group A — deep in a long session: [#60], [#113], [#136]
@@ -384,3 +413,4 @@ own report — the flicker, present on one turn and absent on the adjacent one.
 [#209]: https://github.com/JordanMPDS/laconic/issues/209
 [#155]: https://github.com/JordanMPDS/laconic/issues/155
 [#172]: https://github.com/JordanMPDS/laconic/issues/172
+[#298]: https://github.com/JordanMPDS/laconic/issues/298

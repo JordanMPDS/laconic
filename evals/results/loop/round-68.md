@@ -271,3 +271,163 @@ python3 evals/pilot/score_reexplain.py \
 ## Results
 
 <!-- Nothing above this line has been computed. -->
+
+## Result: the model already points back, and there was nothing left to remove
+
+**The primary is null and the descriptive check is why.** At master rules the
+already-told question is not longer than the cold one — it is **less than half
+as long**. The mechanism [#298] reports did not appear in this instrument at
+all, so the registered decision rule's third branch applies in its second
+sub-case: reject and revert, and the round bounds the wording rather than the
+idea.
+
+360 runs, 180 a side, 0 failed.
+
+### The descriptive check, which was meant to confirm the harm and refuted it
+
+    explain (cold)     n = 90   median  65.0 prose words
+    reexplain (told)   n = 90   median  27.0 prose words
+    ratio 0.415, permutation p = 0.0000
+
+On geometric means the same contrast reads **0.357, with a 95% bootstrap
+interval of 0.287 to 0.444**. Every stem moves the same way and none of them is
+marginal:
+
+| stem | cold, median | warm, median | ratio |
+|---|--:|--:|--:|
+| `index` | 67.0 | 32.5 | 0.485 |
+| `metric` | 34.0 | 6.0 | 0.176 |
+| `rollback` | 79.0 | 29.0 | 0.367 |
+
+**It is not a markup artefact.** `metrics.score` drops fenced blocks and inline
+spans, and a definition answer carries its formula in one, so the round reports
+a raw whitespace-token count beside the prose count. Raw reads 78.5 cold against
+35.5 warm, a ratio of 0.452 against prose's 0.415. The two counts agree.
+
+**It is not a degenerate warm answer either.** The falsifier's content was not
+bought, because the primary did not fire, but the free harm check covers the one
+stem that has a never-cut keyword and it is clean at ceiling: `date_trunc` is
+present in **30/30** graded turns in all four cells. Reading the warm texts
+directly, `reexplain-metric` at 6 prose words is
+`"Lift: +70% (relative). Absolute difference: +0.31 percentage points (0.75% − 0.44%)."`
+— both objects identified, both definitions given, the arithmetic shown. The
+warm answer is short because it is only the answer. The cold answer is longer
+because it wraps the same answer in the rationale the warm turn had already
+delivered.
+
+The instrument shows why in a second, structural way that needs no scoring: the
+graded turn of `reexplain-*` makes **zero tool calls in 90/90 runs** and
+`explain-*` makes one or two in 90/90. The cold family goes and reads the file;
+the warm family answers from what it already has. That is the pair working as
+designed, and it is also the shortest statement of the result — given the
+material once, the model does not fetch it or restate it again.
+
+### The primary: the edit moves neither family
+
+| family | n | control | edit | ratio | p |
+|---|--:|--:|--:|--:|--:|
+| `explain` | 90 | 65.0 | 63.0 | 0.969 | 0.8226 |
+| `reexplain` | 90 | 27.0 | 27.0 | 1.000 | 0.9957 |
+
+    interaction, log words: ratio of ratios 0.988, p = 0.9430
+    interaction, raw words:                        p = 0.8418
+    95% bootstrap interval on the ratio of ratios: 0.724 to 1.357
+
+The registered direction is negative and the point estimate is essentially
+zero. The per-cell sign test reads **2 of 3 negative, two-sided exact
+p = 1.0000**, which the registration wrote down in advance as carrying no
+verdict.
+
+**The interval is the one thing the round buys about the wording.** It excludes
+a ratio of ratios below 0.724, which is very close to the 0.70 the power table
+registered at 30 reps a side, so the round is at the sensitivity it planned for
+and the effect is not hiding under it. What it cannot do is generalise that
+bound, because a scoped carve-out cannot be measured on an instrument where the
+scope is already empty: the warm answer had 27 words, and an instruction to say
+less of what you already said has nothing to act on there.
+
+### What this closes and what it does not
+
+**[#298]'s wording is rejected and reverted.** The edit is not in
+`rules/laconic.md` and `rules/dist/*.md` is regenerated from master's text.
+
+**The round does not refute [#298].** The report is a real transcript, and the
+distance between it and this instrument is the finding worth carrying forward:
+#298's instance is **one definition request deep in a long analytical session**,
+and this instrument's is **one definition request after exactly one prior
+turn**. At one turn of depth the model compresses by 2.4x unprompted. The report
+describes 342 words where 66 would do, which is a 5.2x expansion, and the two
+observations are only compatible if the behaviour is a function of session
+depth rather than of the material having been delivered once.
+
+That is a testable follow-up and this round did not test it. It is also the
+second time this cluster has found the reported magnitude absent from a
+short instrument: [`register-inheritance-136.md`](register-inheritance-136.md)
+reproduced [#136]'s mechanism at roughly an eighth of its reported size, and
+[round 67](round-67.md) closed the over-length cluster's last named candidate
+without finding the gap. Depth is now the common shape in three results, and
+[`over-length-cluster.md`](over-length-cluster.md) has no named candidate that
+is not depth.
+
+**The instrument is kept.** `explain-*`/`reexplain-*` is a clean cold/warm pair
+that reproduces a large, tight, three-of-three effect in the *opposite*
+direction to the one it was built to find, which makes it a usable control for
+any future round about restatement. It cost $15.75 and 360 runs to establish
+that a behaviour the loop assumed needed a rule is already the model's default
+at one turn.
+
+## Registration and generation notes
+
+**All 360 runs are on one CLI release**, 2.1.272, per-run stamped on both sides.
+`python3 evals/bench/release.py` reports no unreadable span and no arm
+imbalanced across a boundary. `python3 evals/bench/concurrency.py` reconstructs
+a peak of **1 CLI invocation in flight** per arm-day against a declared 2, so
+neither snapshot exceeds its declaration; both are absent from the audit's
+failure list.
+
+**Generation was interrupted twice and resumed, and the resumes are recorded in
+the files.** Each snapshot names three generator ids: the first pass covered
+reps 0 to 9, the second reps 10 to 13, and the third completed the round through
+rep 29. The second pass stopped mid-rep and left 8 empty-text runs a side. A
+failed key is not recorded as done, so the third pass regenerated all 16 rather
+than carrying them, and both files finish at **180 runs and 0 failed**. The [#69] checksum guard permitted each resume,
+which is the check that says the three passes are one instrument: `rules_cksum`
+594915793 on the control side throughout and 3488167215 on the edit side
+throughout, `cases_cksum` 1818115439 on both.
+
+**The interruptions cost nothing that the design depends on.** The two sides
+were launched together on every pass and stopped together, so the simultaneity
+[round 38](round-38.md) requires holds pass by pass rather than only in
+aggregate, and the 2.1.272 stamp is the same on every run of both sides.
+
+**Nothing was judged.** The falsifier is bought only if the primary fires, and
+it did not.
+
+**The scorer was changed twice after registration, during the instrument check
+and before the analysis point.** This is disclosed rather than argued around,
+because the scorer was committed with the registration precisely so that it
+could not be tuned against the result. Generation began at 20:58:07Z; `a95cc71`
+is timestamped 21:00:21Z and `b30e949` 21:09:01Z, both inside the first pass.
+
+1. **`a95cc71` makes the per-cell test iterate three stems rather than six
+   cases.** The registration says three and the scorer said six; the scorer now
+   follows the registration. It changes the **secondary**, which the
+   registration wrote down in advance as carrying no verdict.
+2. **`b30e949` adds the raw-token column** reported above, which the
+   registration did not specify and which exists because a definition answer's
+   formula lives in an inline span. It is additive reporting and computes no
+   test.
+
+**Neither touches the primary.** `difference_of_differences`, `log_words` and
+`interaction` are byte-identical to the versions committed with the
+registration, so the number the verdict rests on is computed by registered code.
+
+**What was visible when those commits were written, stated plainly.** `b30e949`'s
+own message quotes the descriptive contrast off the 10-rep instrument check — 65
+prose words cold against 26 warm — so the refutation of [#298]'s premise was
+already in view at rep 9, and the raw-token column was added in response to it.
+The registration authorises exactly that: the instrument check exists to read
+the text and is explicitly not scored against the gate. What it forbids is
+reading the gate early and stopping on a hit, and that did not happen — the
+primary was first computed at the registered 30 reps a side, on the completed
+files, once.

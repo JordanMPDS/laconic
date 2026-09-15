@@ -206,7 +206,27 @@ RETRY_CAP=${LOOP_RETRY_CAP:-3600}
 # Provenance is not optional here. These rounds are pre-registered, so a
 # hypothesis that came from outside has to say so in its registration, or the
 # round's own record cannot tell where its idea came from.
-PROMPT='Work the laconic backlog: pick the highest-value open issue and take it
+# An accept is not a ship. The loop's exit condition was a round: an accept
+# merged, the next iteration registered round N+1, and nothing anywhere asked
+# whether the edit that had just passed every gate had reached a user. Round 55
+# accepted on 2026-09-08 and its edit sat merged and unreleased for six days,
+# until 0.3.0 shipped it as a side effect of something else; 0.2.3 to 0.3.0 was
+# nineteen days and 37 rounds. So the release goes first, and it is asked as a
+# command whose exit status decides rather than as a priority the child weighs
+# against the backlog — for the same reason waiting is a command and not an
+# intention. `tools/release-due.sh` answers it from the repository alone, which
+# is what makes it legible to a process with no memory of the accept.
+PROMPT='Run `bash tools/release-due.sh` before you look at anything else. If it
+exits non-zero a release is owed, and cutting it is the whole of this iteration:
+not a round, not a backlog issue. Bump the version in
+.claude-plugin/plugin.json, write a release commit that says what ships and what
+measured it, open the pull request, wait for the checks, merge, and then tag the
+merge commit `laconic--v<version>` and push the tag. An accepted rule edit that
+is merged and unreleased has reached nobody, so shipping it outranks measuring
+the next thing. The script prints a recommended bump, and overruling it is
+yours to do in the commit message.
+
+Otherwise: work the laconic backlog: pick the highest-value open issue and take it
 end to end — design, implement, test, a round document if it is a loop round,
 branch, pull request, then merge. Do exactly one issue, then stop; the next one
 gets its own process and its own empty context. Never ask permission and never

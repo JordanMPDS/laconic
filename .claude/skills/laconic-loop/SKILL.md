@@ -6,7 +6,9 @@ description: Use when improving rules/laconic.md against the benchmark — runni
 # The rules improvement loop
 
 One round: benchmark, review the failures, propose one rule edit, confirm it,
-and either open a PR or throw it away. **The loop proposes. A human merges.**
+and either ship it or throw it away. **A round ends at a release, not at an
+accept.** Merging is the loop's own since 2026-09-01; what it may not do is
+leave an accepted edit sitting in master unreleased, which is step 11.
 
 Design and the reasoning behind every threshold:
 `docs/superpowers/specs/2026-08-01-rules-loop-design.md`.
@@ -1045,11 +1047,52 @@ that lies by omission.
 
 Write `evals/results/loop/round-NN.md` with the hypothesis, the diff, the
 before-and-after tables, the replication, and the holdout result. Then open a
-PR carrying all of it. Do not merge it yourself.
+PR carrying all of it and merge it once the checks pass.
+
+## Step 11: release it
+
+**An accept is not a ship, and an accepted round is not finished until the
+version moves.** The loop used to end at step 10 and go straight to registering
+round N+1. That decoupled accepts from releases, and the gap is measurable:
+round 55 accepted on 2026-09-08 — three registered bars, two bounds, 1,080
+generations, the first accept in its family — and its edit sat merged and
+unreleased for six days, until 0.3.0 shipped it as a side effect of the Codex,
+Gemini and Cursor ports. Nineteen days and 37 rounds separated 0.2.3 from
+0.3.0. A rule edit nobody is running is a passing test, not an improvement.
+
+```bash
+bash tools/release-due.sh
+```
+
+Exit 1 means a release is owed. It names every shipped file that has moved since
+the last `laconic--v*` tag and recommends patch or minor, reading an added or
+removed shipped file as a new surface. The recommendation is not the decision —
+0.3.0 was argued in its own commit body — but the exit status is.
+
+1. Bump `version` in `.claude-plugin/plugin.json`. A release is the one context
+   in which that file may be edited, and `AGENTS.md` says so there.
+2. Write the release commit body saying what ships and what measured it.
+   `git show 1b88c47` is the shape to copy: the edit, the endpoint, the number,
+   and what is disclosed rather than fixed. A body that says "bump version"
+   throws away the only summary of a round that a user will ever read.
+3. Open the PR, wait for the checks, merge.
+4. Tag the merge commit and push the tag, or the release is half done and
+   `release-due.sh` will say so rather than recommending another bump on top:
+
+   ```bash
+   git tag -a "laconic--v$VERSION" -m "laconic $VERSION"
+   git push origin "laconic--v$VERSION"
+   ```
+
+**A rejected round releases nothing.** There is nothing to ship, the edit was
+reverted, `release-due.sh` exits 0 and the next round registers as it always
+did. The release step fires on accepts, which is the only place the old exit
+condition was wrong.
 
 ## What this loop will not do
 
-- Merge its own rule changes.
+- Register the next round while a release is owed.
+- Push a rule change to master without a pull request whose checks pass.
 - Optimize against a `rule-adherence` case.
 - Cite preference from a round at or above the flip-rate ceiling.
 - Publish a holdout number.

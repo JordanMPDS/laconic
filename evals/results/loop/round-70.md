@@ -360,3 +360,155 @@ against 26.5.
 ## Results
 
 <!-- Nothing above this line has been computed. -->
+
+**240 runs, 120 a side, 20 per stem per side, zero failed.** Generated
+2026-09-16 in four shards split by rep offset, two per side, the edit side from
+this branch and the control side from a `master` worktree, running
+simultaneously. `rules_cksum` 594915793 against 3641437234 as registered,
+`cases_cksum` 1852778470 on both sides, `turn_delivery` `plugin` on both.
+
+`python3 evals/bench/release.py` reads **both arms entirely on CLI 2.1.272** —
+no release boundary inside the round at all, which is rarer than the audit
+usually finds and means the instrument is literally one version rather than a
+balanced mixture. `python3 evals/bench/concurrency.py` reads each side declaring
+4 and reconstructing to 2 in flight, so the declaration is conservative.
+
+### The target falls: 0.903, p = 0.0247
+
+Prose words summed over turns 2 to 4 of `register-*`, laconic arm, sonnet.
+Stem-stratified mean of the shift in each stem's median log words, side label
+permuted inside each stem, 50,000 resamples, two-sided, seed 70 — the
+statistic registered above, run by the scorer committed with this file.
+
+| stem | n/side | control | edit | ratio |
+|---|--:|--:|--:|--:|
+| `index` | 20 | 1598.5 | 1380.0 | 0.863 |
+| `metric` | 20 | 1097.5 | 978.5 | 0.892 |
+| `rollback` | 20 | 589.5 | 564.0 | 0.957 |
+| **stratified** | | | | **0.903**, p = **0.0247** |
+
+The 95% bootstrap interval on the ratio is **[0.837, 0.990]**, 20,000 resamples
+within stem. All three stems move down, which the round registered as a
+consistency reading carrying no verdict of its own — three cells cannot reach
+alpha on a sign test.
+
+**The effect is the size the only comparable edit produced, not the size the
+issue audited.** [#150] audits 17.2% of the words as restatement, a 0.83 ratio;
+round 49's edit delivered 0.919 on this quantity. This round reads 0.903, and
+its interval excludes 1.00 while containing 0.919 and excluding 0.83. The round
+was powered 0.98 at 0.83 and 0.77 at 0.90, so landing at 0.90 with p = 0.0247
+is the round detecting the smaller of the two sizes it was built for.
+
+### Bound 1, fixture-token coverage: holds
+
+| stem | of | control | edit | ratio |
+|---|--:|--:|--:|--:|
+| `index` | 37 | 18.0 | 17.0 | 0.944 |
+| `metric` | 24 | 15.0 | **15.5** | 1.033 |
+| `rollback` | 30 | 25.0 | 24.0 | 0.960 |
+| **stratified, one-sided down** | | | | **0.978**, p = **0.2512** |
+
+The shift is **-0.50 tokens**, 95% bootstrap interval **[-1.50, +0.33]**. The
+bound asked that coverage not fall and it did not fall at significance.
+
+**What that bound does and does not exclude.** Its interval admits a loss of up
+to one and a half of the fixture's own tokens out of a median 18 to 25, so it
+rules out the cheap win — a fall of the two-to-five-fold kind the `deep-*`
+family shows is what an undelivered report looks like here — and does not rule
+out a small real thinning. The registered comparison is the one that makes it
+readable: asked the same three questions without the full-form request, the
+laconic arm names 3.0, 6.5 and 3.5 tokens against 15.0, 14.0 and 22.5. The edit
+stays in the delivered range on every stem.
+
+### Bound 2, the licence still fires: holds, and moved toward its floor
+
+Median `register-*` words over turns 2 to 4 divided by median `deep-*` words
+over the same turns.
+
+| | `index` | `metric` | `rollback` | pooled |
+|---|--:|--:|--:|--:|
+| control | 6.73 | 6.31 | 6.34 | 6.34 |
+| edit | 5.51 | 5.25 | 6.10 | **5.51** |
+| floor | 5.0 | 5.0 | 5.0 | 5.0 |
+
+Every stem clears the floor and the pooled figure clears it by 0.51.
+
+**This is the round's least comfortable number and it is reported as such.**
+The fall is arithmetic rather than independent: `register-*` fell 0.903 while
+the `deep-*` control family did not move, so the ratio had to fall by about the
+same factor, and 6.34 x 0.868 is 5.50 against the 5.51 measured. The bound
+holds as registered, and the honest reading is that a second edit of this size
+on this paragraph would put it through the floor. A future round proposing one
+has to re-register the floor rather than inherit it.
+
+### Bound 3, the never-cut keyword: holds
+
+`date_trunc` on the graded turn of the `index` stem: **20/20 on both sides of
+both families**, 80 of 80 responses. No loss.
+
+### Disclosure: the unlicensed family did not move
+
+`deep-*` asks the same three questions plainly, carries no full-form request,
+and is therefore the place where this edit should do nothing.
+
+| stem | control | edit |
+|---|--:|--:|
+| `index` | 237.5 | 250.5 |
+| `metric` | 174.0 | 186.5 |
+| `rollback` | 93.0 | 92.5 |
+| **stratified** | | **1.040**, p = 0.4448 |
+
+The point estimate is slightly up, the interval is **[0.923, 1.139]**, and the
+test does not separate it from 1.00. So the compression the target measured is
+specific to the turns that asked for the full form, which is what a relocation
+into check 2 predicts and what a general shortening would not.
+
+### The registered decision rule selects branch 1
+
+The target fell at p < 0.05 and all three bounds held. That is **accept on the
+scoped target**, and by the rule as written the edit now goes to the round-wide
+fatal counters, then step 8's replication, then step 9's holdout, before
+anything ships.
+
+**Relocation has now separated where rewording did not, twice.** Rounds 07, 08,
+09 and 29 bounded a licence in prose and failed; round 10 moved one and won;
+this round moves one and wins. That is the move-it-do-not-bound-it rule's
+second and third data points on the same side, and its first on this paragraph.
+
+---
+
+## What the accept buys next, registered before any of it is generated
+
+The standing buy order is the scoped target, then the round-wide counters, then
+the replication, stopping at the first failure; step 9's holdout follows an edit
+that has passed all three. This section is written now, with the scoped result
+above already computed and none of what follows generated.
+
+**Bar A, fatal: the round-wide counters.** `report.py` over all dev-set cases
+and both models, 5 reps a side, **both sides generated in one interleaved
+batch** rather than carried, scored under the [#259] gate. That is
+`never_cut_failures`, `quality_fails`, `safety_fails` and `violations_total`,
+plus the [#49] turn gate. Judged at `--judge-all`, because both sides of this
+comparison have to carry the same coverage and because the later reader of
+either snapshot needs the adherence verdicts.
+
+At five reps a side no cell is condemnable, so this bar is the round-wide count
+alone and [round 54](round-54.md) measured its detection curve: about **+23**
+round-wide before it fires four times in five. This round says so rather than
+implying the bar is sharper than it is. What buys the sharpness back is reps,
+and reps are not bought unless a counter rises.
+
+**Bar B, fatal: the replication.** One further independent generation of the
+scoped design — the same six cases, sonnet, 20 reps per stem per side, both
+sides simultaneous from the two trees — scored by the same
+`evals/pilot/score_claims.py` at the same seed. The registered bar is the
+**target falling at p < 0.05 in the replication too**, with all three bounds
+holding again. A ratio that lands between 0.90 and 1.00 without reaching alpha
+is a failure of this bar, not a partial success: round 70's whole claim is that
+this quantity moves, and a sample is not a measurement.
+
+**Bar C, fatal: the holdout does not regress.** All six reserved cases, both
+models, n = 10, both arms interleaved. No reserved case worse at p < 0.05 and
+the round-wide direction not worse at significance. Directions and significance
+only, never a number, per the loop's standing rule.
+

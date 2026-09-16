@@ -82,3 +82,46 @@ turn and on no other. Scored by `score_register.py <snapshot> 67 work`;
 registered in [`round-67.md`](../results/loop/round-67.md).
 
 [#136]: https://github.com/JordanMPDS/laconic/issues/136
+
+## `explain-*`, `reexplain-*`, `deepexplain-*`, `fullexplain-*`
+
+One graded question per stem, asked after four different stretches of the
+model's own output. All four families share one fixture with `deep-*` by symlink
+and one byte-identical trap, and the graded question is byte-identical across
+all four — `explain-*` differs only by carrying the read instruction that
+`reexplain-*`'s turn 1 already carried, exactly as `confirm-*` is `recall-*`'s
+cold twin.
+
+| family | turns | the graded turn arrives after |
+|---|--:|---|
+| `explain-*` | 1 | nothing; asked cold |
+| `reexplain-*` | 2 | one turn that delivered the material |
+| `deepexplain-*` | 5 | four turns, ordinary register (`deep-*`'s questions) |
+| `fullexplain-*` | 5 | four turns the rules license at length (`register-*`'s) |
+
+`explain-*` and `reexplain-*` are [#298]'s pair, built for
+[round 68](../results/loop/round-68.md), which **refuted the report's premise**:
+on the laconic arm the already-told question runs 27.0 prose words against the
+cold question's 65.0, a ratio of 0.415 at p < 0.0001 and three stems of three.
+Given the material once, the model does not restate it — it points back, and
+its graded turn makes zero tool calls in 90 of 90 runs where the cold family
+makes one or two.
+
+`deepexplain-*` and `fullexplain-*` are [round 69](../results/loop/round-69.md)'s
+two depth twins of `reexplain-*`, and they exist because round 68's result and
+[#298]'s report are only compatible if the behaviour is a function of session
+depth. Each borrows turns 2 to 4 verbatim from an existing five-turn family, so
+the three-family design decomposes depth from register: `reexplain-*` against
+`deepexplain-*` is depth alone, `deepexplain-*` against `fullexplain-*` is
+register alone at fixed depth, and `reexplain-*` against `fullexplain-*` is the
+composition the report describes. The third family is `kimi`'s recommendation
+through `tools/consult.sh`, against a two-family design that could read neither
+a rise nor a null.
+
+`tests/test_evals_layout.sh` holds both contracts: the cold pair, and the two
+twins against `reexplain-*` and against the family each borrows its middle turns
+from. Scored by `score_register.py <snapshot> 69 fullexplain reexplain` and the
+same command with `deepexplain` — the graded turn is the run's last turn, which
+is what lets one scorer compare a two-turn family against a five-turn one.
+
+[#298]: https://github.com/JordanMPDS/laconic/issues/298

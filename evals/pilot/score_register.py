@@ -7,18 +7,22 @@ questions verbatim and add an explicit request for the full form, which
 `rules/laconic.md` licenses at length. So the only thing that varies is the
 register the model's own four prior answers were written in.
 
-    python3 evals/pilot/score_register.py <snapshot> [seed] [treatment]
+    python3 evals/pilot/score_register.py <snapshot> [seed] [treatment] [reference]
 
 Words are prose words by `metrics.score`, so fenced code and inline spans are
 out of the count on both families. #136 is about prose.
 
-`treatment` names the family compared against `deep-*` and defaults to
-`register`, so every figure published in `register-inheritance-136.md`
-reproduces from the stored snapshot with the command that produced it. Round 67
-passes `work`: the same pair shape, with turns 2 to 4 moving their deliverable
-into the fixture file instead of lengthening the reply. One scorer rather than a
-copy, because the two pilots differ only in which family is on the right-hand
-side of every table - and a copy is a second place for the permutation, the
+`treatment` names the family on the right-hand side of every table and
+`reference` the family on the left. They default to `register` and `deep`, so
+every figure published in `register-inheritance-136.md` reproduces from the
+stored snapshot with the command that produced it. Round 67 passes `work`: the
+same pair shape, with turns 2 to 4 moving their deliverable into the fixture
+file instead of lengthening the reply. Round 69 passes both halves -
+`fullexplain reexplain` and `deepexplain reexplain` - which is a pair whose two
+families have *different turn counts*, and is why the graded turn is the last
+turn of the run rather than turn 5 (see `graded_words`). One scorer rather than
+a copy, because the pilots differ only in which families sit on the two sides of
+every table - and a copy is a second place for the permutation, the
 stratification and the broken-interaction note to drift.
 """
 import json
@@ -44,14 +48,18 @@ permutation = metrics.permutation
 
 #: Set by main() from argv, so a pilot that is not #136's reads the same code.
 TREATMENT = "register"
+#: The family on the left of every table, and the one the treatment is measured
+#: against. Round 69's is `reexplain`, which has two turns where the treatment
+#: has five.
+REFERENCE = "deep"
 #: Tool names that mean the response changed something in the workspace. Read
 #: off the per-turn tool list, which run.py records for every turn.
 WORK_TOOLS = ("Edit", "Write", "MultiEdit", "NotebookEdit")
 
 
 def cells():
-    return (("laconic", TREATMENT), ("laconic", "deep"),
-            ("baseline", TREATMENT), ("baseline", "deep"))
+    return (("laconic", TREATMENT), ("laconic", REFERENCE),
+            ("baseline", TREATMENT), ("baseline", REFERENCE))
 
 
 def difference_of_differences(g):
@@ -63,8 +71,8 @@ def difference_of_differences(g):
     """
     def mean(key):
         return sum(g[key]) / len(g[key])
-    return ((mean(("laconic", TREATMENT)) - mean(("laconic", "deep")))
-            - (mean(("baseline", TREATMENT)) - mean(("baseline", "deep"))))
+    return ((mean(("laconic", TREATMENT)) - mean(("laconic", REFERENCE)))
+            - (mean(("baseline", TREATMENT)) - mean(("baseline", REFERENCE))))
 
 
 def interaction(groups, seed, resamples=200000):
@@ -90,7 +98,7 @@ def interaction(groups, seed, resamples=200000):
     hits = 0
     for _ in range(resamples):
         shuffled = {}
-        for fam in ("deep", TREATMENT):
+        for fam in (REFERENCE, TREATMENT):
             pool = list(groups[("laconic", fam)]) + list(groups[("baseline", fam)])
             n = len(groups[("laconic", fam)])
             rng.shuffle(pool)
@@ -126,29 +134,63 @@ def turn_words(run, idx):
     return metrics.score(turns[idx].get("text", ""))["words"]
 
 
-def did_work(run):
-    """True when turns 2 to 4 called a tool that changes the workspace.
+def graded_words(run):
+    """Prose words on the run's **last** turn, which is the graded one.
 
-    Turn 5 is excluded deliberately: it carries "Don't edit anything." in both
-    families, so a tool call there would be a rule violation rather than the
-    manipulation, and counting it would let a violation clear the check.
+    Every pair this scorer serves holds turn 1 and the final turn byte-identical
+    and manipulates what lies between, so the graded turn is the last one by
+    construction. Indexing from the end rather than at turn 5 is what lets a
+    pair compare families of different lengths: round 69 measures a five-turn
+    family against `reexplain-*`, which has two turns. On the five-turn pairs
+    this is turn 5, so #136's and round 67's published figures are unchanged.
+    """
+    turns = run.get("turns") or []
+    if not turns:
+        return None
+    return turn_words(run, len(turns) - 1)
+
+
+def middle_words(run):
+    """Prose words summed over the turns between the first and the graded one.
+
+    Empty for a two-turn family, which has no middle, and `None` if any turn
+    that should be there is missing - a partial run has to be dropped rather
+    than scored as a short one.
+    """
+    turns = run.get("turns") or []
+    vals = [turn_words(run, i) for i in range(1, max(len(turns) - 1, 1))]
+    if any(v is None for v in vals):
+        return None
+    return sum(vals)
+
+
+def did_work(run):
+    """True when a turn between the first and the graded one called a tool that
+    changes the workspace.
+
+    The graded turn is excluded deliberately: it carries "Don't edit anything."
+    in both families, so a tool call there would be a rule violation rather
+    than the manipulation, and counting it would let a violation clear the
+    check.
     """
     turns = run.get("turns") or []
     return any(t in WORK_TOOLS
-               for turn in turns[1:4]
+               for turn in turns[1:len(turns) - 1]
                for t in (turn.get("tools") or []))
 
 
 def main():
     snap = json.loads(Path(sys.argv[1]).read_text())
     seed = int(sys.argv[2]) if len(sys.argv) > 2 else SEED
-    global TREATMENT
+    global TREATMENT, REFERENCE
     if len(sys.argv) > 3:
         TREATMENT = sys.argv[3]
+    if len(sys.argv) > 4:
+        REFERENCE = sys.argv[4]
 
-    graded = defaultdict(list)   # (arm, family) -> words on turn 5
-    middle = defaultdict(list)   # (arm, family) -> words over turns 2-4
-    cell = defaultdict(list)     # (arm, family, stem) -> words on turn 5
+    graded = defaultdict(list)   # (arm, family) -> words on the graded turn
+    middle = defaultdict(list)   # (arm, family) -> words over the middle turns
+    cell = defaultdict(list)     # (arm, family, stem) -> words on the graded turn
     kept = defaultdict(list)     # (arm, family) -> never-cut keyword present
     worked = defaultdict(list)   # (arm, family) -> turns 2-4 changed the tree
     wrote = defaultdict(list)    # (arm, family) -> the run left an artifact
@@ -156,18 +198,18 @@ def main():
 
     for r in bench_run.usable(snap["runs"]):
         family, stem = r["case"].split("-", 1)
-        if family not in ("deep", TREATMENT) or stem not in STEMS:
+        if family not in (REFERENCE, TREATMENT) or stem not in STEMS:
             continue
-        five = turn_words(r, 4)
-        mid = [turn_words(r, i) for i in (1, 2, 3)]
-        if five is None or any(m is None for m in mid):
+        last = graded_words(r)
+        mid = middle_words(r)
+        if last is None or mid is None:
             continue
         n_runs += 1
-        graded[(r["arm"], family)].append(five)
-        middle[(r["arm"], family)].append(sum(mid))
+        graded[(r["arm"], family)].append(last)
+        middle[(r["arm"], family)].append(mid)
         worked[(r["arm"], family)].append(did_work(r))
         wrote[(r["arm"], family)].append(bool(r.get("artifacts")))
-        cell[(r["arm"], family, stem)].append(five)
+        cell[(r["arm"], family, stem)].append(last)
         expect = json.loads(
             (Path(__file__).resolve().parent / r["case"] / "expect.json").read_text())
         kw = expect.get("never_cut") or []
@@ -179,29 +221,30 @@ def main():
           % (n_runs, snap["metadata"].get("turn_delivery"),
              snap["metadata"].get("rules_cksum")))
 
-    print("\n## Manipulation check: turns 2-4 changed the workspace")
-    print("%-9s %12s %12s   %s" % ("arm", "deep", TREATMENT, "(artifacts left)"))
+    print("\n## Manipulation check: the middle turns changed the workspace")
+    print("%-9s %12s %12s   %s" % ("arm", REFERENCE, TREATMENT, "(artifacts left)"))
     for arm in ("baseline", "laconic"):
         for key, label in ((worked, "tool"), (wrote, "artifact")):
-            d, g = key[(arm, "deep")], key[(arm, TREATMENT)]
+            d, g = key[(arm, REFERENCE)], key[(arm, TREATMENT)]
             print("%-9s %12s %12s   %s"
                   % (arm if label == "tool" else "",
                      "%d/%d" % (sum(d), len(d)), "%d/%d" % (sum(g), len(g)),
                      label))
 
-    print("\n## Manipulation check: words over turns 2-4 (per run)")
-    print("%-9s %8s %8s %8s" % ("arm", "deep", TREATMENT, "p"))
+    print("\n## Manipulation check: words over the middle turns (per run)")
+    print("   a two-turn family has no middle turns and reads 0.0 by construction")
+    print("%-9s %8s %8s %8s" % ("arm", REFERENCE, TREATMENT, "p"))
     for arm in ("baseline", "laconic"):
-        d, g = middle[(arm, "deep")], middle[(arm, TREATMENT)]
+        d, g = middle[(arm, REFERENCE)], middle[(arm, TREATMENT)]
         print("%-9s %8.1f %8.1f %8s"
-              % (arm, metrics.median(d), metrics.median(g),
+              % (arm, metrics.median(d or [0]), metrics.median(g or [0]),
                  fmt(permutation(d, g, seed))))
 
-    print("\n## Primary: prose words on the graded turn (turn 5)")
+    print("\n## Primary: prose words on the graded turn (the last turn)")
     print("%-9s %5s %8s %8s %8s %8s"
-          % ("arm", "n", "deep", TREATMENT, "ratio", "p"))
+          % ("arm", "n", REFERENCE, TREATMENT, "ratio", "p"))
     for arm in ("baseline", "laconic"):
-        d, g = graded[(arm, "deep")], graded[(arm, TREATMENT)]
+        d, g = graded[(arm, REFERENCE)], graded[(arm, TREATMENT)]
         md, mg = metrics.median(d), metrics.median(g)
         print("%-9s %5d %8.1f %8.1f %8.3f %8s"
               % (arm, len(d), md, mg, (mg / md) if md else float("nan"),
@@ -218,10 +261,10 @@ def main():
                  fmt(interaction(logged, seed))))
 
     print("\n## By stem, median words on the graded turn")
-    print("%-9s %-9s %8s %8s %8s" % ("arm", "stem", "deep", TREATMENT, "p"))
+    print("%-9s %-9s %8s %8s %8s" % ("arm", "stem", REFERENCE, TREATMENT, "p"))
     for arm in ("baseline", "laconic"):
         for stem in STEMS:
-            d, g = cell[(arm, "deep", stem)], cell[(arm, TREATMENT, stem)]
+            d, g = cell[(arm, REFERENCE, stem)], cell[(arm, TREATMENT, stem)]
             print("%-9s %-9s %8.1f %8.1f %8s"
                   % (arm, stem, metrics.median(d), metrics.median(g),
                      fmt(permutation(d, g, seed))))

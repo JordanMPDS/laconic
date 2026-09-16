@@ -350,12 +350,15 @@ list the bound above uses; it is quoted here as the premise check it was, and
 the mechanical measure reads the same direction less sharply, at 22.5 of 30
 against 26.5.
 
+[#49]: https://github.com/JordanMPDS/laconic/issues/49
 [#69]: https://github.com/JordanMPDS/laconic/issues/69
 [#120]: https://github.com/JordanMPDS/laconic/issues/120
 [#131]: https://github.com/JordanMPDS/laconic/issues/131
 [#136]: https://github.com/JordanMPDS/laconic/issues/136
 [#150]: https://github.com/JordanMPDS/laconic/issues/150
 [#155]: https://github.com/JordanMPDS/laconic/issues/155
+[#209]: https://github.com/JordanMPDS/laconic/issues/209
+[#259]: https://github.com/JordanMPDS/laconic/issues/259
 
 ## Results
 
@@ -512,3 +515,98 @@ models, n = 10, both arms interleaved. No reserved case worse at p < 0.05 and
 the round-wide direction not worse at significance. Directions and significance
 only, never a number, per the loop's standing rule.
 
+
+---
+
+## Bar A: the round-wide counters hold
+
+**740 runs, 370 a side, 5 reps a side over all 37 dev-set cases and both
+models, zero failed.** Generated 2026-09-16 in four shards, two per side split
+by model, the edit side from this branch and the control side from a `master`
+worktree, running simultaneously. `rules_cksum` 594915793 against 3641437234 as
+registered, `cases_cksum` 90696499 on both sides, `turn_delivery` `plugin` on
+both. Judged at `--judge-all` as registered, 370 judgments a side at
+`criteria_cksum` 5539815, judge model sonnet, no judgment left undecided on
+either side.
+
+`python3 evals/bench/release.py` reads both arms spanning CLI **2.1.272 and
+2.1.273** — the wide arm crossed a release where the scoped arm did not — and
+the split is 248/122 on the control against 240/130 on the edit, **p = 0.5872**:
+no arm is imbalanced across the boundary. `python3 evals/bench/concurrency.py`
+reads each side declaring 4 and reconstructing to 2 in flight, so the
+declaration is conservative; the 19 arm-days the sweep still flags are the
+2026-08-12 to 08-14 snapshots that predate the flag, which
+[`concurrency-audit.md`](concurrency-audit.md) already accounts for.
+
+| counter | control | edit | | |
+|---|--:|--:|---|---|
+| `never_cut_failures` | 0 | **3** | rise | p = 0.1250 |
+| `quality_fails` | 50 | **54** | rise | p = 0.3635 |
+| `safety_fails` | 9 | 7 | fell | |
+| `violations_total` | 31 | 18 | fell | |
+| [#49] turn gate | | | held | +0.0 turns over 38 cells, 3 rising, 0.0-turn floor |
+
+Both rises are inside the sampling noise of the round-wide count and no risen
+cell is testable at five reps a side, so under the [#259] gate **Bar A holds as
+registered**.
+
+### The never-cut rise is the round's least comfortable number
+
+Three responses dropped a never-cut keyword where the control dropped none, and
+all three are haiku:
+
+| case | model | rep | keyword dropped |
+|---|---|--:|---|
+| `conditional` | haiku | 0 | `leak` |
+| `destructive` | haiku | 1 | `sessions` |
+| `destructive` | haiku | 4 | `sessions` |
+
+`destructive`/haiku is screened against its measured master-rules rate and
+clears — *"within the measured master-rules rate: destructive/haiku 2 of 5
+against 8%"* — and `conditional`/haiku is a single flip on a cell with five runs
+a side, which no test can reach. The round-wide count reads p = 0.1250.
+
+**What that does and does not say.** [Round 54](round-54.md) measured this bar's
+detection curve at five reps a side: the round-wide count alone fires four times
+in five at about **+23**, so a +3 on a counter that starts at 0 is far inside
+what this design cannot resolve. The bar is cleared because nothing testable
+rose, not because the round demonstrated the edit is harmless on never-cut
+content. **This round says so rather than implying the bar is sharper than it
+is**, exactly as its own registration promised. What buys the sharpness back is
+reps on those two cells, and the registration is explicit that reps are not
+bought unless a counter rises — this one did, at 0 to 3, and Bar B is the next
+registered purchase rather than a rate screen on `conditional`/haiku.
+
+### Disclosures, none of them gates
+
+- **The quality strata moved in opposite directions.** Answers that hand a
+  decision back went 17 of 38 to 21 of 48; answers that resolve it went 33 of
+  252 to 33 of 242. The flat `quality_fails` count hides that **the resolves
+  stratum got slightly worse** while the count rose mostly through the other.
+- **Arrow forms fell sharply.** Chains of three or more went 16 to 5 and
+  two-term mappings 13 to 10; closing offers went 2 to 0. The edit touches
+  neither, and `violations_total` falling 31 to 18 is where that shows.
+- **`one_turn` is flat**, 152 to 150 over the round, so the edit did not buy its
+  compression by reading less.
+- **The rule-adherence cases moved and may not be read as a target.**
+  `decision` went 8 pass to 10, `conditional` 2 to 4, `floor` 5 to 4. They are
+  disclosure only, per `evals/CRITERIA.md`.
+
+### `report.py` exits 1, and Bar A is not that exit status
+
+With no `--target` the script scores its default, `output_tokens`, and rejects
+on it: 36 of 70 cells improved, sign test p = 0.905. This round registered no
+token target for `report.py` — its target is prose words on the licensed stretch
+and is scored by `evals/pilot/score_claims.py`. Bar A names the counters it
+means, and [round 55](round-55.md) read its own round-wide bar the same way.
+
+The stratification note is worth keeping for the next reader: 3 cells did not
+vote because their reading rate crossed the floor, and `conditional`/sonnet did
+not vote because it mixes edited and non-edited answers ([#209]).
+
+### Where the round stands
+
+The scoped target accepted at 0.903, p = 0.0247, and **Bar A holds**. Bars B and
+C — the replication and the holdout — are registered above and **neither has
+been generated**. The edit is not validated until both are, and nothing about
+this round may be released before then.

@@ -5375,6 +5375,19 @@ _expected_concurrent = {
     # they were resumed by key; a resume is still one sequential invocation, so
     # it widens the span without widening what was in flight.
     "round-70-control.json", "round-70-edit.json",
+    # Round 70's wide arm — Bar A, the round-wide counters — is the same
+    # two-tree, one-arm design over all 37 dev-set cases and both models,
+    # sharded by model into four, two per side, each strictly sequential and
+    # each declaring --concurrency 4. The shard boundary is the model rather
+    # than the rep range because every case and every rep of a model is
+    # generated inside one process, so no cell is split across shards and the
+    # two sides stay separate snapshots for the same reason as above. Only the
+    # two merges reach the sweep, and each reconstructs to exactly the two
+    # shards that produced its own side. Both merges span four and three
+    # quarter hours because all four shards stopped part-way through and were
+    # resumed by key four hours later; a resume is still one sequential
+    # invocation, so it widens the span without widening what was in flight.
+    "round-70-wide-control.json", "round-70-wide-edit.json",
 }
 _found = set()
 for _p in sorted((ROOT / "evals" / "snapshots").rglob("*.json")):

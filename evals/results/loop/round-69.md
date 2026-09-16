@@ -297,3 +297,255 @@ only diff in either scorer output is three table headings.
 ## Results
 
 <!-- Nothing above this line has been computed. -->
+
+## Result: depth does not inflate the already-told answer, and the register inflates it on both arms
+
+**Decision rule branch 2 fires.** The primary rises — the laconic median goes
+from 27.0 prose words to 49.5, a ratio of **1.833 at p = 0.0010** — and the
+baseline arm rises with it, 141.5 to 184.5, **1.304 at p = 0.0027**. Round 67's
+clause was carried forward verbatim and governs: *a movement that appears on
+both arms is the case, not the rules.* The registered log-scale interaction is
+null at **p = 0.3375**, so nothing in the registered test set separates the two
+arms' rises.
+
+**The decomposition says which factor moved it, and it is not depth.** Four
+ordinary prior turns in place of one leave the laconic answer where it was:
+27.0 to 30.5, **1.130 at p = 0.1962**, and the small rise it does show is the
+same rise the baseline arm shows (ratio of ratios 0.929). The whole of the
+primary's movement is the register of the intervening turns, at fixed depth.
+
+180 runs, 90 a side, 0 failed. Nothing judged, because branch 1 did not fire.
+
+### The two contrasts
+
+| contrast | arm | n | `reexplain` | treatment | ratio | p |
+|---|---|--:|--:|--:|--:|--:|
+| depth alone (`deepexplain`) | baseline | 30 | 141.5 | 170.5 | 1.205 | 0.0008 |
+| depth alone (`deepexplain`) | laconic | 30 | 27.0 | 30.5 | 1.130 | **0.1962** |
+| depth and register (`fullexplain`) | baseline | 30 | 141.5 | 184.5 | 1.304 | 0.0027 |
+| depth and register (`fullexplain`) | laconic | 30 | 27.0 | 49.5 | **1.833** | **0.0010** |
+
+    fullexplain  interaction, log words: ratio of ratios 1.484, p = 0.3375
+                 interaction, raw words:                         p = 0.5049
+    deepexplain  interaction, log words: ratio of ratios 0.929, p = 0.8725
+                 interaction, raw words:                         p = 0.3230
+
+On geometric means, with 95% bootstrap intervals from
+`evals/pilot/round69_supplement.py`:
+
+| arm | `deepexplain`/`reexplain` | `fullexplain`/`reexplain` |
+|---|---|---|
+| baseline | 1.225, 1.105 to 1.361 | 1.212, 1.092 to 1.342 |
+| laconic | 1.138, 1.041 to 1.245 | **1.799, 1.564 to 2.058** |
+
+**Depth alone moves the two arms by the same proportion and the register does
+not.** The ratio of ratios is 0.929 (0.807 to 1.068) for depth and 1.484 (1.245
+to 1.759) for the composition. That second interval excludes 1 while the
+registered permutation of the same quantity reads p = 0.3375, and the next
+section is why.
+
+### The registered interaction test could not have decided this
+
+The registration moved the interaction to the log scale because round 42 had
+recorded the raw-word version being swamped, and said the raw one "carries
+nothing" for that reason. **The log scale does not escape it.** The test
+shuffles the arm label inside each family, and the arms on this instrument sit
+**7.97x apart** on the reference family, so every shuffled group is a mixture of
+two separated modes:
+
+| family | log difference of differences | permutation null sd | sampling sd | ratio |
+|---|--:|--:|--:|--:|
+| `deepexplain` | −0.074 | 0.458 | 0.241 | 1.9x |
+| `fullexplain` | +0.395 | 0.410 | 0.216 | 1.9x |
+
+The null the registered test builds is **1.9 times wider than the sampling
+distribution of the statistic it is testing**. An effect has to be roughly twice
+as large as the data actually require before that test can see it, which is why
+a point estimate of 1.484 with a bootstrap interval of 1.245 to 1.759 lands at
+p = 0.3375.
+
+**This does not promote the round to branch 1.** The bootstrap interval is a
+figure the registration said would be reported beside the test, not the test,
+and reading a verdict off it after seeing the registered one come back null is
+the exact move pre-registration exists to prevent. The honest statement is the
+one branch 2 licenses — the movement appears on both arms — with the disclosure
+that the registered control was too blunt to say more, and that **the bluntness
+is a property of the instrument rather than of this round's data**: the same
+1.9x applies to every arm-label permutation this cluster has run on an
+instrument whose arms are 8x apart.
+
+### The magnitude, against the report
+
+[#298] describes 342 prose words where 66 would do. The composition that
+inflates this instrument reaches **49.5 words at the median and 71 at the
+maximum** on the laconic arm. The longest answer any of the 90 laconic runs
+produced is a fifth of the report's, and the largest movement the round can
+attribute to anything is 1.833x against the report's 5.2x.
+
+| arm | family | min | median | max |
+|---|---|--:|--:|--:|
+| laconic | `reexplain` | 5 | 27.0 | 44 |
+| laconic | `deepexplain` | 5 | 30.5 | 54 |
+| laconic | `fullexplain` | 5 | 49.5 | 71 |
+| baseline | `reexplain` | 65 | 141.5 | 196 |
+| baseline | `deepexplain` | 108 | 170.5 | 234 |
+| baseline | `fullexplain` | 75 | 184.5 | 276 |
+
+**It is not a markup artefact.** Raw whitespace tokens read 36.0, 41.0 and 62.0
+on the laconic arm against prose's 27.0, 30.5 and 49.5, so the raw ratio for the
+composition is 1.72 against prose's 1.83. The two counts agree.
+
+**It is not the model going back to the file either.** The graded turn carries
+`Don't edit anything.` and makes **no tool call in 30/30 runs in five of the six
+cells**. The exception is `baseline reexplain`, where 7 of 30 runs call `Bash`
+— the unruled arm at one turn of depth sometimes re-reads what it was given.
+Neither deeper family does it on either arm, so the rise is not a re-read.
+
+### The three free checks, and what the per-stem table shows
+
+**The manipulation fired, far above its registered bar.** Prose words over the
+middle turns, laconic arm: `deepexplain` 157.0 against `fullexplain` **1135.5**,
+a factor of **7.2** where the registration required at least 2. On the baseline
+arm it is 1002.5 against 2337.5. `reexplain` has no middle turns and reads 0 by
+construction. No run in any cell called an editing tool on a middle turn
+(0/30 everywhere), so the licence lengthened the reply rather than moving the
+work into a file, which is what separates this manipulation from round 67's.
+
+**The never-cut keyword is clean at ceiling.** `date_trunc` is present in
+**10/10** graded turns in all six `index` cells. Nothing was compressed away.
+
+**The floor stem replicates and then rises only under the register.**
+`reexplain-metric` reads a median of **5.0** prose words here against the 6.0
+round 68 measured on its own 30 runs. It does not move at depth (5.0, p =
+0.5117) and it does move under the composition (13.0, p = 0.0003).
+
+| arm | stem | `reexplain` | `deepexplain` | p | `fullexplain` | p |
+|---|---|--:|--:|--:|--:|--:|
+| laconic | `index` | 35.5 | 46.5 | 0.0349 | 56.0 | 0.0054 |
+| laconic | `metric` | 5.0 | 5.0 | 0.5117 | 13.0 | 0.0003 |
+| laconic | `rollback` | 28.0 | 38.5 | 0.0134 | 51.5 | 0.0001 |
+| baseline | `index` | 141.0 | 189.5 | 0.0081 | 184.5 | 0.0028 |
+| baseline | `metric` | 136.0 | 151.0 | 0.1525 | 140.0 | 0.8767 |
+| baseline | `rollback` | 164.5 | 191.5 | 0.0367 | 227.0 | 0.0001 |
+
+Three of three laconic stems rise under the composition and the pooled null is
+not a floor hiding two movers. The registration wrote in advance that three
+cells cannot reach alpha on a sign test, so this table is consistency and
+carries no verdict.
+
+**The extra words are not obviously restatement.** The round does not measure
+restatement and cannot, but the median `fullexplain-index` answer is worth
+reading beside the median `reexplain-index` one, because the difference is what
+the whole result is made of:
+
+> `events_tenant_id_idx` is an existing btree index on `tenant_id` alone; it's
+> not chosen for this query because the target tenant is 38% of the table.
+> `events_day_tenant_idx` is the proposed new index from option 1, on
+> `(date_trunc('day', created_at), tenant_id)`, which would match the query's
+> actual predicate.
+
+> `events_tenant_id_idx` is the existing btree index on `events(tenant_id)` —
+> it's in production already but unused by this query, since a tenant matching
+> 38% of the table makes the planner prefer a sequential scan.
+> `events_day_tenant_idx` is not built yet — it's one of the two fixes
+> FINDINGS.md proposes: `CREATE INDEX CONCURRENTLY events_day_tenant_idx ON
+> events (date_trunc('day', created_at), tenant_id)`, indexing the actual
+> expression the query filters on (written with an explicit `'UTC'` argument to
+> satisfy `IMMUTABLE`).
+
+Twenty-two more prose words, and they carry the DDL, the planner's reason and
+the `IMMUTABLE` argument. That is a longer answer, not a padded one. #298's harm
+is 239 restated words inside 342; nothing of that shape is present at 49.5.
+
+### What this closes and what it does not
+
+**Depth is refuted as the mechanism, on the instrument built to test it.** Round
+68 named session depth as the cluster's only remaining candidate and said so
+explicitly. Four ordinary turns of it move the laconic already-told answer by
+1.130 (p = 0.1962), against the baseline arm's 1.205 on the same contrast. The
+answer stays short because the material has already been delivered, and adding
+turns does not undo that. [`over-length-cluster.md`](over-length-cluster.md) is
+updated: the candidate it named is measured and it is not the one.
+
+**The register effect travels to this question, and it is the third instrument
+to show it.** [`register-inheritance-136.md`](register-inheritance-136.md)
+measured 1.677 on a closed confirmation with the baseline arm flat at p =
+0.9135. Here the same three licensed-long turns produce 1.833 on an already-told
+definition request — and the baseline arm is **not** flat. That difference is
+the round's most useful unpublished lead: the same manipulation separates the
+arms on one question type and does not on another, and nothing in the archive
+says why.
+
+**Round 70 should not aim a rule edit at this.** `bash tools/candidate-due.sh`
+requires the next round to carry one, and this round's result says where not to
+point it. There is no measured laconic-specific inflation to remove: the one
+contrast that moves the laconic arm moves the unruled arm too, the movement
+tops out at 71 words, and the answers that carry it are correct and dense. An
+edit aimed at the composition would be aimed at a case effect. Round 70's
+candidate belongs on a different `rules` issue.
+
+**What the round leaves open is the interaction test, not the rule.** The
+cluster has now run at least four arm-label permutations across an 8x arm gap
+and read nulls off all of them. The 1.9x figure above says those nulls bound
+less than they appear to. A paired or stratified interaction statistic — the
+bootstrap used here, or a within-stem pairing — is a harness change of maybe
+fifty lines and it would re-decide, cheaply, several rounds' worth of stored
+interaction nulls. That is a backlog issue, not a round.
+
+**Four prior turns is still not a multi-hour session.** The registration said
+so before the numbers and it is still true. The round establishes that depth
+does not inflate the already-told answer at the depths this repository can
+generate, and it cannot speak to hour-long sessions. The difference from round
+68 is that the follow-up is no longer "build a deeper instrument": depth now has
+a measured null at the depth the cluster could reach, so a deeper instrument
+buys a bound rather than a candidate.
+
+## Registration and generation notes
+
+**The round was sharded three ways, which the registration's command was not.**
+The registered command names one snapshot at `--concurrency 3`; the round ran
+as three `run.py` processes at rep offsets 0, 4 and 7, each generating both arms
+and all nine cells, unioned by `python3 evals/bench/merge.py
+evals/snapshots/loop/round-69-{a,b,c}.json --out evals/snapshots/loop/round-69.json`.
+Every shard interleaves the two arms, so the simultaneity [round 38](round-38.md)
+requires holds inside each shard rather than only in aggregate. All three
+declare `--concurrency 3`.
+
+**Generation was interrupted by a usage limit and resumed.** The first pass
+started at 00:02:44Z on 2026-09-16 and all three shards stopped between 01:20
+and 01:21Z, each after 8 consecutive empty-text failures, which is
+`--max-consecutive-failures`' default and the guard working as designed: the
+window had emptied and every shard was failing instantly. 24 failed keys were
+left recorded as `ok: false`. The second pass ran from 04:13Z to 04:47Z and
+regenerated all 24 rather than carrying them, because a failed key is not
+recorded as done. Both passes are named in every shard's `generators` list and
+the round finishes at **180 runs, 0 failed**, 10 reps in every one of the 18
+cells.
+
+**One instrument throughout.** `rules_cksum` 594915793 and `cases_cksum`
+3922452357 on all three shards and on the merge, which is the [#69] guard
+saying the two passes are one instrument. All 180 runs are stamped CLI
+**2.1.272**; `python3 evals/bench/release.py evals/snapshots/loop/round-69.json`
+reports no unreadable span and no arm imbalanced across a release.
+`python3 evals/bench/concurrency.py` reconstructs a peak of 1 CLI invocation in
+flight per shard arm-day and 3 on the merged file against a declared 3, so
+nothing here is in the audit's failure list; its 19 flagged arm-days are the
+August snapshots that predate the flag.
+
+**Nothing was judged**, per the registration: the quality verdict is bought only
+if branch 1 fires.
+
+**One file was added after generation and it computes no verdict.**
+`evals/pilot/round69_supplement.py` produces the geometric means, the bootstrap
+intervals, the raw-token column, the tool-call counts and the resolution table
+above. It imports `score_register.graded_words` rather than reimplementing the
+graded turn, so the figures beside the test are extracted by the same code as
+the test. `score_register.py` itself is byte-identical to the version committed
+with the registration.
+
+**The round cost $28.88** over 180 runs and 720 CLI calls: $18.05 on the
+baseline arm and $10.83 on the laconic one, of which the `fullexplain` family is
+$15.84 — the licensed-long middle turns are most of the bill, which is what the
+third family was bought with.
+
+[#69]: https://github.com/JordanMPDS/laconic/issues/69

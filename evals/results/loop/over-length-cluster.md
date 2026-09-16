@@ -156,6 +156,41 @@ candidate but building an instrument deep enough to test this one** — which is
 case-authoring problem again, and a more expensive one, because depth is bought
 by the turn.
 
+## [Round 69](round-69.md) bought that instrument, and depth is not the mechanism
+
+The paragraph above is answered. `deepexplain-*` is `reexplain-*` with three of
+`deep-*`'s ordinary questions inserted between the turn that delivers the
+material and the graded definition request — turn 1 and the graded turn
+byte-identical, the same fixture by symlink, four prior turns in place of one.
+**The laconic answer does not inflate: 27.0 prose words to 30.5, a ratio of
+1.130 at p = 0.1962, against the baseline arm's 1.205 on the same contrast.**
+The small movement that exists is the movement the unruled arm also makes, a
+ratio of ratios of 0.929 with a bootstrap interval of 0.807 to 1.068.
+
+The same round put a third family beside it, `fullexplain-*`, whose three middle
+turns are `register-*`'s verbatim and are therefore licensed long by
+`rules/laconic.md` itself. That one does move the graded answer — 27.0 to 49.5,
+1.833 at p = 0.0010 — but it moves the baseline arm too, 141.5 to 184.5 at
+p = 0.0027, so round 67's clause applies and the movement is the case rather
+than the rules. **The factor is the register of the intervening turns, at fixed
+depth, and not the depth.**
+
+| instrument | turns of prior context | what it found |
+|---|--:|---|
+| `deepexplain-*` ([round 69](round-69.md)) | 4, ordinary | depth alone: nothing, 1.130 at p = 0.1962 |
+| `fullexplain-*` ([round 69](round-69.md)) | 4, licensed long | 1.833, and the baseline arm rises with it |
+
+So the candidate this document named after round 68 is measured and refuted at
+the depth this repository can generate, and the magnitude gap has no named
+candidate again. What round 69 adds in its place is not a candidate but a
+caution about the tests that produced these nulls: **the arm-label permutation
+this cluster reads its interactions from builds a null 1.9x wider than the
+sampling distribution of the statistic it tests**, because the arms sit about
+8x apart and every shuffled group is a mixture of two separated modes. Round 42
+disclosed that for raw words; round 69 measured that the log scale does not
+escape it. Several stored interaction nulls bound less than they appear to, and
+re-deciding them is a harness change rather than a round.
+
 ## The six issues are three groups, not one
 
 ### Group A — deep in a long session: [#60], [#113], [#136]

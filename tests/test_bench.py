@@ -5348,6 +5348,18 @@ _expected_concurrent = {
     # contrasts, never inside one. Only the merge reaches the sweep, and it
     # reconstructs to exactly the three shards that produced it.
     "round-67.json",
+    # Round 69 is a one-tree, two-arm pilot round sharded by rep range into
+    # three, each strictly sequential and each declaring --concurrency 3 for
+    # the three run.py processes really in flight. The shard boundary is the
+    # rep range rather than the stem because all three families and both arms
+    # of every contrast are generated inside each process: the split is across
+    # replicates, never inside a contrast. Only the merge reaches the sweep,
+    # and it reconstructs to exactly the three shards that produced it. The
+    # merge spans four hours because a usage limit stopped all three shards at
+    # the eight-consecutive-failure rule and they were resumed by key; a resume
+    # is still one sequential invocation, so it widens the span without
+    # widening what was in flight.
+    "round-69.json",
 }
 _found = set()
 for _p in sorted((ROOT / "evals" / "snapshots").rglob("*.json")):

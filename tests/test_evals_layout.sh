@@ -447,5 +447,56 @@ PYEOF
   fi
 done
 
+# `deepexplain-*` and `fullexplain-*` are round 69's two depth twins of
+# `reexplain-*`. All three ask one byte-identical graded question over one
+# fixture, and differ only in what the model's own prior answers were: one turn
+# for `reexplain-*`, four ordinary turns for `deepexplain-*` (which borrows
+# `deep-*`'s), and four turns whose length the rules license for
+# `fullexplain-*` (which borrows `register-*`'s). Each twin is checked against
+# the family it borrows from as well as against `reexplain-*`, because a turn
+# that drifts from its source stops the round decomposing depth from register:
+# the two twins would then differ by more than the register of turns 2 to 4.
+for stem in index metric rollback; do
+  if python3 - "$ROOT/evals/pilot/reexplain-$stem" "$ROOT/evals/cases/deep-$stem" \
+              "$ROOT/evals/pilot/register-$stem" \
+              "$ROOT/evals/pilot/deepexplain-$stem" \
+              "$ROOT/evals/pilot/fullexplain-$stem" <<'PYEOF'
+import json, sys
+from pathlib import Path
+warm, deep, register = (Path(a) for a in sys.argv[1:4])
+twins = {"deepexplain": Path(sys.argv[4]), "fullexplain": Path(sys.argv[5])}
+def turns(p):
+    return p.joinpath("prompt.md").read_text().split("<!-- turn -->")
+tw = turns(warm)
+source = {"deepexplain": turns(deep), "fullexplain": turns(register)}
+assert len(tw) == 2, "the warm case must be two turns"
+ew = json.loads(warm.joinpath("expect.json").read_text())
+for name, case in twins.items():
+    t = turns(case)
+    assert len(t) == 5, "%s must be five turns" % name
+    assert t[0] == tw[0], "%s's turn 1 is not the warm case's" % name
+    assert t[4] == tw[1], "%s's graded turn is not the warm case's" % name
+    assert t[1:4] == source[name][1:4], \
+        "%s's turns 2-4 are not the family it borrows them from" % name
+    for i, turn in enumerate(t):
+        assert "Don't edit anything." in turn, \
+            "%s turn %d must forbid editing" % (name, i + 1)
+    e = json.loads(case.joinpath("expect.json").read_text())
+    for k in ("trap", "never_cut", "grading"):
+        assert e[k] == ew[k], "%s's %s differs from the warm case's" % (name, k)
+    assert e["grading"] == "quality", "%s grades answer quality" % name
+    assert case.joinpath("fixture").resolve() == deep.joinpath("fixture").resolve(), \
+        "%s must share the fixture" % name
+assert turns(twins["deepexplain"])[1:4] != turns(twins["fullexplain"])[1:4], \
+    "the two twins' middle turns are identical, so nothing is manipulated"
+PYEOF
+  then
+    ok "deepexplain-$stem and fullexplain-$stem are reexplain-$stem at depth"
+  else
+    fail "deepexplain-$stem and fullexplain-$stem are reexplain-$stem at depth"
+  fi
+done
+
 printf '\n%d failure(s)\n' "$fails"
+
 [ "$fails" -eq 0 ]

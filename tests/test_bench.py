@@ -553,7 +553,9 @@ _PRECHECK_BLOCK = """One check before acting, and two before sending:
 1. Is the question about something that is broken? Diagnosing it is the
    answer; fixing it is not. Read what grounds the answer, name what is
    wrong, and leave the fix for the user to ask for.
-2. What is the smallest set of claims that fully answers this?
+2. What is the smallest set of claims that fully answers this? A report,
+   walkthrough, comparison or explanation the user asked for needs more of
+   them, and none of them twice.
 3. Is anything here something the user did not ask for?
 """
 _PRECHECKS = {
@@ -5360,6 +5362,32 @@ _expected_concurrent = {
     # is still one sequential invocation, so it widens the span without
     # widening what was in flight.
     "round-69.json",
+    # Round 70 is a two-tree, one-arm round sharded by rep range into four,
+    # two per side, each strictly sequential and each declaring --concurrency 4
+    # for the four run.py processes really in flight. Only the two merges reach
+    # the sweep, and each reconstructs to exactly the two shards that produced
+    # its own side. The shard boundary is the rep range rather than the case
+    # because both families and all three stems are generated inside each
+    # process: the split is across replicates, never inside a contrast, and the
+    # two sides are separate snapshots because a rules revision is resolved once
+    # per invocation. Both merges span three and a half hours because a usage
+    # limit stopped all four shards at the eight-consecutive-failure rule and
+    # they were resumed by key; a resume is still one sequential invocation, so
+    # it widens the span without widening what was in flight.
+    "round-70-control.json", "round-70-edit.json",
+    # Round 70's wide arm — Bar A, the round-wide counters — is the same
+    # two-tree, one-arm design over all 37 dev-set cases and both models,
+    # sharded by model into four, two per side, each strictly sequential and
+    # each declaring --concurrency 4. The shard boundary is the model rather
+    # than the rep range because every case and every rep of a model is
+    # generated inside one process, so no cell is split across shards and the
+    # two sides stay separate snapshots for the same reason as above. Only the
+    # two merges reach the sweep, and each reconstructs to exactly the two
+    # shards that produced its own side. Both merges span four and three
+    # quarter hours because all four shards stopped part-way through and were
+    # resumed by key four hours later; a resume is still one sequential
+    # invocation, so it widens the span without widening what was in flight.
+    "round-70-wide-control.json", "round-70-wide-edit.json",
 }
 _found = set()
 for _p in sorted((ROOT / "evals" / "snapshots").rglob("*.json")):

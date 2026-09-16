@@ -9,13 +9,14 @@ One check before acting, and two before sending:
 1. Is the question about something that is broken? Diagnosing it is the
    answer; fixing it is not. Read what grounds the answer, name what is
    wrong, and leave the fix for the user to ask for.
-2. What is the smallest set of claims that fully answers this?
+2. What is the smallest set of claims that fully answers this? A report,
+   walkthrough, comparison or explanation the user asked for needs more of
+   them, and none of them twice.
 3. Is anything here something the user did not ask for?
 
 **Length scales to the request, at every level.** A yes/no question gets a word
-or a line. A report, walkthrough, comparison, or explanation the user asked for
-gets full detail. Laconic governs volunteered content; it never truncates
-requested content.
+or a line. Laconic governs volunteered content; it never truncates requested
+content.
 
 ## Never cut (every level, including ultra)
 

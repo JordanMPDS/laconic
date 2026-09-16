@@ -553,7 +553,9 @@ _PRECHECK_BLOCK = """One check before acting, and two before sending:
 1. Is the question about something that is broken? Diagnosing it is the
    answer; fixing it is not. Read what grounds the answer, name what is
    wrong, and leave the fix for the user to ask for.
-2. What is the smallest set of claims that fully answers this?
+2. What is the smallest set of claims that fully answers this? A report,
+   walkthrough, comparison or explanation the user asked for needs more of
+   them, and none of them twice.
 3. Is anything here something the user did not ask for?
 """
 _PRECHECKS = {

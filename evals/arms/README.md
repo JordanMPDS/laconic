@@ -137,6 +137,15 @@ that the check costs reading *in the round's own window* before the round asks
 whether a rewording gives it back, which the loop needs because a control
 generated in a different window has misread this repo before.
 
+**[Round 63](../results/loop/round-63.md) ran that assay and the positive
+control did not fire, so `-read` was never bought.** Over 1,740 generations the
+shipped slice reads 232 of 420 unread against `-off`'s 226 of 420 — a gap of
+**+1.4 points, 90% interval [−4.2, +7.1]**, permutation p = 0.3619 — where
+round 56 had measured +10.4 on the same six cells. The movement between the two
+rounds is on the *no-check* arm, 46.7% to 53.8%, which is the window rather than
+the rules. So the premise `-read` was built to repair is not established on the
+instrument, and the arm stands unused rather than refuted.
+
 [#264]: https://github.com/JordanMPDS/laconic/issues/264
 
 ## Staleness: `BUILT-FROM.json`
@@ -168,8 +177,16 @@ than lapsing. Rebuilding a stale arm belongs to whichever round next needs it:
 doing it silently inside a rules edit would produce a text no round ever ran,
 while this file went on describing the old one.
 
-Round 64 left all seven stale at `594915793`, the slice rounds 59 through 63
-measured. The word counts in the tables above are that slice's.
+Round 64 left all seven recorded at `594915793`, the slice rounds 59 through 63
+measured, rather than rebuilding them against the edit it was testing. The word
+counts in the tables above are that slice's.
+
+**At master they are live, not stale, and that is an accident of six rejections
+rather than a maintained state.** Every rules edit proposed since — rounds 64,
+66, 68 and 70 — reverted, so `rules/laconic.md` still slices to `594915793` at
+`full` and `BUILT-FROM.json` still matches it. The next accepted edit makes all
+seven stale in the same commit, and `run.py` will refuse to generate with one
+before anything is written.
 
 
 [#275]: https://github.com/JordanMPDS/laconic/issues/275

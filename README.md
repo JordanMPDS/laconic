@@ -219,16 +219,36 @@ what each number does and does not support are in
 [`docs/benchmark.md`](docs/benchmark.md).
 
 **That is no longer the revision this repository ships, and the gap runs in
-laconic's favour.** Master is at `rules_cksum` 136269960 for `full`, two
-accepted edits later — the design-question licence from rounds 24 and 26, and
-round 28's asking-permission edit. No round-wide 22-case benchmark has been
-generated at that revision, so the table above is the most recent complete one
-and it is stale rather than wrong. The column that has been re-measured across
+laconic's favour.** Master is at `rules_cksum` 594915793 for `full`, three
+accepted edits later — the design-question licence from rounds 24 and 26,
+round 28's asking-permission edit, and round 55's pre-action check. The case
+suite has grown from the 22 cases above to 37. No round-wide five-arm benchmark
+has been generated at that revision, so the table above is the most recent
+complete one and it is stale rather than wrong. The column that has been re-measured across
 the gap is readability, and it moved a long way: on `walkthrough`, chains fell
 from 125.4 per 100 responses to 37.5 and mappings from 61.7 to 35.0, and on the
 design cases arrows fell roughly fivefold. Read the 66 as a ceiling on the
 shipped rules rather than a description of them —
 [`arrows-scope-36.md`](evals/results/loop/arrows-scope-36.md).
+
+**The one column that has moved since on a matched instrument is volunteered
+work.** Round 55's pre-action check — *"Is the question about something that is
+broken? Diagnosing it is the answer; fixing it is not"* — was measured on
+`conditional`/sonnet against a simultaneously generated control: responses that
+edited the fixture instead of answering fell from 30.0% to 5.8% (Fisher
+p = 1.1e-06), with the reading rate unmoved at 120 of 120 a side and the
+diagnosis still named in every non-editing answer. Pooled over the three rounds
+that ran it the check reads 4.4% against 25.8%
+([`round-65.md`](evals/results/loop/round-65.md)).
+
+**Fifteen rounds since have shipped nothing.** Rounds 56 through 70 proposed
+six rule edits and reverted every one, and the ten of them aimed at response
+length closed out every named explanation for the gap between the field reports
+and what the benchmark measures — inherited register, interleaved work, and
+session depth are each measured and refuted
+([`over-length-cluster.md`](evals/results/loop/over-length-cluster.md)). The
+accept rate is the disclosure that goes with any claim the loop produces, and it
+is in [`LEDGER.md`](evals/results/loop/LEDGER.md).
 
 **These numbers do not say a reader prefers the result.** A blind judge asked
 exactly that, over 130 comparisons of an archived arm, did not prefer laconic to

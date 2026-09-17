@@ -553,9 +553,7 @@ _PRECHECK_BLOCK = """One check before acting, and two before sending:
 1. Is the question about something that is broken? Diagnosing it is the
    answer; fixing it is not. Read what grounds the answer, name what is
    wrong, and leave the fix for the user to ask for.
-2. What is the smallest set of claims that fully answers this? A report,
-   walkthrough, comparison or explanation the user asked for needs more of
-   them, and none of them twice.
+2. What is the smallest set of claims that fully answers this?
 3. Is anything here something the user did not ask for?
 """
 _PRECHECKS = {
@@ -5388,6 +5386,18 @@ _expected_concurrent = {
     # resumed by key four hours later; a resume is still one sequential
     # invocation, so it widens the span without widening what was in flight.
     "round-70-wide-control.json", "round-70-wide-edit.json",
+    # Round 70's replication - Bar B - repeats the scoped design exactly:
+    # two trees, one arm, sharded by rep range into four, two per side, each
+    # strictly sequential and each declaring --concurrency 4. Its control side
+    # comes from a worktree at ef1fb2e rather than at master, because Bar A
+    # merged and master carries the edit; the rules text there is byte-identical
+    # at the same checksum. Only the two merges reach the sweep, and each
+    # reconstructs to exactly the two shards that produced its own side. Both
+    # merges span two days because a usage limit stopped all four shards at the
+    # eight-consecutive-failure rule with 192 of 240 runs banked and they were
+    # resumed by key; a resume is still one sequential invocation, so it widens
+    # the span without widening what was in flight.
+    "round-70-rep-control.json", "round-70-rep-edit.json",
 }
 _found = set()
 for _p in sorted((ROOT / "evals" / "snapshots").rglob("*.json")):

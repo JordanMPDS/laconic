@@ -610,3 +610,103 @@ The scoped target accepted at 0.903, p = 0.0247, and **Bar A holds**. Bars B and
 C — the replication and the holdout — are registered above and **neither has
 been generated**. The edit is not validated until both are, and nothing about
 this round may be released before then.
+
+---
+
+## Bar B: the replication fails, and the edit reverts
+
+**240 runs, 120 a side, 20 reps per stem per side, zero failed.** The same six
+cases, sonnet, `--turn-delivery plugin`, four shards split by rep offset, two
+per side, both sides simultaneous from the two trees, scored by the same
+`evals/pilot/score_claims.py` at the same seed. `rules_cksum` 594915793 against
+3641437234 and `cases_cksum` 1852778470 on both sides, all four verified against
+this registration before the pass started.
+
+The control side came from a worktree at `ef1fb2e` rather than at `master`,
+because Bar A merged and `master` now carries the edit. The rules text there is
+byte-identical to the one the scoped arm's control used, at the same checksum.
+
+Generated 2026-09-16 into 2026-09-17. A usage limit stopped all four shards at
+the eight-consecutive-failure rule with 192 of 240 runs banked; no failed key is
+recorded as done, so re-running the identical command regenerated exactly the 48
+that were missing. `release.py` reads both arms spanning CLI **2.1.273 and
+2.1.274**, split 94/26 on the control against 98/22 on the edit, **p = 0.6286**:
+no arm is imbalanced across the boundary. `concurrency.py` reads each side
+declaring 4 and reconstructing to 2.
+
+### The target does not replicate
+
+| stem | n/side | control | edit | ratio | round 70 scoped |
+|---|--:|--:|--:|--:|--:|
+| `index` | 20 | 1583.0 | 1453.0 | 0.918 | 0.863 |
+| `metric` | 20 | 1081.0 | 993.0 | 0.919 | 0.892 |
+| `rollback` | 20 | 567.0 | 567.5 | **1.001** | 0.957 |
+| **stratified** | | | | **0.946, p = 0.0721** | 0.903, p = 0.0247 |
+
+**The registration named this outcome in advance and called it a failure rather
+than a partial success:** *"A ratio that lands between 0.90 and 1.00 without
+reaching alpha is a failure of this bar, not a partial success: round 70's whole
+claim is that this quantity moves, and a sample is not a measurement."* 0.946 at
+p = 0.0721 is that case exactly. **Bar B fails, and by the standing order the
+round stops here — Bar C is not bought.**
+
+### The bounds all held, and they were never the claim
+
+| bound | reading | floor | verdict |
+|---|--:|--:|---|
+| fixture-token coverage | 1.046, one-sided p = 0.9675 | must not fall | held |
+| the licence still fires | 5.59 pooled | 5.0 | held |
+| `date_trunc` never-cut keyword | 20/20 in all four cells | any loss rejects | held |
+
+Coverage moved **up** on two stems of three, so the replication does not even
+raise the cheap-win reading the bound exists to exclude. What failed is the
+target.
+
+### The disclosure that matters more than the p-value
+
+| family | round 70 scoped | replication |
+|---|--:|--:|
+| `register-*`, licensed | 0.903, p = 0.0247 | 0.946, p = 0.0721 |
+| `deep-*`, unlicensed | 1.040, p = 0.4448 | **0.945, p = 0.3304** |
+
+**In the replication the unlicensed family fell by the same factor as the
+licensed one.** The scoped round's discrimination argument was that `deep-*` did
+not move while `register-*` did, which is what a relocation into check 2
+predicts and what a general shortening does not. Here both families read 0.945
+and 0.946. Neither is significant on its own, and the round is not entitled to
+read a null `deep-*` movement as confirmation in one pass and ignore a matching
+one in the next.
+
+So the honest reading is not "the effect is real but smaller than measured". It
+is that **the scoped round's 0.903 is not reproduced, and the specificity that
+made it interpretable as a licence effect is absent from the replication.** A
+single sample produced both the effect and its discriminator; a second sample
+produced neither.
+
+**One era caveat, which does not rescue the round.** The scoped arm ran entirely
+on CLI 2.1.272 and the replication on 2.1.273 and 2.1.274, and
+[round 37](round-37.md) measured a syntactic behaviour moving 4.7x in five days
+at byte-identical rules. Each pass is internally clean — both sides simultaneous,
+balanced across the boundary — so neither contrast is confounded. What the era
+gap bounds is the comparison *between* the two passes, and the direction of that
+caveat is symmetric: it is as available to explain the 0.903 as the 0.946.
+
+### The edit reverts in full
+
+`rules/laconic.md` returns to the text at `ef1fb2e` and `rules/dist/*.md` is
+regenerated, taking `rules_cksum` back to **594915793**. Nothing from this round
+ships, and `tools/release-due.sh` returns to exit 0.
+
+**That is the fourteenth round in the over-length cluster and the fifth
+intervention on this paragraph.** Rounds 07, 08, 09 and 29 bounded a licence in
+prose and failed; round 10 moved one and won; this round moved one, separated
+once at p = 0.0247, and did not separate again. The move-it-do-not-bound-it rule
+keeps round 10 and does not gain a second data point here.
+
+**What [#150] is owed next is not another edit to this paragraph.** Three
+intervention classes have now been tried on it — rewording, scoping, relocation
+— and the round's own registration said where that leaves it: *"the honest
+conclusion is that [#150] needs the judged redundancy verdict [#155] specifies
+rather than another edit to the paragraph."* [#155]'s detector is parked at
+55.3% precision and may not be promoted inside a round, so closing this needs
+that detector's precision raised first, as its own unit of work.

@@ -26,15 +26,27 @@ powershell -NoProfile -ExecutionPolicy Bypass -File tests\test_laconic.ps1
 ./evals/run.sh full
 ```
 
-Runs every case in `evals/cases/` — twenty-two as of 2026-08-13: eleven original
-(`badnews`, `code-fidelity`, `conditional`, `decision`, `destructive`,
-`fail-open`, `floor`, `ordered-steps`, `silent-success`, `stale-cache`,
-`walkthrough`), eight `design-*` design questions and three `verdict-*`
-evaluative ones — with and without the rules, writing paired output
-under `evals/scratch/<level>/<case>.md` to read side by side. Grading criteria
-and the trap each case checks for are in [`evals/CRITERIA.md`](../evals/CRITERIA.md).
-Single-sample, cheapest-model runs for catching rule-set regressions, not a
-benchmark.
+Runs every case in `evals/cases/` — thirty-seven as of 2026-09-16 — with and
+without the rules, writing paired output under `evals/scratch/<level>/<case>.md`
+to read side by side. Grading criteria and the trap each case checks for are in
+[`evals/CRITERIA.md`](../evals/CRITERIA.md). Single-sample, cheapest-model runs
+for catching rule-set regressions, not a benchmark.
+
+| Family | Cases | What it holds |
+|---|--:|---|
+| original | 11 | `badnews`, `code-fidelity`, `conditional`, `decision`, `destructive`, `fail-open`, `floor`, `ordered-steps`, `silent-success`, `stale-cache`, `walkthrough` |
+| `design-*` | 8 | design questions, where the reading-rate mechanism lives |
+| `verdict-*` | 3 | evaluative questions whose fixture contradicts itself |
+| `confirm-*` / `recall-*` | 6 | the read-it against wrote-it pair for [#136], two turns each |
+| `deep-*` / `wide-*` | 6 | the same three fixtures at five turns and at two |
+| `cold-service` / `drift-service` | 2 | one fixture asked cold and at depth |
+| `quota-merge` | 1 | a closed confirmation whose fixture hides a second consequence |
+
+Ten of the thirty-seven are multi-turn, so a pass over them costs more calls
+than cells — see [`evals/CRITERIA.md`](../evals/CRITERIA.md#a-case-may-ask-more-than-one-turn).
+Cases under test live in [`evals/pilot/`](../evals/pilot/README.md) and are
+outside the default glob, because adding one to `evals/cases/` moves
+`cases_cksum` for every round that follows.
 
 ## End-to-end check
 
@@ -66,10 +78,20 @@ For the project flag, in a repository you do not mind writing a file into:
 ## Reproducing the benchmark
 
 ```bash
-python3 evals/bench/run.py                 # generate (~440 calls, 2-3 hr)
+python3 evals/bench/run.py \
+  --arms baseline,terse-control,word-compression,concise-style,laconic \
+  --turn-delivery plugin                   # generate (~2,950 calls)
 python3 evals/bench/judge.py --judge-all   # blind trap grading, every case
 python3 evals/bench/report.py              # offline tables; exits 1 if a gate fails
 ```
+
+**`run.py` with no `--arms` does not run.** The default is all sixteen arms,
+two of which carry a Stop hook and refuse without `--no-safe-mode`, and the
+suite now holds multi-turn cases, so `--turn-delivery` is refused-on-absence
+too. Name the five arms the published tables use, as above. `run.py` prints the
+call count and the cost before it makes a call, so check that line rather than
+this one: ten of the thirty-seven cases are multi-turn, and a five-turn case at
+5 reps across 5 arms is 250 calls where a single-turn one is 50.
 
 `run.py` and `judge.py` both print what the pass will cost before making a call,
 and both stop themselves after eight consecutive failures — a usage limit or an
@@ -98,6 +120,84 @@ nothing:
 python3 evals/bench/concurrency.py   # exits non-zero on an undeclared snapshot
 ```
 
+### What a generation pass refuses to do
+
+`run.py` fails at startup rather than producing a snapshot that cannot be read.
+Each refusal names the round that bought it:
+
+| Guard | Refuses when | Override |
+|---|---|---|
+| `--turn-delivery` | the pass has multi-turn work left and no delivery mode was named. `plugin` reproduces the shipped hook wiring; `repeat` re-appends the whole slice every turn and is what every snapshot below round 40 holds | name one; there is no default |
+| `--allow-opus '<why>'` | any named model is an opus. Opus costs about 9x haiku per call and spends the operator's usage window, not a separate API budget | `--allow-opus` with a reason, recorded as `metadata.opus_justification` |
+| `--max-shards` | that many `run.py` processes are already running. Five shards plus the supervisor's own child took the loop for low memory on a 7.6 GiB machine | `--max-shards N`, `LACONIC_MAX_SHARDS=N` per machine, or `--max-shards 0` |
+| `--cells` | it is passed alongside `--cases` or `--models`, or a resume names a different cell set | drop the other two flags |
+| `--allow-stale-arm` | a requested arm under `evals/arms/` was built from a different rules slice than this tree carries | rebuild the arm and update `evals/arms/BUILT-FROM.json`, or pass the flag deliberately |
+| `--allow-case-change` | `cases_cksum` moved since the snapshot was started | the flag, which stamps the fact into the snapshot |
+| `--no-safe-mode` | an arm carries a Stop hook, which `CLAUDE_CODE_SAFE_MODE=1` would disable outright — the arm would generate as a second copy of laconic | the flag, which drops safe mode for every arm in the pass |
+| rules checksum | a resume finds `rules/laconic.md` has moved | none; move the snapshot aside |
+
+`--concurrency` refuses nothing. It is a declaration, and `concurrency.py`
+audits it. `--max-consecutive-failures` defaults to 8 and stops a pass that an
+outage or a usage limit would otherwise fail key by key; re-run the same command
+to resume.
+
+`--stop-on-cli-change` refuses a round that spans a `claude` release instead of
+recording it. It is not the default, because a round that runs for hours
+normally spans one.
+
+### Sharded rounds, and which release generated them
+
+Merge a round's shards into the snapshot the report reads. It refuses shards
+that disagree on `rules_cksum`, level or arm definitions, so two designs cannot
+be merged into one round:
+
+```bash
+python3 evals/bench/merge.py evals/snapshots/loop/round-70-a.json \
+  evals/snapshots/loop/round-70-b.json --out evals/snapshots/loop/round-70.json
+```
+
+The CLI ships several times a day and a round runs for hours, so a round
+normally spans a release. `run.py` reads `claude --version` before every
+generation and stamps that run with it. Report the composition, and test whether
+the arms are balanced across the boundary:
+
+```bash
+python3 evals/bench/release.py evals/snapshots/loop/round-70.json
+```
+
+With no arguments it sweeps the archive and reports only what it cannot read.
+Balance testing runs when snapshots are named explicitly. Seventeen committed
+snapshots predate the per-run stamp and carry a label that is wrong for part of
+their runs — `round-21.json`, the one the published benchmark tables come from,
+is among them. They are listed in
+[`evals/results/loop/release-audit.md`](../evals/results/loop/release-audit.md),
+and the field may not be stratified on for those files.
+
+### The rest of the harness
+
+| Script | What it is |
+|---|---|
+| `evals/bench/metrics.py` | the deterministic detectors, `decisions()` and `score()`. A library, not a command; both graders and both test suites route through it |
+| `evals/bench/stop_hook.py` | the [#268] enforcement arm: a `Stop` hook that asks for one revision when the completed turn broke a rule already in context. **Benchmark-only — nothing under `hooks/` registers it**, and [`production-turns-283.md`](../evals/results/loop/production-turns-283.md) is why: over 1,429 real turns it blocks 6.5% against a 5% bar, and half the blocks are wrong |
+| `evals/bench/transcripts.py` | runs the shipped detectors over real session transcripts, which is how that cost was measured |
+| `evals/bench/subagent.py` | the subagent relay arm ([#6]): hands one arm's response to a parent model as a subagent report and grades the parent's answer |
+
+[#268]: https://github.com/JordanMPDS/laconic/issues/268
+[#6]: https://github.com/JordanMPDS/laconic/issues/6
+
+## Tools
+
+| Script | What it answers |
+|---|---|
+| `bash tools/build-rules.sh` | regenerates `rules/dist/*.md` by driving the hook itself, so the marker contract is never reimplemented. Required whenever `rules/laconic.md` changes; `tests/test_rules.sh` fails on a stale copy |
+| `bash tools/release-due.sh` | is a release owed? Diffs the shipped surface against the newest `laconic--v*` tag, names every file that moved, and recommends patch or minor. `README.md` and `docs/` are deliberately outside that surface |
+| `bash tools/candidate-due.sh` | must the next round carry a rule candidate? Exits 1 when two measuring rounds would run back to back, reading the declaration each round document already makes |
+| `bash tools/reclaim-scratch.sh` | removes spent scratch worktrees. On this machine `/tmp` is tmpfs, so a worktree left behind is held RAM. It removes one only when nothing is working inside it, it holds no untracked file, and its HEAD has already landed on `origin/master`; `--dry-run` says what would go |
+| `bash tools/consult.sh "<question>"` | asks the delegate targets one question and prints what they say. Creates no worktree and writes nothing; a dead target is named rather than failing the caller |
+| `bash tools/loop.sh` | the backlog supervisor: one `claude` process per issue, so each gets a genuinely empty context. It runs `reclaim-scratch.sh` at the top of every iteration |
+
+Each of the five with a `--selftest` is exercised by `tests/test_rules.sh`.
+
 **It exits 1 on the archive as it stands**, because snapshots generated before
 the flag existed have their regime reconstructed from timestamps rather than
 declared. Those are documented in
@@ -110,8 +210,9 @@ you generated appearing in the list is the signal, not the exit code alone.
 
 `.claude/skills/laconic-loop/SKILL.md` holds the procedure: benchmark, review
 the failures, propose one rule edit, confirm it, and open a PR or throw it
-away. It proposes; a human merges. The design and the reasoning behind every
-threshold are in
+away. A round ends in a pull request either way — the repository refuses a
+direct push to master — and the round document lands whether the edit shipped
+or reverted. The design and the reasoning behind every threshold are in
 [`docs/superpowers/specs/2026-08-01-rules-loop-design.md`](superpowers/specs/2026-08-01-rules-loop-design.md).
 
 The read step runs offline over snapshots you already have:

@@ -11,18 +11,30 @@ Snapshot: `evals/snapshots/loop/round-21.json`, judged into
 1830906901.
 
 **1830906901 is no longer the revision this repository ships.** Master is at
-136269960 for `full`, two accepted edits later: the design-question licence
-from rounds 24 and 26, and round 28's asking-permission edit. This is still the
-most recent round-wide 22-case benchmark — none has been generated at
-136269960 — so every figure on this page describes 1830906901 and should be
-read as dated rather than as current. Where the two revisions have been put on
-one instrument the shipped rules win: arrow rates fell by roughly two thirds
-overall, and on `walkthrough` chains fell 125.4 per 100 responses to 37.5. See
+594915793 for `full`, three accepted edits later: the design-question licence
+from rounds 24 and 26, round 28's asking-permission edit, and round 55's
+pre-action check. This is still the most recent round-wide five-arm benchmark —
+none has been generated at 594915793 — so every figure on this page describes
+1830906901 and should be read as dated rather than as current. Where the two
+revisions have been put on one instrument the shipped rules win: arrow rates
+fell by roughly two thirds overall, and on `walkthrough` chains fell 125.4 per
+100 responses to 37.5. See
 [`arrows-scope-36.md`](../evals/results/loop/arrows-scope-36.md).
 
-**This table covers all 22 cases.** Earlier publications of this page measured
-only the eleven original ones and said they would refresh at the next full
-benchmark publish. This is that publish.
+**This table covers all 22 cases the suite held at the time.** Earlier
+publications of this page measured only the eleven original ones and said they
+would refresh at the next full benchmark publish. This is that publish.
+
+**The suite has since grown to 37 cases**, and the newer families are not in
+any figure on this page: the `confirm-*`/`recall-*`, `deep-*`/`wide-*` and
+`cold-service`/`drift-service` multi-turn families, plus `quota-merge`. Nothing
+five-arm has been run across them. The largest round-wide run at the shipped
+revision is [round 70](../evals/results/loop/round-70.md)'s Bar A — 740
+generations over all 37 cases and both models, judged `--judge-all` — and it is
+a laconic-arm control against a candidate edit, not an arm comparison, so it
+refreshes no row above. What it does establish is the counters' present level
+at master rules: `never_cut_failures` 0, `quality_fails` 50, `safety_fails` 9
+and `violations_total` 31 over 370 control generations.
 
 | vs baseline | tokens (sonnet) | tokens (haiku) | latency (sonnet) | readability violations | quality pass rate | never-cut failures |
 |---|--:|--:|--:|--:|--:|--:|
@@ -742,10 +754,12 @@ A numeric progression like `7 -> 11 -> 14` is still exempt. It quotes a series
 rather than standing in for a conjunction.
 
 **This is a `full`-level result.** The three-level snapshots checksum to
-`lite` 1146585023, `full` 1830906901 and `ultra` 823082683. Of those only
-`lite` is still what ships: master is at `full` 136269960 and `ultra`
-97814819, because both accepted edits since landed in the `Level: full`
-section, which the `lite` slice does not carry. Across it,
+`lite` 1146585023, `full` 1830906901 and `ultra` 823082683. None of the three
+is what ships any more: master is at `lite` 3263643376, `full` 594915793 and
+`ultra` 1500573388. The design-question licence and the asking-permission edit
+landed in the `Level: full` section, which the `lite` slice does not carry;
+round 55's pre-action check landed in the shared opening checks, which all
+three carry, which is why `lite` moved too. Across it,
 laconic's arrow violations are 25 at `lite`, 23 at `full` and 16 at `ultra` —
 no level is clean, and the gap between levels is smaller than the earlier
 "12 at `lite` against 0 at `full`" suggested. See
@@ -754,10 +768,18 @@ no level is clean, and the gap between levels is smaller than the earlier
 Reproduce:
 
 ```bash
-python3 evals/bench/run.py      # generate (~1100 calls)
+python3 evals/bench/run.py \
+  --arms baseline,terse-control,word-compression,concise-style,laconic \
+  --turn-delivery plugin      # ~2,950 calls over today's 37 cases
 python3 evals/bench/judge.py    # blind trap grading
 python3 evals/bench/report.py   # offline tables; exits 1 if a gate fails
 ```
+
+The 1,100 calls this page reports were 22 cases, all single-turn, on a
+`run.py` whose default arm list was these five. Both have moved: the default is
+now all sixteen arms and refuses without `--no-safe-mode`, and ten of the
+thirty-seven cases are multi-turn, so `--turn-delivery` has to be named. Read
+the cost line `run.py` prints before it makes a call, not the figure above.
 
 The three-level run, and its offline report:
 

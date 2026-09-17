@@ -1,9 +1,11 @@
-# The over-length cluster: what eleven rounds established
+# The over-length cluster: what fourteen rounds established
 
 Six issues report over-long answers at level `full`: [#46], [#60], [#113],
-[#116], [#136] and [#150]. Rounds 29, 32, 33, 34, 35, 36, 37, 38, 40, 41 and 42
-have been spent on them. This is what is now known, and what each issue
-should do next.
+[#116], [#136] and [#150]. Rounds 29, 32, 33, 34, 35, 36, 37, 38, 40, 41, 42,
+64, 66, 67, 68, 69 and 70 have been spent on them, and the rounds' own counter
+— *"fourteenth round in the over-length cluster"* — reads 14 of those as
+cluster rounds proper. **None of them shipped anything.** This is what is now
+known, and what each issue should do next.
 
 > **Rewritten 2026-09-03.** The version of this document written after round 35
 > concluded that conversational investment lengthens the answer, and sent four of
@@ -191,6 +193,30 @@ disclosed that for raw words; round 69 measured that the log scale does not
 escape it. Several stored interaction nulls bound less than they appear to, and
 re-deciding them is a harness change rather than a round.
 
+## [Round 70](round-70.md) tried the fifth relocation on [#150]'s paragraph, and it did not replicate
+
+Lesson 1 below says a licence bounded in prose has failed four times and a
+relocated one worked once. Round 70 was the relocation: the length-scaling
+licence — *a report, walkthrough, comparison or explanation you asked for gets
+full detail* — moved out of its own paragraph and into check 2, with no
+precedence sentence written anywhere.
+
+**The scoped arm accepted and the replication did not.** Prose summed over the
+licensed turns of `register-*` fell to a stem-stratified **0.903 at p = 0.0247**,
+95% interval [0.837, 0.990], all three stems down, with the unlicensed `deep-*`
+family flat at 1.040 — the specificity that made the number readable as a
+licence effect. Bar A, 740 generations over all 37 cases and both models, held.
+**Bar B, the same design and seed at 240 runs, read 0.946 at p = 0.0721**, which
+the registration had named in advance as a failure of the bar rather than a
+partial success. The disclosure that decides it: in Bar B the unlicensed family
+fell **0.945** beside the licensed family's 0.946, so one sample produced both
+the effect and its discriminator and the next produced neither. The edit
+reverted in full.
+
+So the count on this paragraph is five interventions and one survivor, and that
+survivor is round 10's. [#150] is owed [#155]'s judged redundancy verdict before
+another edit to it, which is what the table below already says.
+
 ## The six issues are three groups, not one
 
 ### Group A — deep in a long session: [#60], [#113], [#136]
@@ -369,7 +395,7 @@ Nothing measured in rounds 29 to 43 bears on [#150].
 | [#113] | detector built and validated; the design-shaped family was built (round 36) and answers *no decay*, under both delivery modes | the flicker itself is still unreproduced; needs a case that admits it, not another round on these cells |
 | [#116] | **four case designs tried and the re-trap refused.** Question form, reading rate and defect kind are eliminated; `conditional` still elicits the behaviour and still cannot grade it, because its criterion self-disagrees on 1 verdict in 8 | a case that both elicits the behaviour **and** grades stably. The fact-versus-framing heuristic that sentence used to give is **not established** — [`judge-self-disagreement.md`](judge-self-disagreement.md) measured four cells and the two shapes interleave. What is established is that stability is a criterion property: one cell moved 0 of 55. See [`conditional-retrap.md`](conditional-retrap.md) |
 | [#136] | mechanism restored on the baseline arm by round 42: depth inflates an unruled answer +51.4%, and laconic runs −68.9% against it | the diagnosis is no longer the open part. The gap is between the report and the product, and closing it needs a case that reproduces a laconic session going long at depth — see the two case-authoring candidates above |
-| [#150] | instrument proven incapable | redundancy metric on the [#146] route, before any further round |
+| [#150] | instrument proven incapable; a fifth intervention on the paragraph tried in [round 70](round-70.md) and reverted when the replication read 0.946 at p = 0.0721 | redundancy metric on the [#146] route, before any further round. The detector [#155] parks at 55.3% precision and may not be promoted inside a round |
 | [#172] | **resolved** — affirmation widened, rounds 33–35 re-judged on that stem | none; round 35 moves 57/60 to 60/60 and rounds 33–34 do not move |
 
 ## The measurement this cluster needed: bought, and it answers

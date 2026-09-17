@@ -56,6 +56,20 @@ zero stems of three. Promoting to `evals/cases/` is a decision for the rule
 edit that wants to be scored here — [#60]'s persistence clause — because it
 moves `cases_cksum` for every future round and needs a seeded baseline first.
 
+**It has since carried a scored round without being promoted, which is what the
+directory is for.** [Round 70](../results/loop/round-70.md) targeted the
+licensed stretch itself — prose summed over `register-*`'s turns 2 to 4, with
+`deep-*` as the unlicensed discriminator — and the same pair supplied both the
+effect and the control that made it readable. The scoped arm accepted at 0.903
+(p = 0.0247) with `deep-*` flat at 1.040; the replication read 0.946 (p = 0.0721)
+with `deep-*` falling 0.945 alongside it, and the edit reverted. The pair is
+sound and the round is the thing that failed, so nothing here changed.
+
+**Two families are borrowed rather than resident.** `register-*` and `deep-*`
+are also `fullexplain-*`'s and `deepexplain-*`'s source of middle turns, so an
+edit to either changes three designs at once, and `tests/test_evals_layout.sh`
+holds every one of those contracts.
+
 [#60]: https://github.com/JordanMPDS/laconic/issues/60
 
 ## `work-index`, `work-metric`, `work-rollback`

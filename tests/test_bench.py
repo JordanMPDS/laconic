@@ -6651,6 +6651,22 @@ for _pilot in _pilots:
     if _got.returncode != 0:
         print(_got.stdout[-4000:] or _got.stderr[-4000:])
 
+# --- the candidate-defect audit's labels have to stay attached to their text
+# classify.py's selftest re-reads every `evidence` string out of the round
+# document it names, so an edit to a round document under a label fails here
+# rather than leaving the count resting on a quote that no longer exists.
+# Coverage is deliberately not asserted: a round commits `## The edit` before it
+# generates, so a registration would otherwise fail CI for having no result yet.
+_classify = ROOT / "evals" / "results" / "loop" / "candidate-defects" / "classify.py"
+check("the candidate-defect classifier ships", _classify.exists())
+if _classify.exists():
+    _got = subprocess.run([sys.executable, str(_classify), "--selftest"],
+                          capture_output=True, text=True, cwd=str(ROOT))
+    check("candidate-defects/classify.py --selftest passes",
+          _got.returncode == 0)
+    if _got.returncode != 0:
+        print(_got.stdout[-4000:] or _got.stderr[-4000:])
+
 # --- transcripts.py: what a Stop hook would have seen in a real session ----
 # The reconstruction is the whole audit (#283): a denominator that lets in tool
 # results, subagent turns or a resumed session's copied history reports a rate

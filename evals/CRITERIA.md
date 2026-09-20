@@ -146,6 +146,49 @@ criterion reaching for any of it is grading how the answer was written rather th
 it was right, which is exactly the contamination that forced the retraction. Marking
 `decision` as `quality` fails the suite on three words.
 
+## Every trap is a floor, so a ceiling has to be measured before it is registered
+
+A `trap` states what a correct answer must contain, and a longer answer passes it
+too. So no criterion in this repository has ever stated what a correct answer may
+not *exceed*, and an endpoint that convicts a response for being too long is
+asserting something no trap says. Three issues want one — [#136] a detector for
+an over-long answer to a closed question, [#150] and [#305] which part of a long
+answer was surplus.
+
+**Before such an endpoint is registered, compute the case's judged floor: the
+shortest response that case's own trap has already passed.** That number needs no
+labeller and no generation, because the archive holds 21,976 blind verdicts
+joined to the responses that earned them, and
+[`results/loop/judged-floor/floor.py`](results/loop/judged-floor/floor.py) reads
+it out. A cutoff above the floor is measuring surplus. A cutoff at or below it
+fails correct answers, and a criterion that fails correct answers for their
+length is grading form under another name — which the forbidden-vocabulary check
+above cannot see, because the offending endpoint is a word count rather than a
+sentence of prose.
+
+Three rules come with it, each from something that went wrong on the way to the
+figure:
+
+- **Read the floor response in full before relying on it.** A floor is a minimum
+  over a sample, so a single judge false-pass sets it for free. All 37 are read
+  and recorded in
+  [`results/loop/judged-floor/floor-labels.json`](results/loop/judged-floor/floor-labels.json).
+- **A floor can only fall.** It is an upper bound on the shortest passing answer,
+  and more runs on a case may lower it. A cutoff derived from one therefore
+  loosens over time and never tightens, which is the safe direction for an
+  endpoint that convicts.
+- **Check that the case has any headroom at all, per cell.** `destructive`'s floor
+  is 107 words against a laconic median of 95, and `deep-index`, `deep-metric` and
+  `deep-rollback` read 1.09x to 1.15x: on those four cells the typical answer
+  already sits at the floor, and no threshold makes a ceiling available there.
+  A ceiling registered across a family that includes them is registered on cells
+  that cannot move.
+
+Full working notes in
+[`results/loop/judged-floor-136.md`](results/loop/judged-floor-136.md).
+
+[#305]: https://github.com/JordanMPDS/laconic/issues/305
+
 ## A criterion has a stability, and it is measurable before you rely on it
 
 `grading` says what a verdict may be *used* for. This says how much any verdict

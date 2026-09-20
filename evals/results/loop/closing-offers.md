@@ -174,5 +174,28 @@ shows it costs the signal little.
 
 The detector is ready and costs nothing to apply to such a family.
 
+### That family was built, and it has now been read
+
+`drift-service` and `cold-service` were authored on 2026-09-01 to exactly this
+specification, and three rounds have generated them since. Applying the detector
+cost nothing, as predicted, and the answer is in
+[`closing-drift-113.md`](closing-drift-113.md):
+
+| | |
+|---|--:|
+| `laconic`, `drift-service`, all five turns | **0 / 325** |
+| `baseline`, `drift-service`, all five turns | 29 / 125 (23.2%) |
+
+So the family works where `deep-*` did not — the unruled arm fires at 23.2%
+against that family's 0.0% — and on the ruled arm there is no drift to see, with
+a 95% upper bound of 0.92% on any rate at any depth.
+
+**The finding that outlives [#113]'s proposal is about the construct.** On the
+arm where the signal fires, it does not vary by turn index (permutation
+p = 0.266) and varies enormously by run: 21 of 25 runs sit at 0 offers or at 4
+and above, at p < 1/20001 against the same hits reassigned across the same
+turn-responses. A closing offer is a property of the session, so it cannot proxy
+a per-turn quantity.
+
 [#113]: https://github.com/JordanMPDS/laconic/issues/113
 [#155]: https://github.com/JordanMPDS/laconic/issues/155

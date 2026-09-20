@@ -2,6 +2,7 @@
 """Validates harness logic against stubs - no live model calls."""
 import glob
 import json
+import math
 import pathlib
 import os
 import re
@@ -6841,6 +6842,62 @@ for kw, label in (("nc", "never-cut"), ("viol", "readability")):
     check("the %s counter is untouched by the judge gate" % label, v == "reject")
     check("and claims no judge-noise figure for %s" % label,
           not any("judge self-disagreement" in r and label in r for r in why))
+
+# --- optional oracle: the hand-rolled tests against scipy ---
+#
+# This repo implements every statistic from `math` and `statistics` on purpose:
+# the plugin ships no Python, CI has no install step, and a contributor needs
+# nothing. None of that is worth giving up for functions this size - exact
+# discrete tests over small integers are the easy end of statistics, not the
+# numerically hairy end.
+#
+# What the zero-dependency choice does cost is an independent check, and a
+# subtly wrong tail here would not crash, it would quietly reject the wrong
+# round. So scipy is used as an ORACLE where it happens to be installed and
+# skipped where it is not. It is never imported by report.py or metrics.py, and
+# CI skips this block.
+try:
+    from scipy import stats as _scipy_stats
+except ImportError:
+    print("\nscipy not installed - skipping the oracle cross-check "
+          "(this is expected in CI; the harness never imports it)")
+else:
+    print("\nscipy oracle cross-check")
+    _worst = 0.0
+    for _n in (1, 5, 15, 50, 150, 400):
+        for _p in (0.1, 0.5, 0.73):
+            for _k in range(0, _n + 1, max(1, _n // 7)):
+                _worst = max(_worst, abs(bench_report._binom_cdf(_k, _n, _p)
+                                         - float(_scipy_stats.binom.cdf(_k, _n, _p))))
+    check("_binom_cdf matches scipy to machine precision", _worst < 1e-12)
+
+    _worst = 0.0
+    for _a, _an, _b, _bn in [(3, 10, 1, 10), (0, 20, 0, 20), (7, 25, 2, 25),
+                             (12, 40, 5, 40), (1, 5, 0, 5)]:
+        _ref = float(_scipy_stats.fisher_exact(
+            [[_a, _an - _a], [_b, _bn - _b]], alternative="greater")[1])
+        _worst = max(_worst, abs(bench_report._fisher_upper_tail(_a, _an, _b, _bn) - _ref))
+    check("_fisher_upper_tail matches scipy's one-sided exact test", _worst < 1e-12)
+
+    _worst = 0.0
+    for _k, _n in [(8, 10), (1, 10), (13, 26), (5, 5), (0, 6), (30, 60)]:
+        _worst = max(_worst, abs(bench_metrics.sign_test(_k, _n) - float(
+            _scipy_stats.binomtest(_k, _n, 0.5, alternative="two-sided").pvalue)))
+    check("sign_test matches scipy's two-sided binomtest", _worst == 0.0)
+
+    # _judge_noise_p takes its upper tail as 1 - cdf, which is where floating
+    # point cancellation bites. Measured worst case over the range this gate can
+    # reach: 6e-11 relative at p = 5e-7, nine orders below alpha. Guarded rather
+    # than trusted, because the day it stops being true nothing else would say so.
+    _worst = 0.0
+    for _judged, _rise in [(100, 8), (400, 20), (1000, 40), (2000, 70), (4000, 120)]:
+        _m = int(round(_judged * bench_report.JUDGE_DISAGREEMENT))
+        _k = math.ceil((_m + _rise) / 2.0)
+        _ref = float(_scipy_stats.binom.sf(_k - 1, _m, 0.5))
+        if _ref:
+            _worst = max(_worst, abs(bench_report._judge_noise_p(_rise, _judged) - _ref) / _ref)
+    check("_judge_noise_p's complement tail stays far inside any threshold "
+          "that decides a verdict", _worst < 1e-6)
 
 print("\n%d failure(s)" % fails)
 sys.exit(1 if fails else 0)

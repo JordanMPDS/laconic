@@ -243,6 +243,23 @@ def part_b(ids, cases, passes):
         p = sum(kappa(sample, passes[x], passes[y])[1]
                 for x, y in itertools.combinations(range(len(passes)), 2)) / len(pairwise)
         return a - p
+    # The directly comparable figure: part A's 78.3% is the precision an oracle
+    # detector could read against ONE label set. This is the same quantity with
+    # a consensus-of-three on each side.
+    pr, rc = [], []
+    for a, b in splits:
+        ma, mb = majority(ids, a), majority(ids, b)
+        tt = sum(1 for i in ids if ma[i] and mb[i])
+        fp = sum(1 for i in ids if mb[i] and not ma[i])
+        fn = sum(1 for i in ids if ma[i] and not mb[i])
+        if tt + fp:
+            pr.append(100.0 * tt / (tt + fp))
+        if tt + fn:
+            rc.append(100.0 * tt / (tt + fn))
+    print("    oracle ceiling under consensus-of-three labels:"
+          " precision %.1f%%, recall %.1f%%" % (sum(pr) / len(pr), sum(rc) / len(rc)))
+    print("    (part A, against a single label set: precision 78.3%, recall 72.0%)")
+
     dlo, dhi = cluster_bootstrap(ids, cases, adj_minus_pair, reps=2000, seed=1551)
     alo, ahi = cluster_bootstrap(
         ids, cases,
@@ -252,27 +269,54 @@ def part_b(ids, cases, passes):
     print("  adjudication gain in kappa: %+.3f, cluster bootstrap 95%% [%+.3f, %+.3f]"
           % (mean_adj - mean_pair, dlo, dhi))
 
-    # the correlation signature: a response the six split three-three, where the
-    # three-three is itself a clean split into two internally unanimous triples.
+    # THE REGISTERED CORRELATION SIGNATURE IS DEGENERATE, AND THIS RECORDS IT.
+    # The registration proposed counting responses split 3-3 whose six votes
+    # fall into two internally unanimous triples. That is every 3-3 response
+    # there can be: the three who voted true ARE a triple and the three who
+    # voted false are its complement, so the count is the 3-3 count and carries
+    # no information. It is printed as a null result rather than deleted.
     half = len(passes) // 2
     tied = [i for i in ids if votes[i] == half]
-    clean = 0
-    for i in tied:
-        for a, b in splits:
-            if all(passes[j][i] for j in a) and not any(passes[j][i] for j in b):
-                clean += 1
-                break
-            if all(passes[j][i] for j in b) and not any(passes[j][i] for j in a):
-                clean += 1
-                break
     print()
-    print("  correlation signature: %d responses split %d-%d, of which %d split"
-          % (len(tied), half, half, clean))
-    print("  cleanly into two internally unanimous triples. A clean split is two")
-    print("  systematic readings meeting; a ragged one is a single ambiguous item.")
-    if tied:
-        print("  clean share %.1f%% (chance under exchangeable votes: %.1f%%)"
-              % (100.0 * clean / len(tied), 100.0 * len(splits) / comb(len(passes), half) * 2))
+    print("  registered correlation signature, VACUOUS and reported as such:")
+    print("    %d responses split %d-%d, all %d of which fall into two internally"
+          % (len(tied), half, half, len(tied)))
+    print("    unanimous triples - because the true-voters ARE one such triple.")
+    print("    The test cannot come back any other way. It is replaced below.")
+
+    # What separates a threshold difference between labellers from per-item
+    # ambiguity: permute labels WITHIN each response across the six passes,
+    # which holds every vote count fixed and makes the passes exchangeable by
+    # construction. If the observed spread in per-pass prevalence is ordinary
+    # under that null, the six differ only by which hard items they happened to
+    # call. If it is extreme, they differ by THRESHOLD, which is systematic.
+    rates = [sum(p[i] for i in ids) for p in passes]
+    obs = max(rates) - min(rates)
+    rng = random.Random(1554)
+    profile = [[p[i] for p in passes] for i in ids]
+    hits = 0
+    reps = 20000
+    for _ in range(reps):
+        tot = [0] * len(passes)
+        for row in profile:
+            perm = row[:]
+            rng.shuffle(perm)
+            for j, v in enumerate(perm):
+                tot[j] += v
+        if max(tot) - min(tot) >= obs:
+            hits += 1
+    print()
+    print("  threshold against ambiguity (Cochran's Q, by permutation):")
+    print("    per-pass true counts %s of %d" % (sorted(rates), len(ids)))
+    print("    spread %d; permutation p = %.4f over %d shuffles that hold every"
+          % (obs, (hits + 1) / (reps + 1), reps))
+    print("    response's vote count fixed and make the six passes exchangeable.")
+    qp = (hits + 1) / (reps + 1)
+    print("    %s" % ("The six labellers differ by THRESHOLD, not only by which"
+                      if qp < 0.05 else
+                      "No threshold difference resolves; the disagreement is"))
+    print("    %s" % ("hard items they called." if qp < 0.05
+                      else "consistent with per-item ambiguity alone."))
 
     return (votes, mean_adj, mean_pair, (alo, ahi), (dlo, dhi),
             safe, len(ids), wilson(safe, len(ids)))
@@ -290,6 +334,14 @@ def part_c(ids, cases, votes, passes, committed, relabel):
                                    reps=2000, seed=1553)
         print("  consensus-of-%d against %-18s agreement %.1f%%, kappa %.3f [%.3f, %.3f]"
               % (n, name, 100 * po, k, lo, hi))
+    (HERE / "labels-consensus.json").write_text(json.dumps({
+        "_rule": "criterion.md v1 unchanged. Majority of the six blind passes in "
+                 "this directory, all labelled on 2026-09-20 at one sitting.",
+        "_warning": "This set is RELIABLE but NOT VALIDATED. consensus.md's bar 2 "
+                    "failed, and nothing here establishes that it measures the "
+                    "same thing the committed batch-1 and batch-2 labels do.",
+        "labels": {i: cons[i] for i in sorted(ids)},
+    }, indent=1) + "\n")
     print("  consensus true %d/%d (%.1f%%); committed %d/%d; re-label %d/%d"
           % (sum(cons.values()), len(ids), 100.0 * sum(cons.values()) / len(ids),
              sum(committed[i] for i in ids), len(ids),

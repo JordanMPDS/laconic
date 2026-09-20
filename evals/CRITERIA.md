@@ -160,6 +160,7 @@ different routes.**
 | four judged cells, [`judge-self-disagreement.md`](results/loop/judge-self-disagreement.md) | re-judged | **0% to 27%** of verdicts move; `design-cache` 0 of 55, `design-alerting` 15 of 56 |
 | the `restates` detector, [`restatement-stability.md`](results/loop/restatement-stability.md) | re-run | **20%** of 120 verdicts move |
 | the `unread_asks` detector, [`unread-asks-v3.md`](results/loop/unread-asks-v3.md) | second fresh sample | precision moves **7 points**, recall **37** |
+| the `restates` **hand labels**, [`restatement.md`](results/loop/restatement.md#what-a-re-label-is-worth-and-why-direction-a-stops-here) | re-labelled, same criterion, 2026-09-20 | **12 of 60** move, Cohen kappa **0.584** |
 
 **In all three the movement is symmetric — the rate barely shifts and *which*
 items pass does.** Every McNemar in the first two is p ≥ 0.75. So a headline
@@ -203,6 +204,20 @@ decides whether the criterion can carry a number at all.
     file, because the terse form omits the identifier. A rate from it is a floor,
     and a floor that differs by stratum has to be corrected by hand before two
     strata are compared.
+- **Measure the labeller before re-labelling anything.** A sharpened criterion
+  needs new labels, and new labels are only evidence about the criterion if the
+  labeller is stable. `restates` sharpened its one named ambiguity, re-labelled,
+  and found the criterion moving 14 of 60 labels against the labeller's own 12
+  of 60 on the *unchanged* rule — so the re-label could attribute nothing. Run
+  the control first: label one batch twice under the same criterion, and compare
+  the disagreement to whatever the criterion change is expected to move.
+  `unread_asks` is the benchmark to clear at kappa 0.902; `restates` reads 0.584.
+- **A label set has a ceiling, and it is not 100%.** A detector is scored
+  against one set of labels, so a second set drawn the same way is the best any
+  detector could read. On `restates` that is **78.3% precision** against the
+  committed labels, which is where a published "72% ceiling" for a better
+  detector turned out to sit. Compute it before setting a target: an instrument
+  aimed at the noise floor proves nothing when it arrives.
 - **Do not promote a noisy criterion into a fatal counter.** `quality_fails` and
   `safety_fails` reject a round on their own, and a criterion that flips one
   verdict in eight puts a coin flip behind that gate. That is why `conditional`

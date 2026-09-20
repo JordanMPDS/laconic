@@ -13,6 +13,19 @@
 
 **Status: parked. Detector v1 measured at 55.3% precision out of sample, which is not good enough, and the ceiling after fixing its dominant error class is about 72%. Picked up again, if at all, under [#155].**
 
+> **Direction A was run as far as it can be run, on 2026-09-20, and it stops at
+> the labels rather than at the criterion.** The sharpened criterion exists and
+> is frozen ([`criterion-v2.md`](restatement/criterion-v2.md)); what it cannot
+> have is a re-label that means anything. Re-labelling batch 2 under criterion
+> v1 **unchanged**, in a separate session and blind to the committed labels,
+> moves **12 of 60** labels at **Cohen kappa 0.584**. Re-labelling batch 1 under
+> v2 moves **14 of 60**. The criterion's signal and the labeller's noise are the
+> same size, so no re-label can attribute a precision change to the sharpening.
+> The 72% ceiling the paragraph above quotes turns out to be the label-noise
+> ceiling: a detector that exactly reproduced a second independent label set
+> would read **78.3% precision** against the first. See
+> [what a re-label is worth](#what-a-re-label-is-worth-and-why-direction-a-stops-here).
+
 **[#155]'s direction B was piloted and failed** — see
 [`deletability.md`](deletability.md). Asking "could this passage be deleted with
 no claim lost?" instead of "does this restate?" reads 51.2% precision on batch 2
@@ -240,29 +253,157 @@ two independent draws (43.3% and 41.7%) and carry a large, highly significant
 effect. Because *this* detector reads it at 55.3% precision, concentrated in a
 failure mode the criterion already tells it to avoid.
 
+## What a re-label is worth, and why direction A stops here
+
+> **Measured 2026-09-20, no calls.** `python3
+> evals/results/loop/restatement/labeller_drift.py` recomputes every number in
+> this section from committed files.
+
+[#155]'s direction A is a five-step programme: sharpen the criterion, freeze it,
+re-label all 120, freeze a v2 detector, draw a third batch, measure. Steps one
+and two are done — [`criterion-v2.md`](restatement/criterion-v2.md) decides the
+mixed-closing seam by defining the deletion unit as one complete sentence or
+more, which is the piece the deletability pilot found worth importing.
+
+The step nobody had costed is the third. **A re-label measures the criterion
+only if the labeller is stable between sessions**, and `restates` had never
+measured that. `unread_asks` had: a kappa-0.902 re-label is what let
+[`unread-asks-v3.md`](unread-asks-v3.md) rule the labeller out as the source of
+its 7-point precision swing.
+
+So this ran the control before the experiment.
+
+### The control: the same rule, twice
+
+[`restatement-b2/labels-v1-relabel.json`](restatement-b2/labels-v1-relabel.json)
+is batch 2 labelled again under `criterion.md` **unchanged**, from `blind.md`,
+in a separate session, without consulting `labels.json`.
+
+| | committed labels | re-label |
+|---|--:|--:|
+| `restates = true` | 25 of 60 (41.7%) | 23 of 60 (38.3%) |
+
+**Agreement 48 of 60 (80.0%), Cohen kappa 0.584.** Seven `true` became `false`
+and five `false` became `true`, so the base rate barely moves while twelve of
+the sixty labels change — the same symmetric shape
+[`restatement-stability.md`](restatement-stability.md) found in the detector and
+[`judge-self-disagreement.md`](judge-self-disagreement.md) found in the judge.
+It is now measured in the third and last place it could hide.
+
+The disagreement is not spread. All twelve are on `walkthrough` (7 of 24) and
+`verdict-rollout` (5 of 17); `verdict-experiment` moves 0 of 13 and
+`verdict-schema` 0 of 6. Those two families are exactly the ones whose responses
+close with a recap of the fix or a second pass over the concurrency guard, and
+the two that move not at all are the ones whose shape is numbered findings
+followed by a recommendation. `verdict-rollout` against the other three is
+Fisher p = 0.2930, so the concentration is a description of this batch rather
+than an established effect.
+
+### The signal: v1 against v2
+
+[`labels-v2.json`](restatement/labels-v2.json) is batch 1 labelled under
+criterion v2, from `blind.md`, without consulting `labels.json`.
+
+| | v1 labels | v2 labels |
+|---|--:|--:|
+| `restates = true` | 26 of 60 (43.3%) | 16 of 60 (26.7%) |
+
+**Agreement 46 of 60 (76.7%), kappa 0.502**: twelve `true` became `false` and
+two became `true`.
+
+Those two are the tell. v2 is v1 plus one restriction and changes nothing else,
+so a `false` cannot become a `true` on the criterion — every v2 positive has to
+be a v1 positive. R31 and R47 violate that, and the only thing that can produce
+them is the labeller. **Two of the fourteen moves are demonstrably not the
+criterion, on a nesting argument that needs no second session to make.**
+
+### Putting the two side by side
+
+**The criterion moved 14 of 60 labels. The labeller alone moves 12 of 60.** A
+re-label is an instrument for separating the two, and this one cannot: its
+signal is 1.17x its own noise. Running direction A's remaining steps — freeze a
+v2 detector, draw batch 3, measure — would produce a precision figure whose
+difference from 55.3% could not be attributed to the sharpening.
+
+### The ceiling this puts on the whole construct
+
+A detector is scored against one label set. A second label set drawn the same
+way is therefore the best score any detector could possibly read, and the
+control measures it directly: 18 of the 25 committed positives are positive in
+the re-label too.
+
+| against the committed batch-2 labels | precision | recall | F1 |
+|---|--:|--:|--:|
+| **an oracle detector** (reproduces a second label set exactly) | **78.3%** | 72.0% | 75.0% |
+| detector v1, as published | 55.3% | 84.0% | 66.7% |
+
+**78.3% is where the labels stop being able to tell a better detector from a
+different labeller.** [#155] projects direction A landing "around 72%
+precision" and notes that this is "essentially `unread_asks`'s 73.7%". That
+reading was right about the number and wrong about what sets it: 72% is not a
+modest target, it is the noise floor, and an instrument that reached it would
+have proved nothing about the detector.
+
+### What this changes about the construct
+
+The blocker is the labelling protocol, not the criterion.
+
+- **Sharpening the criterion was worth doing and is not enough.** v2 is frozen
+  and stands; it removes a named ambiguity that
+  [`CRITERIA.md`](../../CRITERIA.md) predicts will be the unstable seam. It
+  bought kappa 0.502 against v1's own 0.584, which is to say it bought nothing
+  measurable.
+- **What `restates` needs before another detector is labels at
+  `unread_asks`'s agreement.** 0.584 against 0.902 is the whole gap. The
+  obvious routes are two labellers with adjudication, or a criterion whose
+  positive condition is a named fact rather than a judgement — which is the
+  trade [`volunteered-trap-116.md`](volunteered-trap-116.md) already priced on a
+  judge trap, where determinism cost recall unevenly by stratum.
+- **[#150], [#298] and [#305] stay blocked, and now for a stated reason.**
+  [Round 70](round-70.md) concluded that closing [#150] needs this detector's
+  precision raised "as its own unit of work". This is that unit of work, and the
+  answer is that precision cannot be raised past about 78% against these labels
+  no matter what the detector does.
+- **What is *not* established** is that the construct is unmeasurable. One
+  control, one batch, one pair of labelling sessions. A second labeller has
+  never been tried, and the agreement between two people labelling at the same
+  sitting is a different quantity from the agreement between one labeller twice,
+  months apart.
+
 ## What happens next, in order
 
 1. ~~Write the judged detector and freeze it before drawing its sample.~~
    **Done**, `1e116ac`.
 2. ~~Draw batch 2 disjoint and label it blind.~~ **Done**, and it says v1 is not
    good enough.
-3. **A v2 aimed at the cross-reference exclusion**, and specifically at
-   `verdict-rollout`'s "broken by the same cause" shape. Because v2 would be
-   designed on batch 1 and batch 2's errors, **it may not be scored against
-   either** — it needs a third labelled batch, drawn after v2 is frozen. That is
-   the same sequence v1 followed and the same one `unread_asks` needed; there is
-   no shortcut, and `draw.py --exclude` takes both key files.
-4. **Decide the metric's shape from the measured base rate**, not before it.
-   Roughly 43% leaves room for the binary. Whether a count of restated passages
-   discriminates better is still open — these 120 responses were labelled binary
-   and cannot answer it.
-5. **Only then** re-score the archive, publish the null, and register a round.
+3. ~~Sharpen the criterion and freeze it.~~ **Done**, `328c13d`:
+   [`criterion-v2.md`](restatement/criterion-v2.md) decides the mixed-closing
+   seam by making the deletion unit one complete sentence or more. The
+   mechanical version of the same rule was measured and rejected first
+   ([`sentence_unit_probe.py`](restatement/sentence_unit_probe.py)).
+4. ~~Re-label under the sharpened rule.~~ **Run as a control first, and the
+   control is what the step returns.** One labeller applying the *same*
+   criterion twice moves 12 of 60 labels at kappa 0.584, against the criterion
+   change's 14 of 60 — see
+   [what a re-label is worth](#what-a-re-label-is-worth-and-why-direction-a-stops-here).
+   The remaining steps of direction A are not run, because a precision figure
+   from them could not be attributed to the sharpening.
 
-Nothing here is a gate, a target, or a disclosure. It is a stable base rate, a
-large measured model effect, and a detector that is not yet accurate enough to
-carry either.
+**So the next step is not a detector.** It is a labelling protocol that reaches
+`unread_asks`'s kappa 0.902 — two labellers with adjudication, or a positive
+condition that is a named fact rather than a judgement, which
+[`volunteered-trap-116.md`](volunteered-trap-116.md) has already priced on a
+judge trap. Until one of those exists, no detector for this construct can be
+measured above about **78.3% precision**, because that is what a second
+independent label set reads against the first.
+
+Everything above the re-label stands: a stable base rate near 43%, a large
+measured model effect, and a detector at 55.3% that is not accurate enough to
+carry either. Nothing here is a gate, a target, or a disclosure.
 
 [#49]: https://github.com/JordanMPDS/laconic/issues/49
 [#146]: https://github.com/JordanMPDS/laconic/issues/146
 [#150]: https://github.com/JordanMPDS/laconic/issues/150
 [#155]: https://github.com/JordanMPDS/laconic/issues/155
+[#298]: https://github.com/JordanMPDS/laconic/issues/298
+[#305]: https://github.com/JordanMPDS/laconic/issues/305

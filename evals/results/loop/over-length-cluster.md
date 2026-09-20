@@ -1,11 +1,11 @@
 # The over-length cluster: what fourteen rounds established
 
-Six issues report over-long answers at level `full`: [#46], [#60], [#113],
-[#116], [#136] and [#150]. Rounds 29, 32, 33, 34, 35, 36, 37, 38, 40, 41, 42,
-64, 66, 67, 68, 69 and 70 have been spent on them, and the rounds' own counter
-— *"fourteenth round in the over-length cluster"* — reads 14 of those as
-cluster rounds proper. **None of them shipped anything.** This is what is now
-known, and what each issue should do next.
+Eight issues report over-long answers at level `full`: [#46], [#60], [#113],
+[#116], [#136] and [#150], joined later by [#298] and [#305]. Rounds 29, 32,
+33, 34, 35, 36, 37, 38, 40, 41, 42, 64, 66, 67, 68, 69 and 70 have been spent
+on them, and the rounds' own counter — *"fourteenth round in the over-length
+cluster"* — reads 14 of those as cluster rounds proper. **None of them shipped
+anything.** This is what is now known, and what each issue should do next.
 
 > **Rewritten 2026-09-03.** The version of this document written after round 35
 > concluded that conversational investment lengthens the answer, and sent four of
@@ -397,6 +397,8 @@ Nothing measured in rounds 29 to 43 bears on [#150].
 | [#136] | mechanism restored on the baseline arm by round 42: depth inflates an unruled answer +51.4%, and laconic runs −68.9% against it | the diagnosis is no longer the open part. The gap is between the report and the product, and closing it needs a case that reproduces a laconic session going long at depth — see the two case-authoring candidates above |
 | [#150] | instrument proven incapable; a fifth intervention on the paragraph tried in [round 70](round-70.md) and reverted when the replication read 0.946 at p = 0.0721 | redundancy metric on the [#146] route, before any further round. The detector [#155] parks at 55.3% precision and may not be promoted inside a round |
 | [#172] | **resolved** — affirmation widened, rounds 33–35 re-judged on that stem | none; round 35 moves 57/60 to 60/60 and rounds 33–34 do not move |
+| [#298] | seventh field report; its shape is `explain`/`reexplain-*` and [round 68](round-68.md) found the harm **inverts** at 0.415x, with [round 69](round-69.md) refuting depth as the reason | the cross-turn redundancy it names is not reachable by a single-turn judge; it belongs in the [#146] verdict's scope, not in a round |
+| [#305] | eighth field report. Its cheapest item — *no rule forbids closing with a recap of your own opening* — was instrumented and **killed before registration**: 4.9% on laconic against 5.7% on baseline with three controls spanning 4.2–7.9%, at 12% hand-read precision. See [`closing-recap-305.md`](closing-recap-305.md) | item 1 joins [#150] and [#298] on the [#146] judged-verdict route. Items 2 and 3 inherit [#298]'s instrument problem and [round 70](round-70.md)'s reverted licence respectively |
 
 ## The measurement this cluster needed: bought, and it answers
 
@@ -475,3 +477,4 @@ own report — the flicker, present on one turn and absent on the adjacent one.
 [#155]: https://github.com/JordanMPDS/laconic/issues/155
 [#172]: https://github.com/JordanMPDS/laconic/issues/172
 [#298]: https://github.com/JordanMPDS/laconic/issues/298
+[#305]: https://github.com/JordanMPDS/laconic/issues/305

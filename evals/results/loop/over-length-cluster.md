@@ -366,7 +366,7 @@ content only, and read the behaviour off the tool list.
 
 Nothing measured in rounds 29 to 43 bears on [#150].
 
-## Six instrument lessons, all from this cluster
+## Seven instrument lessons, all from this cluster
 
 1. **Bounding a licence in prose has failed four times** — rounds 07, 08, 09 and
    29. Relocating one worked, once, in round 10. Round 40 then tried the
@@ -401,6 +401,14 @@ Nothing measured in rounds 29 to 43 bears on [#150].
    control graded 30 of 30 on the same case a criterion had not touched since
    08-27. A rate quoted from a snapshot needs its date; a `rules_cksum` cannot
    see era.
+7. **Every trap in the suite is a floor, and the archive already prices the
+   ceiling.** A trap says what an answer must contain, so a longer answer passes
+   it too, and an endpoint convicting a response for its length asserts something
+   no criterion states. The shortest response a trap has already passed is that
+   number, and it needs no labeller: 21,976 blind verdicts joined to the
+   responses that earned them give all 37 cases a floor, 36 of them below their
+   own median. It also says where no ceiling exists - `destructive` at 0.9x, and
+   `deep-*` at 1.09x to 1.15x. See [`judged-floor-136.md`](judged-floor-136.md).
 
 ## What each issue should do next
 
@@ -410,11 +418,11 @@ Nothing measured in rounds 29 to 43 bears on [#150].
 | [#60] | structural edit tried in round 40 and rejected; its depth premise is now measured on the baseline arm (round 42) | the inflation it describes is real and the plugin already reverses it on this instrument; what is unreproduced is a *laconic* session going long at depth |
 | [#113] | detector built and validated; the design-shaped family was built (round 36) and answers *no decay*, under both delivery modes | the flicker itself is still unreproduced; needs a case that admits it, not another round on these cells |
 | [#116] | **four case designs tried and the re-trap refused.** Question form, reading rate and defect kind are eliminated; `conditional` still elicits the behaviour and still cannot grade it, because its criterion self-disagrees on 1 verdict in 8 | a case that both elicits the behaviour **and** grades stably. The fact-versus-framing heuristic that sentence used to give is **not established** — [`judge-self-disagreement.md`](judge-self-disagreement.md) measured four cells and the two shapes interleave. What is established is that stability is a criterion property: one cell moved 0 of 55. See [`conditional-retrap.md`](conditional-retrap.md) |
-| [#136] | mechanism restored on the baseline arm by round 42: depth inflates an unruled answer +51.4%, and laconic runs −68.9% against it. **All three of its proposals are now answered:** 1 rejected by [round 64](round-64.md), 2 priced at −0.16 of the demonstration gap by [round 60](round-60.md), and 3 — the detector — measured over 1,953 archived responses at 30.0% precision strict and 63.3% counting every redundant restatement, so unpromotable at either figure. See [`closed-question-136.md`](closed-question-136.md) | a case whose closed question has a **true** premise, so that a bare confirmation is the complete answer and any surplus is unrequested by construction. All thirteen closed questions in the suite carry a false or partial premise, which is why the correction is the length and why no cutoff separates the harm from it. Same shape as the candidate [`closing-recap-305.md`](closing-recap-305.md) arrives at, and asked for by two issues now |
+| [#136] | mechanism restored on the baseline arm by round 42: depth inflates an unruled answer +51.4%, and laconic runs −68.9% against it. **All three of its proposals are now answered:** 1 rejected by [round 64](round-64.md), 2 priced at −0.16 of the demonstration gap by [round 60](round-60.md), and 3 — the detector — measured over 1,953 archived responses at 30.0% precision strict and 63.3% counting every redundant restatement, so unpromotable at either figure. See [`closed-question-136.md`](closed-question-136.md). **Its "the correction is the length" reading then failed**: every one of the 11 hits it excused sits 39 to 129 words above a response that passed the same trap, so the 80-word cutoff is above the required correction rather than inside it. See [`judged-floor-136.md`](judged-floor-136.md) | 30 hand labels at a per-case cutoff derived from the judged floor, which is the one thing a floor-derived detector still lacks. The true-premise case this row used to ask for was **designed and not built** — `tools/consult.sh` falsified its premise from committed data, and the floor delivers the same construct on the thirteen closed questions already in the suite at no generation cost. Note `deep-*` has no headroom to convict: floor 1.09x to 1.15x of median |
 | [#150] | instrument proven incapable; a fifth intervention on the paragraph tried in [round 70](round-70.md) and reverted when the replication read 0.946 at p = 0.0721 | redundancy metric on the [#146] route, before any further round. The detector [#155] parks at 55.3% precision and may not be promoted inside a round |
 | [#172] | **resolved** — affirmation widened, rounds 33–35 re-judged on that stem | none; round 35 moves 57/60 to 60/60 and rounds 33–34 do not move |
 | [#298] | seventh field report; its shape is `explain`/`reexplain-*` and [round 68](round-68.md) found the harm **inverts** at 0.415x, with [round 69](round-69.md) refuting depth as the reason | the cross-turn redundancy it names is not reachable by a single-turn judge; it belongs in the [#146] verdict's scope, not in a round |
-| [#305] | eighth field report. Its cheapest item — *no rule forbids closing with a recap of your own opening* — was instrumented and **killed before registration**: 4.9% on laconic against 5.7% on baseline with three controls spanning 4.2–7.9%, at 12% hand-read precision. See [`closing-recap-305.md`](closing-recap-305.md) | item 1 joins [#150] and [#298] on the [#146] judged-verdict route. Items 2 and 3 inherit [#298]'s instrument problem and [round 70](round-70.md)'s reverted licence respectively |
+| [#305] | eighth field report. Its cheapest item — *no rule forbids closing with a recap of your own opening* — was instrumented and **killed before registration**: 4.9% on laconic against 5.7% on baseline with three controls spanning 4.2–7.9%, at 12% hand-read precision. See [`closing-recap-305.md`](closing-recap-305.md) | item 1 joins [#150] and [#298] on the [#146] judged-verdict route. Items 2 and 3 inherit [#298]'s instrument problem and [round 70](round-70.md)'s reverted licence respectively. The true-premise case this row also asked for is answered by [`judged-floor-136.md`](judged-floor-136.md) without being built: the surplus a report's fixture makes knowable is the response's distance above its case's judged floor |
 
 ## The measurement this cluster needed: bought, and it answers
 

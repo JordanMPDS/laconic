@@ -6751,5 +6751,96 @@ check("a zero-hit Wilson lower bound is not negative", _lo == 0.0 and _hi > 0.0)
 _lo, _hi = bench_transcripts.wilson(30, 40)
 check("Wilson brackets the point estimate", _lo < 0.75 < _hi)
 
+
+# --- the three methodology gaps: optional stopping, multiplicity, judge noise ---
+#
+# Each of these fails silently. A round scored at the wrong boundary, a campaign
+# whose repeated attempts nobody counted, and a counter that rejected on grading
+# noise all produce a verdict that reads exactly like a correct one.
+
+# Optional stopping. The target test is the only test in a round that can
+# accept, so it is the only one the correction belongs to.
+check("one look leaves alpha alone", bench_report._target_alpha(0.05, 1) == 0.05)
+check("two looks halve it", bench_report._target_alpha(0.05, 2) == 0.025)
+check("three looks divide by three",
+      abs(bench_report._target_alpha(0.05, 3) - 0.05 / 3) < 1e-12)
+check("looks defaults to one when unset",
+      bench_report._target_alpha(0.05, None) == 0.05)
+try:
+    bench_report._target_alpha(0.05, 0)
+    check("zero looks is refused", False)
+except ValueError:
+    check("zero looks is refused", True)
+
+_, why = bench_report.accept_verdict(worse, _summary(tokens=TEN_CELLS(100)),
+                                     "output_tokens")
+check("a single-look round says so, so it can be compared with a corrected one",
+      any("looks: 1 declared" in r for r in why))
+_, why = bench_report.accept_verdict(worse, _summary(tokens=TEN_CELLS(100)),
+                                     "output_tokens", looks=2)
+check("a two-look round names the boundary it was scored at",
+      any("Bonferroni alpha 0.0250" in r for r in why))
+
+# Multiplicity across the campaign, which is where the spec says it lives.
+check("the campaign line reports expected false accepts",
+      "expected false accepts are 0.085"
+      in bench_report._campaign_line(34, 0.05, 1))
+check("a two-look campaign is bounded tighter per edit",
+      "0.0006 per edit" in bench_report._campaign_line(34, 0.05, 2))
+check("no attempts means no campaign claim",
+      bench_report._campaign_line(0, 0.05, 1) is None)
+check("attempts are counted by candidate-due.sh's own marker",
+      bench_report._count_attempts() ==
+      len([f for f in (bench_report.ROOT / "evals" / "results" / "loop")
+           .glob("round-*.md")
+           if re.search(r"(?mi)^## The edit", f.read_text())]))
+
+# Judge noise. Measured always, acted on only when asked.
+check("a +1 rise over 100 judged runs is squarely inside judge noise",
+      bench_report._judge_noise_p(1, 100) > 0.05)
+check("a +8 rise over the same runs is not",
+      bench_report._judge_noise_p(8, 100) < 0.05)
+check("no rise asks nothing", bench_report._judge_noise_p(0, 100) is None)
+check("no judged runs asks nothing", bench_report._judge_noise_p(3, 0) is None)
+check("judge noise is monotone in the size of the rise",
+      bench_report._judge_noise_p(2, 100) > bench_report._judge_noise_p(6, 100))
+
+for kw, label in (("qf", "quality"), ("sf", "safety")):
+    _, why = bench_report.accept_verdict(
+        worse, _summary(tokens=TEN_CELLS(100), **{kw: 1}), "output_tokens")
+    check("the %s counter publishes its judge-noise figure" % label,
+          any("judge self-disagreement" in r for r in why))
+
+    # Off by default: this is the whole reason no stored verdict moves.
+    v, _ = bench_report.accept_verdict(
+        worse, _summary(tokens=TEN_CELLS(100), **{kw: 1}), "output_tokens")
+    check("a lost %s verdict still rejects with the gate off" % label,
+          v == "reject")
+
+    v, why = bench_report.accept_verdict(
+        worse, _summary(tokens=TEN_CELLS(100), **{kw: 1}), "output_tokens",
+        judge_noise_gate=True)
+    check("with the gate on, a %s rise inside judge noise is undecided" % label,
+          v == "undecided")
+    check("the undecided %s verdict asks for a second grading pass" % label,
+          any("Re-judge the round" in r for r in why))
+
+    # A rise the judge cannot explain rejects whether the gate is on or not.
+    v, _ = bench_report.accept_verdict(
+        worse, _summary(tokens=TEN_CELLS(100), **{kw: 40}), "output_tokens",
+        judge_noise_gate=True)
+    check("a %s rise outside judge noise rejects even with the gate on" % label,
+          v == "reject")
+
+# The deterministic counters are validated against hand labels, so judge noise
+# has nothing to say about them and must not soften them.
+for kw, label in (("nc", "never-cut"), ("viol", "readability")):
+    v, why = bench_report.accept_verdict(
+        worse, _summary(tokens=TEN_CELLS(100), **{kw: 1}), "output_tokens",
+        judge_noise_gate=True)
+    check("the %s counter is untouched by the judge gate" % label, v == "reject")
+    check("and claims no judge-noise figure for %s" % label,
+          not any("judge self-disagreement" in r and label in r for r in why))
+
 print("\n%d failure(s)" % fails)
 sys.exit(1 if fails else 0)

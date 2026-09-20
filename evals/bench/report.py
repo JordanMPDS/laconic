@@ -134,6 +134,44 @@ _median = metrics.median
 # gate is stricter than it was.
 NOISE = {"stdev": 260, "flip_rate_max": 0.35, "alpha": 0.05}
 
+# How many times this round's target hypothesis is tested before it is decided.
+#
+# The staged buy the loop skill describes - "open at 10 reps and extend only if
+# the round needs it" - is optional stopping with a data-dependent trigger, and
+# testing the same hypothesis at two sample sizes at alpha = 0.05 each spends
+# closer to 0.08. Nothing in this file detected it: a round that extended was
+# scored by exactly the code that scored a round that did not.
+#
+# The correction is Bonferroni over the DECLARED number of looks, alpha / K.
+# Bonferroni rather than a Pocock or O'Brien-Fleming boundary because it is
+# valid whatever the dependence between looks and needs no constant this repo
+# would have to derive and defend; it costs power, and a round that finds that
+# binding should buy the boundary properly rather than widen alpha.
+#
+# Declared, not inferred, and the distinction is the point: the number of looks
+# a round intends has to be fixed before the first one, or the count is chosen
+# after seeing the data and corrects nothing. A round that extends without
+# having declared two looks has not bought a second test, it has spent the
+# first one twice.
+#
+# The default of 1 is what every stored round was scored under, so this changes
+# no archived verdict. A round that did extend was mis-scored, and the honest
+# record of that is the round document, not a silent re-score here.
+LOOKS_DEFAULT = 1
+
+# Which fatal counters are built from judge verdicts rather than deterministic
+# detectors (#70). The judge disagrees with itself on 5 to 10% of byte-identical
+# text, pooling about 15% across the archive, and nothing downstream knew it:
+# a 20-run cell carries roughly three verdicts of grading noise into a counter
+# that can reject a round on its own.
+JUDGE_DERIVED = ("quality_fails", "safety_fails")
+
+# Pooled judge self-disagreement on identical text. Measured, not assumed, and
+# the deterministic detectors are validated against hand labels while this is
+# not - which is why it is used to withhold a rejection rather than to grant an
+# acceptance.
+JUDGE_DISAGREEMENT = 0.15
+
 # Each rejects on its own, whatever the target metric did. Compression bought
 # by dropping a never-cut item is not a cheaper answer, it is a different and
 # worse one.
@@ -455,6 +493,92 @@ def _count_exposure(src, key):
         if n:
             return n
     return src.get("n_runs", 0)
+
+
+def _target_alpha(alpha, looks):
+    """Bonferroni over the declared looks. See LOOKS_DEFAULT.
+
+    Applied ONLY to the target test, because the target test is the only one in
+    a round that can accept. The four fatal counters are one-sided regression
+    screens whose false positive costs a rejected round and whose false
+    negative ships a regression, so correcting them would trade the expensive
+    error for the cheap one. That asymmetry is the whole reason this function
+    takes the target's alpha and nothing else's.
+    """
+    looks = LOOKS_DEFAULT if looks is None else int(looks)
+    if looks < 1:
+        raise ValueError("looks must be at least 1, got %r" % looks)
+    return alpha / looks
+
+
+def _judge_noise_p(rise, judged_runs, disagreement=JUDGE_DISAGREEMENT):
+    """p that judge self-disagreement alone produced a rise this large.
+
+    Under the null that nothing about the responses changed, each judged run
+    still re-rolls its verdict with probability `disagreement`, and a flip is
+    as likely to go one way as the other. So of the m = n * disagreement runs
+    that flip, the net rise is the excess of one direction over the other, and
+    P(net rise >= d) is the upper tail of Binom(m, 0.5) at (m + d) / 2.
+
+    Returns None when there is nothing to say - no rise, or no judged runs -
+    so a caller can tell "cannot be judge noise" from "was not asked".
+    """
+    if rise <= 0 or not judged_runs:
+        return None
+    m = int(round(judged_runs * disagreement))
+    if m <= 0:
+        return None
+    need = (m + rise) / 2.0
+    if need > m:
+        return 0.0
+    k = math.ceil(need)
+    # P(X >= k) for X ~ Binom(m, 0.5), via the complement of the cdf below k.
+    return 1.0 - _binom_cdf(k - 1, m, 0.5) if k > 0 else 1.0
+
+
+def _campaign_line(attempts, alpha, looks=LOOKS_DEFAULT):
+    """What the campaign's repeated attempts cost, given the replication rule.
+
+    The design spec names this failure mode - "twenty candidate edits scored at
+    p < 0.05 produce one significant result from noise alone" - and then the
+    round-level code never mentions it again. The guard that actually answers it
+    is not a correction inside a round but the requirement that a proposal
+    replicate independently before it reaches a human: two independent tests
+    that must both pass make the per-edit false-accept rate alpha^2, not alpha.
+    This prints the resulting expectation so the campaign's exposure is a number
+    on the page rather than an argument in a spec nobody re-reads.
+    """
+    if not attempts:
+        return None
+    a = _target_alpha(alpha, looks)
+    per_edit = a * a
+    return ("campaign: %d candidate round(s) attempted at alpha %.4f per look; "
+            "with replication required the expected false accepts are %.3f "
+            "(%.4f per edit). Replication, not a per-round correction, is what "
+            "bounds this - a round that skips it is uncorrected."
+            % (attempts, a, attempts * per_edit, per_edit))
+
+
+def _count_attempts():
+    """Candidate rounds attempted, counted the way `tools/candidate-due.sh`
+    counts them: a round document carrying an `## The edit` heading proposed an
+    edit, and one that does not measured the instrument instead. Only the
+    former is a hypothesis test whose repetition costs anything.
+
+    Returns None rather than 0 when the documents are unreadable, so a missing
+    directory prints no campaign line instead of claiming a clean campaign.
+    """
+    d = ROOT / "evals" / "results" / "loop"
+    if not d.is_dir():
+        return None
+    n = 0
+    for f in sorted(d.glob("round-*.md")):
+        try:
+            if re.search(r"(?mi)^## The edit", f.read_text()):
+                n += 1
+        except OSError:
+            continue
+    return n or None
 
 
 def _count_p(prev_count, cur_count, prev_runs, cur_runs):
@@ -1266,7 +1390,8 @@ def _counterfactual_line(prev, cur, cells):
 
 def accept_verdict(prev, cur, target, noise=None, target_cases=None,
                    arbitration=None, cell_rates=None, target_models=None,
-                   legacy_count_gate=False):
+                   legacy_count_gate=False, looks=None, attempts=None,
+                   judge_noise_gate=False):
     """(verdict, reasons) for one round against the round before it.
 
     arbitration, when given, is a round_summary over one fresh replication of
@@ -1329,6 +1454,12 @@ def accept_verdict(prev, cur, target, noise=None, target_cases=None,
     noise = noise or NOISE
     reasons = []
     fatal = False
+    # A third state. A judge-derived counter whose rise is inside the judge's
+    # own measured self-disagreement has not been shown to be real, and has not
+    # been shown to be noise either - so it neither rejects nor passes, it asks
+    # for the one measurement that would settle it. See JUDGE_DISAGREEMENT.
+    needs_rejudge = []
+    target_alpha = _target_alpha(noise["alpha"], looks)
     for key, label in FATAL:
         if cur[key] <= prev[key]:
             continue
@@ -1499,6 +1630,42 @@ def accept_verdict(prev, cur, target, noise=None, target_cases=None,
         elif risen:
             comp += (" (arbitrable - replicate the risen cells at the same "
                      "reps; see the loop skill)")
+        # Last question before a judge-derived counter rejects: could the judge
+        # have produced this rise by itself? The deterministic detectors are
+        # validated against hand labels and this one is not.
+        #
+        # Measured always, acted on only under --judge-noise-gate, and the
+        # asymmetry is deliberate. This repo already refused the mirror image
+        # of this adjustment: ONE_TURN_PHI is not applied to unread_asks
+        # because "an inflation that turns a non-significant fall into a
+        # significant one is not an inflation". Letting a pooled noise figure
+        # withhold a rejection is the same move in the more dangerous
+        # direction, so it does not happen by default and no stored verdict
+        # moves.
+        #
+        # When it is on, it applies only where no testable cell survived the
+        # screens - the case where the rejection rests on a bare round-wide
+        # count and grading noise is the plausible explanation. A cell that
+        # rose testably is evidence about a named cell and still rejects.
+        #
+        # The state it produces is "undecided", not "accept": the round has to
+        # buy a second grading pass over the risen cells. That is more
+        # evidence, not less, which is why it is not a relaxation.
+        if key in JUDGE_DERIVED and not legacy_count_gate:
+            jp = _judge_noise_p(cur[key] - prev[key], _count_exposure(cur, key))
+            if jp is not None:
+                comp += ("; judge self-disagreement at %.0f%% would produce a "
+                         "rise this large with p = %.3f (#70)"
+                         % (100 * JUDGE_DISAGREEMENT, jp))
+                if judge_noise_gate and not risen and jp > noise["alpha"]:
+                    reasons.append(
+                        "UNDECIDED: %s rise (%d -> %d) rests on the round-wide "
+                        "count alone and is inside the judge's own measured "
+                        "self-disagreement. Re-judge the round and score again; "
+                        "one grading pass cannot settle this%s"
+                        % (label, prev[key], cur[key], comp))
+                    needs_rejudge.append(label)
+                    continue
         reasons.append("REJECT: %s lost (%d -> %d)%s"
                        % (label, prev[key], cur[key], comp))
         fatal = True
@@ -1819,12 +1986,13 @@ def accept_verdict(prev, cur, target, noise=None, target_cases=None,
             reasons.append("REJECT: %s was already 0%s before the edit, so this "
                            "round cannot show it falling%s" % (target, where, wide))
             fatal = True
-        elif p >= noise["alpha"]:
-            reasons.append("REJECT: %s %d -> %d%s, p = %.3f%s"
-                           % (target, a, b, where, p, wide))
+        elif p >= target_alpha:
+            reasons.append("REJECT: %s %d -> %d%s, p = %.3f (needs %.4f)%s"
+                           % (target, a, b, where, p, target_alpha, wide))
             fatal = True
         else:
-            reasons.append("%s %d -> %d%s, p = %.3f%s" % (target, a, b, where, p, wide))
+            reasons.append("%s %d -> %d%s, p = %.3f (needs %.4f)%s"
+                           % (target, a, b, where, p, target_alpha, wide))
     else:
         reasons.append("REJECT: unknown target %r (expected output_tokens, "
                        "turns, or one of %s)" % (target, ", ".join(COUNT_TARGETS)))
@@ -1863,6 +2031,22 @@ def accept_verdict(prev, cur, target, noise=None, target_cases=None,
                        "from the %.0f%% flip rate; re-run prefer.py to fill them"
                        % (cur["flip_undecided"], 100 * cur["flip_rate"]))
 
+    # Printed whatever the round did, because a verdict scored under a
+    # corrected boundary cannot be compared with one that was not unless it
+    # says so.
+    if target_alpha != noise["alpha"]:
+        reasons.append("looks: %d declared, so the target was tested at "
+                       "Bonferroni alpha %.4f rather than %.2f"
+                       % (int(looks), target_alpha, noise["alpha"]))
+    else:
+        reasons.append("looks: 1 declared, target tested at alpha %.2f. A "
+                       "round that extends its reps and scores again has "
+                       "taken a second look and must say so (--looks)"
+                       % noise["alpha"])
+    camp = _campaign_line(attempts, noise["alpha"], looks or LOOKS_DEFAULT)
+    if camp:
+        reasons.append(camp)
+
     # Last, and never fatal. A flat quality count is exactly when the
     # cancellation hides, so the line prints whether the round passed or
     # failed and whatever the counter did.
@@ -1875,7 +2059,11 @@ def accept_verdict(prev, cur, target, noise=None, target_cases=None,
     strata = _strata_line(prev, cur)
     if strata:
         reasons.append(strata)
-    return ("reject" if fatal else "accept"), reasons
+    if fatal:
+        return "reject", reasons
+    if needs_rejudge:
+        return "undecided", reasons
+    return "accept", reasons
 
 
 def aggregate(snap):
@@ -2572,6 +2760,24 @@ def main():
                          "rejects whether or not any test can reach it, and "
                          "the round-wide total carries no significance test "
                          "(#259)")
+    ap.add_argument("--looks", type=int, default=LOOKS_DEFAULT,
+                    help="how many times this round's target hypothesis is "
+                         "tested before it is decided. Declare it BEFORE the "
+                         "first look: a staged buy that extends its reps and "
+                         "scores again has taken two, and scoring both at "
+                         "alpha 0.05 spends closer to 0.08. The target's alpha "
+                         "is divided by this (default: %d)" % LOOKS_DEFAULT)
+    ap.add_argument("--attempts", type=int, default=None,
+                    help="candidate rounds attempted in this campaign, for the "
+                         "expected-false-accepts line (default: counted from "
+                         "the round documents)")
+    ap.add_argument("--judge-noise-gate", action="store_true",
+                    help="let a judge-derived fatal counter return 'undecided' "
+                         "instead of rejecting when its rise rests on the "
+                         "round-wide count alone and is inside the judge's "
+                         "measured self-disagreement. Off by default: the "
+                         "figure is always printed, but acting on it moves "
+                         "stored verdicts (#70)")
     args = ap.parse_args()
 
     CASES = Path(args.cases_dir)
@@ -2700,7 +2906,10 @@ def main():
                           target_models=target_models),
             args.target, target_cases=target_cases, arbitration=arbitration,
             cell_rates=rates, target_models=target_models,
-            legacy_count_gate=args.legacy_count_gate)
+            legacy_count_gate=args.legacy_count_gate,
+            looks=args.looks, judge_noise_gate=args.judge_noise_gate,
+            attempts=(args.attempts if args.attempts is not None
+                      else _count_attempts()))
         print("verdict: %s (target %s%s%s, against %s)"
               % (verdict, args.target,
                  (" on %s" % ", ".join(target_cases)) if target_cases else "",
@@ -2724,7 +2933,9 @@ def main():
             for model in sorted(case_saturated_models(case)):
                 print("  note: %s/%s excluded from judge-verdict counters "
                       "(saturated; see its expect.json)" % (case, model))
-        sys.exit(0 if verdict == "accept" else 1)
+        # Three states, three codes. A supervisor that cannot tell "buy a
+        # second grading pass" from "throw this edit away" will throw it away.
+        sys.exit({"accept": 0, "reject": 1}.get(verdict, 2))
 
     md = render(snap, judg, args.threshold, prefs)
     if args.markdown:

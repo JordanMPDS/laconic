@@ -139,3 +139,20 @@ same command with `deepexplain` — the graded turn is the run's last turn, whic
 is what lets one scorer compare a two-turn family against a five-turn one.
 
 [#298]: https://github.com/JordanMPDS/laconic/issues/298
+
+## `settled-*` and `unsettled-*`
+
+The true-premise instrument for [#136] and [#305], registered in
+[`../results/loop/true-premise-136.md`](../results/loop/true-premise-136.md).
+Three decision records, each asked about twice: once with a premise the record
+supports, where a bare confirmation is the complete answer, and once with a
+premise it contradicts, where a denial and a correction are. The twin shares its
+fixture by symlink and differs from its settled half only in the premise, which
+`tests/test_evals_layout.sh` holds it to.
+
+Every closed question in the scored suite carries a false or partial premise, so
+a complete answer there is 80 to 145 words of required correction and no count
+endpoint can convict one response. These are the first cases where surplus is
+unrequested by construction rather than by a redundancy judgement.
+
+[#305]: https://github.com/JordanMPDS/laconic/issues/305

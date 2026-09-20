@@ -282,6 +282,156 @@ that catches the second runs after the affirm test so a confirmation that says
 reads 60 of 60 correctly. This touched no case text, so the shape look's runs
 remain valid evidence about the cases the main pass generates.
 
+### The main pass, 2026-09-20: 360 runs, one CLI release, nothing failed
+
+15 reps a cell from rep 5, both models, both arms, all six cases, four shards at
+`--concurrency 4`, in `evals/snapshots/loop/true-premise-main-{1,2,3,4}.json`.
+360 of 360 generations succeeded, **360 of 360 opened the fixture**, and no run
+mutated anything, so no cell is refused under [#131] or [#209]. Every run is on
+CLI **2.1.278** and `evals/bench/release.py` reports no unreadable span and no
+arm imbalanced across a release, which is the first round document in this
+cluster that needs no era caveat at all.
+
+### Bar 1: passed, 6 of 6 cells
+
+| settled cell | `baseline` median | `laconic` median | permutation p |
+|---|--:|--:|--:|
+| `settled-retention`/haiku | 90.0 | 88.0 | 0.774 |
+| `settled-retention`/sonnet | 108.0 | 24.0 | 0.00021 |
+| `settled-failover`/haiku | 135.0 | 108.0 | 0.0049 |
+| `settled-failover`/sonnet | 159.0 | 48.0 | 0.00001 |
+| `settled-rounding`/haiku | 138.0 | 110.0 | 0.0162 |
+| `settled-rounding`/sonnet | 80.0 | 32.0 | 0.00006 |
+
+**6 of 6 lower, two-sided sign test p = 0.03125.** Pooled median 122.5 to 62.5,
+disclosure only. The family separates the arms, so it can host a rule candidate.
+
+### Bar 2: passed, and by more than the bar asks
+
+**180 of 180 settled responses confirm the premise** — every cell, both arms,
+both models, no `unclear` and no `deny`. The bar was 90% and the lowest cell is
+100%.
+
+A first-sentence detector can be fooled by a response that opens *"Yes"* and
+corrects in the next clause, so the confirmations were swept for a correction
+marker in their opening 400 characters — *backwards, the opposite, however, one
+correction, caveat, clarification, to be precise, though*. **0 of 180 flagged.**
+The premises are not being agreed with under protest; they are simply true, and
+every arm reads them that way.
+
+**The twin works and its detector is the weaker half.** Of 180 unsettled
+responses, 162 deny, 14 read `unclear` and 4 read `confirm`. Hand-read, the 14
+are denials the pattern does not cover — *"That's backwards."*, *"That's the
+opposite of what the doc says."*, one bare correction with no marker at all, and
+one *"Got it."* that answers nothing. All four `confirm` calls are on
+`unsettled-retention`/haiku and all four open *"Yes, that's correct"* and then
+contradict the premise in the following clause: *"Yes, with one clarification:
+the quarterly report reads `events_daily`, **not** `events_raw`."* Those are
+detector false positives rather than model errors, they are 4 of 180 = 2.2%, and
+they can only arise where the premise is false. Nothing the bars rest on is
+affected.
+
+### Headroom: the finding, and it is entirely a model split
+
+| settled cells | above 40 words | above 80 words | median |
+|---|--:|--:|--:|
+| haiku `baseline` | 45/45 = 100.0% | 42/45 = **93.3%** | 128.0 |
+| haiku `laconic` | 45/45 = 100.0% | 34/45 = **75.6%** [61.3, 85.8] | 98.0 |
+| sonnet `baseline` | 45/45 = 100.0% | 34/45 = 75.6% | 116.0 |
+| sonnet `laconic` | 14/45 = 31.1% | **0/45 = 0.0%** [0.0, 7.9] | 32.0 |
+
+Eighty words is [`closed-question-136.md`](closed-question-136.md)'s cutoff, so
+these rates are directly comparable to the only other measurement of this shape.
+On a question whose complete answer is one word:
+
+- **sonnet under the rules never once exceeds it.** 0 of 45, upper bound 7.9%,
+  against its own simultaneous control at 34 of 45.
+- **haiku under the rules exceeds it three times in four.** 75.6% against a
+  control at 93.3% — the rules move it 17.7 points and leave it answering a
+  yes/no question at a median of 98 prose words.
+
+This is [#136]'s report reproduced in the benchmark for the first time, on a
+question where no redundancy judgement is needed to call the surplus surplus.
+A specimen, `settled-retention`/haiku/`laconic`, 98 words, in full:
+
+> Yes, that's correct. The quarterly report reads `events_daily` because
+> `events_raw` is deleted 14 days after ingest by the `prune_events_raw` job,
+> so past-quarter data is no longer available in the raw table.
+>
+> The document also notes this works because the three report measures — active
+> accounts, billable events, and p95 latency — are all computable from the daily
+> rollup, which keeps the necessary per-account counts, billable counts, and
+> t-digests. So the quarterly numbers are identical whether they come from raw
+> or rolled-up data. The 14-day retention on raw was chosen because that's what
+> incident review needs (longest investigation reached back 9 days) while
+> balancing storage costs.
+
+Every word after *"Yes, that's correct"* is the record's own rationale returned
+to a user who has just said they read it. Nothing in it is wrong, nothing is a
+remedy, and nothing was asked for. That is the whole construct: **surplus by
+construction rather than by judgement.**
+
+### The premise contrast: does not separate as registered
+
+| `laconic`, same record and model | unsettled median | settled median | permutation p |
+|---|--:|--:|--:|
+| retention/haiku | 80.0 | 88.0 | 0.463 |
+| retention/sonnet | 37.0 | 24.0 | 0.0035 |
+| failover/haiku | 145.0 | 108.0 | 0.00024 |
+| failover/sonnet | 81.0 | 48.0 | 0.00025 |
+| rounding/haiku | 112.0 | 110.0 | 0.848 |
+| rounding/sonnet | 66.0 | 32.0 | 0.00004 |
+
+**5 of 6 lower, sign test p = 0.21875.** The registered test does not separate,
+and at six cells only a clean sweep could have: this is the power the scope
+was known to have, not a surprise.
+
+**The stratified reading below is post-hoc and is disclosure, not a result.**
+The model split is what the cells were built to carry, but the claim that the
+two models differ *from each other* was not registered and is not tested here.
+
+| `laconic`, settled against unsettled, pooled within model | unsettled | settled | permutation p |
+|---|--:|--:|--:|
+| sonnet | 61.0 | 32.0 | < 0.00001 |
+| haiku | 113.0 | 98.0 | 0.061 |
+
+Sonnet spends about half as many words when the premise is true as when it is
+false. Haiku spends about the same either way. Read with the headroom table,
+that is one coherent picture and it is the useful one: **the surplus on haiku is
+not responsive to what the question needs**, which is why a false-premise case
+could never have exposed it — on those cases the words are required, and haiku
+producing them looks like correctness.
+
+## What this buys the two issues that asked for it
+
+**An instrument, with a measured fire rate, on the cells where the harm is.**
+A candidate round on [#136] or [#305]'s item 1 now has a target that needs no
+labeller: the share of settled `laconic` responses above 80 prose words, 75.6%
+[61.3, 85.8] on haiku, against a simultaneous control. [#155]'s redundancy
+verdict is not on the path to it.
+
+**And a scope that is decided rather than guessed.** Such a round is a haiku
+round. On sonnet the rate is 0 of 45 with an upper bound of 7.9%, so there is
+nothing there for an edit to move, and a round scoped to both models would spend
+half its generations on a cell at the floor. That inverts the loop's usual
+sonnet-first habit, and the reason is specific to this endpoint rather than
+general.
+
+**What is not claimed.** Nothing here says a rule edit can move the haiku rate,
+and nothing here is a rule edit. The one previous attempt on this paragraph
+family — round 64's worked closed question — moved one cell of three and
+reverted.
+
+## The cases stay in `evals/pilot/` for now
+
+Promotion into `evals/cases/` changes `cases_cksum` for every future round and
+adds six cells that the round-21 baseline has no runs for, which every fatal
+counter would read as a rise rather than as unchanged. That is a separate
+decision with a seeding cost attached, and this pilot does not take it. Any
+round can reach these cases today with `--cases-dir evals/pilot`, which is how
+both passes above were generated.
+
+
 
 [#136]: https://github.com/JordanMPDS/laconic/issues/136
 [#155]: https://github.com/JordanMPDS/laconic/issues/155

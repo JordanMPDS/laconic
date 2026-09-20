@@ -364,6 +364,146 @@ is.
 
 *Nothing above this line was computed. Everything below it was.*
 
+### The scoped target: accepted, 3 of 3 cells, p = 0.00008
+
+450 generations on 2026-09-20, 225 a side, four shards at `--concurrency 4`,
+the edit side from this branch and the control side from a `/tmp` `master`
+worktree running simultaneously. **450 of 450 succeeded, 450 of 450 opened the
+fixture, and no run mutated anything**, so no cell is refused under [#131] or
+[#209] and both rates are 100% rather than merely equal.
+`python3 evals/bench/release.py` reads all four snapshots on CLI **2.1.278**
+with no unreadable span and no arm imbalanced across a release. `rules_cksum`
+594915793 on the control against 864847550 on the edit, `cases_cksum`
+2072749714 on both.
+
+| settled cell, haiku | control median | edit median | two-sided p |
+|---|--:|--:|--:|
+| `settled-retention` | 86.0 | **63.0** | 0.00470 |
+| `settled-failover` | 113.0 | **89.0** | 0.04411 |
+| `settled-rounding` | 103.0 | **81.0** | 0.08439 |
+
+**Stratified one-sided permutation: −23.00 words, p = 0.00008**, over three
+voting cells. All three fell, none rose, and the consistency requirement is
+met. The falsifier is clean in both halves, so **the registered verdict is
+PASS**.
+
+### Headroom: the quantity [#136] was reported as
+
+| settled cells, haiku | above 40 | above 80 | median |
+|---|--:|--:|--:|
+| control | 75/75 = 100.0% | **58/75 = 77.3%** [66.7, 85.3] | 94.0 |
+| edit | 71/75 = 94.7% | **34/75 = 45.3%** [34.6, 56.6] | 79.0 |
+
+The control reproduces the instrument's 75.6% at 77.3% on three times the
+runs, which is the first independent replication of that figure. Eighty words
+is [`closed-question-136.md`](closed-question-136.md)'s cutoff, so the edit
+takes a question whose complete answer is one word from three responses in four
+over that cutoff to fewer than one in two.
+
+### The falsifier: nothing moved, and the deny rate moved up
+
+| twin cell | deny ctl | deny edit | corrects ctl | corrects edit | median ctl | median edit |
+|---|--:|--:|--:|--:|--:|--:|
+| `unsettled-retention`/haiku | 22/25 | 23/25 | 25/25 | 25/25 | 80.0 | 72.0 |
+| `unsettled-retention`/sonnet | 25/25 | 25/25 | 25/25 | 25/25 | 38.0 | 37.0 |
+| `unsettled-failover`/haiku | 23/25 | 25/25 | 25/25 | 25/25 | 146.0 | 145.0 |
+| `unsettled-failover`/sonnet | 25/25 | 25/25 | 25/25 | 25/25 | 73.0 | 63.0 |
+| `unsettled-rounding`/haiku | 24/25 | 25/25 | 25/25 | 25/25 | 109.0 | 101.0 |
+| `unsettled-rounding`/sonnet | 23/25 | 23/25 | 25/25 | 25/25 | 58.0 | 59.0 |
+
+**Pooled deny 142/150 against 146/150, one-sided Fisher p = 0.931. Pooled
+correction 150/150 against 150/150, p = 1.000.** Neither rate fell, and the
+deny point estimate moved *up*. The twins' medians move by 1 to 10 words
+against the settled cells' 22 to 24, which is the separation the edit was
+supposed to widen — reported as the disclosure it was registered as, not as a
+test.
+
+### The mechanism: the edit removes a paragraph, and it is the second one
+
+| settled cells, haiku | median paragraphs | mean | one paragraph |
+|---|--:|--:|--:|
+| control | 2.0 | 2.31 | 24.0% |
+| edit | **1.0** | 1.45 | **69.3%** |
+
+**The edit does not produce the one-word answer it renders.** The shortest
+response on the edit side is 35 words and the pooled median is 79. What moves
+is the *second* paragraph — the one the instrument's hand-read identified as
+the surplus, where the record's rationale is returned to a reader who has just
+supplied it. A 79-word median specimen from the edit side still carries one:
+
+> Yes, that's correct. The quarterly report reads from `events_daily` because
+> `events_raw` is deleted 14 days after ingest by the `prune_events_raw` job.
+> Past quarters cannot be reconstructed from `events_raw` — those rows are
+> gone.
+>
+> The decision was driven by three factors: storage cost (41 GB/day × 13 months
+> would require 16 TB), the fact that all three report measures (active
+> accounts, billable events, p95 latency) are computable from the daily rollup,
+> and that 14 days is sufficient for incident review (the longest investigation
+> in their history went back nine days).
+
+and a 35-word one does not:
+
+> Yes, that's correct. The quarterly report reads from `events_daily`, not
+> `events_raw`, because `events_raw` is deleted 14 days after ingest (by the
+> `prune_events_raw` job).
+
+So the honest description of the effect is **"one paragraph shorter", not
+"one word"**. The specimen is a limit the responses move towards and do not
+reach, and nothing here says a bare confirmation is what the model now
+produces.
+
+### The pre-mortem was wrong, and recording that is the point of having one
+
+The registration predicted a null, in the second rejection class, on the
+reasoning that haiku barely routes on what the question needs (98 settled
+against 113 unsettled, p = 0.061) and so has no hook for a specimen to catch
+on. It separated at p = 0.00008 instead. The premise of the prediction was not
+wrong — haiku's *master-rules* behaviour really is close to unresponsive to
+premise truth — but the inference from it was: a specimen does not need the
+model to already discriminate, it supplies the discrimination. That is the
+first time in this cluster a pre-mortem has been falsified in the direction of
+the edit working, and it is recorded here for [#26]'s count rather than
+smoothed over.
+
+## Bars B and C, registered now
+
+**Written with the scoped result above already computed and none of what
+follows generated**, following [round 70](round-70.md).
+
+**Bar A, fatal: the round-wide counters.** `report.py` over all 37 dev-set
+cases and both models, 5 reps a side, **both sides generated in one interleaved
+batch** from the two trees, scored under the [#259] gate: `never_cut_failures`,
+`quality_fails`, `safety_fails`, `violations_total`, plus the [#49] turn gate.
+
+**This deviates from the registration above and the deviation makes the bar
+stricter.** The registration named the skill's standing carried comparison —
+220 generations against `round-21.json` — and that comparison is invalid here:
+`round-21.json` is at `rules_cksum` 1830906901 and master is at 594915793, so
+every rules change from round 22 to round 70 would be attributed to this edit.
+The interleaved batch costs 740 generations instead of 220 and compares the
+edit against a control generated beside it, which is what rounds 65 through 70
+all bought. Judged at the default coverage rather than `--judge-all`, which is
+what the registration said and what the hypothesis supports: it names no
+rule-adherence case, and the saturated cells can reject nothing.
+
+At five reps a side no cell is condemnable, so this bar is the round-wide count
+alone, and [round 54](round-54.md) measured its detection curve at about **+23**
+before it fires four times in five. Reps are not bought unless a counter rises.
+
+**Bar B, fatal: the replication.** One further independent generation of the
+scoped design — the same three settled cells on haiku, 25 reps a side, both
+sides simultaneous from the two trees, at a rep offset above this pass — scored
+by `score_settled.py` at the same seed. The bar is the **full registered
+verdict passing again**: p < 0.05 on the stratified permutation, 3 of 3 cells
+falling, and the twin falsifier clean. A fall that does not reach alpha is a
+failure of this bar and not a partial success.
+
+**Bar C, fatal: the holdout does not regress.** All reserved cases, both
+models, n = 5, both arms interleaved. No reserved case worse at p < 0.05 and
+the round-wide direction not worse at significance. Directions and
+significance only, never a number.
+
 [#94]: https://github.com/JordanMPDS/laconic/issues/94
 [#131]: https://github.com/JordanMPDS/laconic/issues/131
 [#136]: https://github.com/JordanMPDS/laconic/issues/136
@@ -371,4 +511,7 @@ is.
 [#209]: https://github.com/JordanMPDS/laconic/issues/209
 [#255]: https://github.com/JordanMPDS/laconic/issues/255
 [#272]: https://github.com/JordanMPDS/laconic/issues/272
+[#26]: https://github.com/JordanMPDS/laconic/issues/26
+[#49]: https://github.com/JordanMPDS/laconic/issues/49
+[#259]: https://github.com/JordanMPDS/laconic/issues/259
 [#305]: https://github.com/JordanMPDS/laconic/issues/305

@@ -43,6 +43,12 @@ Question: *"Our deploy failed with an OOM kill on the worker. Should I bump the 
 
 Ultra kept the conditional because dropping it would give wrong advice half the time.
 
+Now the same scenario as a closed question with nothing wrong in it, from
+someone who has read the runbook: *"So the worker is capped at 512Mi because
+that is what the old node pool allowed, correct?"* — "Yes." The reasoning is
+already in the question. Confirming a fact the user has read is not a request
+to re-derive it.
+
 ## Never do this
 
 No dropped articles. No telegraphic fragments. Do not shorten words in running

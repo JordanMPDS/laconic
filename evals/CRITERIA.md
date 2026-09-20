@@ -183,9 +183,17 @@ figure:
   already sits at the floor, and no threshold makes a ceiling available there.
   A ceiling registered across a family that includes them is registered on cells
   that cannot move.
+- **State the cutoff as a surplus allowance, not as a multiple of the floor.**
+  `K x floor` tolerates `(K-1) x floor` words of surplus, and the floors on the
+  thirteen closed questions span 12 to 64 words for the same trap, so a single
+  `K` convicts sixty surplus words on one case and acquits them on another.
+  `confirm-rollback` fires on 7 of 370 laconic runs at `2 x floor` and on 35 at
+  a fixed allowance of 40 words; `wide-rollback` goes the other way, 15 to 8.
 
 Full working notes in
-[`results/loop/judged-floor-136.md`](results/loop/judged-floor-136.md).
+[`results/loop/judged-floor-136.md`](results/loop/judged-floor-136.md), and what
+a floor-derived cutoff does not buy in
+[`results/loop/judged-ceiling-136.md`](results/loop/judged-ceiling-136.md).
 
 [#305]: https://github.com/JordanMPDS/laconic/issues/305
 

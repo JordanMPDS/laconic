@@ -397,6 +397,38 @@ judge trap. Until one of those exists, no detector for this construct can be
 measured above about **78.3% precision**, because that is what a second
 independent label set reads against the first.
 
+## Both of those routes have now been run, in [`consensus/consensus.md`](restatement/consensus/consensus.md)
+
+5. ~~Two labellers with adjudication.~~ **Run as six**, blind to each other, at
+   one sitting, under `criterion.md` unchanged. A pair is a 2x2 table and part A
+   of that document shows what a 2x2 table resolves here: the kappa 0.584 this
+   file reasons from carries a cluster bootstrap interval of **[0.184, 1.000]**
+   at four source cases. Six passes give each response a vote count, and two
+   disjoint triples adjudicated by majority disagree on a response if and only
+   if its six votes split 2, 3 or 4 — so the ceiling is read off 360 votes.
+6. ~~A positive condition that is a named fact.~~ **Closed on argument, not
+   piloted a third time.** The contrast and the recap are the two hard
+   directions and every lexical signal gets both backwards: the contrast shares
+   most words while asserting a new claim, the recap shares few while asserting
+   an old one. The containment probe inverted on exactly that pair, and
+   [`closing-recap-305.md`](closing-recap-305.md) then measured **12% precision**
+   on the "named fact" a second construct reached for, with its precision gate
+   inverting too.
+
+**Adjudication works and is not enough.** One pass against another reads kappa
+0.675 at one sitting; majority-of-three against the disjoint other three reads
+**0.807**, a gain of +0.132 with a cluster interval of [+0.080, +0.180] that
+excludes zero. The oracle ceiling moves from 78.3% precision to **89.7%**. The
+registered mechanism bar still failed at 83.3% split-proof against 85%, and the
+consensus set agrees with the two committed hand sets no better than they agree
+with each other, so nothing shows it measures what batches 1 and 2 measured.
+
+**The residual is a threshold spread, not irreducible ambiguity.** Six readers
+of the same criterion returned 24, 24, 27, 29, 34 and 38 `true` of 60, and a
+permutation holding every response's vote count fixed puts that spread at
+**p = 0.0002**. The borderline convention is one paragraph written to pin
+exactly that, and six readings show it does not.
+
 Everything above the re-label stands: a stable base rate near 43%, a large
 measured model effect, and a detector at 55.3% that is not accurate enough to
 carry either. Nothing here is a gate, a target, or a disclosure.

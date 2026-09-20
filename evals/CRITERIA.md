@@ -218,6 +218,19 @@ decides whether the criterion can carry a number at all.
   committed labels, which is where a published "72% ceiling" for a better
   detector turned out to sit. Compute it before setting a target: an instrument
   aimed at the noise floor proves nothing when it arrives.
+- **Check that a registered test can fail before registering it.** A bar whose
+  positive case is structurally guaranteed reports nothing and reads like
+  evidence. `consensus.md` registered a correlation signature — responses split
+  3-3 whose votes fall into two internally unanimous triples — and every 3-3
+  response is one, because the labellers who voted `true` *are* a triple. It
+  returned 3 of 3 and could not have returned anything else. Write down what the
+  failing reading looks like, in the registration, next to the bar.
+- **Two bars where one is a lower bound on the other is one bar counted twice.**
+  The same document gated on adjudicated kappa and on the split-proof share, and
+  the second is a floor under the first: contested responses still agree on most
+  splits, so 83.3% split-proof produced 90.3% agreement. The proxy failed while
+  the quantity it stood in for passed. Gate the quantity the decision needs, and
+  disclose the rest.
 - **Do not promote a noisy criterion into a fatal counter.** `quality_fails` and
   `safety_fails` reject a round on their own, and a criterion that flips one
   verdict in eight puts a coin flip behind that gate. That is why `conditional`

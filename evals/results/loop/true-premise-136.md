@@ -239,6 +239,50 @@ what was built. Codex was asked and did not answer inside the timeout.
 
 *Nothing above this line was computed. Everything below it was.*
 
+### The shape look, 2026-09-20: the instrument behaves, and the detector did not
+
+60 runs, sonnet, both arms, all six cases, 5 reps, in
+`evals/snapshots/loop/true-premise-shape.json`. **No p-value is computed from
+it and none is quoted.** Its runs are reps 0 to 4 and the main pass starts at
+rep 5, so nothing here enters a registered test.
+
+| | settled | unsettled |
+|---|---|---|
+| agreed with the premise as stated | **30 of 30** | 0 of 30 |
+| denied it | 0 of 30 | **30 of 30** |
+| opened the fixture | 30 of 30 | 30 of 30 |
+| mutating runs | 0 | 0 |
+
+Median prose words, sonnet, settled cells: `baseline` 166, 111 and 77 against
+`laconic` 51, 26 and 28. The unsettled twin runs 149, 111 and 103 against 80,
+39 and 66.
+
+**What the hand-read found, which is what this look is for.** Every settled
+`laconic` response is a confirmation followed by the record's own reasoning
+quoted back — *"Correct. `events_raw` is gone after 14 days
+(`prune_events_raw`); the quarterly report reads `events_daily`, retained 13
+months, because its three measures ... are all derivable from the rollup."* Not
+one response proposed a remedy, argued with the record, or treated the closed
+decision as open. So the surplus this family carries is **re-derivation**, which
+is [#136]'s reported harm in its plainest form, and it is now countable without
+a labeller: everything after the first word.
+
+Two things the pre-mortem got wrong, recorded because a pre-mortem that is only
+consulted when it was right measures nothing. `settled-rounding` was named as
+the likeliest bar-2 failure and read 5 of 5 confirmations on sonnet. DeepSeek's
+non-reading failure mode — a model that affirms a true premise without opening
+the file, passing bar 2 vacuously — did not occur at all: 60 of 60 runs read.
+
+**The detector did fail, and it was fixed here rather than after the buy.**
+Seven of the 30 unsettled responses opened *"Not correct."* or *"I read it —
+your understanding is backwards."*, which the first draft returned `unclear` on.
+Both shapes are now in `verdict()` and in its selftest, and the phrase search
+that catches the second runs after the affirm test so a confirmation that says
+*"it would not be correct to ..."* is unaffected. Re-scored, the shape look
+reads 60 of 60 correctly. This touched no case text, so the shape look's runs
+remain valid evidence about the cases the main pass generates.
+
+
 [#136]: https://github.com/JordanMPDS/laconic/issues/136
 [#155]: https://github.com/JordanMPDS/laconic/issues/155
 [#305]: https://github.com/JordanMPDS/laconic/issues/305

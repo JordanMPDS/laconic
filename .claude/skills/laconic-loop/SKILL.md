@@ -763,6 +763,38 @@ Then edit `rules/laconic.md`. One edit per round. A hypothesis written
 afterwards is indistinguishable from a story about whatever happened to move,
 and the ledger timestamps it against the round it predicted.
 
+**Register a pre-mortem beside the hypothesis, in one paragraph:** how you
+expect this edit to fail, and which of the three rejection classes that would
+be — the point estimate moving *against* the registered direction, the point
+estimate moving *with* it and not separating, or a fatal counter rejecting an
+edit whose target passed. It costs nothing, because the registration is
+committed before any generation, so the prediction is blind by construction and
+dated by git.
+
+It is there to make [#26] decidable. That issue proposed replacing this step
+with several proposers and an adversarial panel, and deferred it until the loop
+was "reliably rejecting candidates for being weak ideas rather than for landing
+inside the noise floor". [`candidate-defects-26.md`](../../../evals/results/loop/candidate-defects-26.md)
+measured that share for the first time — **9 of 15 rejections since round 38
+were weak ideas, 4 the noise floor, 2 a failed gate** — and found the condition
+unfirable as written: 13 of 15 rejections are "a failed hypothesis rather than a
+failed gate", so the literal wording is satisfied by the loop's base state,
+while the longest run of consecutive weak-idea rejections was **six**, rounds 38
+to 47, and nothing since comes near it. The one thing the archive cannot supply
+is whether a reader could have *called* those six in advance, because every
+stated failure reason was written after its author saw the result. The
+pre-mortem is that measurement, bought one round at a time.
+
+```sh
+python3 evals/results/loop/candidate-defects/classify.py
+```
+
+Label the round in `candidate-defects/labels.json` when it is scored, whichever
+way it went. The script warns about an unlabelled candidate round rather than
+failing, because a registration commit legitimately has no result to label yet.
+
+[#26]: https://github.com/JordanMPDS/laconic/issues/26
+
 **Where a rule lives outranks what it says about where it lives.** When a new
 licence bleeds into content it should not reach, move it rather than write
 its limits into it. Rounds 07, 08 and 09 put a design-question licence in the

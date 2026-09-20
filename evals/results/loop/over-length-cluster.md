@@ -271,20 +271,36 @@ drift needs a five-turn family whose **turns are design-shaped**.
 
 **That family was built and run, and it answers [#113] in the negative.** Round
 36's `cold-service` and `drift-service` share a five-file Express fixture and a
-byte-identical final question, asked alone and asked at turn 5. Baseline reads
-68.0% cold against 20.0% at turn 5 (Fisher p = 0.0014): **conversational depth
-suppresses the offer rather than eroding the rule.** Laconic reads 0 of 125
-turn-responses and 1 of 25 cold, so it has nothing to decay from — the largest
-arm separation the loop has measured, 17/25 against 1/25 at p < 0.0001.
+byte-identical final question, asked alone and asked at turn 5. Laconic has
+nothing to decay from: pooled over every snapshot that has generated the pair,
+**0 of 325 `drift-service` turn-responses and 1 of 65 cold**, against baseline's
+29 of 125 (23.2%) at p = 5.4e-18. The 95% upper bound on any laconic rate at any
+depth is **0.92%**. Round 36 ran `repeat` and inherits this document's opening
+objection; round 40's control and round 70's wide arms hold the same cells under
+`plugin` and agree, which is why the bound is quotable rather than a rule of
+three on one round.
 
-Round 36 ran `repeat`, so it inherits the objection this document's opening
-raises. The check is free, because round 40's control holds the same two cells
-under `plugin` and the detector is syntactic: laconic reads **0 in 50
-`drift-service` turn-responses and 0 in 10 `cold-service` responses** under
-`plugin` too. By the rule of three that bounds the rate at about 6% rather than
-demonstrating zero, but it is the first evidence from the delivery mode [#113]
-describes and it agrees. What remains unreproduced is [#113]'s own report: the
-flicker, on one turn and not the adjacent one.
+**Two sentences of the superseded version of this paragraph were wrong, and
+[`closing-drift-113.md`](closing-drift-113.md) corrects them.** It read the
+baseline's 68.0% cold against 20.0% at turn 5 (Fisher p = 0.0014) as
+*"conversational depth suppresses the offer rather than eroding the rule"*.
+That contrast is real and it does not support a depth claim: the within-case
+series is non-monotone at 32.0%, 24.0%, 12.0%, 28.0%, 20.0%, and a permutation
+test that shuffles the turn order inside each run reads slope −0.0200 at
+**p = 0.266**. The cross-case drop conflates depth with the four answers already
+given and the offers already made. What the data do support is the negative:
+**no evidence that depth increases closing offers on either arm.**
+
+**What the corpus does show is that the signal is not turn-local at all**, which
+is the finding that outlives [#113]'s proposal. On the unruled arm an offer at
+one turn predicts an offer at the next, 16 of 24 against 5 of 76, and the
+clustered form of that reading is the distribution of per-run counts: **21 of 25
+runs sit at 0 offers or at 4 and above**, variance 3.174 against the 0.891 five
+independent draws would give, at **p < 1/20001**. A closing offer is a property
+of the session, so it cannot proxy a per-turn quantity — and [#113] offered it
+precisely as a cheap per-turn proxy for expensive per-turn length drift. What
+remains unreproduced is [#113]'s own report: the flicker, on one turn and not
+the adjacent one, which is the rarest pattern in the corpus.
 
 ### Group B — cold-read design answers: [#46]
 

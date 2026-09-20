@@ -418,6 +418,22 @@ that only matters when a counter rises, which is exactly the case where you
 extend. Round 26 generated and judged 800 calls; staged, it would have opened
 with 320.
 
+**Declare the looks in the registration preamble, before the first one.** A
+staged buy that scores at 10 and scores again at 25 has tested one hypothesis
+twice, and two tests at alpha 0.05 each spend closer to 0.08 between them. Pass
+`--looks 2` to `report.py` on **both** scorings, which divides the target's
+alpha by the number declared; the verdict prints the boundary it used, so a
+round scored at one look and a round scored at two are told apart on the page
+rather than by recall.
+
+Declared, not inferred, and that is the whole of it: a number chosen after
+seeing the first look corrects nothing. If you open at 10 intending to stop
+there, declare one look — and then a decision to extend is a decision to run a
+*new* round, not to spend the first one's alpha twice. The fatal counters take
+no correction and deliberately: they are one-sided regression screens, so a
+false positive costs one rejected edit and a false negative ships a regression,
+and correcting them would trade the cheap error for the expensive one.
+
 [#133]: https://github.com/JordanMPDS/laconic/issues/133
 
 **A multi-turn round has to name its delivery mode, and the harness will not

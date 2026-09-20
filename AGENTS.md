@@ -154,6 +154,18 @@ one that catches stale generated files, and it is the easiest to skip by acciden
   this nearly cost round 17. `--allow-case-change` is the deliberate override and
   stamps the fact into the snapshot.
 
+- **The target test is the only test in a round that may be multiplicity-corrected.**
+  `--looks K` divides its alpha, because it is the only test that can *accept*. The
+  four fatal counters are one-sided regression screens: a false positive costs one
+  rejected edit, a false negative ships a regression, so correcting them trades the
+  cheap error for the expensive one. `report.py:_target_alpha` says this too; do not
+  "fix" the inconsistency by applying the correction everywhere.
+- **Judge noise is measured on every round and acted on only under
+  `--judge-noise-gate`.** The judge is unvalidated against hand labels while the
+  deterministic detectors are, so a pooled disagreement figure may withhold a
+  rejection but must never grant an acceptance. The gate produces a third verdict,
+  `undecided` (exit 2), meaning "buy a second grading pass", not "pass".
+
 ## Out of bounds
 
 Do not modify without being asked explicitly:

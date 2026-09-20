@@ -380,6 +380,45 @@ PYEOF
 done
 done
 
+# The `settled-*`/`unsettled-*` pairs are the true-premise instrument for #136
+# and #305, described in evals/results/loop/true-premise-136.md. Each pair asks
+# one closed question over one decision record and differs only in whether the
+# premise the user states matches it: on the settled half a bare confirmation is
+# the complete answer, on the unsettled half a denial and a correction are. If
+# the opening clause, the closing form or the fixture drifts between the two,
+# the contrast stops measuring premise truth and starts measuring the case.
+for stem in retention failover rounding; do
+  a="$ROOT/evals/pilot/settled-$stem"
+  b="$ROOT/evals/pilot/unsettled-$stem"
+  if python3 - "$a" "$b" <<'PYEOF'
+import json, sys
+from pathlib import Path
+a, b = Path(sys.argv[1]), Path(sys.argv[2])
+pa = a.joinpath("prompt.md").read_text()
+pb = b.joinpath("prompt.md").read_text()
+for name, text in (("settled", pa), ("unsettled", pb)):
+    assert "<!-- turn -->" not in text, "%s half must be single-turn" % name
+    assert text.rstrip().endswith("correct? Don't\nedit anything.") \
+        or text.rstrip().endswith("correct? Don't edit anything."), \
+        "%s half must end in a closed question that forbids editing" % name
+assert pa.split("\u2014")[0] == pb.split("\u2014")[0], \
+    "the two halves must open by reading the same file"
+assert pa != pb, "the two halves must state different premises"
+ea, eb = (json.loads(p.joinpath("expect.json").read_text()) for p in (a, b))
+for k in ("never_cut", "grading"):
+    assert ea[k] == eb[k], "%s differs" % k
+assert ea["trap"] != eb["trap"], \
+    "one half is confirmed and the other denied, so the traps cannot match"
+assert a.joinpath("fixture").resolve() == b.joinpath("fixture").resolve(), \
+    "the pair must share one fixture"
+PYEOF
+  then
+    ok "settled-$stem and unsettled-$stem differ only in the premise"
+  else
+    fail "settled-$stem and unsettled-$stem differ only in the premise"
+  fi
+done
+
 # `work-*` keeps "Don't edit anything." on the graded turn and drops it on the
 # three turns that are not graded. That is the whole manipulation, and
 # CRITERIA.md's rule - a case needs the clause "or its verdicts measure whether

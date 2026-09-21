@@ -419,6 +419,44 @@ PYEOF
   fi
 done
 
+# `cited-*` is the third member of each triple: `settled-*`'s prompt with one
+# sentence added asking for the record's own words, over the same fixture. The
+# contrast measures whether the grounds a `settled-*` answer recites are
+# responsive to being asked for, so if anything but that sentence drifts the
+# two stop being the same question. See
+# evals/results/loop/cited-grounds-305.md.
+for stem in retention failover rounding; do
+  a="$ROOT/evals/pilot/settled-$stem"
+  c="$ROOT/evals/pilot/cited-$stem"
+  if python3 - "$a" "$c" <<'PYEOF'
+import json, sys
+from pathlib import Path
+ASK = "Quote the part of the record that settles it."
+a, c = Path(sys.argv[1]), Path(sys.argv[2])
+pa = " ".join(a.joinpath("prompt.md").read_text().split())
+pc = " ".join(c.joinpath("prompt.md").read_text().split())
+assert "<!-- turn -->" not in pc, "the cited half must be single-turn"
+assert pc.endswith("Don't edit anything."), \
+    "the cited half must still forbid editing"
+assert ASK in pc, "the cited half must ask for the record's own words"
+assert pc.replace(" " + ASK, "") == pa, \
+    "the cited half must be the settled prompt plus exactly that one sentence"
+ea, ec = (json.loads(p.joinpath("expect.json").read_text()) for p in (a, c))
+for k in ("never_cut", "grading"):
+    assert ea[k] == ec[k], "%s differs" % k
+assert ec["trap"].startswith(ea["trap"]), \
+    "the cited trap is the settled trap plus the citation requirement"
+assert ec["trap"] != ea["trap"], "the citation requirement must be stated"
+assert a.joinpath("fixture").resolve() == c.joinpath("fixture").resolve(), \
+    "the triple must share one fixture"
+PYEOF
+  then
+    ok "cited-$stem is settled-$stem with the grounds asked for"
+  else
+    fail "cited-$stem is settled-$stem with the grounds asked for"
+  fi
+done
+
 # `work-*` keeps "Don't edit anything." on the graded turn and drops it on the
 # three turns that are not graded. That is the whole manipulation, and
 # CRITERIA.md's rule - a case needs the clause "or its verdicts measure whether

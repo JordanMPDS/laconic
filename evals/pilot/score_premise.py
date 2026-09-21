@@ -87,13 +87,15 @@ DENY = re.compile(
 #
 # Named alternations rather than one literal, so `audit_verdict.py` can
 # attribute a match to a phrase instead of re-deriving the list and drifting
-# from it. The last four are [#319]'s, proposed on 2026-09-21 and admitted only
-# by the two bars registered in `../results/loop/verdict-widening-319.md` -
-# each has to fire on a deny-expected run no other alternation reaches, and
-# none may flip a true confirmation across the 960 confirm-expected runs in the
-# archive. `\bbackwards?\b` replaces `is backwards|are backwards` by subsuming
-# both, along with the American singular and the adverb insertion ("is
-# *actually* backwards") that an adjacent-words pattern cannot see.
+# from it. The last four are [#319]'s, admitted on 2026-09-21 by the two bars
+# registered in `../results/loop/verdict-widening-319.md`. All four passed:
+# each is the sole rescuer of every deny-expected run it matches (14, 12, 18
+# and 7, disjoint across 1,260 runs) and none flips a single confirmation in
+# 960 confirm-expected ones. `\bbackwards?\b` replaces `is backwards|are
+# backwards` by subsuming both, along with the American singular and the adverb
+# insertion ("is *actually* backwards") that an adjacent-words pattern cannot
+# see. Nine denials in five further shapes are still missed, and `is the
+# reverse` still has the adjacency gap; both are [#321].
 DENY_PHRASES = (
     ("is-the-reverse", r"is the reverse"),
     ("other-way-round", r"other way (a)?round"),

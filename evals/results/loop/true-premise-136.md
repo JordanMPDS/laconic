@@ -19,6 +19,23 @@ Reproduce every number below with:
 python3 evals/pilot/score_premise.py evals/snapshots/loop/true-premise-*.json
 ```
 
+> **Amendment, 2026-09-21 ([#319]).** `verdict()` has been widened by four
+> alternations, registered and measured in
+> [`verdict-widening-319.md`](verdict-widening-319.md). **Every claim this
+> document makes survives unchanged**, because the widening touches
+> `DENY_ANYWHERE` alone and `AFFIRM` is consulted first, so no confirm count can
+> move: 180 of 180 settled responses confirming the premise, and the lowest
+> settled-case agreement of 100.0%, both stand exactly.
+>
+> Five `unsettled-*` rows of Bar 2 gain denials out of the `unclear` column —
+> `unsettled-retention`/sonnet baseline 15/20 to **19/20**,
+> `unsettled-failover`/haiku baseline 14/15 to **15/15**,
+> `unsettled-rounding`/haiku laconic 14/15 to **15/15**,
+> `unsettled-rounding`/sonnet baseline 17/20 to **20/20**, and
+> `unsettled-rounding`/sonnet laconic 19/20 to **20/20**. The figures below were
+> computed at **`b3e2d92`** and reproduce from it. One sentence below is now
+> wrong: the selftest asserts twenty shapes, not eleven.
+
 ## What both issues ask for, in the same words
 
 [#136]'s last comment, closing out the third of three proposals:
@@ -436,3 +453,5 @@ both passes above were generated.
 [#136]: https://github.com/JordanMPDS/laconic/issues/136
 [#155]: https://github.com/JordanMPDS/laconic/issues/155
 [#305]: https://github.com/JordanMPDS/laconic/issues/305
+
+[#319]: https://github.com/JordanMPDS/laconic/issues/319

@@ -15,6 +15,26 @@ python3 evals/pilot/score_settled.py \
   --edit    evals/snapshots/loop/round-71-edit-*.json
 ```
 
+> **Amendment, 2026-09-21 ([#319]).** The published deny figures below were
+> computed at **`b3e2d92`**, from which they still reproduce exactly. The
+> `verdict()` classifier has since been widened by four alternations under the
+> two bars registered in
+> [`verdict-widening-319.md`](verdict-widening-319.md), and the command above
+> now reports **pooled deny 147/150 control against 148/150 edit, p = 0.81460**
+> on the scoped pass and **149/150 against 147/150, p = 0.31124** on the
+> replication, against the 142/146 and 146/141 printed below. Corrections stay
+> 150/150 on all four sides and **the registered verdict is unchanged: PASS on
+> both passes**, with neither falsifier falling at alpha before or after.
+>
+> **One reading in this document does not survive the correction**, and it is a
+> caveat the round raised against itself. *"Two cells carry it,
+> `unsettled-retention`/haiku at 25 to 22 and `unsettled-rounding`/sonnet at 23
+> to 20"* — the second cell is **25/25 on both sides** under the corrected
+> classifier, so the whole of its apparent fall was three missed denials, and
+> the first is 25 to 23. The summed cross-pass figure offered as reassurance,
+> *"288 of 300 against 287 of 300"*, is **296 of 300 against 295 of 300**. The
+> point-estimate fall this document named was mostly the instrument.
+
 ## Why this round exists
 
 `bash tools/candidate-due.sh` exits 0: [round 70](round-70.md) carried a
@@ -515,6 +535,7 @@ significance only, never a number.
 [#49]: https://github.com/JordanMPDS/laconic/issues/49
 [#259]: https://github.com/JordanMPDS/laconic/issues/259
 [#305]: https://github.com/JordanMPDS/laconic/issues/305
+[#319]: https://github.com/JordanMPDS/laconic/issues/319
 
 ---
 

@@ -16,6 +16,27 @@ python3 evals/pilot/score_echo.py \
   --edit    evals/snapshots/loop/round-72-edit-*.json
 ```
 
+> **Amendment, 2026-09-21 ([#319]).** This round's own disclosure — that
+> `verdict()` undercounts denials on four shapes and that is why the bound read
+> 65/75 — has been acted on. The widening was registered in advance and
+> measured in [`verdict-widening-319.md`](verdict-widening-319.md): all four
+> alternations fire on runs no other reaches, none flips a confirmation in 960
+> confirm-expected runs, and the archive-wide recovery is 51 denials.
+>
+> The figures below were computed at **`b3e2d92`** and still reproduce from it.
+> The command above now reports **twins pooled deny 148/150 to 146/150,
+> p = 0.34217** (below: 143/150 to 141/150, p = 0.39909) and **the `contra-*`
+> bound 74/75 to 73/75, p = 0.50000** (below: 65/75 to 67/75, p = 0.77408). Its
+> sensitivity improves from *"11 of the edit side's 67 denials"* to **5 of 73** —
+> [#319]'s predicted factor of two, delivered at 2.2.
+>
+> **The registered verdict is unchanged: FAIL**, stratified permutation
+> p = 0.16940, 2 of 3 cells fell. The target is on prose words and no word count
+> moved. **The `contra-failover` disclosure loses one of its three axes**: that
+> cell's deny rate was 17/25 and 18/25 and is 24/25 and 23/25, so it is no
+> longer the lowest; twelve of the 51 recovered runs are in it. It keeps the one
+> confirmation and it still rose on the target.
+
 ## Why this round exists
 
 `bash tools/candidate-due.sh` exits 0: round 71 carried a candidate, so round 72

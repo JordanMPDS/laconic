@@ -35,6 +35,26 @@ python3 evals/pilot/score_settled.py \
 > *"288 of 300 against 287 of 300"*, is **296 of 300 against 295 of 300**. The
 > point-estimate fall this document named was mostly the instrument.
 
+> **Amendment, 2026-09-21 ([#321]).** `verdict()` has been widened a second
+> time, by five alternations registered and measured in
+> [`verdict-residual-321.md`](verdict-residual-321.md) against the [#319] set
+> frozen at **`eecbcd1`**. Two of this round's runs are recovered, one a side
+> across the two passes, and the command above now reports **pooled deny
+> 148/150 control against 148/150 edit, p = 0.68876** on the scoped pass and
+> **150/150 against 148/150, p = 0.24916** on the replication. Corrections stay
+> 150/150 on all four sides and **the registered verdict is still PASS on both
+> passes**, with neither falsifier falling at alpha under any of the three
+> classifiers.
+>
+> The cross-pass figure moves once more: *"288 of 300 against 287 of 300"*
+> below, 296 against 295 under [#319], and **298 of 300 against 296 of 300**
+> now. Of the two cells the caveat named, `unsettled-rounding`/sonnet was shown
+> by [#319] to be entirely instrument, and the replication's control side of
+> `unsettled-failover`/haiku reaches 25/25 here. One cell of the caveat
+> survives — `unsettled-retention`/haiku at 25 to 23 on the replication — and
+> its three remaining misses are a shape no phrase list can take, filed as
+> [#321] and argued there.
+
 ## Why this round exists
 
 `bash tools/candidate-due.sh` exits 0: [round 70](round-70.md) carried a
@@ -776,3 +796,4 @@ checked, not a demonstration that the edit is harmless.
 **Next.** A release is now owed: this is an accepted rule edit reaching
 `master`, and `bash tools/release-due.sh` will say so from the next iteration's
 first command.
+[#321]: https://github.com/JordanMPDS/laconic/issues/321

@@ -36,6 +36,17 @@ python3 evals/pilot/score_premise.py evals/snapshots/loop/true-premise-*.json
 > computed at **`b3e2d92`** and reproduce from it. One sentence below is now
 > wrong: the selftest asserts twenty shapes, not eleven.
 
+> **Amendment, 2026-09-21 ([#321]).** `verdict()` has been widened a second
+> time, by five alternations registered and measured in
+> [`verdict-residual-321.md`](verdict-residual-321.md). **No row of this
+> document moves**, in either direction: none of that widening's six recovered
+> runs is in a `true-premise-*` snapshot, and this document's own two
+> still-`unclear` runs are in the one shape a phrase list cannot reach. Every
+> Bar 2 figure stands as [#319] left it. The sentence about the selftest moves
+> again: it now also asserts [#321]'s six shapes, the contrast shape it
+> deliberately refuses, and the confirmation that shape becomes when "Yes" is
+> put in front of it.
+
 ## What both issues ask for, in the same words
 
 [#136]'s last comment, closing out the third of three proposals:
@@ -455,3 +466,4 @@ both passes above were generated.
 [#305]: https://github.com/JordanMPDS/laconic/issues/305
 
 [#319]: https://github.com/JordanMPDS/laconic/issues/319
+[#321]: https://github.com/JordanMPDS/laconic/issues/321

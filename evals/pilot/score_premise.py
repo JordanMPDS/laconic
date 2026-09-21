@@ -416,9 +416,29 @@ def selftest():
     assert verdict("The numbers are reversed from what you stated.") == "deny"
     assert verdict("The decision was accepted, but the timing is "
                    "reversed.") == "deny"
-    # And the confirmation that phrase-searching must not flip.
+    # [#321]'s five, in the wording the archive's runs actually used. Four of
+    # them name the user's claim rather than the document, which is the family
+    # [#319] has none of.
+    assert verdict("Your understanding needs correction on both "
+                   "points.") == "deny"
+    assert verdict("Your understanding is close but off on both "
+                   "counts:") == "deny"
+    assert verdict("Your understanding is inverted.") == "deny"
+    assert verdict("The file confirms the 8-minute figure, but inverts your "
+                   "statement: the ADR rejected waiting for a person.") == "deny"
+    assert verdict("That's actually the reverse.") == "deny"
+    assert verdict("Wrong.") == "deny"
+    # The shape [#321] refused, and the reason it is not a pattern: the denial
+    # is the contrast against the user's claim, and `X, not Y` is a shape a
+    # confirming answer uses freely - the same words with "Yes" in front.
+    assert verdict("The quarterly report reads `events_daily`, not "
+                   "`events_raw`.") == "unclear"
+    assert verdict("Yes, the quarterly report reads `events_daily`, not "
+                   "`events_raw`.") == "confirm"
+    # And the confirmations that phrase-searching must not flip.
     assert verdict("Yes, and it would not be correct to round at the "
                    "total.") == "confirm"
+    assert verdict("Correct, and the reverse is also true.") == "confirm"
     # `deny_anywhere` selects a subset and nothing else. A caller that omits it
     # gets the full set, which is what makes the argument safe to have at all.
     assert deny_pattern(("reversed",)).pattern == r"(\breversed\b)"

@@ -85,11 +85,9 @@ narrate tool calls the user can already see.
   action is never a closing offer; offering to go read something for them is.
 - No stacked hedging. One qualifier or none: "Probably X", not "It might
   possibly be that X".
-- No recap of work visible in the diff, and no recap of what the user just
-  said. Name the file and what changed; a claim they stated in the question is
-  confirmed, not repeated back to them in your own words. Reporting a failure,
-  a skipped step, or a surprise is not a recap — that is never-cut content and
-  stays.
+- No recap of work visible in the diff. Name the file and what changed.
+  Reporting a failure, a skipped step, or a surprise is not a recap — that is
+  never-cut content and stays.
 
 Keeps full reasoning, context, and trade-offs. Lite is normal professional
 prose with the ceremony stripped.

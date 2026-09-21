@@ -474,6 +474,190 @@ changed:
 *Nothing above this line was computed, except where marked and dated. Everything
 below it was.*
 
+## Verdict: **reject.** The target does not separate, and the edit is reverted
+
+600 generations on 2026-09-21, 300 a side, four shards at `--concurrency 4`
+declared on each, the edit side from this branch and the control side from a
+worktree of this branch with `rules/` checked out from `master`.
+**600 of 600 succeeded, 600 of 600 opened the fixture, and no run mutated
+anything**, so no cell is refused under [#131] or [#209] and both rates are 100%
+rather than merely equal. `python3 evals/bench/release.py` reads all four
+snapshots on CLI **2.1.278** with no unreadable span and no arm imbalanced
+across a release. `python3 evals/bench/concurrency.py` lists none of the four
+among its undeclared arm-days. `rules_cksum` 864847550 on the control against
+3876455788 on the edit, `cases_cksum` 2072749714 on both.
+
+| settled cell, haiku | control median | edit median | two-sided p |
+|---|--:|--:|--:|
+| `settled-retention` | 66.0 | **56.0** | 0.04987 |
+| `settled-failover` | 95.0 | *101.0* | 0.57673 |
+| `settled-rounding` | 84.0 | **78.0** | 0.19968 |
+
+**Stratified one-sided permutation: −3.33 words, p = 0.16940**, over three
+voting cells, 95% bootstrap CI **[−15.00, +3.33]**. **Two of three cells fell.**
+Two registered conditions failed independently, either of which rejects:
+the permutation did not clear 0.05, and the sweep did not hold.
+
+Pooled, the edit moves the median 80.0 to 77.0 — a ratio of **0.963** against
+the 0.85x the pre-mortem named and the 0.84x round 71 achieved. The interval
+excludes round 71's −23.00 comfortably, so **this is a well-powered null against
+a round-71-sized effect** at the registered 0.895 power for 0.80x, and an
+underpowered null against anything smaller than a tenth. `rules/laconic.md` and
+`rules/dist/*.md` are byte-identical to `master`.
+
+### The two bounds both held, and one of them is new capability
+
+**The twin falsifier is clean.** Pooled deny 143/150 control against 141/150
+edit, one-sided Fisher p = 0.39909. Pooled correction 150/150 against 150/150,
+p = 1.000. Nothing regressed on the false-premise twins.
+
+**The `contra-*` bound worked, and it is the half of this round that survives.**
+
+| contra cell, haiku | deny ctl | deny edit | confirm ctl | confirm edit |
+|---|--:|--:|--:|--:|
+| `contra-retention` | 24/25 | 24/25 | 0 | 0 |
+| `contra-failover` | 17/25 | 18/25 | 1 | 1 |
+| `contra-rounding` | 24/25 | 25/25 | 0 | 0 |
+
+Pooled deny **65/75 against 67/75, one-sided Fisher p = 0.77408** — the bound
+did not fire. Pooled confirm **1/75 against 1/75**, p = 0.75168.
+`score_echo.sensitivity` reads that the bound would have fired had **11 of the
+edit side's 67 denials gone missing**, so it gated something rather than sitting
+inert, which is the thing a bound at a near-ceiling has to demonstrate rather
+than assert.
+
+**The manipulation is what the bound rests on and it is at ceiling.** Over
+byte-identical prompts, the three `settled-*` cells confirm and the three
+`contra-*` cells deny. Nothing but the record differs, so haiku is reading the
+record and answering from it rather than from the question — which is the
+premise the bound needs and the first direct measurement of it in this cluster.
+Reading rate cannot show that, because it is 25 of 25 either way.
+
+### The control replicates round 71 in a third independent batch
+
+Unregistered and free, and the strongest positive number in the round. This
+round's control is `master`, which carries round 71's specimen, and it
+reproduces round 71's edit side closely on cells generated eleven days later:
+
+| settled cell, haiku | round 71 edit side | round 72 control |
+|---|--:|--:|
+| `settled-retention` | 63.0 | 66.0 |
+| `settled-failover` | 89.0 | 95.0 |
+| `settled-rounding` | 81.0 | 84.0 |
+| pooled | 79.0 | 80.0 |
+
+Round 71's accepted effect was not an era artefact. It is worth recording
+because round 63 was lost to exactly that failure on a counter nobody had
+watched for drift.
+
+### Why it failed, as far as this round can say
+
+**The one cell that moved did not stop the echo, it shortened it.**
+`settled-retention` fell 66 to 56 at p = 0.04987, its share above 80 words went
+20.0% to 8.0%, and it produced the first two responses in this whole cluster
+under 40 words. Here is the shorter of them, at 30 words:
+
+> Yes, that's correct. The quarterly report reads `events_daily`, not
+> `events_raw`. And `events_raw` is deleted 14 days after ingest by the
+> `prune_events_raw` job, so past quarter re-runs cannot be reconstructed from
+> the raw rows — they're gone.
+
+Every content word is still in the question. So even in the cell where the edit
+bit, it bought compression of the restatement rather than its removal, which is
+the same description round 71 arrived at one level up.
+
+**`settled-failover` rose, and it is the cell whose question asks for something
+beyond the premise.** Its prompt has two clauses — *"costs us up to 8 minutes of
+writes because promotion waits for a person, **and that was accepted rather than
+overlooked**"* — and the second sends the model to the review discussion, which
+is not a claim the user stated. A rule against repeating the user's claim leaves
+that material untouched and may license it. This is a lead, not a finding: it is
+one cell, it is a post-hoc reading, and the cell moved 6 words at p = 0.577.
+
+### The argument this round was bought to test is refuted
+
+The registration named one load-bearing claim and named it as mine rather than a
+consultant's:
+
+> **They are wrong about that, and the file's own record is the counter**: the
+> rules that work in this file are the ones naming a shape, not a quantity.
+> [...] That argument is mine rather than a consultant's, it is the
+> load-bearing reason this round is worth buying, and if the edit is null it is
+> the thing the round refutes.
+
+It is null, so **the argument is refuted as applied here, and both consulted
+targets were right on the prior.** DeepSeek said in advance that a rule of this
+kind against this residual is *"a weak idea"* and that *"the honest prior is a
+clean null"*; Kimi put it in the same class. They were correct and the recorded
+reason for overruling them was not good enough.
+
+What survives is narrower and is offered as a lead rather than a rescue: every
+named-shape rule this file lands on works on material appended **after** the
+answer — a closing offer, a preamble, a narration of a tool call — and the
+premise echo is **inside** the answer, arriving in the same breath as the
+confirmation. Round 48's bound may be better stated as *a rule can delete what
+surrounds the answer and cannot delete what the model believes the answer is
+made of.* That is a reading of seven nulls plus this one and it is unregistered;
+a round wanting it has to find a shape that separates the two predictions.
+
+### The pre-mortem was wrong, in the direction of the edit not working
+
+It predicted a pass at roughly 0.85x — *"the outcome most likely to come back as
+a near-miss rather than a clean win"* — and named the bound coming in below
+ceiling as the way it most expected the round to fail. Both halves were wrong.
+The bound came in at 65/75 for a reason the pre-mortem did not anticipate and
+that is not haiku's behaviour at all (see the disclosure below), and the target
+came back at 0.963x rather than 0.85x. Recorded for [#26]'s count rather than
+smoothed over: this cluster's pre-mortems are now 1 wrong in the direction of
+working (round 71) and 1 wrong in the direction of not working (this round).
+
+### Disclosures, none of them gates
+
+- **The `verdict()` classifier undercounts denials, and it is why the bound read
+  65/75 rather than near ceiling.** Hand-reading all 14 `unclear` runs among the
+  225 denial-expected ones says every one is a correct denial the patterns
+  cannot see: *"The document states the opposite"*, *"You have it backward"*,
+  *"That's backwards"*, *"the numbers are reversed"*, *"Opposite: tax rounds per
+  line"*. Four gaps, each one alternation, filed with the verbatim sentences and
+  a suggested patch as **[#319]**. It did not bias this round: the misses land
+  on both sides in similar numbers, and the bound is stated on denials so a miss
+  counts against the edit. **It is deliberately not fixed here.** `verdict()` is
+  shared with round 71's committed falsifier and both probes, so widening it
+  after seeing these numbers would move figures in three merged documents on a
+  post-hoc choice. The next round to use this bound should register the widening
+  in advance, and it buys back roughly a factor of two in sensitivity.
+- **The twins' lengths moved and no bar was registered on them**, correctly, per
+  round 71's reasoning that a denial there has to carry the record's mechanism.
+  Reported as unmeasured rather than as clean.
+- **No round-wide arm was bought and nothing was judged.** Per the registered
+  buying order, step 1 gates step 2, and step 1 failed. So this round says
+  nothing about the four fatal counters, and the never-cut leak the edit could
+  have caused is **untested** rather than absent.
+- **`contra-failover` is the weak cell of the three** on every axis: the lowest
+  deny rate, the only confirmation, and the only cell that rose on the target.
+  A round promoting these cases should look at it first.
+
+### What [#305] has after this round
+
+Item 1 stays dead. **Item 2 — name the narrowing follow-up — now has a measured
+prior against the cheapest version of it**: widening the already-seen-content
+bullet from *work* to *what the user just said* does not move a residual that is
+made of what the user just said. That is a more specific thing to know than the
+issue had, and it is what a round attempting item 2 at a different altitude
+inherits. [#298]'s proposal 2 is the same clause and inherits the same number.
+
+The `contra-*` cells and `score_echo.py` stay. They cost this round nothing extra
+to build and they are the instrument the next candidate round in this cluster
+needs, whatever endpoint it picks.
+
+### Cost
+
+600 generations, 0 failed, no judgments bought. Roughly $9 at the loop skill's
+rates — haiku on nine of twelve cells is what makes a 600-run round cheap.
+
+[#26]: https://github.com/JordanMPDS/laconic/issues/26
+[#319]: https://github.com/JordanMPDS/laconic/issues/319
+
 [#131]: https://github.com/JordanMPDS/laconic/issues/131
 [#164]: https://github.com/JordanMPDS/laconic/issues/164
 [#209]: https://github.com/JordanMPDS/laconic/issues/209

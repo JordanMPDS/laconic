@@ -595,3 +595,83 @@ counters it means, and [round 70](round-70.md) and [round 55](round-55.md) both
 read their own round-wide bar the same way.
 
 **Bar A holds.** Bars B and C are registered above; the replication follows.
+
+---
+
+## Bar B: the replication passes, and the effect reproduces to within a word
+
+**450 runs, 225 a side, 25 reps per cell per side, zero failed.** The same
+nine cells — three `settled-*` on haiku, six `unsettled-*` twins on haiku and
+sonnet — four shards at `--concurrency 4`, two a side, rep offsets 45 and 57 so
+no generation key is shared with the scoped pass. Both sides simultaneous from
+the two trees, scored by the same `evals/pilot/score_settled.py` at the same
+seed. `rules_cksum` 594915793 on the control against 864847550 on the edit,
+`cases_cksum` 2072749714 on all four, verified against this registration before
+the pass started. `release.py` reads all four snapshots entirely on CLI
+**2.1.278**, the same release the scoped pass and Bar A ran on. $9.98.
+
+Generated 2026-09-21. An earlier launch of this identical command died at 2
+runs a shard the previous morning; no failed key is recorded as done, so
+re-running it regenerated everything that was missing and kept the four records
+already banked.
+
+```sh
+python3 evals/pilot/score_settled.py \
+  --control evals/snapshots/loop/round-71-repl-control-*.json \
+  --edit    evals/snapshots/loop/round-71-repl-edit-*.json
+```
+
+### The target replicates
+
+| settled cell, haiku | n/side | control median | edit median | two-sided p | scoped pass |
+|---|--:|--:|--:|--:|--:|
+| `settled-retention` | 25 | 82.0 | **64.0** | 0.00296 | 86.0 to 63.0 |
+| `settled-failover` | 25 | 115.0 | **90.0** | 0.00772 | 113.0 to 89.0 |
+| `settled-rounding` | 25 | 116.0 | **88.0** | 0.00286 | 103.0 to 81.0 |
+
+**Stratified one-sided permutation: −23.67 words, p < 0.00001**, over three
+voting cells. **3 of 3 cells fell, none rose**, and the consistency requirement
+is met. The scoped pass read −23.00 at p = 0.00008 on an independent 450 runs:
+the two point estimates differ by **0.67 words**, which is a closer agreement
+than the round had any right to register for.
+
+The registered bar was the full verdict passing again — alpha, the sweep, and a
+clean falsifier — and all three are met. **Bar B passes.**
+
+### The headroom [#136] was reported as, on fresh runs
+
+Pooled over the three settled cells on haiku, responses above 80 prose words go
+**56 of 75 (74.7%) to 38 of 75 (50.7%)**, and the pooled median 102.0 to 81.0.
+The share is disclosure rather than the test, per the registration: the
+continuous count is the primary and the binary is powered only for large
+effects.
+
+The [#136] harm is reduced, not removed. Half the edit-side responses still run
+past 80 words on a question whose complete answer is one word, and
+`settled-failover` still reads 64% above 80. **Nothing here licenses closing
+[#136].**
+
+### The falsifier is clean, and the deny rate fell this time
+
+| | deny, control | deny, edit | correction, control | correction, edit |
+|---|--:|--:|--:|--:|
+| Bar B, pooled over six twin cells | 146/150 | 141/150 | 150/150 | 150/150 |
+| scoped pass, same six cells | 142/150 | 146/150 | 150/150 | 150/150 |
+
+**Pooled deny one-sided Fisher p = 0.12809; pooled correction p = 1.00000.**
+Neither rate fell at alpha, so the falsifier is clean by the registered rule.
+
+**It fell in point estimate, and the direction is the one that matters**, so it
+is named rather than left in the table. Two cells carry it,
+`unsettled-retention`/haiku at 25 to 22 and `unsettled-rounding`/sonnet at 23 to
+20. Against that: the *control* side's own deny count moved 142 to 146 between
+the two passes, so a 5-event move sits inside what this quantity does with the
+rules held fixed. Summed across both passes the two sides read **288 of 300
+against 287 of 300** — arithmetic, not a registered test, and reported because
+a reader deciding how much to trust one pass's 0.128 should see it.
+
+Every one of the 300 twin denials on both sides carried the record's own
+mechanism. `CORRECTION` is a fall detector at a ceiling ([#94]) and it has not
+moved off it in 600 responses.
+
+**Bar B passes. The holdout follows.**

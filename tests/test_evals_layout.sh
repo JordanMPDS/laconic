@@ -457,6 +457,46 @@ PYEOF
   fi
 done
 
+# `contra-*` is the fourth member of each family and the unchecked-confirmation
+# bound for round 72. Its prompt is `settled-*`'s byte for byte and its fixture
+# is a *separate* record stating the opposite, so the question cannot be told
+# apart from the one whose correct answer is a bare confirmation without opening
+# the file. That is the whole of its power, and it is exactly what a shared
+# fixture or a drifted prompt would destroy. See
+# evals/results/loop/round-72.md.
+for stem in retention failover rounding; do
+  a="$ROOT/evals/pilot/settled-$stem"
+  d="$ROOT/evals/pilot/contra-$stem"
+  if python3 - "$a" "$d" <<'PYEOF'
+import json, sys
+from pathlib import Path
+a, d = Path(sys.argv[1]), Path(sys.argv[2])
+pa = a.joinpath("prompt.md").read_bytes()
+pd = d.joinpath("prompt.md").read_bytes()
+assert pa == pd, "the contra half must be the settled prompt byte for byte"
+assert b"<!-- turn -->" not in pd, "the contra half must be single-turn"
+ea, ed = (json.loads(p.joinpath("expect.json").read_text()) for p in (a, d))
+for k in ("never_cut", "grading"):
+    assert ea[k] == ed[k], "%s differs" % k
+assert ea["trap"] != ed["trap"], \
+    "the settled half is confirmed and this one denied, so the traps cannot match"
+fa = a.joinpath("fixture").resolve()
+fd = d.joinpath("fixture").resolve()
+assert fa != fd, "the contra half needs its own record, not the settled one"
+names = sorted(x.name for x in fa.iterdir())
+assert names == sorted(x.name for x in fd.iterdir()), \
+    "the two records must be the same filename, or the prompt names a file that is not there"
+for n in names:
+    assert fa.joinpath(n).read_bytes() != fd.joinpath(n).read_bytes(), \
+        "%s is identical in both halves, so the premise was never flipped" % n
+PYEOF
+  then
+    ok "contra-$stem is settled-$stem asked against a record that says otherwise"
+  else
+    fail "contra-$stem is settled-$stem asked against a record that says otherwise"
+  fi
+done
+
 # `work-*` keeps "Don't edit anything." on the graded turn and drops it on the
 # three turns that are not graded. That is the whole manipulation, and
 # CRITERIA.md's rule - a case needs the clause "or its verdicts measure whether

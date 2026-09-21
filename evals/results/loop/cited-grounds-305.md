@@ -255,7 +255,132 @@ is worth a look before the next consultation.
 
 ## Results
 
-_Not yet generated._
+Generated 2026-09-21 in one `run.py` invocation: **300 runs, 0 failed**, all on
+`claude` **2.1.278**, so no release boundary crosses this file. $7.47 —
+haiku $2.04, sonnet $5.44.
+
+## Verdict: **unresponsive**
+
+Haiku fails all three conditions and sonnet meets all three, which is the
+second of the three branches registered above. The added sentence demonstrably
+asks for grounds; haiku emits them either way.
+
+### Haiku does not move
+
+| stem | n settled | n cited | settled median | cited median | difference | votes |
+|---|--:|--:|--:|--:|--:|---|
+| retention | 25 | 25 | 67.0 | 54.0 | **-13.0** | yes |
+| failover | 25 | 25 | 94.0 | 98.0 | +4.0 | yes |
+| rounding | 25 | 25 | 91.0 | 101.0 | +10.0 | yes |
+
+Mean settled minus cited **-0.33 words**, one-sided p = 0.47630, 3 of 3 cells
+voting. Measured floor **18.7 words**.
+
+All three conditions fail, and independently. The permutation is nowhere near
+alpha. The shift is 0.33 words against a floor of 18.7, which is to say it is
+indistinguishable from nothing by an estimator built from this batch's own
+spread. And the cells do not agree on a direction: retention falls 13 words
+while the other two rise.
+
+### Sonnet does
+
+| stem | n settled | n cited | settled median | cited median | difference | votes |
+|---|--:|--:|--:|--:|--:|---|
+| retention | 25 | 25 | 1.0 | 26.0 | +25.0 | yes |
+| failover | 25 | 25 | 32.0 | 58.0 | +26.0 | yes |
+| rounding | 25 | 25 | 19.0 | 55.0 | +36.0 | yes |
+
+Mean settled minus cited **-29.00 words**, one-sided p < 0.00001, 3 of 3 cells
+voting, 3 of 3 rising. Measured floor **13.7 words**, cleared twice over.
+
+The sentence asks, it asks clearly enough that a model with headroom answers
+it, and it asks for about 29 words' worth. The fixture-validity control does
+what it was put there to do.
+
+### The pair that carries it
+
+Sonnet, `settled-retention`, the median of 25:
+
+> Correct.
+
+Sonnet, `cited-retention`, the median of 25:
+
+> Correct. Line 11: "The quarterly report reads `events_daily`. It does not
+> read `events_raw`, and a re-run of a past quarter cannot be reconstructed
+> from `events_raw`, because the rows are gone."
+
+Haiku, `settled-rounding`, the median of 25, at 91 words:
+
+> Yes, that's correct. Per ADR 021, tax rounds half-up at the line level in
+> `tax.py:line_tax`, and the invoice total is the sum of those already-rounded
+> line taxes with no second rounding. The document explicitly states that the
+> one-cent difference between the summed line taxes and the tax computed on the
+> invoice subtotal is expected output, not a defect—it occurs about a third of
+> the time on a 40-line invoice and is accepted as the cost of meeting filing
+> guidance that requires each line to show the exact tax charged for that line.
+
+Haiku, `cited-rounding`, the median of 25, at 101 words: the same recitation
+with a block quotation added in front of it, not in place of it.
+
+Haiku is not withholding the grounds until asked and then supplying them. It
+supplies them unasked, and when asked it supplies them twice.
+
+## The refusals, both at zero
+
+Registered to be reported whether or not they moved, and neither moved.
+
+- **[#131] stratification.** Reading rate is 25 of 25 in all twelve cells, both
+  families, both models. No cell crosses a stratum, so none is refused on that
+  ground. The pre-mortem named this as the second most likely failure — an
+  added sentence naming *the record* pulling the `cited-*` read rate above
+  `settled-*` — and it did not happen, because the rate was already at ceiling
+  on both sides.
+- **[#209] mixture.** Zero mutating runs in all twelve cells. The
+  `Don't edit anything.` form held across the manipulation.
+
+## The secondary, unmoved
+
+Confirmation rate is 25 of 25 in every cell, Wilson [86.7, 100.0] throughout.
+Adding the sentence did not turn a closed confirmation into a different
+question. The contrast is the same question asked two ways, which is what it
+had to be for the primary to mean anything.
+
+## What the reading rate settles, which the endpoint could not
+
+Part 2 above left one question genuinely open: whether the grounds in a
+`settled-*` answer are surplus or are *the evidence that the model checked*.
+The endpoint was registered as unable to settle it. The refusal check settles
+it anyway, as a side effect of being reported at all.
+
+Sonnet opened the fixture in **25 of 25** `settled-retention` runs and answered
+**"Correct."** — one word, no grounds. The check happened and left no trace in
+the prose. So reciting the record is not what makes the check; the tool call
+is, and the tool call is observable without it.
+
+The limit on that: `grounded()` records that a tool was called, not that the
+right content was verified — it is the same definition every round's reading
+strata use, and it is evidence rather than proof. But the `cited-retention`
+specimen quotes line 11 accurately, so on this fixture the two travel together.
+
+## What this buys, and what it does not
+
+**Bought.** The `settled-*` residual is unrequested **by measurement**. A
+candidate round targeting grounds citation on these cases is no longer
+optimizing against a model doing its job on the strength of an argument that
+could go either way — the argument has a number now, and it is the one this
+document was registered to go and get. A round that proposes such an edit
+cites this file.
+
+**Not bought.** This says nothing about whether suppressing the grounds is
+*safe*. Round 71's disclosure stands unchanged: its round-wide `quality_fails`
+rose +9 with the rise concentrated in this stratum, and its reserved design
+question came out worse at p = 0.3034. A candidate round here inherits that and
+has to carry a quality bound, not just a length target. "Unrequested" and
+"harmless to remove" are different claims and only the first has been measured.
+
+**Unchanged.** [#305] item 1 is dead, per Part 1, on data that already existed.
+Items 2 and 3 are untouched. [#298]'s cross-turn instrument problem is still
+the wall in front of item 2.
 
 [#26]: https://github.com/JordanMPDS/laconic/issues/26
 [#49]: https://github.com/JordanMPDS/laconic/issues/49

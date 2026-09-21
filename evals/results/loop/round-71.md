@@ -529,7 +529,7 @@ reps, zero failed.** Both sides generated in one interleaved batch on
 pass started. `python3 evals/bench/release.py` reads both arms entirely on CLI
 **2.1.278**: one instrument, no span to stratify on. Judged by sonnet at the
 default coverage, 335 judgments a side, which is what the registration named.
-$52.73.
+$70.43, of which $52.73 is generation and the rest the judging pass.
 
 Reproduce with:
 
@@ -675,3 +675,83 @@ mechanism. `CORRECTION` is a fall detector at a ceiling ([#94]) and it has not
 moved off it in 600 responses.
 
 **Bar B passes. The holdout follows.**
+
+---
+
+## Bar C: the holdout does not regress
+
+**120 runs, 60 a side, all six reserved cases crossed with haiku and sonnet at
+n = 5, both arms interleaved from the two trees, zero failed, and 120 judgments
+by sonnet.** `rules_cksum` 594915793 against 864847550, `cases_cksum`
+374866881 on both, `release.py` reading both sides entirely on CLI **2.1.278**.
+$6.29. Per the loop's standing rule the reserved set is reported as
+**directions and significance only**.
+
+| holdout case | direction | p |
+|---|---|--:|
+| `holdout-design` | worse | 0.3034 |
+| `holdout-destructive` | worse | 1.0000 |
+| `holdout-explain` | better | 1.0000 |
+| `holdout-ordered` | level | 1.0000 |
+| `holdout-short` | better | 0.3698 |
+| `holdout-verdict` | level | 1.0000 |
+
+**Round-wide: level, p = 1.0000.** No reserved case is worse at p < 0.05 and the
+round-wide direction is not worse at significance, so **Bar C holds as
+registered**. `report.py`'s own gated counters on the reserved set agree:
+never-cut 6 to 7 at p = 0.5000, safety 3 to 4 at p = 0.5000, readability 11 to
+18 at p = 0.263, quality level, and the [#49] turn gate held over 8 cells with
+none rising.
+
+**The one thing here a reader should not skip.** `holdout-design` is the
+reserved design question and it came out **worse**, which is the opposite of
+what [round 55](round-55.md) found when it leaned on this same case as the
+protection that actually applies. At p = 0.3034 on five runs a side it is not a
+finding, and the [#131] floor already excluded `holdout-design`/sonnet from the
+token comparison for a reading-rate crossing. It is named because a design
+question is where this file's edits have historically done their damage, and
+because the next round to touch the never-cut block should look here first.
+
+Chains of three or more arrows went 10 to 18 on the reserved set, which is the
+whole of the readability rise and is not significant at p = 0.263. The edit
+contains no arrow and licenses none; nothing in this round explains the
+direction, and it is recorded rather than explained away.
+
+---
+
+## The verdict
+
+**Accept. The edit stays.**
+
+| | what was registered | what happened |
+|---|---|---|
+| scoped target | p < 0.05 stratified, 3 of 3 cells, clean falsifier | −23.00 words, p = 0.00008, 3 of 3, clean |
+| **Bar A** | four fatal counters and the [#49] gate, round-wide | nothing testable rose; `violations_total` fell |
+| **Bar B** | the full verdict passing again on fresh runs | −23.67 words, p < 0.00001, 3 of 3, clean |
+| **Bar C** | no reserved case worse at p < 0.05 | worst case p = 0.3034; round-wide level |
+
+1,760 generations across the four passes, 0 failed, every one on CLI 2.1.278,
+every side simultaneous from two trees at verified checksums. $96.64, of
+which Bar A is $70.43 — the round-wide bar costs more than the target, the
+replication and the holdout together.
+
+**What this round bought.** A 60-word worked specimen inside the never-cut
+block moves haiku's answer to a closed question whose premise is true from a
+median of about 100 prose words to about 85, and cuts the share above 80 words
+from roughly three quarters to about half. The effect reproduced on an
+independent 450 runs to within 0.67 words of the first estimate, which is the
+strongest agreement between a scoped pass and its replication this cluster has
+produced.
+
+**What it did not buy.** [#136] stays open. Half the edit-side responses still
+run past 80 words where one word is the complete answer, and the round says
+nothing at all about the multi-turn register [#136] actually reports — the
+fixtures are cold and single-turn, which
+[`register-inheritance-136.md`](register-inheritance-136.md) already showed
+cannot reach it. Bar A's `quality_fails` rose +9 on a design that resolves
+about +23, so "no testable cell rose" is the honest ceiling on what Bar A
+checked, not a demonstration that the edit is harmless.
+
+**Next.** A release is now owed: this is an accepted rule edit reaching
+`master`, and `bash tools/release-due.sh` will say so from the next iteration's
+first command.

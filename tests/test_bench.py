@@ -14,6 +14,17 @@ import zlib
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
+
+# Every `run.py` this file spawns runs against `tests/stubs/claude-stub.sh` and
+# holds no CLI session, so the #255 shard ceiling — which exists to bound the
+# memory a real session costs — has nothing to protect here. Left at its
+# default, the suite fails on the one machine that matters: a round generating
+# four shards refuses the test's fifth `run.py`, and every subprocess check in
+# this file reports a failure that is the loop working as designed. Inherited
+# by children; the two tests that exercise the bound pass `--max-shards`
+# explicitly, and the flag beats the environment.
+os.environ["LACONIC_MAX_SHARDS"] = "0"
+
 sys.path.insert(0, str(ROOT / "evals" / "bench"))
 import run as bench_run  # noqa: E402
 import metrics as bench_metrics  # noqa: E402
@@ -5399,6 +5410,18 @@ _expected_concurrent = {
     # resumed by key; a resume is still one sequential invocation, so it widens
     # the span without widening what was in flight.
     "round-70-rep-control.json", "round-70-rep-edit.json",
+    # Round 71's wide arm - Bar A, the round-wide counters - repeats round 70's
+    # wide design: two trees, one arm, all 37 dev-set cases crossed with both
+    # models at 5 reps, sharded by model into four, two per side, each strictly
+    # sequential and each declaring --concurrency 4. The shard boundary is the
+    # model, so every case and every rep of a model is generated inside one
+    # process and no cell is split across shards; the two sides stay separate
+    # snapshots because a rules revision is resolved once per invocation. Only
+    # the two merges reach the sweep, and each reconstructs to exactly the two
+    # shards that produced its own side. Round 71's scoped and replication
+    # passes are sharded by rep range and scored from the shard files directly,
+    # so they never merge and never reach the sweep.
+    "round-71-wide-control.json", "round-71-wide-edit.json",
 }
 _found = set()
 for _p in sorted((ROOT / "evals" / "snapshots").rglob("*.json")):

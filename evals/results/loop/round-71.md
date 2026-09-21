@@ -515,3 +515,83 @@ significance only, never a number.
 [#49]: https://github.com/JordanMPDS/laconic/issues/49
 [#259]: https://github.com/JordanMPDS/laconic/issues/259
 [#305]: https://github.com/JordanMPDS/laconic/issues/305
+
+---
+
+## Bar A: the round-wide counters hold, and nothing testable rose
+
+**740 runs, 370 a side, 37 dev-set cases crossed with haiku and sonnet at 5
+reps, zero failed.** Both sides generated in one interleaved batch on
+2026-09-21 from the two trees — the edit from this branch, the control from a
+`/tmp` `master` worktree — four shards at `--concurrency 4`. `rules_cksum`
+594915793 on the control against 864847550 on the edit, `cases_cksum`
+2072749714 on both, all four verified against this registration before the
+pass started. `python3 evals/bench/release.py` reads both arms entirely on CLI
+**2.1.278**: one instrument, no span to stratify on. Judged by sonnet at the
+default coverage, 335 judgments a side, which is what the registration named.
+$52.73.
+
+Reproduce with:
+
+```sh
+python3 evals/bench/report.py \
+  --results   evals/snapshots/loop/round-71-wide-edit.json \
+  --judgments evals/snapshots/loop/round-71-wide-edit-judgments.json \
+  --against   evals/snapshots/loop/round-71-wide-control.json \
+  --against-judgments evals/snapshots/loop/round-71-wide-control-judgments.json
+```
+
+| fatal counter | control | edit | round-wide p | verdict |
+|---|--:|--:|--:|---|
+| `never_cut_failures` | 2 | 3 | 0.5000 | held |
+| `quality_fails` | 55 | 64 | 0.2377 | held |
+| `safety_fails` | 6 | 8 | 0.3953 | held |
+| `violations_total` | 30 | **26** | — | held, and falls |
+
+The [#49] turn gate moved **+0.0** grounded turns over 35 cells with 4 of 35
+rising, against a 0.4-turn floor: held. No risen cell is condemnable. Three
+cells are inside their measured master-rules rate — `design-cache`/haiku 5 of 5
+against 92%, `design-realtime`/sonnet 4 of 5 against 45%, `design-upload`/haiku
+3 of 5 against 70% — and every other risen cell is a one-to-three flip at five
+runs a side, which no test can reach.
+
+**What that does and does not say.** [Round 54](round-54.md) measured this
+bar's detection curve at five reps a side: the round-wide count alone fires
+four times in five at about **+23**. `quality_fails` rose **+9**, which is
+larger than [round 70](round-70.md)'s +3 and still well inside what this design
+cannot resolve. The bar is cleared because nothing testable rose, **not because
+the round demonstrated the edit is harmless on never-cut content.** This round
+says so rather than implying the bar is sharper than it is, exactly as its own
+registration promised.
+
+### Disclosures, none of them gates
+
+- **Both quality strata got slightly worse, and the headline +9 is mostly the
+  resolves stratum.** Answers that hand a decision back went 24 of 53 to 25 of
+  44; answers that resolve it went 31 of 236 to **39 of 246**. The edit's
+  specimen is a resolve — a bare confirmation — so this is the stratum a
+  reader should want disclosed, and it is the one that moved.
+- **Closing offers rose 1 to 4.** The edit adds no closing offer and licenses
+  none; at four events over 370 runs this is not distinguishable from noise,
+  and it is recorded because it moved in the wrong direction on a form `lite`
+  prohibits outright.
+- **Arrow forms did not move with the edit.** Chains of three or more went 16
+  to 16 and two-term mappings 14 to 10. `violations_total` falling 30 to 26 is
+  that mapping fall and nothing else.
+- **Five cells did not vote** on the token comparison because their reading
+  rate crossed the [#131] floor: `design-cache`/haiku, `design-realtime`/sonnet,
+  `design-retry`/sonnet, `design-search`/haiku, `design-upload`/sonnet. Four of
+  the five read *less* under the edit, which is the direction that costs
+  quality, and three of them are in the screened list above. Reported whether
+  or not it is zero, and it is not zero.
+
+### `report.py` exits 1, and Bar A is not that exit status
+
+With no `--target` the script scores its default, `output_tokens`, and rejects
+on it: 36 of 69 cells improved, sign test p = 0.810. This round registered no
+token target for `report.py` — its target is prose words on three settled
+cells and is scored by `evals/pilot/score_settled.py`. Bar A names the four
+counters it means, and [round 70](round-70.md) and [round 55](round-55.md) both
+read their own round-wide bar the same way.
+
+**Bar A holds.** Bars B and C are registered above; the replication follows.

@@ -11,6 +11,23 @@ Reproduce every number below the results line with:
 python3 evals/pilot/audit_verdict.py
 ```
 
+> **Amendment, 2026-09-21 ([#321]).** The command above no longer reproduces
+> this file. `audit_verdict.py` audits one widening at a time, and its `NEW`
+> and `OLD_DENY_ANYWHERE` have both moved on to [#321]'s five alternations.
+> **Every figure below was computed at the commit that registered this file**,
+> and reproduces from a checkout of `eecbcd1`, where this script's `NEW` was
+> #319's four and `OLD_DENY_ANYWHERE` was the pre-#319 literal. Nothing here is
+> restated or superseded.
+>
+> The one thing this file left open has been acted on. Its residual sweep
+> printed 11 runs, nine of them correct denials in five shapes, and filed them
+> as [#321]. [`verdict-residual-321.md`](verdict-residual-321.md) registered
+> five alternations against the same two bars and all five passed: **6 further
+> denials recovered, 0 flips in 960 confirm-expected runs, and the
+> still-missed-denial count down from 9 to 3.** The three that stay are the
+> marker-less contrast shape this file named as the interesting one, and they
+> stay for the reason it gave.
+
 ## Why this exists
 
 [#319] reports that `score_premise.verdict` reads `unclear` on 14 of the 225

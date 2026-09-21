@@ -1,17 +1,29 @@
 #!/usr/bin/env python3
-"""The admission audit for [#319]'s four `DENY_ANYWHERE` alternations.
+"""The admission audit for a `DENY_ANYWHERE` widening.
 
     python3 evals/pilot/audit_verdict.py
     python3 evals/pilot/audit_verdict.py --selftest
 
-`score_premise.verdict` read `unclear` on 14 of round 72's 225 denial-expected
-runs, and hand-reading all 14 said every one was a correct denial the patterns
-could not see. [#319] published the verbatim sentences and a four-alternation
-patch before any figure here was computed, which is what makes the widening
-admissible rather than post hoc.
+It audits one widening at a time. `NEW` names the alternations under audit and
+`OLD_DENY_ANYWHERE` freezes the pattern set they were added to; both move
+together when a widening ships, so the script always answers "what did the
+alternations I just added buy" rather than accumulating history it cannot
+attribute. **It currently audits [#321]'s five**, against the [#319] set frozen
+at `eecbcd1`. #319's own figures are in
+`../results/loop/verdict-widening-319.md` and were computed from that commit,
+where this script's `NEW` was #319's four.
 
-This script is the check that widening owed. The registration in
-`../results/loop/verdict-widening-319.md` fixes what it decides, and both bars
+The shape came from round 72. `score_premise.verdict` read `unclear` on 14 of
+its 225 denial-expected runs, and hand-reading all 14 said every one was a
+correct denial the patterns could not see. [#319] published the verbatim
+sentences and a four-alternation patch before any figure was computed, which is
+what made that widening admissible rather than post hoc. [#321] is the same
+move on the residual #319's own sweep printed: nine correct denials in five
+shapes, published verbatim in the issue before these patterns were written.
+
+This script is the check a widening owes. The registrations in
+`../results/loop/verdict-widening-319.md` and
+`../results/loop/verdict-residual-321.md` fix what it decides, and both bars
 were written down before it was run for the first time:
 
 - **Bar F, it fires.** The alternation moves at least one **deny-expected** run
@@ -25,7 +37,11 @@ were written down before it was run for the first time:
 
 An alternation that fails either bar is dropped whole - never narrowed,
 re-worded or re-scoped. Tuning a pattern until it passes is the failure the
-ordering exists to prevent.
+ordering exists to prevent. Narrowing a pattern *before* the sweep on an
+argument about vocabulary is a different act and is allowed: [#321] refused a
+bare `\breverse\b` on `deepseek` and `kimi`'s objection through
+`tools/consult.sh`, and dropped `slightly different` whole on the same
+argument, with no figure from this script in hand.
 
 Two further checks, neither a bar. The **structural check** asserts that no run
 in either population changes to `confirm` and that no run already `confirm` or
@@ -34,7 +50,7 @@ only convert `unclear` to `deny`. That is what scopes Bar C correctly, and it
 is why `true-premise-136.md`'s Bar 2 confirm shares and
 `cited-grounds-305.md`'s confirmation rates cannot move. The **residual sweep**
 prints every deny-expected run still read `unclear` after the widening, so a
-fifth shape gets named here rather than rediscovered by the next round.
+further shape gets named here rather than rediscovered by the next round.
 
 Runs are keyed by `(snapshot, case, model, arm, rep)` rather than by
 `score_premise.load`'s generation key, because round 71's replication pass and
@@ -55,17 +71,20 @@ SNAPSHOTS = ROOT / "evals" / "snapshots"
 CONFIRM_EXPECTED = ("settled-", "cited-")
 DENY_EXPECTED = ("unsettled-", "contra-")
 
-# The four alternations under audit, in the order [#319] lists them.
-NEW = ("backwards", "the-opposite", "opposite-opener", "reversed")
+# The five alternations under audit, in the order [#321] lists their shapes.
+NEW = ("needs-correction", "inverts", "close-but-off", "the-reverse",
+       "wrong-opener")
 
-# `DENY_ANYWHERE` exactly as it stood at b3e2d92, frozen as a literal so the
-# "before" column needs no git checkout. Nothing scores against this: it exists
-# to answer "what did the old classifier say", and it is not reconstructible
-# from `sp.DENY_PHRASES` because `\bbackwards?\b` replaced two alternations
-# rather than joining them.
+# `DENY_ANYWHERE` exactly as it stood at eecbcd1 - [#319]'s set, this
+# widening's "before" - frozen as a literal so that column needs no git
+# checkout. Nothing scores against this: it exists to answer "what did the old
+# classifier say", and it is not reconstructible from `sp.DENY_PHRASES`,
+# because `\b(is|are|'?s) (actually |really )?the reverse\b` replaced `is the
+# reverse` rather than joining it.
 OLD_DENY_ANYWHERE = re.compile(
-    r"(is backwards|are backwards|is the reverse|other way (a)?round"
-    r"|is wrong\b|are wrong\b|not correct|isn'?t correct|is incorrect)",
+    r"(is the reverse|other way (a)?round"
+    r"|is wrong\b|are wrong\b|not correct|isn'?t correct|is incorrect"
+    r"|\bbackwards?\b|the opposite|^opposite\b|\breversed\b)",
     re.I)
 
 
@@ -222,23 +241,40 @@ def main():
 
 def selftest():
     """The audit's own decisions, on shapes that do not need the archive."""
-    assert sp.verdict("The document states the opposite.",
-                      OLD_DENY_ANYWHERE) == "unclear"
-    assert sp.verdict("The document states the opposite.") == "deny"
-    assert sp.verdict("I read it - your understanding is backwards.",
-                      OLD_DENY_ANYWHERE) == "deny"
-    # Every alternation the old pattern set had is still reachable, so the
-    # structural check's "no deny becomes unclear" claim is a property of the
-    # patterns and not only of the corpus.
-    for s in ("your understanding is backwards", "the numbers are backwards",
-              "it is the reverse", "the other way around", "the other way round",
-              "that is wrong", "the numbers are wrong", "not correct",
-              "isn't correct", "isnt correct", "it is incorrect"):
-        assert sp.DENY_ANYWHERE.search(s), s
-        assert OLD_DENY_ANYWHERE.search(s), s
-    # Attribution: each of the four reaches its own shape and `^opposite` does
-    # not stand in for `the opposite`, which is why both are listed.
+    # [#321]'s five, each on the verbatim sentence the issue published.
+    for s in ("Your understanding needs correction on both points.",
+              "Your understanding is inverted.",
+              "The file confirms the 8-minute figure, but inverts your"
+              " statement: the ADR rejected waiting for a person.",
+              "Your understanding is close but off on both counts:",
+              "That's actually the reverse.",
+              "Wrong."):
+        assert sp.verdict(s, OLD_DENY_ANYWHERE) == "unclear", s
+        assert sp.verdict(s) == "deny", s
+    # The two shapes [#321] refused, so a later widening cannot quietly admit
+    # them without deleting an assertion that says why.
+    for s in ("The quarterly report reads `events_daily`, not `events_raw`.",
+              "Slightly different: the quarterly report reads `events_daily`."):
+        assert sp.verdict(s) == "unclear", s
     hit = lambda n, s: bool(sp.deny_pattern((n,)).search(s))
+    # `the-reverse` takes the copula and the adverb insertion and leaves the
+    # noun, which is the whole of why it is not `\breverse\b`.
+    assert hit("the-reverse", "it is the reverse")
+    assert hit("the-reverse", "that's actually the reverse")
+    assert hit("the-reverse", "the columns are the reverse of that")
+    for s in ("put it behind a reverse proxy", "in reverse chronological order",
+              "this resolves the reverse migration", "the reverse is true"):
+        assert not hit("the-reverse", s), s
+    # `close but off` is anchored on `off` because the caveat shape confirms.
+    assert hit("close-but-off", "your understanding is close but off")
+    assert not hit("close-but-off", "that's close but let me add one thing")
+    # `^wrong` anchors to the sentence, so a later "wrong" is not an opener.
+    assert hit("wrong-opener", "Wrong.")
+    assert not hit("wrong-opener", "Nothing here is wrong about the window.")
+    assert hit("inverts", "your understanding is inverted")
+    assert hit("inverts", "the ADR inverts your statement")
+    # [#319]'s four still reach their own shapes, and the pre-#319 pattern set
+    # is gone from this file, so these are the regression guard for them.
     assert hit("backwards", "You have it backward.")
     assert hit("backwards", "Your understanding is actually backwards.")
     assert hit("the-opposite", "The document shows the opposite: ...")
@@ -246,13 +282,21 @@ def selftest():
     assert hit("opposite-opener", "Opposite: tax rounds per line.")
     assert not hit("the-opposite", "Opposite: tax rounds per line.")
     assert hit("reversed", "The numbers are reversed from what you stated.")
-    assert not hit("reversed", "The reverse is true.")
-    # `^` inside the joined alternation still anchors to the sentence, so the
-    # opener does not match a later "opposite".
     assert not hit("opposite-opener", "Tax rounds per line, opposite to that.")
+    # Every alternation the frozen pattern set had is still reachable, so the
+    # structural check's "no deny becomes unclear" claim is a property of the
+    # patterns and not only of the corpus.
+    for s in ("your understanding is backwards", "the numbers are backwards",
+              "it is the reverse", "the other way around", "the other way round",
+              "that is wrong", "the numbers are wrong", "not correct",
+              "isn't correct", "isnt correct", "it is incorrect",
+              "the document states the opposite", "Opposite: it rounds per line",
+              "the numbers are reversed"):
+        assert sp.DENY_ANYWHERE.search(s), s
+        assert OLD_DENY_ANYWHERE.search(s), s
     # The affirm test runs first, so no phrase search can flip a confirmation.
     assert sp.verdict("Yes - the opposite would have been surprising.") == "confirm"
-    assert {r["population"] for r in []} == set()
+    assert sp.verdict("Correct, and the reverse is also true.") == "confirm"
     print("ok")
     return 0
 

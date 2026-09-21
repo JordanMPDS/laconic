@@ -37,6 +37,30 @@ python3 evals/pilot/score_echo.py \
 > longer the lowest; twelve of the 51 recovered runs are in it. It keeps the one
 > confirmation and it still rose on the target.
 
+> **Amendment, 2026-09-21 ([#321]).** `verdict()` has been widened a second
+> time, by five alternations registered and measured in
+> [`verdict-residual-321.md`](verdict-residual-321.md) against the [#319] set
+> frozen at **`eecbcd1`**. Two of this round's runs are recovered, both on the
+> edit side. The command above now reports **twins pooled deny 148/150 to
+> 148/150, p = 0.68876** and **the `contra-*` bound 74/75 to 74/75,
+> p = 0.75168**, with `contra-failover`/haiku at 24/25 on both sides rather
+> than 24 and 23.
+>
+> **The registered verdict is unchanged: FAIL**, stratified permutation
+> p = 0.16940, 2 of 3 cells fell. The target is on prose words and no word
+> count moved.
+>
+> The sensitivity line reads *"6 of 74"* rather than *"5 of 73"*, and that is
+> not a loss of power: both name the same floor, an edit side falling to 68 of
+> 75. The count is stated against the edit side's own denials, so recovering
+> one more denial there moves the count without moving the threshold.
+>
+> **The `contra-failover` disclosure loses its deny-rate axis entirely.** That
+> cell was named the weak one of the three on three axes; [#319] took its rate
+> from 17/25 and 18/25 to 24/25 and 23/25, and it is now 24/25 on both sides,
+> which is not distinguishable from the other two. It keeps the one
+> confirmation and it still rose on the target.
+
 ## Why this round exists
 
 `bash tools/candidate-due.sh` exits 0: round 71 carried a candidate, so round 72
@@ -678,6 +702,7 @@ rates — haiku on nine of twelve cells is what makes a 600-run round cheap.
 
 [#26]: https://github.com/JordanMPDS/laconic/issues/26
 [#319]: https://github.com/JordanMPDS/laconic/issues/319
+[#321]: https://github.com/JordanMPDS/laconic/issues/321
 
 [#131]: https://github.com/JordanMPDS/laconic/issues/131
 [#164]: https://github.com/JordanMPDS/laconic/issues/164

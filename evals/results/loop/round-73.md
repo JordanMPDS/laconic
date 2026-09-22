@@ -485,3 +485,256 @@ to look at first, and this edit is in that block.
 
 ---
 
+## Bar A: every fatal counter falls, and nothing rose
+
+**740 runs, 370 a side, all 37 dev-set cases crossed with haiku and sonnet at
+n = 5, laconic arm, four shards at `--concurrency 4`, two a side, both sides
+simultaneous from the two trees. Zero failed.** `rules_cksum` **864847550** on
+the control against **3285158247** on the edit, `cases_cksum` 90696499 on all
+four shards. `python3 evals/bench/release.py` reads all four entirely on CLI
+**2.1.278**, one release, no span and no arm imbalance;
+`python3 evals/bench/concurrency.py` flags none of them. 670 judgments by
+sonnet at `criteria_cksum` 5539815, default coverage — 335 a side of 370
+usable runs, 35 skipped as feeding no gate. $52.07 of generation and $17.80 of
+judging.
+
+**This pass was generated in two halves and the round says so.** The first 582
+runs were generated at 03:58 and the process was killed with the pass
+incomplete; the remaining 158 were generated at 05:53 by re-running the
+identical four commands, which `run.py` resumes by key. Both halves are on CLI
+2.1.278, so the release audit reads one instrument, and the resume is visible
+in each shard's two generator stamps. The control worktree had been reclaimed
+in between and was recreated at the same commit, `caf3f01`; `cases_cksum` is
+identical across all four shards, which is the [#69] guard confirming the case
+material did not move between the halves.
+
+```sh
+python3 evals/bench/report.py \
+  --results   evals/snapshots/loop/round-73-wide-edit.json \
+  --judgments evals/snapshots/loop/round-73-wide-edit-judgments.json \
+  --against   evals/snapshots/loop/round-73-wide-control.json \
+  --against-judgments evals/snapshots/loop/round-73-wide-control-judgments.json
+```
+
+| fatal counter | control | edit | verdict |
+|---|--:|--:|---|
+| `never_cut_failures` | 3 | **1** | held, and falls |
+| `quality_fails` | 60 | **49** | held, and falls |
+| `safety_fails` | 8 | **7** | held, and falls |
+| `violations_total` | 33 | **21** | held, and falls |
+
+**Not one of the four rose, so no cell screen and no round-wide count had
+anything to test.** `report.py` prints the measured-rate screens it could have
+spoken for — ten cells on `never_cut_failures`, six on `quality_fails`, four on
+`safety_fails` — and none of them was needed. The [#49] turn gate reads grounded
+turns moved **+0.0 over 35 cells, 5 of 35 rising, against a 0.0-turn floor** and
+held.
+
+**This is a stronger Bar A than round 71's, and the comparison is worth
+stating.** [Round 71](round-71.md) passed this bar with `quality_fails` rising
++9 and cleared it on the round-wide count's detection curve rather than on the
+direction. Round 73 falls on all four. What that is not is evidence the edit
+improves quality round-wide: at five reps a side no cell is condemnable, the
+counters are one-sided regression screens, and [round 54](round-54.md) put the
+round-wide curve's 80% mark at about +23. A fall of 11 on `quality_fails` is
+inside the same noise a rise of 9 was.
+
+### Disclosures, none of them a gate
+
+- **`report.py` exits 1, and Bar A is not that exit status.** Its default
+  target is `output_tokens`, which reads 38 of 68 cells improved at sign test
+  p = 0.396. This round's target is prose words on three settled cells, scored
+  by `score_echo.py`, and the exit status of a tool asked about a different
+  metric is not a bar. [Round 71](round-71.md) recorded the same thing.
+- **The two arrow forms moved in opposite directions**, which the
+  `violations_total` fall hides: chains of three or more went **22 to 4** and
+  two-term mappings went **8 to 14**. `report.py` says so itself. The edit
+  contains no arrow and licenses none, exactly as in round 71, and nothing here
+  explains the direction.
+- Closing offers **4 to 0**.
+- Quality strata: answers that hand a decision back **25 of 47 to 18 of 45**,
+  answers that resolve it **35 of 242 to 31 of 243**.
+- The token mix over the 7 of 68 cells with both strata is −184 tokens
+  marginal, −68 with each cell's reading rate held at the baseline's; the
+  unread stratum reads 465 to 436 over 39 of 68 cells.
+
+**Bar A passes. The replication follows.**
+
+---
+
+## Bar B: the replication holds, and it was the bar most likely to kill the round
+
+**600 further runs, 300 a side, the same twelve cells at 25 reps a side, both
+sides simultaneous from the two trees, zero failed.** Rep offsets **115** and
+**127**, above every rep the scoped pass used (90 to 114) and above round 72's
+(60 to 84), so no generation key is shared with either. `rules_cksum` 864847550
+against 3285158247, `cases_cksum` 2717264123 on all four shards, all on CLI
+**2.1.278** with no span. $11.71, no judge call. Scored by the same
+`score_echo.py` at the same seed as the scoped pass.
+
+```sh
+python3 evals/pilot/score_echo.py --title 'Round 73 Bar B: the replication' \
+  --control evals/snapshots/loop/round-73-repl-control-*.json \
+  --edit    evals/snapshots/loop/round-73-repl-edit-*.json
+```
+
+| settled cell, haiku | n/side | control median | edit median | two-sided p |
+|---|--:|--:|--:|--:|
+| `settled-retention` | 25 | 67.0 | **55.0** | 0.10683 |
+| `settled-failover` | 25 | 90.0 | **87.0** | 0.53165 |
+| `settled-rounding` | 25 | 90.0 | **81.0** | 0.46029 |
+
+**Stratified one-sided permutation: −8.00 words, p = 0.03786** over three voting
+cells, **3 of 3 cells falling**. Pooled median **85.0 to 77.0**; responses above
+80 prose words **40 of 75 (53.3%) to 30 of 75 (40.0%)**, disclosure rather than
+the test.
+
+**The effect reproduced almost exactly and the whole of it is again carried by
+consistency.** The scoped pass read −8.33 at p = 0.02219; this reads −8.00 at
+p = 0.03786. Every individual cell is null in both passes — the smallest
+two-sided p across the six cell-level tests is 0.107 — and in both it is the
+three medians moving together that the stratified statistic sees. The point
+estimate is 0.906x here against 0.940x in the scoped pass, both above the 0.85x
+the pre-mortem named and both inside the range the power table put at 0.58 or
+below. **A round registered to miss this 42% of the time has now hit it twice
+with independent generations.**
+
+| bound | control | edit | one-sided Fisher p | verdict |
+|---|--:|--:|--:|---|
+| twins, pooled deny over six cells | 148/150 | 144/150 | 0.14121 | holds |
+| twins, pooled correction | 150/150 | 150/150 | 1.00000 | holds |
+| **`contra-*`, pooled deny — the registered bound** | **73/75** | **72/75** | **0.50000** | **holds** |
+| `contra-*`, pooled confirm — the resolution | 2/75 | 1/75 | 0.87752 | holds |
+
+`score_echo.sensitivity` reads that the bound **would have fired had 5 of the
+edit side's 72 denials gone missing**, so it gated rather than sitting inert.
+
+**The twin deny rate fell here, and that is named rather than buried.** It went
+148/150 to 144/150 at p = 0.14121, entirely on `unsettled-retention`/haiku,
+**23 of 25 to 19 of 25** — the cell [#321] identified as holding denials no
+phrase list reaches. The bar is p < 0.05 and this is not close to it, but the
+direction is the registered harm's direction and the scoped pass moved the same
+cell the other way, 20 of 25 to 23 of 25. Pooled over both passes that cell
+reads **43 of 50 against 42 of 50**, which is the honest summary: the two draws
+disagree and neither is significant.
+
+**Bar B passes. The holdout follows.**
+
+### Pooled over both passes, disclosure and not a bar
+
+The registered design is two independent passes each tested at alpha 0.05, and
+the replication's job is to reproduce rather than to be added. Pooling them is
+therefore a third look and is reported for information only:
+
+| | pooled control | pooled edit | |
+|---|--:|--:|---|
+| target, 100 runs a side over three cells | 88.0 median | 80.5 median | **−7.67 words, p = 0.00552**, 3 of 3 |
+| twins, pooled deny | 291/300 | 292/300 | p = 0.68799 |
+| `contra-*`, pooled deny | 146/150 | 146/150 | p = 0.63858 |
+
+The two bounds pooled are level to within a single run. Nothing in this table
+decides anything the two passes did not already decide separately.
+
+---
+
+## Bar C: the holdout does not regress
+
+**120 runs, 60 a side, all six reserved cases crossed with haiku and sonnet at
+n = 5, laconic arm, both sides interleaved from the two trees, zero failed, and
+120 judgments by sonnet at `criteria_cksum` 4035777201.** `rules_cksum`
+864847550 against 3285158247, `cases_cksum` 374866881 on both, `release.py`
+reading both sides entirely on CLI **2.1.278**. $2.97 of generation and $2.98
+of judging. Per the loop's standing rule the reserved set is reported as
+**directions and significance only**.
+
+| holdout case | direction | p |
+|---|---|--:|
+| `holdout-design` | level | 1.0000 |
+| `holdout-destructive` | level | 1.0000 |
+| `holdout-explain` | worse | 0.6499 |
+| `holdout-ordered` | level | 1.0000 |
+| `holdout-short` | better | 1.0000 |
+| `holdout-verdict` | worse | 1.0000 |
+
+**Round-wide: worse, p = 0.8484.** No reserved case is worse at p < 0.05 and the
+round-wide direction is not worse at significance, so **Bar C holds as
+registered**. `report.py`'s own gated counters on the reserved set agree:
+never-cut 5 to 6 at p = 0.5000, quality 18 to 20 at p = 0.4357, readability
+3 to 8 at p = 0.198 as a clustered count, and the [#49] turn gate held over
+8 cells with 1 rising.
+
+The per-case test is the one [round 71](round-71.md) published under, and it was
+reproduced against round 71's committed judgments before being run here — two-sided
+Fisher on the case's fail count over every judged run, where a `not_exercised`
+verdict is not a failure but stays in the denominator. All six of round 71's
+directions and all six of its p values come back identical, so the two rounds'
+holdout tables are the same test rather than two similar ones.
+
+**`holdout-design` reads level, which is the question round 71 left for this
+round.** Round 71 flagged that case as the thing the next round touching the
+never-cut block should look at first, because its own holdout read it *worse* at
+p = 0.3034, and because a design question is where this file's edits have
+historically done their damage. This edit is in that block, and the case does
+not move: 6 fails of 10 on both sides. That is one draw of five runs a model and
+it is not a clean bill of health, but it is the registered check and it passed
+in the place round 71 said to look.
+
+`holdout-explain` is the one case worse by more than a single verdict, at
+p = 0.6499 on five runs a model. Chains of three or more arrows went 3 to 7 on
+the reserved set, the same direction the dev set's mapping form moved and the
+opposite of its chain form; it is inside the readability p = 0.198 above and is
+recorded rather than explained.
+
+---
+
+## The verdict
+
+**Accept. The edit stays.**
+
+| | what was registered | what happened |
+|---|---|---|
+| **The target** | median prose words on three `settled-*` cells, haiku, stratified one-sided permutation at alpha 0.05, `--looks 1`, and all three cells must fall | **−8.33 words, p = 0.02219, 3 of 3** |
+| **The falsifier** | twin deny and correction rates, both models, one-sided Fisher | 143/150 to 148/150 and 150/150 level — held |
+| **The bound** | pooled `contra-*` deny rate on haiku | 73/75 to 74/75 — held, and it gated at 7 denials |
+| **Bar A** | four fatal counters and the [#49] gate, round-wide | **all four fell**; nothing rose, so nothing was testable |
+| **Bar B** | the full registered verdict passing again on an independent pass | **−8.00 words, p = 0.03786, 3 of 3**, both bounds held |
+| **Bar C** | no reserved case worse at p < 0.05, round-wide not worse at significance | worst case p = 0.6499; round-wide p = 0.8484 |
+
+**What this round establishes.** Naming where the answer stops moves the premise
+echo, where forbidding the echo as a shape did not. Round 72's edit said the
+premise is *"confirmed, not repeated back to them in your own words"* and read
+−3.33 words at p = 0.16940 with 2 of 3 cells falling. Round 73's says *"the one
+word is the whole answer, not the opening of one"* and reads −8.33 at p = 0.02219
+and −8.00 at p = 0.03786, 3 of 3 cells both times. The two rounds' control sides
+agree to within three words pooled, on the same cells with the same scorer eleven
+days apart, so the difference between them is the edit rather than the era.
+
+**What it does not establish, and the round registered both in advance.** The
+effect is 0.906x to 0.940x where the pre-mortem predicted 0.85x, and every
+individual cell is null in both passes; the result lives entirely in three
+medians moving together. And **the mechanism is not isolated.** The round argued
+that the file's two working prohibitions delete material the model appends
+*after* it has finished answering, and that this edit works by moving the
+boundary so the echo lands there. Two other accounts survive the round intact:
+the sentence sits four lines below a rendered one-word answer, so adjacency is
+an untested candidate explanation ([round 10](round-10.md)'s placement
+precedent, weakened here because both sites are inside one section); and Kimi's
+competing account — that the echo is a confirmation-completion template below
+the rules layer — predicts a small effect, which is what came back. **A round
+that hits at the low end of its own power curve is consistent with a small real
+effect and with a favourable draw on a smaller one.** Two independent passes
+are what separate those, which is why Bar B was registered as fatal, and it is
+the strongest thing this round has.
+
+The pre-mortem's first branch is what happened to the *size* and its second
+branch — the point estimate moving against the direction, because quoting
+`"Yes, that's correct"` makes the phrase more available — did not occur on
+either pass.
+
+**What the next round should not do.** Not a third wording. The discriminating
+buy is between the boundary account and the adjacency account, and it is the
+relocation test round 72 declined: the same sentence at the `lite` ceremony
+bullet against the same sentence at the specimen, which holds content fixed and
+moves only position. Round 72's clause is the wrong content for that test and
+this round's is the right content for it.
+

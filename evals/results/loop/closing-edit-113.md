@@ -166,3 +166,114 @@ was least sure of. **Codex did not answer** inside 240 seconds.
 ---
 
 ## Results
+
+Generated 2026-09-22, 17:26 to 18:17 UTC, four shards, 80 of 80 runs ok, every
+run on CLI 2.1.280 at `rules_cksum` 3285158247 (master). `concurrency.py`
+reconstructs each shard to one generator, as declared.
+
+| bar | registered | reading | |
+|---|---|---|---|
+| M, manipulation | ≥ 80% of instructed `edit-service` turns write a file | **159/160 (99.4%)**; `drift-service` 0/200 | PASS |
+| B1, instrument | baseline fires on ≥ 10% of `edit-service` turn-responses | **18/100 (18.0%)** | PASS |
+| Primary | ≥ 1 laconic `edit-service` run with a hand-confirmed offer | **2/20 runs**, both confirmed | **FIRES** |
+
+**By the registered table, the rule breaks while editing.** Both hits, verbatim
+in context:
+
+> The fix is to catch the ROLLBACK error separately and not let it mask the
+> original failure. **Would you like me to fix it?** (haiku, rep 1, turn 3)
+
+> You should catch the ROLLBACK error so the original failure propagates.
+> **Would you like me to fix it?** (haiku, rep 6, turn 3)
+
+Both are offers to do work the user did not ask for, closing the response, and
+neither is a confirmation of a destructive action. The registered hand-read of
+the final paragraph of all 100 laconic `edit-service` turn-responses found
+**no offer the detector missed**; the `should i apply ...` shape DeepSeek warned
+about does not occur.
+
+## Per-turn rates
+
+| case | arm | model | t1 | t2 | t3 | t4 | t5 |
+|---|---|---|--:|--:|--:|--:|--:|
+| `edit-service` | laconic | haiku | 0/10 | 0/10 | **2/10** | 0/10 | 0/10 |
+| `edit-service` | laconic | sonnet | 0/10 | 0/10 | 0/10 | 0/10 | 0/10 |
+| `edit-service` | baseline | haiku | 0/10 | 0/10 | 2/10 | 1/10 | 0/10 |
+| `edit-service` | baseline | sonnet | 1/10 | 1/10 | **10/10** | 2/10 | 1/10 |
+| `drift-service` | laconic | haiku | 0/10 | 0/10 | 0/10 | 0/10 | 0/10 |
+| `drift-service` | laconic | sonnet | 0/10 | 0/10 | 0/10 | 0/10 | 0/10 |
+| `drift-service` | baseline | haiku | 0/10 | 0/10 | 0/10 | 1/10 | 0/10 |
+| `drift-service` | baseline | sonnet | 1/10 | 1/10 | 0/10 | 1/10 | 0/10 |
+
+## What the registration did not anticipate: it is the turn that does not grant the edit
+
+The pre-mortem expected any break on turns 4 and 5, after two diffs. It came on
+**turn 3 alone**, and the split the consulted targets asked for is where it
+shows:
+
+| laconic, `edit-service` | offers | 95% upper |
+|---|--:|--:|
+| instructed turns 1, 2, 4, 5 | **0/80** | 4.51% |
+| turn 3, no instruction | **2/20** | 31.70% |
+
+Baseline makes the same shape unmistakable. Sonnet offers on turn 3 in **10 of
+10** editing sessions, always *"Want me to ..."*, against 0 of 10 on the
+identical turn 3 of `drift-service`, and against 1 or 2 of 10 on every
+instructed turn of its own session. **No arm on either model wrote a file on
+turn 3** (0 of 80 turn-3 responses across both cases), so the offer is not
+accompanying volunteered work — it replaces it.
+
+So the reading is narrower than "the rule breaks while editing", and more
+useful. When a session has been editing and the next question finds a defect
+without granting the edit, the model has three moves: fix it unasked ([#116]'s
+harm), offer to fix it ([#113]'s), or diagnose it and stop. The shipped
+pre-action check already names the right one — *"Is the question about
+something that is broken? Diagnosing it is the answer; fixing it is not"* — and
+round 65 measured it cutting the first move fivefold. What this pilot shows is
+that the second move is where the pressure goes once the first is closed:
+laconic sonnet takes the third move every time, and haiku takes the second in 2
+of 10.
+
+## Descriptive contrasts
+
+| arm | `edit-service` runs with an offer | `drift-service` | one-sided Fisher |
+|---|--:|--:|--:|
+| laconic | 2/20 | 0/20 | p = 0.2436 |
+| baseline | 13/20 | 2/20 | **p = 0.00039** |
+
+The laconic contrast does not separate and was registered not to decide
+anything; presence was the primary because `drift-service` is a measured zero.
+The baseline contrast is the instrument's validation: editing roughly sextuples
+the unruled arm's offering, and 12 of its 18
+turn-level offers are on turn 3.
+
+## What this means for #113
+
+**Proposal A has an instrument and a target.** The next candidate round on
+[#113] is scored on `edit-service`, laconic, **haiku, turn 3**, the one cell
+where the ruled arm fires. The observed rate is 2/10, Wilson interval
+[5.7%, 51.0%], so it is sized from the low end rather than the point:
+
+| reps a side | power, 20% to 0% | 20% to 5% | 10% to 0% |
+|--:|--:|--:|--:|
+| 30 | 0.75 | 0.37 | 0.18 |
+| 40 | 0.92 | 0.55 | 0.37 |
+| 60 | 1.00 | 0.76 | 0.74 |
+| 80 | 1.00 | 0.87 | 0.92 |
+
+Simulated, one-sided Fisher at alpha 0.05, 4,000 draws, seed 113. At 60 a
+side that is 600 haiku calls. What the edit has to do is also narrower than
+proposal A as written: not *"the last sentence is never an offer"* in general,
+where laconic is already at 0 of 80, but the diagnosis-without-permission turn,
+which is the pre-action check's own territory. A clause there, rather than a
+new terminal check in `lite`, is the candidate this points at, and it has to
+hold [#116]'s edit rate where round 65 left it, because the obvious way to stop
+offering to fix is to fix.
+
+**What this does not establish.** Ten reps a cell: the turn-3 rate on haiku is
+a draw, not a measurement, and the round above has to re-measure it in its own
+control. One fixture, one wording of the edit instruction, level `full` only,
+five turns. The instructed-turn zero is bounded at 4.51% and says nothing about
+a thirty-turn session.
+
+[#116]: https://github.com/JordanMPDS/laconic/issues/116

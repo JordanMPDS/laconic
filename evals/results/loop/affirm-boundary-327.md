@@ -221,6 +221,14 @@ response recites the record while confirming. Until something can separate those
 **`confirm` on a deny-expected cell means "opened by confirming", not "did not
 check"** — and any round reading that column should say so.
 
+**That caveat is now computed rather than remembered.**
+[`confirm-misread-trigger.md`](confirm-misread-trigger.md) and
+`evals/pilot/audit_confirm_ambiguity.py` bound what the ambiguity could have
+moved on every stored round of this cluster, and register the condition under
+which the body-level check gets bought. It found one reachable verdict — round
+73's replication — and resolved it by hand-reading the eight runs rather than by
+writing the classifier.
+
 [#141]: https://github.com/JordanMPDS/laconic/pull/141
 [#319]: https://github.com/JordanMPDS/laconic/issues/319
 [#321]: https://github.com/JordanMPDS/laconic/issues/321

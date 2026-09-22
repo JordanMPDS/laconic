@@ -138,6 +138,13 @@ from. Scored by `score_register.py <snapshot> 69 fullexplain reexplain` and the
 same command with `deepexplain` — the graded turn is the run's last turn, which
 is what lets one scorer compare a two-turn family against a five-turn one.
 
+**Read the interaction line off the corrected null.** The arm-label permutation
+these rounds registered builds a null about 1.9x wider than the statistic's own
+sampling distribution, at a measured false-positive rate of 0.000. The scorers
+now print `metrics.interaction_permutation` beside it, and
+[`../results/loop/interaction-null-298.md`](../results/loop/interaction-null-298.md)
+carries the calibration and the re-scored archive.
+
 [#298]: https://github.com/JordanMPDS/laconic/issues/298
 
 ## `settled-*` and `unsettled-*`

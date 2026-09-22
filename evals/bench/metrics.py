@@ -276,6 +276,93 @@ def permutation(a, b, seed, resamples=200000, stat=None):
     return (hits + 1) / (resamples + 1)
 
 
+def difference_of_differences(groups, sides, families):
+    """(B - A) on the second side minus (B - A) on the first, over cell means.
+
+    `groups` is {(side, family): [values]}. On logged values this is a log
+    ratio of ratios, so exponentiating it gives the factor by which the second
+    side's family gap exceeds the first's.
+    """
+    def mean(key):
+        return sum(groups[key]) / len(groups[key])
+    return ((mean((sides[1], families[1])) - mean((sides[1], families[0])))
+            - ((mean((sides[0], families[1])) - mean((sides[0], families[0])))))
+
+
+def interaction_permutation(groups, sides, families, seed, resamples=200000):
+    """Two-sided permutation for a 2x2 difference of differences.
+
+    **The residuals of the additive fit are shuffled across all four cells**,
+    which is [#298]'s instrument correction, and the reason it is that rather
+    than something simpler is measured in
+    `evals/results/loop/interaction-null-298.md`.
+
+    The three pilot scorers built this null by shuffling the **side** label
+    inside each family. That is wrong whenever the side carries a main effect:
+    pooling two groups the side separates makes every shuffled group a mixture
+    of two modes, so the null inherits a spread the statistic does not have.
+    Round 69 measured 1.9x the sampling distribution on an instrument whose
+    arms sit 8x apart, and the calibration in that document reads a
+    false-positive rate of **0.000** for it — a test that cannot reject is not
+    a conservative test, it is a test that measures nothing.
+
+    **The defect is symmetric, and that is why the obvious repair is not the
+    repair.** Shuffling the family label instead moves the same inflation onto
+    the family's main effect: on synthetic cells with no side gap and a family
+    gap of 2.0 the side shuffle reads 1.0x and the family shuffle 2.3x, exactly
+    swapped. Both labels carry main effects on the real pilots, so neither
+    shuffle is safe on both.
+
+    Aligning first removes both. Under the null of no interaction the additive
+    model is correct, so its residuals are exchangeable across all four cells;
+    the fitted part contributes exactly zero to a difference of differences, so
+    the statistic is unchanged by the alignment. That null reads 1.0x on every
+    synthetic arrangement and a false-positive rate inside the registered band.
+
+    **It holds on a log scale and not on raw counts**, because pooling
+    residuals assumes comparable within-cell spread, which logged words give
+    and word counts do not; round 42 recorded the raw-word version of this test
+    being swamped for the same reason. Callers pass logged values.
+
+    Returns None when any of the four cells is empty, matching `permutation`.
+
+    [#298]: https://github.com/JordanMPDS/laconic/issues/298
+    """
+    cells = [(s, f) for s in sides for f in families]
+    if any(not groups.get(c) for c in cells):
+        return None
+    obs = abs(difference_of_differences(groups, sides, families))
+    fit = additive_fit(groups, sides, families)
+    resid = [v - fit[c] for c in cells for v in groups[c]]
+    rng = random.Random(seed)
+    hits = 0
+    for _ in range(resamples):
+        rng.shuffle(resid)
+        shuffled, i = {}, 0
+        for c in cells:
+            n = len(groups[c])
+            shuffled[c] = resid[i:i + n]
+            i += n
+        if abs(difference_of_differences(shuffled, sides, families)) >= obs - 1e-9:
+            hits += 1
+    return (hits + 1) / (resamples + 1)
+
+
+def additive_fit(groups, sides, families):
+    """The four cell means with the interaction removed: grand + side + family.
+
+    Subtracting it leaves residuals that are exchangeable across all four cells
+    under the null of no interaction, and it contributes zero to a difference
+    of differences, so aligning on it changes the null and not the statistic.
+    """
+    cells = [(s, f) for s in sides for f in families]
+    m = {c: sum(groups[c]) / len(groups[c]) for c in cells}
+    grand = sum(m.values()) / 4
+    side = {s: (m[(s, families[0])] + m[(s, families[1])]) / 2 - grand for s in sides}
+    fam = {f: (m[(sides[0], f)] + m[(sides[1], f)]) / 2 - grand for f in families}
+    return {c: grand + side[c[0]] + fam[c[1]] for c in cells}
+
+
 def sign_test(k, n):
     """Two-sided exact binomial p for k successes in n at p=0.5.
 

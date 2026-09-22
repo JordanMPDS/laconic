@@ -66,8 +66,25 @@ def difference_of_differences(g):
             - (mean(("edit", "explain")) - mean(("control", "explain"))))
 
 
+def interaction_corrected(groups, seed, resamples=200000):
+    """[#298]'s corrected null: additive-fit residuals shuffled across cells.
+
+    Same statistic, same bootstrap; only the way the null is built moves. The
+    legacy inflation here is smaller than on `score_register.py`, because the
+    two sides are two rules revisions rather than two arms and so are not 8x
+    apart — but the two families are not on top of each other either, and
+    `evals/results/loop/interaction-null-298.md` measures both.
+    """
+    return metrics.interaction_permutation(
+        groups, ("control", "edit"), FAMILIES, seed, resamples=resamples)
+
+
 def interaction(groups, seed, resamples=200000):
     """Permute the rules-revision label within each family, preserving sizes.
+
+    **Superseded by `interaction_corrected`**, and kept because round 68
+    registered this test and a stored verdict has to stay recomputable from the
+    code that produced it.
 
     The statistic is the difference of differences. Runs are not paired across
     families - the two families are different cases - so the label that can be
@@ -201,6 +218,8 @@ def main():
         print("   log words, a ratio of ratios of %.3f, p = %s"
               % (math.exp(difference_of_differences(logged)),
                  fmt(interaction(logged, seed))))
+        print("   log words, [#298]'s corrected null (aligned residuals), "
+              "p = %s" % fmt(interaction_corrected(logged, seed)))
 
     print("\n## Secondary: the same interaction per cell (consistency, not a verdict)")
     print("%-9s %-7s %19s %19s %9s"

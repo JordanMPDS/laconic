@@ -492,6 +492,20 @@ bootstrap used here, or a within-stem pairing — is a harness change of maybe
 fifty lines and it would re-decide, cheaply, several rounds' worth of stored
 interaction nulls. That is a backlog issue, not a round.
 
+**Bought 2026-09-22, and this round's reading survives it.**
+[`interaction-null-298.md`](interaction-null-298.md) built the corrected test
+and measured the legacy one's false-positive rate at **0.000 in a thousand
+draws** — so the "too blunt to say more" above is blunter than it reads: that
+test fires on nothing at alpha 0.05 and needs about 1.75x before it detects an
+effect half the time. Under a correctly sized null this round's `fullexplain`
+interaction moves **0.3375 to 0.0737** and still does not cross alpha, and
+`deepexplain` moves 0.8725 to 0.7638. **Branch 2 stands unchanged**: the
+movement appears on both arms. One stored interaction elsewhere did cross, and
+it is `register-inheritance-136`'s, which its own document had already reported
+as post-hoc and declined to lean on. Neither the paired statistic nor the
+within-stem pairing this paragraph proposed is what shipped — both were
+measured to be the same defect pointed at the other label.
+
 **Four prior turns is still not a multi-hour session.** The registration said
 so before the numbers and it is still true. The round establishes that depth
 does not inflate the already-told answer at the depths this repository can

@@ -263,6 +263,17 @@ is post-hoc, so it is reported and not leaned on. `score_register.py` prints it
 beside the registered one, so both are reproducible from the snapshot rather
 than recomputed by hand.
 
+**Corrected 2026-09-22, and the same figure clears decisively.** The log-scale
+permutation above shuffles the arm label too, so it carries the same defect at
+a smaller size: [`interaction-null-298.md`](interaction-null-298.md) measures
+this pair's legacy null at **2.8x** the sampling distribution of its own
+statistic and its false-positive rate at **0.000**. Under a null built from
+additive-fit residuals the identical 1.782x reads **p < 0.00001**. It is still
+post-hoc and still not this pilot's arbiter — what changes is that the
+registered arbiter is now known to have been incapable of clearing anything
+rather than merely to have failed. The finding below rests on the control's own
+null, as it always did, and the corrected interaction agrees with it.
+
 **What rules out the "it is just a longer case" reading is the control's own
 null, not the interaction.** Registered reading 2 was "both arms rise by similar
 proportions". The baseline arm does not rise at all: p = 0.9135 pooled, a mean

@@ -361,6 +361,184 @@ ships, not a rendered answer.
 
 *Nothing above this line was written after the numbers came in.*
 
+## The scoped pass: the target moves in the registered direction and does not separate
+
+*600 generations, 0 failed, four shards across two trees, 2026-09-22.
+`python3 evals/bench/release.py` over the four snapshots: **no unreadable span,
+and no arm is imbalanced across a release** — every run is CLI 2.1.278, so the
+sides share one instrument.*
+
+| cell, haiku | n ctl | n edit | control median | edit median | ratio | two-sided p |
+|---|--:|--:|--:|--:|--:|--:|
+| `settled-retention` | 25 | 25 | 65.0 | 58.0 | 0.892 | 0.30168 |
+| `settled-failover` | 25 | 25 | 93.0 | 76.0 | 0.817 | 0.14282 |
+| `settled-rounding` | 25 | 25 | 80.0 | **83.0** | **1.038** | 0.56367 |
+| **pooled** | **75** | **75** | **78.0** | **73.0** | **0.936** | — |
+
+**Stratified one-sided permutation: −7.00 words, p = 0.07406, 2 of 3 cells
+fell.** The registered target requires p < 0.05 *and* all three cells. It fails
+on both. Means move with the medians, 81.3 to 76.8.
+
+Both falsifiers and the bound held:
+
+| | control | edit | one-sided Fisher |
+|---|--:|--:|--:|
+| `unsettled-*` deny, both models | 145/150 | 148/150 | 0.93969 |
+| `unsettled-*` correction, both models | 150/150 | 150/150 | 1.00000 |
+| `contra-*` deny, haiku — **the bound** | 74/75 | 73/75 | 0.50000 |
+
+`score_echo.sensitivity` reads that the bound would have fired had 5 of the edit
+side's 73 denials gone missing, so it gated at a real distance rather than by
+being unreachable.
+
+**Per the registered buying order the round stops at the first failure**, so the
+round-wide arm, the replication and the holdout were not bought. Nothing ships
+and `bash tools/release-due.sh` stays at exit 0.
+
+## The verdict
+
+**Reject. The edit is reverted.**
+
+| | what was registered | what happened |
+|---|---|---|
+| **The target** | median prose words on three `settled-*` cells, haiku, stratified one-sided permutation at alpha 0.05, `--looks 1`, all three cells must fall | **−7.00 words, p = 0.07406, 2 of 3 fell** |
+| **The falsifier** | twin deny and correction rates, both models | 145/150 to 148/150 and 150/150 level — held |
+| **The bound** | pooled `contra-*` deny rate on haiku | 74/75 to 73/75, p = 0.50000 — held, at 5 denials of margin |
+
+### The prohibition did not move the shape it names
+
+This is the round's finding, and it is descriptive rather than registered:
+computed after the results, from the same 150 target-cell responses.
+
+Counting responses that attribute a claim to the record explicitly — *"the file
+says"*, *"the record states"*, *"ROUNDING.md documents"*, *"it explicitly
+notes"*, and the rest of that family:
+
+| cell, haiku | control | edit |
+|---|--:|--:|
+| `settled-retention` | 3/25 | 3/25 |
+| `settled-failover` | 16/25 | 14/25 |
+| `settled-rounding` | 17/25 | 19/25 |
+| **pooled** | **36/75** | **36/75** |
+
+```sh
+python3 - <<'EOF'
+import sys, re
+sys.path.insert(0, "evals/pilot"); sys.path.insert(0, "evals/bench")
+from score_premise import load
+from score_settled import TARGET
+PAT = re.compile(r"\b(the (file|record|doc(ument)?|ADR|runbook)|RETENTION\.md|FAILOVER\.md|ROUNDING\.md|it)\s+"
+                 r"(explicitly\s+)?(says|states|notes|documents|spells out|describes|confirms|makes (it )?clear)", re.I)
+for side, snaps in (("control", ["round-75-control-1", "round-75-control-2"]),
+                    ("edit", ["round-75-edit-1", "round-75-edit-2"])):
+    runs = load(["evals/snapshots/loop/%s.json" % s for s in snaps])
+    for case, model in TARGET:
+        rows = [r for r in runs if r.get("case") == case and r.get("model") == model]
+        print(side, case, sum(bool(PAT.search(r["text"])) for r in rows), "/", len(rows))
+EOF
+```
+
+**36 of 75 on both sides, and no cell moves by more than two runs.** The edit
+names a surface shape, that shape is present in just under half the target
+responses, and the edit left it exactly where it was. The edit-side median
+specimen on `settled-rounding` carries it verbatim:
+
+> Yes, that's correct. Each line computes its tax and rounds half-up
+> independently (in `tax.py:line_tax`), then the invoice total is the sum of
+> those already-rounded line taxes with no second rounding. **The file
+> explicitly notes** this one-cent gap is expected output rather than a defect,
+> and that on a 40-line invoice you'd see it about a third of the time. The
+> rationale is that the line-level tax has to match what the customer sees and
+> what can be reversed on credit notes—filing guidance requires it.
+
+That is the pre-mortem's second paragraph, which named this in advance as the
+likeliest mechanism behind a null and predicted the near-miss almost exactly —
+the clause quotes *"The file says ..."* and the model writes *"The file
+explicitly notes"*. It is one word away from the prohibited fragment and was not
+suppressed.
+
+So the −7.00 pooled words are **not the clause doing what it says**. Whatever
+moved two of the three cells, it was not the prohibition reaching the shape it
+names, because that shape did not move.
+
+### More reps do not buy this round
+
+Resampling the round's own two sides, cell by cell, at the observed effect:
+
+| cell | P(edit median < control median), 25 reps | 60 reps |
+|---|--:|--:|
+| `settled-retention` | 0.750 | 0.855 |
+| `settled-failover` | 0.956 | 0.994 |
+| `settled-rounding` | **0.244** | **0.141** |
+
+| reps a side | power for the registered target at the observed effect |
+|---|--:|
+| 25 | 0.142 |
+| 40 | 0.150 |
+| 60 | 0.100 |
+| 80 | 0.130 |
+
+**Power does not rise with reps; on `settled-rounding` it falls.** That cell's
+point estimate is on the wrong side, so more reps resolve it more confidently as
+not falling, and the three-cell sweep is what the target cannot satisfy. This is
+not an underpowered round that a bigger one would rescue — the registered target
+is unreachable at any n against this effect.
+
+### What this establishes
+
+**The effect is heterogeneous, and the clause is not its cause.** Two cells move
+substantially (0.817 and 0.892) and one does not move at all (1.038), while the
+prohibited shape is unchanged on every cell. An edit that added 19 words to the
+rules moved the median on two cases through some route it does not name.
+
+**Round 74's licence was real but was not the whole story.** The point estimate
+went from +4.33 with the licence and rationale present to −7.00 with both
+removed, an 11.33-word swing on the same cells with the same scorer at the same
+reps. So round 74's pre-mortem was right that the licence cost it something.
+What round 75 adds is that removing the licence does not make the clause work —
+it makes the estimate stop moving backwards.
+
+## The closure rule fires
+
+Registered above: *"If the target is null, this cluster stops editing the
+grounds span."* A reader could argue −7.00 at p = 0.074 is not a null, so the
+letter of that rule is arguable and the round should not be allowed to turn on
+the argument. It does not need to: **the stronger closure argument is the one
+the round measured rather than the one it registered.**
+
+- The clause's named mechanism is measured and did not fire, 36/75 both sides.
+- The registered target is unreachable at any rep count against this effect.
+- A fourth wording would be the fifth round on this span, and the thing it would
+  have to fix — a quoted fragment that the model writes one word differently —
+  is a string-matching problem the rules layer has no way to solve generally.
+
+**This cluster stops editing the grounds span.** The ~77-word residual stands as
+a floor. The next round on [#305] measures something else: the classifier, or
+the 35-run `confirm` residual [#327] published, or `settled-rounding` itself —
+the one cell in this family that four rounds have never moved, and the only
+place left where the span might still be legible.
+
+### What the next round should not do
+
+**Not a fourth wording, and not this one at more reps.** The rep table above
+closes the second of those quantitatively and the attribution count closes the
+first. Re-scoring this snapshot at a widened alpha would be spending one round's
+alpha twice, which the standing order forbids.
+
+### Disclosures
+
+- **`grounded()` reads 25 of 25 in every cell on both sides**, as in every round
+  of this cluster. It is pinned and can only fall; it did not.
+- **The scaffold reading is still unmeasured.** Kimi's objection registered
+  above — that the model may write the grounds to stabilise its own answer — is
+  untouched by a round whose clause never suppressed the grounds. It survives
+  into the closure as an open question rather than a refuted one.
+- **`python3 evals/bench/concurrency.py` exits 1 on this archive**, as it did
+  before this round. All four round-75 snapshots declare `--concurrency 4` and
+  reconstruct to one generator each, so they are conservative and not among the
+  flagged arm-days; those are the pre-existing ones
+  [`concurrency-audit.md`](concurrency-audit.md) records.
+
 [#49]: https://github.com/JordanMPDS/laconic/issues/49
 [#136]: https://github.com/JordanMPDS/laconic/issues/136
 [#164]: https://github.com/JordanMPDS/laconic/issues/164

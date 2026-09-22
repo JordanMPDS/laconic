@@ -52,8 +52,6 @@ to re-derive it.
 The one word is the whole answer, not the opening of one. Everything after it
 is appended rather than part of it: no "Yes, that's correct" followed by their
 own sentence in your words, because the premise is what you are confirming.
-The record you checked is appended too: no "The file says ..." retelling
-what you read to be sure.
 
 ## Never do this
 

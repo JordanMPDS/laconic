@@ -61,6 +61,31 @@ python3 evals/pilot/score_echo.py \
 > which is not distinguishable from the other two. It keeps the one
 > confirmation and it still rose on the target.
 
+> **Amendment, 2026-09-22 ([#327]).** `verdict()` had a bug beside its two
+> widenings: `AFFIRM` carried no trailing word boundary, so `correct` matched
+> the opening of "Correction:" and a response that opens by correcting the user
+> outright was scored `confirm`. One of this round's runs is one —
+> `contra-failover`/haiku, edit side, rep 60, *"Correction: the 8 minutes is the
+> cost of manual promotion (on-call reaction time), not the window when writes
+> are lost."* The fix and its audit are in
+> [`affirm-boundary-327.md`](affirm-boundary-327.md), against the [#321]
+> classifier frozen at **`a6e7adc`**.
+>
+> The command above now reports **the `contra-*` bound 74/75 to 75/75,
+> p = 1.00000** (above: 74/75 to 74/75, p = 0.75168), with `contra-failover`/haiku
+> at 24/25 and **25/25** rather than 24/25 on both sides, and **pooled confirm
+> 1/75 to 0/75**. The twins are untouched. The sensitivity line reads *"7 of 75"*
+> rather than *"6 of 74"*, naming the same floor for the third time.
+>
+> **The registered verdict is unchanged: FAIL**, stratified permutation
+> p = 0.16940, 2 of 3 cells fell. The target is on prose words and no word count
+> moved.
+>
+> **The `contra-failover` disclosure keeps no axis at all.** Its one recorded
+> confirmation on the edit side was the mis-scored correction, so the cell is now
+> at ceiling on the bound and the sentence above — *"It keeps the one
+> confirmation"* — is superseded: it does not.
+
 ## Why this round exists
 
 `bash tools/candidate-due.sh` exits 0: round 71 carried a candidate, so round 72
@@ -703,6 +728,7 @@ rates — haiku on nine of twelve cells is what makes a 600-run round cheap.
 [#26]: https://github.com/JordanMPDS/laconic/issues/26
 [#319]: https://github.com/JordanMPDS/laconic/issues/319
 [#321]: https://github.com/JordanMPDS/laconic/issues/321
+[#327]: https://github.com/JordanMPDS/laconic/issues/327
 
 [#131]: https://github.com/JordanMPDS/laconic/issues/131
 [#164]: https://github.com/JordanMPDS/laconic/issues/164

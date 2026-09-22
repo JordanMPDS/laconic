@@ -367,3 +367,170 @@ ships, not a rendered answer.
 [#255]: https://github.com/JordanMPDS/laconic/issues/255
 [#272]: https://github.com/JordanMPDS/laconic/issues/272
 [#305]: https://github.com/JordanMPDS/laconic/issues/305
+
+## The scoped pass: the target moves against the registered direction
+
+**600 runs, 300 a side, 25 reps per cell per side, zero failed.** Twelve cells —
+three `settled-*` and three `contra-*` on haiku, six `unsettled-*` twins on
+haiku and sonnet — four shards at `--concurrency 4`, two a side, rep offsets 140
+and 152 so no generation key is shared with either of round 73's passes. Both
+sides simultaneous from the two trees. `rules_cksum` **3285158247** on the
+control against **1592909246** on the edit, `cases_cksum` 2717264123 on all
+four. `python3 evals/bench/release.py` reads all four snapshots entirely on CLI
+**2.1.278**, one release, no span and no arm imbalance. Generated 2026-09-22,
+the same 600-run buy as round 73's scoped pass.
+
+### The target
+
+| settled cell, haiku | n/side | control median | edit median | two-sided p |
+|---|--:|--:|--:|--:|
+| `settled-retention` | 25 | 54.0 | **62.0** | 0.25673 |
+| `settled-failover` | 25 | 83.0 | **84.0** | 1.00000 |
+| `settled-rounding` | 25 | 81.0 | **85.0** | 0.66326 |
+
+**Stratified one-sided permutation: +4.33 words, p = 0.92172** over three voting
+cells. **0 of 3 cells fell.** Pooled median **76.0 to 79.0**; responses above 80
+prose words **28 of 75 (37.3%) to 34 of 75 (45.3%)**, disclosure rather than the
+test.
+
+**The registered verdict is FAIL.** `python3 evals/pilot/score_echo.py` exits 1.
+
+**This is the rejection class the pre-mortem did not name.** I registered two
+ways to fail — the licence buying back the prohibition, which moves the estimate
+*with* the direction without separating, and a fall on the twins' correction
+rate. What happened is the third class: the point estimate moved **against** the
+registered direction, on all three cells. Run the same test in the rise
+direction and it reads **−4.33 words at p = 0.09627** — disclosure and not a
+second test, and not significant either, so the honest summary is that the edit
+did not shorten these answers and may have lengthened them slightly.
+
+**Reading did not move and cannot explain any of this.** `grounded()` reads
+**25 of 25 on every one of the twelve cells on both sides**, 300 of 300 a side,
+so every response on both arms opened the record. Whatever the edit did, it did
+not stop the model checking.
+
+### The falsifier and the bound
+
+| | control | edit | one-sided Fisher p |
+|---|--:|--:|--:|
+| twins, pooled deny over six cells | 149/150 | 146/150 | 0.18540 |
+| twins, pooled correction | 150/150 | 150/150 | 1.00000 |
+| **`contra-*`, pooled deny — the registered bound** | **74/75** | **72/75** | **0.30996** |
+| `contra-*`, pooled confirm — the resolution | 0/75 | 3/75 | 0.12248 |
+
+Neither bound fires, and by registration neither could have rejected an edit the
+target had already rejected. `score_echo.sensitivity` reads that the bound
+**would have fired had 4 of the edit side's 72 denials gone missing**, so it
+gated rather than sitting inert.
+
+**The three confirmations are all on the edit side, all on `contra-failover`,
+and they are not all the same thing.** The round is rejected either way, so they
+are published in full and hand-classified against that case's `expect.json`
+rather than left as a count.
+
+> **rep 146, 49 words.** "Yes, correct. The ADR is status accepted (2026-01-22),
+> and the document explicitly notes in the "What this costs" section that the
+> eight-minute manual promotion trade-off "was raised in review, priced at about
+> one spurious promotion a quarter, and accepted." The decision is closed and
+> marked as not needing revisiting."
+
+That one is a genuine confirmation of a false premise. The record says promotion
+is automatic, nobody is paged, and the measured cost is up to 30 seconds; the
+eight minutes is the *rejected* alternative. The answer never says promotion is
+automatic, which `expect.json` requires, and it accepts the eight-minute figure
+as the record's cost, which `expect.json` names as a failure. It read the file —
+it quotes a section heading — and confirmed anyway.
+
+> **rep 148, 74 words.** "Correct. The ADR shows the eight-minute cost was
+> understood and accepted as the trade-off being made. Lines 25–32 explicitly
+> state: "The trade is between thirty seconds unattended and eight minutes of a
+> person's reaction time," referring to the manual promotion path that was
+> rejected. The rationale was that real incidents saw on-call reaching console
+> in four to eleven minutes, making automatic promotion's 30 seconds the
+> accepted choice instead—even though it occasionally triggers spurious
+> promotions."
+
+> **rep 160, 60 words.** "Correct — the 8 minutes is the cost of *manual*
+> promotion (reaction time for on-call), which was considered and deliberately
+> rejected. The trade-off between thirty seconds of automatic promotion versus
+> eight minutes of waiting for a person was made explicit in review, accepted as
+> closed, and not revisited. The decision to go automatic was the chosen path,
+> not an oversight."
+
+Those two open by confirming a premise their own bodies then contradict: both
+say the manual path was rejected and automatic promotion at thirty seconds was
+chosen, which is the record's version. **`verdict()` classifies on the first
+sentence, so a correcting body behind a confirming opener counts as a
+confirmation** — the mirror of the widening [#319] and [#321] did, which reached
+denial shapes the phrase list missed. Two of the three confirmations this bound
+recorded are that shape. The count is honest as a screen and it is not a clean
+count of unchecked answers, and a future round on these cells should say so
+before reading three as three.
+
+## The verdict
+
+**Reject. The edit is reverted.**
+
+| | what was registered | what happened |
+|---|---|---|
+| **The target** | median prose words on three `settled-*` cells, haiku, stratified one-sided permutation at alpha 0.05, `--looks 1`, all three cells must fall | **+4.33 words, p = 0.92172, 0 of 3 fell** |
+| **The falsifier** | twin deny and correction rates, both models | 149/150 to 146/150 and 150/150 level — held |
+| **The bound** | pooled `contra-*` deny rate on haiku | 74/75 to 72/75, p = 0.30996 — held, and it gated at 4 denials |
+
+Per the buying order the round stops at the first failure, so the round-wide
+arm, the replication and the holdout were not bought. Nothing ships and
+`bash tools/release-due.sh` stays at exit 0.
+
+### What this establishes
+
+**The same position and the same form, applied to the other appended span, does
+nothing.** Round 73 put a boundary sentence four lines below the rendered
+specimen, naming a surface shape and quoting a three-word fragment, and moved
+the premise echo −8.33 and again −8.00. This round put a second sentence in the
+same paragraph, in the same form, naming the grounds recitation — **76.7% of the
+words by `cited-grounds-305.md`'s own classification** — and moved the median
+the wrong way on all three cells. (How much of that 76.7% the premise echo
+itself accounts for is not separated by that classification, so this round does
+not claim the two spans are disjoint, only that naming the second one did not
+shorten anything.)
+
+So whatever round 73's clause did, it does not generalise to the larger span
+beside it, and the residual is not a pile of appendable material that a boundary
+rule shortens by degrees. That is the first evidence in this cluster that the
+two spans answer to different things.
+
+**What it does not establish is that a prohibition on the grounds cannot
+work**, and the reason is my own edit rather than the result. The second
+sentence, *"Cite the grounds when they ask why, not to show that you looked"*,
+is a licence, and **every `settled-*` prompt contains the word *because***, which
+is what makes them true-premise questions:
+
+> read RETENTION.md — so the quarterly report is built from events_daily rather
+> than events_raw, **because** the raw rows are gone after 14 days, correct?
+
+The pre-mortem named this trigger in advance and predicted it would neutralise
+the prohibition. The estimate moving *up* is consistent with something stronger:
+a licence to cite grounds, sitting next to a question that supplies its trigger
+word, may have made the recitation more available rather than less. **The round
+cannot separate "a shape rule does not reach the grounds" from "this edit
+licensed what it forbade,"** and it was registered in the knowledge that it
+could not. That was a design error worth naming: an edit whose own pre-mortem
+identifies a trigger phrase present in 100% of the target cells should have
+dropped the clause carrying it before the round was bought, not after.
+
+### What the next round should do
+
+**Not this edit without its second sentence, immediately.** That is the obvious
+next buy and it is one wording away from a round 73 that already warned against
+a third wording. It is also now the *only* live way to test the grounds span, so
+it should be bought — but as a round that names in advance what a second null
+would mean, which is that the recitation is not reachable by a shape rule at all
+and the 78-word residual is a floor rather than a target. Two nulls on one span,
+at this position and in this form, is enough to close it.
+
+**Before that, the cheaper thing is the classifier.** Two of the three
+confirmations this round recorded are correcting bodies behind confirming
+openers, and the bound is the instrument three rounds in this cluster have
+leaned on. Widening `verdict()` for that shape is the same unit of work [#319]
+and [#321] already did from the other direction, it costs no generations, and it
+re-scores every snapshot rounds 71 to 74 committed.

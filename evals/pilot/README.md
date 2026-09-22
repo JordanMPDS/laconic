@@ -163,3 +163,19 @@ endpoint can convict one response. These are the first cases where surplus is
 unrequested by construction rather than by a redundancy judgement.
 
 [#305]: https://github.com/JordanMPDS/laconic/issues/305
+
+## `edit-service`, and `drift-service` symlinked beside it
+
+[#113]'s editing regime, registered in
+[`../results/loop/closing-edit-113.md`](../results/loop/closing-edit-113.md).
+`drift-service` asks five design questions and forbids editing on every turn,
+which is why laconic's 0 of 525 closing offers on it says nothing about the
+editing session the report came from. `edit-service` is the same five questions
+over the same fixture with "Don't edit anything." replaced by "Go ahead and make
+the change." on turns 1, 2, 4 and 5, and dropped on turn 3, a walk-through with
+no change to make. The scored case is symlinked in, not copied, so both halves
+are generated in one interleaved pass and the control cannot drift from the case
+the suite ships. `tests/test_evals_layout.sh` holds the pair to that contract.
+Scored by `score_closing_edit.py`.
+
+[#113]: https://github.com/JordanMPDS/laconic/issues/113

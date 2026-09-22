@@ -135,9 +135,9 @@ def sensitivity(con):
     return None
 
 
-def report(control, edit):
+def report(control, edit, title="Round 72: the premise echoed back"):
     rows, stat, p = target(control, edit)
-    print("# Round 72: the premise echoed back\n")
+    print("# %s\n" % title)
     print("## Target: prose words, three settled cells, haiku\n")
     print("| cell | n ctl | n edit | control median | edit median "
           "| two-sided p | votes |")
@@ -285,12 +285,16 @@ def main(argv=None):
     ap.add_argument("--control", nargs="*", default=[])
     ap.add_argument("--edit", nargs="*", default=[])
     ap.add_argument("--selftest", action="store_true")
+    # Round 73 is a second edit against the same residual, scored by this same
+    # file so the two rounds' numbers cannot drift apart. Only the heading
+    # moves; every figure below it is computed identically.
+    ap.add_argument("--title", default="Round 72: the premise echoed back")
     args = ap.parse_args(argv)
     if args.selftest:
         return selftest()
     if not args.control or not args.edit:
         ap.error("--control and --edit each need at least one snapshot")
-    return report(load(args.control), load(args.edit))
+    return report(load(args.control), load(args.edit), args.title)
 
 
 if __name__ == "__main__":

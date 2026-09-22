@@ -448,5 +448,101 @@ check("a clean response decides nothing at any level",
       all(metrics.decisions(GOOD, lv, ("kubectl",)) == frozenset()
           for lv in metrics.LEVEL_RANK))
 
+
+# --- the 2x2 interaction null (#298) ------------------------------------
+# metrics.interaction_permutation replaced a side-label shuffle whose null was
+# measured at 1.9x the sampling distribution of the statistic it tested. These
+# check the property that replacement was chosen for: the null has to be the
+# width the data carry whichever label happens to hold a main effect, because
+# the pilots have one on both.
+import random  # noqa: E402
+import statistics  # noqa: E402
+
+_SIDES, _FAMS = ("c", "e"), ("A", "B")
+_CELLS = [(s, f) for s in _SIDES for f in _FAMS]
+
+
+def _synthetic(side_gap, family_gap, seed, n=30, sd=0.5, interaction=0.0):
+    """Four cells with known gaps, and a known interaction on cell (e, B)."""
+    rng = random.Random(seed)
+    return {(s, f): [(side_gap if s == "e" else 0.0)
+                     + (family_gap if f == "B" else 0.0)
+                     + (interaction if (s, f) == ("e", "B") else 0.0)
+                     + rng.gauss(0, sd)
+                     for _ in range(n)]
+            for s in _SIDES for f in _FAMS}
+
+
+def _null_sd(groups, shuffle, seed, draws=1500):
+    rng = random.Random(seed)
+    return statistics.stdev(
+        metrics.difference_of_differences(shuffle(groups, rng), _SIDES, _FAMS)
+        for _ in range(draws))
+
+
+def _shuffle_side(groups, rng):
+    out = {}
+    for f in _FAMS:
+        pool = list(groups[("c", f)]) + list(groups[("e", f)])
+        n = len(groups[("c", f)])
+        rng.shuffle(pool)
+        out[("c", f)], out[("e", f)] = pool[:n], pool[n:]
+    return out
+
+
+def _shuffle_residual(groups, rng):
+    fit = metrics.additive_fit(groups, _SIDES, _FAMS)
+    resid = [v - fit[c] for c in _CELLS for v in groups[c]]
+    rng.shuffle(resid)
+    out, i = {}, 0
+    for c in _CELLS:
+        n = len(groups[c])
+        out[c] = resid[i:i + n]
+        i += n
+    return out
+
+
+def _sampling_sd(groups, seed, draws=1500):
+    rng = random.Random(seed)
+    return statistics.stdev(
+        metrics.difference_of_differences(
+            {c: [rng.choice(groups[c]) for _ in groups[c]] for c in _CELLS},
+            _SIDES, _FAMS)
+        for _ in range(draws))
+
+
+_gap = _synthetic(3.0, 0.0, 298)
+_samp = _sampling_sd(_gap, 298)
+check("a side main effect inflates the side-label null it is shuffled across",
+      _null_sd(_gap, _shuffle_side, 298) > 2 * _samp)
+check("aligned residuals give a null the width the data carry",
+      0.85 < _null_sd(_gap, _shuffle_residual, 298) / _samp < 1.15)
+
+# The additive fit is what makes that work: it holds both main effects and no
+# interaction, so it contributes exactly zero to the statistic.
+_fit = metrics.additive_fit(_gap, _SIDES, _FAMS)
+check("the additive fit carries no interaction",
+      abs(metrics.difference_of_differences(
+          {c: [_fit[c]] for c in _CELLS}, _SIDES, _FAMS)) < 1e-9)
+check("the additive fit keeps the side gap it was built from",
+      abs((_fit[("e", "A")] - _fit[("c", "A")]) - 3.0) < 0.2)
+
+# And the test itself: silent on a true null, and it fires on an effect the
+# side-label shuffle was measured to miss.
+check("the interaction test does not fire on a null with a large side gap",
+      metrics.interaction_permutation(
+          _gap, _SIDES, _FAMS, 298, resamples=2000) > 0.05)
+check("the interaction test fires on an injected interaction",
+      metrics.interaction_permutation(
+          _synthetic(3.0, 0.0, 298, interaction=0.6), _SIDES, _FAMS, 298,
+          resamples=2000) < 0.05)
+
+# A partial snapshot looks like an empty cell, and inventing a p from three
+# cells is worse than declining to report one.
+check("the interaction test declines an empty cell",
+      metrics.interaction_permutation(
+          {**_gap, ("e", "B"): []}, _SIDES, _FAMS, 298,
+          resamples=100) is None)
+
 print("\n%d failure(s)" % fails)
 sys.exit(1 if fails else 0)

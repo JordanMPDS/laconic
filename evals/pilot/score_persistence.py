@@ -77,8 +77,24 @@ def difference_of_differences(g):
             - (mean(("edit", "deep")) - mean(("control", "deep"))))
 
 
+def interaction_corrected(groups, seed, resamples=200000):
+    """[#298]'s corrected null: additive-fit residuals shuffled across cells.
+
+    Same statistic, same bootstrap; only the way the null is built moves. See
+    `metrics.interaction_permutation` and
+    `evals/results/loop/interaction-null-298.md`.
+    """
+    return metrics.interaction_permutation(
+        groups, SIDES, ("deep", "register"), seed, resamples=resamples)
+
+
 def interaction(groups, seed, resamples=200000):
-    """Permute the side label within each family, preserving family sizes."""
+    """Permute the side label within each family, preserving family sizes.
+
+    **Superseded by `interaction_corrected`**, and kept because rounds 47 and
+    49 registered this test and a stored verdict has to stay recomputable from
+    the code that produced it.
+    """
     import random
     if any(not groups[k] for k in CELLS):
         return None
@@ -135,6 +151,8 @@ def main():
         print("   same on log words, a ratio of ratios of %.3f, p = %s"
               % (math.exp(difference_of_differences(logged)),
                  fmt(interaction(logged, seed))))
+        print("   same, [#298]'s corrected null (aligned residuals), p = %s"
+              % fmt(interaction_corrected(logged, seed)))
     else:
         print("   same on log words: - (a run scored zero words)")
 

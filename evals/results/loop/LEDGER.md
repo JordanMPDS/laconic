@@ -308,6 +308,27 @@ Nothing was re-scored. These rounds proposed no rule edit, so no verdict depends
 on the figures, and re-running them under `plugin` would be a new round rather
 than a correction.
 
+**The interaction test carried a null 1.9x to 2.8x too wide, corrected
+2026-09-22, and no row above moves.** The three pilot scorers that test a 2x2
+interaction built their null by shuffling the **side** label inside each family,
+and on the arm instruments the arms sit about 8x apart, so every shuffled group
+was a mixture of two separated modes. The measured consequence is not
+conservatism: **the false-positive rate is 0.000 in a thousand draws** and the
+test needs an interaction near 1.75x before it detects one half the time. The
+obvious repair is not one — shuffling the family label instead moves the same
+inflation onto the family's main effect, 1.0x and 2.3x swapping places on
+synthetic cells — so `metrics.interaction_permutation` shuffles additive-fit
+residuals, which is 1.0x in every arrangement and calibrates at 0.059.
+
+Recomputed, **one stored interaction crosses alpha**: `register-inheritance-136`
+at 1.782x, from p = 0.0844 to p < 0.00001 — a figure that document had already
+published as post-hoc and declined to lean on. Round 69's `fullexplain` moves
+0.3375 to 0.0737 without crossing, and rounds 47, 49, 67 and 68 move too little
+to change any reading. **No round's verdict is restated and none of these
+figures is a registered finding**; what an arm-label null bounds is now known to
+be about 1.75x rather than the 1.2x a reader would assume. See
+[`interaction-null-298.md`](interaction-null-298.md).
+
 [#192]: https://github.com/JordanMPDS/laconic/pull/192
 [#259]: https://github.com/JordanMPDS/laconic/issues/259
 [#263]: https://github.com/JordanMPDS/laconic/issues/263

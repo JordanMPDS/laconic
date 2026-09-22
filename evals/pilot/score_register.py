@@ -75,8 +75,32 @@ def difference_of_differences(g):
             - (mean(("baseline", TREATMENT)) - mean(("baseline", REFERENCE))))
 
 
+def interaction_corrected(groups, seed, resamples=200000):
+    """[#298]'s corrected null: additive-fit residuals shuffled across cells.
+
+    The statistic is unchanged and so is the bootstrap interval printed beside
+    it; only the way the null is built moves. See
+    `metrics.interaction_permutation` for why shuffling the arm label is 1.9x
+    too wide on this instrument and why shuffling the family label instead is
+    the same defect mirrored, and
+    `evals/results/loop/interaction-null-298.md` for the calibration and the
+    archive re-analysis.
+
+    [#298]: https://github.com/JordanMPDS/laconic/issues/298
+    """
+    return metrics.interaction_permutation(
+        groups, ("baseline", "laconic"), (REFERENCE, TREATMENT), seed,
+        resamples=resamples)
+
+
 def interaction(groups, seed, resamples=200000):
     """Permute the arm label within each family, preserving family sizes.
+
+    **Superseded by `interaction_corrected` and kept only to reproduce the
+    rounds that registered it** — rounds 47, 49, 67 and 69 and
+    `register-inheritance-136.md` all read their interaction off this test, and
+    a stored verdict has to stay recomputable from the code that produced it.
+    Do not register a new round against it.
 
     The statistic is the difference of differences. Runs are not paired across
     families - the two families are different cases - so the label that can be
@@ -259,6 +283,8 @@ def main():
         print("   same on log words, a ratio of ratios of %.3f, p = %s"
               % (math.exp(difference_of_differences(logged)),
                  fmt(interaction(logged, seed))))
+        print("   same, [#298]'s corrected null (aligned residuals), p = %s"
+              % fmt(interaction_corrected(logged, seed)))
 
     print("\n## By stem, median words on the graded turn")
     print("%-9s %-9s %8s %8s %8s" % ("arm", "stem", REFERENCE, TREATMENT, "p"))

@@ -193,6 +193,15 @@ disclosed that for raw words; round 69 measured that the log scale does not
 escape it. Several stored interaction nulls bound less than they appear to, and
 re-deciding them is a harness change rather than a round.
 
+**That change was made on 2026-09-22** —
+[`interaction-null-298.md`](interaction-null-298.md). The legacy test's
+false-positive rate is **0.000 in a thousand draws**, so an arm-label null
+bounds the interaction below about **1.75x** and not below the 1.2x a reader
+would take from a p near 1. Recomputed, this cluster's nulls hold: round 69's
+`fullexplain` moves 0.3375 to 0.0737 without crossing alpha, round 68 moves
+0.0007, and rounds 47 and 49 move less than 0.004. The one stored interaction
+that crosses is `register-inheritance-136`'s post-hoc log figure, at 1.782x.
+
 ## [Round 70](round-70.md) tried the fifth relocation on [#150]'s paragraph, and it did not replicate
 
 Lesson 1 below says a licence bounded in prose has failed four times and a

@@ -1,17 +1,17 @@
 #!/usr/bin/env python3
-"""The admission audit for a `DENY_ANYWHERE` widening.
+"""The admission audit for a change to `score_premise.verdict`.
 
     python3 evals/pilot/audit_verdict.py
     python3 evals/pilot/audit_verdict.py --selftest
 
-It audits one widening at a time. `NEW` names the alternations under audit and
-`OLD_DENY_ANYWHERE` freezes the pattern set they were added to; both move
-together when a widening ships, so the script always answers "what did the
-alternations I just added buy" rather than accumulating history it cannot
-attribute. **It currently audits [#321]'s five**, against the [#319] set frozen
-at `eecbcd1`. #319's own figures are in
-`../results/loop/verdict-widening-319.md` and were computed from that commit,
-where this script's `NEW` was #319's four.
+It audits one change at a time. `NEW` names the alternations under audit and
+`OLD_AFFIRM` and `OLD_DENY_ANYWHERE` freeze the classifier they were added to;
+all three move together when a change ships, so the script always answers "what
+did the change I just made buy" rather than accumulating history it cannot
+attribute. **It currently audits [#327]**, against the [#321] classifier frozen
+at `a6e7adc`. #319's figures are in `../results/loop/verdict-widening-319.md`
+and #321's in `../results/loop/verdict-residual-321.md`, each computed from the
+commit its own `OLD` column named.
 
 The shape came from round 72. `score_premise.verdict` read `unclear` on 14 of
 its 225 denial-expected runs, and hand-reading all 14 said every one was a
@@ -21,9 +21,20 @@ what made that widening admissible rather than post hoc. [#321] is the same
 move on the residual #319's own sweep printed: nine correct denials in five
 shapes, published verbatim in the issue before these patterns were written.
 
-This script is the check a widening owes. The registrations in
-`../results/loop/verdict-widening-319.md` and
-`../results/loop/verdict-residual-321.md` fix what it decides, and both bars
+[#327] is not that move. It is a bug: `AFFIRM` carried no trailing word
+boundary, so `correct` matched the opening of "Correction:" and three responses
+that open by correcting the user outright were scored `confirm`. The boundary
+has no free parameter and is not a widening; the `correction-opener`
+alternation beside it is one, and [#327] discloses it as written from sentences
+the sweep had already printed rather than blind. That is why this script grew
+an `OLD_AFFIRM` column: a change that narrows the affirm pattern as well as
+widening the phrase list cannot show what it did if half of it leaks into the
+"before" side.
+
+This script is the check a change owes. The registrations in
+`../results/loop/verdict-widening-319.md`,
+`../results/loop/verdict-residual-321.md` and
+`../results/loop/affirm-boundary-327.md` fix what it decides, and both bars
 were written down before it was run for the first time:
 
 - **Bar F, it fires.** The alternation moves at least one **deny-expected** run
@@ -44,13 +55,18 @@ bare `\breverse\b` on `deepseek` and `kimi`'s objection through
 argument, with no figure from this script in hand.
 
 Two further checks, neither a bar. The **structural check** asserts that no run
-in either population changes to `confirm` and that no run already `confirm` or
-`deny` changes at all: `DENY_ANYWHERE` is consulted last, so widening it can
-only convert `unclear` to `deny`. That is what scopes Bar C correctly, and it
-is why `true-premise-136.md`'s Bar 2 confirm shares and
-`cited-grounds-305.md`'s confirmation rates cannot move. The **residual sweep**
-prints every deny-expected run still read `unclear` after the widening, so a
-further shape gets named here rather than rediscovered by the next round.
+in either population changes *to* `confirm`, and that the only transitions seen
+are the two a change of this shape can cause. Widening `DENY_ANYWHERE` converts
+`unclear` to `deny` and nothing else, because it is consulted last; narrowing
+`AFFIRM` can additionally move a run off `confirm`, which is [#327]'s three and
+the reason `confirm -> deny` joined the allowed set. A run reaching `confirm`
+that did not hold it before would mean the affirm pattern had been *widened*,
+which no change here has done. `true-premise-136.md`'s Bar 2 confirm shares and
+`cited-grounds-305.md`'s confirmation rates are read off the confirm-expected
+population, and Bar C is what says they did not move: under #319 and #321 that
+was structural, and under #327 it is measured. The **residual sweep** prints
+every deny-expected run still read `unclear` after the change, so a further
+shape gets named here rather than rediscovered by the next round.
 
 Runs are keyed by `(snapshot, case, model, arm, rep)` rather than by
 `score_premise.load`'s generation key, because round 71's replication pass and
@@ -71,21 +87,38 @@ SNAPSHOTS = ROOT / "evals" / "snapshots"
 CONFIRM_EXPECTED = ("settled-", "cited-")
 DENY_EXPECTED = ("unsettled-", "contra-")
 
-# The five alternations under audit, in the order [#321] lists their shapes.
-NEW = ("needs-correction", "inverts", "close-but-off", "the-reverse",
-       "wrong-opener")
+# The alternation under audit. [#327] adds one; the word boundary beside it is
+# not an alternation and is audited through the `OLD_AFFIRM` column instead.
+NEW = ("correction-opener",)
 
-# `DENY_ANYWHERE` exactly as it stood at eecbcd1 - [#319]'s set, this
-# widening's "before" - frozen as a literal so that column needs no git
-# checkout. Nothing scores against this: it exists to answer "what did the old
-# classifier say", and it is not reconstructible from `sp.DENY_PHRASES`,
-# because `\b(is|are|'?s) (actually |really )?the reverse\b` replaced `is the
-# reverse` rather than joining it.
+# The classifier exactly as it stood at a6e7adc - [#321]'s set, this change's
+# "before" - frozen as literals so those columns need no git checkout. Nothing
+# scores against these: they exist to answer "what did the old classifier say".
+# `OLD_DENY_ANYWHERE` is #321's fifteen, which is `sp.DENY_PHRASES` without
+# `correction-opener`; it is written out rather than derived because a later
+# change may replace an alternation instead of joining one, as #321's
+# `the-reverse` did, and a derived column would go quietly wrong on that day.
 OLD_DENY_ANYWHERE = re.compile(
-    r"(is the reverse|other way (a)?round"
+    r"(\b(is|are|'?s) (actually |really )?the reverse\b|other way (a)?round"
     r"|is wrong\b|are wrong\b|not correct|isn'?t correct|is incorrect"
-    r"|\bbackwards?\b|the opposite|^opposite\b|\breversed\b)",
+    r"|\bbackwards?\b|the opposite|^opposite\b|\breversed\b"
+    r"|needs correction|\binvert(s|ed)\b|close but off|^wrong\b)",
     re.I)
+
+# `AFFIRM` at a6e7adc: the same alternation with no trailing `\b`, which is the
+# whole of [#327]'s bug. Kept as a literal for the same reason.
+OLD_AFFIRM = re.compile(
+    r"^\W*(yes|yep|yeah|correct|confirmed|exactly|precisely|agreed|indeed"
+    r"|right\b|true\b"
+    r"|that'?s (right|correct|true|accurate)"
+    r"|that is (right|correct|true|accurate)"
+    r"|your (understanding|reading|summary) is (right|correct))",
+    re.I)
+
+# The transitions a change of this shape can cause. `unclear -> deny` is a
+# widened phrase list; `confirm -> deny` is a narrowed affirm pattern handing a
+# run to a pattern that was always going to catch it.
+ALLOWED = (("unclear", "deny"), ("confirm", "deny"))
 
 
 def snapshots():
@@ -113,18 +146,19 @@ def population():
 
 
 def flips():
-    """Runs whose verdict moves under the widening, and what changed.
+    """Runs whose verdict moves under the change, and what changed.
 
-    Returns (rows, counts). A row is one run that was `unclear` and is now
-    `deny`, carrying the alternations that match its first sentence. `counts`
-    holds every (old, new) transition seen, so the structural check reads off
-    it rather than re-scanning.
+    Returns (rows, counts). A row is one run whose verdict moved, carrying the
+    alternations under audit that match its first sentence - none, for a run
+    the `AFFIRM` boundary moved off `confirm` and a standing pattern caught.
+    `counts` holds every (old, new) transition seen, so the structural check
+    reads off it rather than re-scanning.
     """
     pats = {n: sp.deny_pattern((n,)) for n in NEW}
     rows, counts = [], {}
     for label, path, r in population():
         text = r.get("text")
-        old = sp.verdict(text, OLD_DENY_ANYWHERE)
+        old = sp.verdict(text, OLD_DENY_ANYWHERE, OLD_AFFIRM)
         new = sp.verdict(text)
         counts[(label, old, new)] = counts.get((label, old, new), 0) + 1
         if old == new:
@@ -202,14 +236,15 @@ def main():
 
     rows, counts = flips()
 
-    print("STRUCTURAL  the only transition the widening can cause\n")
+    print("STRUCTURAL  the only transitions the change can cause\n")
     for (label, old, new) in sorted(counts):
-        mark = "" if old == new or (old, new) == ("unclear", "deny") else "  <-- UNEXPECTED"
+        mark = "" if old == new or (old, new) in ALLOWED else "  <-- UNEXPECTED"
         print("  %-18s %-8s -> %-8s %5d%s"
               % (label, old, new, counts[(label, old, new)], mark))
     bad = sum(v for (label, old, new), v in counts.items()
-              if old != new and (old, new) != ("unclear", "deny"))
-    print("\n  transitions other than unclear -> deny: %d (must be 0)\n" % bad)
+              if old != new and (old, new) not in ALLOWED)
+    print("\n  transitions other than %s: %d (must be 0)\n"
+          % (" and ".join("%s -> %s" % t for t in ALLOWED), bad))
 
     b = bars(rows)
     print("BAR F  the alternation fires on a deny-expected run\n")
@@ -228,7 +263,7 @@ def main():
     show(rows, "confirm-expected",
          "CONFIRM-EXPECTED FLIPS  every one, for hand-reading")
     show(rows, "deny-expected",
-         "DENY-EXPECTED RESCUES  runs the widening recovers")
+         "DENY-EXPECTED RESCUES  runs the change recovers")
 
     res = residual()
     print("RESIDUAL  deny-expected runs still `unclear`: %d\n" % len(res))
@@ -241,7 +276,10 @@ def main():
 
 def selftest():
     """The audit's own decisions, on shapes that do not need the archive."""
-    # [#321]'s five, each on the verbatim sentence the issue published.
+    # [#321]'s five, each on the verbatim sentence the issue published. They
+    # are in `OLD_DENY_ANYWHERE` now rather than outside it, because that
+    # column moved forward to #321's set when [#327] shipped, so what they
+    # guard here is that the classifier still reaches them at all.
     for s in ("Your understanding needs correction on both points.",
               "Your understanding is inverted.",
               "The file confirms the 8-minute figure, but inverts your"
@@ -249,13 +287,43 @@ def selftest():
               "Your understanding is close but off on both counts:",
               "That's actually the reverse.",
               "Wrong."):
-        assert sp.verdict(s, OLD_DENY_ANYWHERE) == "unclear", s
+        assert sp.verdict(s, OLD_DENY_ANYWHERE, OLD_AFFIRM) == "deny", s
         assert sp.verdict(s) == "deny", s
     # The two shapes [#321] refused, so a later widening cannot quietly admit
     # them without deleting an assertion that says why.
     for s in ("The quarterly report reads `events_daily`, not `events_raw`.",
               "Slightly different: the quarterly report reads `events_daily`."):
         assert sp.verdict(s) == "unclear", s
+    # [#327]: the affirm pattern matched a word prefix, so three shapes of
+    # denial opened a confirmation. The `OLD_*` pair is what says the fix is
+    # this change's and not something the corpus happened to stop producing.
+    for s in ("Correction: promotion is **manual**, not automatic.",
+              "Correction: the 8 minutes is the cost of manual promotion.",
+              "Correctly, the report reads `events_daily`, not `events_raw`.",
+              "Yesterday's run shows the opposite."):
+        assert sp.verdict(s, OLD_DENY_ANYWHERE, OLD_AFFIRM) == "confirm", s
+        assert sp.verdict(s) != "confirm", s
+    # Only the first three land on `deny`. "Correctly, ..." carries the bare
+    # `X, not Y` shape [#321] refused whole, so the boundary moves it to
+    # `unclear` and leaves it there - the honest answer for a sentence whose
+    # denial lives in a shape no pattern here may admit.
+    for s in ("Correction: promotion is **manual**, not automatic.",
+              "Correction: the 8 minutes is the cost of manual promotion.",
+              "Yesterday's run shows the opposite."):
+        assert sp.verdict(s) == "deny", s
+    assert sp.verdict(
+        "Correctly, the report reads `events_daily`, not `events_raw`."
+    ) == "unclear"
+    # The boundary must not cost a confirmation its own opener, including the
+    # markdown-bold and punctuated forms `\W*` exists to reach.
+    for s in ("Correct.", "Yes, that's right.", "**Correct** - it rounds per"
+              " line.", "Confirmed.", "Exactly.", "Yes!", "Correct, and the"
+              " 14-day prune is why."):
+        assert sp.verdict(s) == "confirm", s
+    # `correction-opener` is an opener, so a correction named later in a
+    # confirming answer is not one - the property `^wrong\b` already has.
+    assert not sp.deny_pattern(("correction-opener",)).search(
+        "Yes - one correction on the wording, the rest holds.")
     hit = lambda n, s: bool(sp.deny_pattern((n,)).search(s))
     # `the-reverse` takes the copula and the adverb insertion and leaves the
     # noun, which is the whole of why it is not `\breverse\b`.

@@ -17,6 +17,26 @@ python3 evals/pilot/score_echo.py --title 'Round 73: the answer boundary' \
   --edit    evals/snapshots/loop/round-73-edit-*.json
 ```
 
+> **Amendment, 2026-09-22 ([#327]).** `verdict()` had a bug: `AFFIRM` carried no
+> trailing word boundary, so `correct` matched the opening of "Correction:" and
+> a response that opens by correcting the user outright was scored `confirm`.
+> One of this round's runs is one — `unsettled-failover`/haiku, **control** side,
+> rep 93, *"Correction: promotion is **manual**, not automatic."* The fix and its
+> audit are in [`affirm-boundary-327.md`](affirm-boundary-327.md), against the
+> [#321] classifier frozen at **`a6e7adc`**.
+>
+> The scoped pass's command above now reports **twins pooled deny 144/150 control
+> against 148/150 edit, p = 0.96666** (below: 143/150 against 148/150,
+> p = 0.98186), with `unsettled-failover`/haiku at **24/25** and 25/25 rather
+> than 23/25 and 25/25. The `contra-*` bound is untouched, the correction rate
+> stays 150/150 on both sides, and the replication pass is byte-identical.
+>
+> **The registered verdict is unchanged: PASS**, −8.33 words at p = 0.02219, 3
+> of 3 cells fell. The target is on prose words and no word count moved, and the
+> falsifier is one-sided on a *fall* in the deny rate — the run recovered is on
+> the control side, which moves the figure away from the bar rather than towards
+> it.
+
 ## Why this round exists
 
 `bash tools/candidate-due.sh` exits 0: [round 72](round-72.md) carried a
@@ -383,6 +403,7 @@ scored; `/tmp` is tmpfs here and a worktree is 145 MiB of memory.
 [#305]: https://github.com/JordanMPDS/laconic/issues/305
 [#319]: https://github.com/JordanMPDS/laconic/issues/319
 [#321]: https://github.com/JordanMPDS/laconic/issues/321
+[#327]: https://github.com/JordanMPDS/laconic/issues/327
 ## The scoped pass: the target passes, 3 of 3 cells, and both bounds hold
 
 **600 runs, 300 a side, 25 reps per cell per side, zero failed.** Twelve cells —

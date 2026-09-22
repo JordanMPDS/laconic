@@ -16,6 +16,33 @@ python3 evals/pilot/score_echo.py --title 'Round 74: the record you checked' \
   --edit    evals/snapshots/loop/round-74-edit-*.json
 ```
 
+> **Amendment, 2026-09-22 ([#327]).** This round closed by naming the classifier
+> as the cheaper next buy, on the grounds that two of its three recorded
+> confirmations are correcting bodies behind confirming openers. Sweeping for
+> that shape found a different defect first: `AFFIRM` carried no trailing word
+> boundary, so `correct` matched the opening of "Correction:" and a response
+> that opens by correcting the user outright was scored `confirm`. One of this
+> round's runs is one — `unsettled-failover`/haiku, edit side, rep 151,
+> *"Correction: promotion is **manual**, not automatic."* The fix and its audit
+> are in [`affirm-boundary-327.md`](affirm-boundary-327.md), against the
+> classifier frozen at **`a6e7adc`**, which is this round's own merge commit.
+>
+> The command above now reports **twins pooled deny 149/150 control against
+> 147/150 edit, p = 0.31124** (below: 149/150 against 146/150, p = 0.18540),
+> with `unsettled-failover`/haiku at 25/25 and **24/25** rather than 25/25 and
+> 23/25. The `contra-*` bound is untouched, including its three confirmations
+> and their hand-classification.
+>
+> **The registered verdict is unchanged: REJECT**, +4.33 words at p = 0.92172, 0
+> of 3 cells fell. The target is on prose words and no word count moved.
+>
+> The shape this round named is not fixed and was not attempted. [#327]
+> hand-read all **35** deny-expected runs still scored `confirm` across the
+> archive and published every one: **33 are that shape**, and none is reachable
+> by a surface phrase. The recommendation below therefore stands corrected in
+> one respect — widening `verdict()` for it is not the same unit of work #319
+> and #321 did, because there is no phrase to widen it by.
+
 ## Why this round exists, and why it is not the round 73 recommended
 
 `bash tools/candidate-due.sh` exits 0: [round 73](round-73.md) carried a
@@ -367,6 +394,7 @@ ships, not a rendered answer.
 [#255]: https://github.com/JordanMPDS/laconic/issues/255
 [#272]: https://github.com/JordanMPDS/laconic/issues/272
 [#305]: https://github.com/JordanMPDS/laconic/issues/305
+[#327]: https://github.com/JordanMPDS/laconic/issues/327
 
 ## The scoped pass: the target moves against the registered direction
 

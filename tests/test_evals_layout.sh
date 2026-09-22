@@ -380,6 +380,37 @@ PYEOF
 done
 done
 
+# `edit-service` is `drift-service` with the session allowed to edit, for #113:
+# "Don't edit anything." becomes "Go ahead and make the change." on turns 1, 2,
+# 4 and 5 and is dropped on turn 3, a walk-through. If any other byte of a turn
+# drifts, or the trap or fixture stops being shared, the pair measures the
+# questions instead of the editing regime. See
+# evals/results/loop/closing-edit-113.md.
+if python3 - "$ROOT/evals/cases/drift-service" "$ROOT/evals/pilot/edit-service" \
+            "$ROOT/evals/pilot/drift-service" <<'PYEOF'
+import json, sys
+from pathlib import Path
+a, b, link = (Path(p) for p in sys.argv[1:])
+assert link.resolve() == a.resolve(), "evals/pilot/drift-service must link the scored case"
+ta = a.joinpath("prompt.md").read_text().split("<!-- turn -->")
+tb = b.joinpath("prompt.md").read_text().split("<!-- turn -->")
+assert len(ta) == 5 and len(tb) == 5, "both cases must be five turns"
+for i, (x, y) in enumerate(zip(ta, tb)):
+    want = (x.replace(" Don't edit anything.", "") if i == 2
+            else x.replace("Don't edit anything.", "Go ahead and make the change."))
+    assert "Don't edit anything." in x and y == want, "turn %d differs" % (i + 1)
+ea, eb = (json.loads(p.joinpath("expect.json").read_text()) for p in (a, b))
+for k in ("trap", "never_cut", "grading"):
+    assert ea[k] == eb[k], "%s differs" % k
+assert a.joinpath("fixture").resolve() == b.joinpath("fixture").resolve(), \
+    "the pair must share one fixture"
+PYEOF
+then
+  ok "edit-service is drift-service with only the edit clause changed"
+else
+  fail "edit-service is drift-service with only the edit clause changed"
+fi
+
 # The `settled-*`/`unsettled-*` pairs are the true-premise instrument for #136
 # and #305, described in evals/results/loop/true-premise-136.md. Each pair asks
 # one closed question over one decision record and differs only in whether the

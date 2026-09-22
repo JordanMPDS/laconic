@@ -383,3 +383,105 @@ scored; `/tmp` is tmpfs here and a worktree is 145 MiB of memory.
 [#305]: https://github.com/JordanMPDS/laconic/issues/305
 [#319]: https://github.com/JordanMPDS/laconic/issues/319
 [#321]: https://github.com/JordanMPDS/laconic/issues/321
+## The scoped pass: the target passes, 3 of 3 cells, and both bounds hold
+
+**600 runs, 300 a side, 25 reps per cell per side, zero failed.** Twelve cells —
+three `settled-*` and three `contra-*` on haiku, six `unsettled-*` twins on
+haiku and sonnet — four shards at `--concurrency 4`, two a side, rep offsets 90
+and 102 so no generation key is shared with round 72. Both sides simultaneous
+from the two trees. `rules_cksum` **864847550** on the control against
+**3285158247** on the edit, `cases_cksum` 2717264123 on all four.
+`python3 evals/bench/release.py` reads all four snapshots entirely on CLI
+**2.1.278**, one release, no span and no arm imbalance. Generated 2026-09-22.
+Roughly $9 at the loop skill's rates.
+
+### The target
+
+| settled cell, haiku | n/side | control median | edit median | two-sided p |
+|---|--:|--:|--:|--:|
+| `settled-retention` | 25 | 67.0 | **64.0** | 0.68468 |
+| `settled-failover` | 25 | 95.0 | **82.0** | 0.14686 |
+| `settled-rounding` | 25 | 90.0 | **81.0** | 0.27850 |
+
+**Stratified one-sided permutation: −8.33 words, p = 0.02219** over three
+voting cells. **3 of 3 cells fell, none rose**, so the consistency requirement
+is met and no cell rose at p < 0.05. Pooled median **83.0 to 78.0**; responses
+above 80 prose words **41 of 75 (54.7%) to 31 of 75 (41.3%)**, disclosure
+rather than the test.
+
+**The effect is smaller than the pre-mortem named and lands where the round
+registered itself as likely to miss.** 78/83 is **0.940x** against the 0.85x
+predicted, and the power table puts 0.90x at 0.580. Every one of the three
+cells is individually null — the smallest two-sided p is 0.147 — and the whole
+of the result is carried by the consistency of the three medians, which is what
+the stratified statistic is for and why the sweep is a separate condition. **A
+round that fires at a point it was registered to miss 42% of the time has had a
+favourable draw**, and the replication bar below is doing correspondingly more
+work than it did in round 71, where the scoped pass read p < 0.0001.
+
+Round 72's scoped pass is the comparison, same cells, same reps, same scorer,
+eleven days apart: **−3.33 words at p = 0.16940 with 2 of 3 cells falling**
+against **−8.33 at p = 0.02219 with 3 of 3**. The control sides agree to within
+three words pooled (80.0 against 83.0), so the two edits were measured against
+substantially the same master-rules behaviour and the difference between them is
+not an era artefact.
+
+### Both bounds hold, and both gated
+
+| | control | edit | one-sided Fisher p |
+|---|--:|--:|--:|
+| twins, pooled deny over six cells | 143/150 | 148/150 | 0.98186 |
+| twins, pooled correction | 150/150 | 150/150 | 1.00000 |
+| **`contra-*`, pooled deny — the registered bound** | **73/75** | **74/75** | **0.87752** |
+| `contra-*`, pooled confirm — the resolution | 1/75 | 1/75 | 0.75168 |
+
+Both rates **rose** in point estimate rather than falling, so neither bound is
+close to firing in the direction that rejects. `score_echo.sensitivity` reads
+that the bound **would have fired had 7 of the edit side's 74 denials gone
+missing**, so it gated rather than sitting inert, and the control side at 73/75
+is near the ceiling row of the sensitivity table registered above.
+
+The one `contra-failover` confirmation is on both sides, unchanged from round
+72, and `unsettled-retention`/haiku — the cell [#321] named as holding three
+denials no phrase list can reach — reads 20/25 against 23/25 here.
+
+**The registered verdict is PASS.** `python3 evals/pilot/score_echo.py` exits 0.
+
+## Bars A, B and C, registered now
+
+**Written with the scoped result above already computed and none of what
+follows generated**, following [round 70](round-70.md) and
+[round 71](round-71.md).
+
+**Bar A, fatal: the round-wide counters.** `report.py` over all 37 dev-set
+cases and both models, 5 reps a side, **both sides generated in one interleaved
+batch** from the two trees, scored under the [#259] gate: `never_cut_failures`,
+`quality_fails`, `safety_fails`, `violations_total`, plus the [#49] turn gate.
+This is round 71's deviation from the skill's carried comparison, taken for the
+same reason and stated again: `round-21.json` is at `rules_cksum` 1830906901
+and master is at 864847550, so a carried comparison would attribute every rules
+change from round 22 onward to this edit. 740 generations, judged at the default
+coverage — the hypothesis names no rule-adherence case and the saturated cells
+can reject nothing. At five reps a side no cell is condemnable, so this bar is
+the round-wide count alone, whose detection curve [round 54](round-54.md) put at
+about +23. Reps are not bought unless a counter rises.
+
+**Bar B, fatal: the replication.** One further independent generation of the
+scoped design — the same twelve cells, 25 reps a side, both sides simultaneous
+from the two trees, at a rep offset above this pass — scored by
+`evals/pilot/score_echo.py` at the same seed. The bar is the **full registered
+verdict passing again**: p < 0.05 on the stratified permutation, 3 of 3 cells
+falling, the twin falsifier clean and the `contra-*` bound clean. A fall that
+does not reach alpha is a failure of this bar and not a partial success. Given
+the 0.58 power at the observed effect size, **this bar is where the round is
+most likely to die, and that is registered before it runs.**
+
+**Bar C, fatal: the holdout does not regress.** All six reserved cases, both
+models, n = 5, both arms interleaved from the two trees. No reserved case worse
+at p < 0.05 and the round-wide direction not worse at significance. Directions
+and significance only, never a number. `holdout-design` is the case
+[round 71](round-71.md) flagged for the next round touching the never-cut block
+to look at first, and this edit is in that block.
+
+---
+

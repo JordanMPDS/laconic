@@ -5422,6 +5422,14 @@ _expected_concurrent = {
     # passes are sharded by rep range and scored from the shard files directly,
     # so they never merge and never reach the sweep.
     "round-71-wide-control.json", "round-71-wide-edit.json",
+    # Round 73's wide arm is round 71's design unchanged, and reaches the sweep
+    # for the same reason: two merges, each reconstructing to the two shards
+    # that produced its own side. Both merges span two hours because the first
+    # attempt was killed with 582 of 740 runs banked and the four identical
+    # commands were re-run to resume by key; like round 70's usage-limit resume
+    # above, a resume is still one sequential invocation, so it widens the span
+    # without widening what was in flight.
+    "round-73-wide-control.json", "round-73-wide-edit.json",
 }
 _found = set()
 for _p in sorted((ROOT / "evals" / "snapshots").rglob("*.json")):

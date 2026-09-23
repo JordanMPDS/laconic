@@ -206,3 +206,98 @@ contrast is read, per [#272].
 # Results
 
 *Nothing above this line was written after the numbers came in.*
+
+## The scoped batch: the reading moves further, and the sentinel pays more
+
+*1,840 runs, 0 failed, four shards, 2026-09-23, all sonnet.
+`python3 evals/bench/release.py` over the five snapshots: **no unreadable span,
+and no arm is imbalanced across a release**. Every run is CLI 2.1.280, and
+every snapshot declares `--concurrency 4`.*
+
+The batch was generated in two passes, as round 77's was. The sentinel and
+`conditional` shards finished in the first. The three design shards stopped at
+07:37 with 306, 322 and 311 of their 408, 396 and 396 runs written and no
+failure recorded, when the loop iteration that started them ended. They were
+resumed at 09:51 with the registered commands from the same tree. The
+per-shard table below lists both passes, and the effect points the same way
+in all six segments.
+
+| | `laconic` | `-scoped` | test | |
+|---|--:|--:|--:|---|
+| **Primary**: design unread, six cells | 387/600 (64.5%) | **231/600 (38.5%)** | MH one-sided **p < 0.00001** | **passes** |
+| `conditional` edited (rise) | 5/80 | 7/80 | Fisher p = 0.38274 | held |
+| `conditional` locates_defect (fall) | 77/80 | 75/80 | Fisher p = 0.35974 | held |
+| sentinel opened something (rise) | 0/160 | 0/160 | Fisher p = 1.00000 | held |
+| design prose length | | 1.088x | blocked, p < 0.0001 | held, margin 1.10x |
+| **sentinel prose length** | | **1.208x** | blocked, p < 0.0001 | **FIRES**, margin 1.10x |
+
+The difference on the primary is −26.0 points, 90% CI [−30.5, −21.3]; the
+within-case permutation agrees. Every cell moves the same way:
+
+| cell | `laconic` | `-scoped` |
+|---|--:|--:|
+| `design-cache` | 62/100 | 35/100 |
+| `design-rate-limit` | 47/100 | 21/100 |
+| `design-realtime` | 57/100 | 31/100 |
+| `design-retry` | 70/100 | 52/100 |
+| `design-search` | 67/100 | 41/100 |
+| `design-upload` | 84/100 | 51/100 |
+
+| shard segment | `-scoped` | `laconic` |
+|---|--:|--:|
+| first pass, design-0 | 55/149 | 96/149 |
+| first pass, design-34 | 57/157 | 99/157 |
+| first pass, design-67 | 55/151 | 103/152 |
+| resume, design-0 | 24/55 | 32/55 |
+| resume, design-34 | 16/41 | 25/41 |
+| resume, design-67 | 24/47 | 32/46 |
+
+The median design run takes 6 turns under `-scoped` against 1 under `laconic`.
+
+The sentinel's length ratio is carried by three of the four cells, and
+`-scoped` costs more than round 77's `-read` on each of those three in the
+same window (blocked ratio against `laconic`; median prose words):
+
+| cell | `-scoped` | `-read` | median words, `laconic` / `-scoped` / `-read` |
+|---|--:|--:|--:|
+| `code-fidelity` | 1.466x | 1.208x | 17 / 32.5 / 27 |
+| `decision` | 1.243x | 1.146x | 54 / 68.5 / 61 |
+| `floor` | 0.949x | 1.006x | 22 / 22 / 22.5 |
+| `ordered-steps` | 1.232x | 1.045x | 168.5 / 204.5 / 180.5 |
+
+The disclosure arm, deciding nothing: `-read` reads **1.099x** against
+`laconic` on the pooled sentinel here, against round 77's 1.111x, and
+`-scoped` reads 1.10x against `-read` (0.909x the other way, p = 0.0020).
+
+## The verdict
+
+**Rejected on a fatal bound. `rules/laconic.md` does not move.**
+
+The pre-mortem was wrong twice, in the same direction. It expected the primary
+at −6 to −10 points, and the scoped wording moved reading more than round 77's
+unconditional one did: −26.0 points against −16.2, from controls that read
+about the same (64.5% and 66.0% unread). It expected the sentinel length bound
+to hold near 1.03x to 1.06x, and it read 1.208x, nearly double round 77's
+excess. The bound it named as likeliest to fire, opened-something, sat at
+0/160 on both sides: no sentinel run spent a tool call listing the empty
+directory.
+
+Scoping made the length cost worse rather than removing it. Measured against
+the unscoped `-read` arm in the same window, `-scoped` is 1.10x longer on the
+sentinel. Four sampled answers, two a side on `code-fidelity` and
+`ordered-steps`, show no visible mechanism: the same command or the same steps,
+with each item explained at more length. This document does not claim a
+reason.
+
+The registered pre-mortem said that a sentinel reading above 1.10x would make
+the length cost a property of adding a reading instruction rather than of its
+scope, and that this line of edits would then be finished. That holds with
+one amendment the numbers force: the question wording adds cost of its own on
+top of the instruction's. **Two wordings of a reading instruction in item 1
+have now bought a large reading effect and paid for it in sentinel prose past
+the margin.** A third wording of the same item is not registered from here.
+
+No step 2 or step 3 is bought. Nothing was ever written to
+`rules/laconic.md`, because the edit was tested as an arm, so nothing needs
+reverting. `evals/arms/laconic-precheck-scoped.md`, the scorer and the five
+snapshots stay. No control worktree was held.

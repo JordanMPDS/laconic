@@ -186,12 +186,12 @@ Round 64 left all seven recorded at `594915793`, the slice rounds 59 through 63
 measured, rather than rebuilding them against the edit it was testing. The word
 counts in the tables above are that slice's.
 
-**At master they are live, not stale, and that is an accident of six rejections
-rather than a maintained state.** Every rules edit proposed since — rounds 64,
-66, 68 and 70 — reverted, so `rules/laconic.md` still slices to `594915793` at
-`full` and `BUILT-FROM.json` still matches it. The next accepted edit makes all
-seven stale in the same commit, and `run.py` will refuse to generate with one
-before anything is written.
+**At master all seven are stale.** They stayed live through the rejections of
+rounds 64, 66, 68 and 70, until round 71's accepted edit (v0.3.1) moved the
+`full` slice off `594915793`, and round 73's (v0.3.2) moved it again to
+`3285158247`, 1,143 words. `BUILT-FROM.json` still records `594915793` for
+every arm, so `run.py` refuses to generate with any of them unless a round
+rebuilds it or passes `--allow-stale-arm`.
 
 
 [#275]: https://github.com/JordanMPDS/laconic/issues/275

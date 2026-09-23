@@ -51,7 +51,9 @@ Ultra kept the conditional because dropping it would give wrong advice half the
 time.
 
 Length scales to the request at every level: a yes/no question gets a line, and
-a report, walkthrough, or explanation you asked for gets full detail.
+a report, walkthrough, or explanation you asked for gets full detail. A closed
+question confirming something you already know gets "Yes." and nothing after
+it, rather than your premise restated back to you.
 
 **The levels do not produce three measurably different lengths.** Across 330
 generations, `full` was not shorter than `lite` on either model, and `ultra`
@@ -141,11 +143,18 @@ implementation reads a flag the other wrote.
 
 ## Benchmark
 
-1100 API calls: 22 cases x 5 reps x 2 models x 5 arms — baseline, a terse-only
-control, a synthetic word-compression foil, Claude Code's own built-in `Concise`
-output style, and laconic. Scored offline on compression, readability, latency
+The most recent full benchmark predates the shipped rules. It made 1100 API
+calls: 22 cases x 5 reps x 2 models x 5 arms — baseline, a terse-only control, a
+synthetic word-compression foil, Claude Code's own built-in `Concise` output
+style, and laconic. It was scored offline on compression, readability, latency
 and cost, with a deterministic never-cut safety check and a blind judge for
-answer quality.
+answer quality. Every figure below is a `full`-level figure from
+`evals/snapshots/loop/round-21.json`, at `rules_cksum` 1830906901; the shipped
+`full` slice is 3285158247, and no five-arm benchmark has been run on it. The
+three control arms were generated on an older CLI than the other two, so
+laconic against `concise-style` is the clean comparison. Per-case tables, cost,
+and what each number does and does not support are in
+[`docs/benchmark.md`](docs/benchmark.md).
 
 | vs baseline | tokens (sonnet) | tokens (haiku) | latency (sonnet) | readability violations | quality pass rate | never-cut failures |
 |---|--:|--:|--:|--:|--:|--:|
@@ -156,8 +165,9 @@ answer quality.
 | baseline | 0% | 0% | 0% | 134 | 68.1% | 0 / 50 |
 
 † **The never-cut column is not a gap between laconic and `concise-style`.**
-Both figures are five-rep draws, and re-measuring the only two cells they differ
-on at n = 20 a side puts the two arms level at 4 failures of 40 each. See below.
+Both figures are five-rep draws. On the only two cells they differ on, at n = 20
+a side, the two arms are level at 4 failures of 40 each
+([docs/benchmark.md](docs/benchmark.md#compression)).
 
 **What laconic wins.** It is the cleanest arm on readability by a wide margin —
 66 violations against baseline's 134, and 31 of 220 responses carrying one
@@ -174,22 +184,11 @@ answers better. Against `terse-control` the 12.2-point gap **is** significant
 (z = -2.14): a plain "Answer concisely." instruction produced better answers on
 the quality-graded cases than the whole rule file did.
 
-**Claude Code now ships a competitor, and on compression it wins.** The built-in
+**Claude Code ships a competitor, and on compression it wins.** The built-in
 `Concise` output style cuts Sonnet output 55% against laconic's 32%, at half the
 latency, and is statistically indistinguishable from laconic on answer quality
 (58.4% against 59.7%, z = +0.22). **Laconic's remaining edge over it is prose
 quality, and not safety** — 113 readability violations against laconic's 66.
-
-The never-cut column above was previously read as a safety edge, and it is not
-one. Round 21's three `concise-style` failures were all on Haiku and all in two
-cells, `conditional` and `destructive`. Re-running exactly those two cells on
-2026-08-24 in one matched interleaved batch — `baseline`, `concise-style` and
-`laconic`, n = 20 a side, 120 generations on one CLI build — put the two
-compression arms level at 4 failures of 40 each (Fisher p = 1.0), with laconic
-the worse of the two on `destructive`, 4 of 20 against 2 of 20. Laconic's 0 in
-the table is a five-rep draw. Under the blind judge that case separates nothing
-at all on Haiku: every arm fails 20 of 20. The full tables are in
-[docs/benchmark.md](docs/benchmark.md#compression).
 
 If you want maximum compression, the built-in style is free and already
 installed.
@@ -203,52 +202,6 @@ applies the criterion added in
 that names the affected table and then tells the user it is safe. Laconic is
 producing that shape. Read the never-cut column as a floor, not as evidence that
 the safety contract holds.
-
-**`report.py` exits 1 on the committed snapshot.** 18 case/model gates fail on
-laconic's readability, and the samples are dominated by arrows — the arm that
-ships the no-arrows rule is breaking it, most heavily on the design cases
-(`design-retry`/sonnet alone carries 13 violations at a median of 3 per
-response).
-
-Every figure is a `full`-level figure over all 22 cases, from
-`evals/snapshots/loop/round-21.json` at `rules_cksum` 1830906901. The three
-control arms were generated eleven days before the two new ones and on an older
-CLI, so read the comparison against baseline with that confound in mind;
-laconic against `concise-style` is the clean one. Per-case tables, cost, and
-what each number does and does not support are in
-[`docs/benchmark.md`](docs/benchmark.md).
-
-**That is no longer the revision this repository ships, and the gap runs in
-laconic's favour.** Master is at `rules_cksum` 594915793 for `full`, three
-accepted edits later — the design-question licence from rounds 24 and 26,
-round 28's asking-permission edit, and round 55's pre-action check. The case
-suite has grown from the 22 cases above to 37. No round-wide five-arm benchmark
-has been generated at that revision, so the table above is the most recent
-complete one and it is stale rather than wrong. The column that has been re-measured across
-the gap is readability, and it moved a long way: on `walkthrough`, chains fell
-from 125.4 per 100 responses to 37.5 and mappings from 61.7 to 35.0, and on the
-design cases arrows fell roughly fivefold. Read the 66 as a ceiling on the
-shipped rules rather than a description of them —
-[`arrows-scope-36.md`](evals/results/loop/arrows-scope-36.md).
-
-**The one column that has moved since on a matched instrument is volunteered
-work.** Round 55's pre-action check — *"Is the question about something that is
-broken? Diagnosing it is the answer; fixing it is not"* — was measured on
-`conditional`/sonnet against a simultaneously generated control: responses that
-edited the fixture instead of answering fell from 30.0% to 5.8% (Fisher
-p = 1.1e-06), with the reading rate unmoved at 120 of 120 a side and the
-diagnosis still named in every non-editing answer. Pooled over the three rounds
-that ran it the check reads 4.4% against 25.8%
-([`round-65.md`](evals/results/loop/round-65.md)).
-
-**Fifteen rounds since have shipped nothing.** Rounds 56 through 70 proposed
-six rule edits and reverted every one, and the ten of them aimed at response
-length closed out every named explanation for the gap between the field reports
-and what the benchmark measures — inherited register, interleaved work, and
-session depth are each measured and refuted
-([`over-length-cluster.md`](evals/results/loop/over-length-cluster.md)). The
-accept rate is the disclosure that goes with any claim the loop produces, and it
-is in [`LEDGER.md`](evals/results/loop/LEDGER.md).
 
 **These numbers do not say a reader prefers the result.** A blind judge asked
 exactly that, over 130 comparisons of an archived arm, did not prefer laconic to

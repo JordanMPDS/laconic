@@ -60,9 +60,22 @@ next_version() { # <current> <patch|minor> -> next
 # One field out of one file. `jq` is not a dependency of this repository and is
 # not going to become one for this, and the description field carries an escaped
 # em dash that a naive whole-file parse has mangled before.
-plugin_version() {
-  sed -n 's/.*"version"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p' \
-    .claude-plugin/plugin.json | head -1
+plugin_version() { # <ref>
+  git show "$1:.claude-plugin/plugin.json" \
+    | sed -n 's/.*"version"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p' | head -1
+}
+
+# Shipped means merged, so the question is asked of master and never of HEAD.
+# On 2026-09-23 the loop started with HEAD on round 76's unmerged branch, which
+# carries the candidate edit, and this script reported a release owed: obeying
+# it would have shipped an edit no bar had passed. origin/master comes first
+# because it is what was pushed, and tools/loop.sh fetches it at the top of
+# every iteration; master and then HEAD cover a clone with no remote.
+release_ref() {
+  local ref
+  for ref in origin/master master HEAD; do
+    git rev-parse -q --verify "$ref^{commit}" >/dev/null && { echo "$ref"; return; }
+  done
 }
 
 # `bash tools/release-due.sh --selftest` — the two decisions driven directly,
@@ -107,7 +120,7 @@ if [ "${1:-}" = "--selftest" ]; then
   echo 'rule text' > "$r/rules/laconic.md"
   echo 'generated' > "$r/rules/dist/laconic-full.md"
   echo 'prose about the plugin' > "$r/README.md"
-  git -C "$r" init -q
+  git -C "$r" init -q -b master
   git -C "$r" config user.email selftest@example.invalid
   git -C "$r" config user.name selftest
   git -C "$r" add -A && git -C "$r" commit -qm 'release 0.3.0'
@@ -123,6 +136,16 @@ if [ "${1:-}" = "--selftest" ]; then
   out=$(due); st=$?
   check "a README change does not owe a release" 'no release owed' "$out"
   checkst "and still exits 0" 0 "$st"
+
+  # A round branch carries its candidate edit until every bar passes. Checked
+  # out, it is HEAD, and it is not shipped.
+  git -C "$r" checkout -qb round-99
+  echo 'the unaccepted candidate' >> "$r/rules/laconic.md"
+  git -C "$r" commit -qam 'round 99 registration'
+  out=$(due); st=$?
+  check "an unmerged round branch owes nothing" 'no release owed' "$out"
+  checkst "and exits 0 with the candidate checked out" 0 "$st"
+  git -C "$r" checkout -q master
 
   # The case this whole script exists for: an accepted edit merged to master.
   echo 'the accepted edit' >> "$r/rules/laconic.md"
@@ -166,18 +189,19 @@ if [ "${1:-}" = "--selftest" ]; then
   out=$(due)
   check "a preregistration tag is not a release" 'nothing has ever been released' "$out"
 
-  [ "$failed" -eq 0 ] && echo "release-due.sh selftest: 22/22 passed" \
+  [ "$failed" -eq 0 ] && echo "release-due.sh selftest: 24/24 passed" \
     || echo "release-due.sh selftest: $failed failed"
   exit $([ "$failed" -eq 0 ] && echo 0 || echo 1)
 fi
 
 cd "$(dirname "$0")/.."
 
-version=$(plugin_version)
-tag=$(git describe --tags --abbrev=0 --match "$TAG_GLOB" HEAD 2>/dev/null) || tag=
+ref=$(release_ref)
+version=$(plugin_version "$ref")
+tag=$(git describe --tags --abbrev=0 --match "$TAG_GLOB" "$ref" 2>/dev/null) || tag=
 
 if [ -z "$tag" ]; then
-  echo "release owed: nothing has ever been released from this history — no $TAG_GLOB tag is reachable from HEAD."
+  echo "release owed: nothing has ever been released from this history — no $TAG_GLOB tag is reachable from $ref."
   echo "plugin.json says $version."
   exit 1
 fi
@@ -189,13 +213,13 @@ if [ "laconic--v$version" != "$tag" ] \
    && ! git rev-parse -q --verify "refs/tags/laconic--v$version" >/dev/null; then
   echo "release owed: plugin.json is $version and there is no tag laconic--v$version."
   echo "The version was bumped without being tagged. Tag it rather than bumping again:"
-  echo "  git tag -a laconic--v$version -m 'laconic $version' && git push origin laconic--v$version"
+  echo "  git tag -a laconic--v$version -m 'laconic $version' $(git rev-parse --short "$ref") && git push origin laconic--v$version"
   exit 1
 fi
 
-changed=$(git diff --name-status "$tag" HEAD -- "${SHIPPED[@]}")
+changed=$(git diff --name-status "$tag" "$ref" -- "${SHIPPED[@]}")
 if [ -z "$changed" ]; then
-  echo "no release owed: $tag is current, and no shipped file has changed since it."
+  echo "no release owed: $tag is current, and no shipped file has changed on $ref since it."
   exit 0
 fi
 
@@ -209,7 +233,7 @@ case "$kind" in
   patch) why="every shipped file was modified in place" ;;
 esac
 
-echo "release owed: $count shipped file(s) changed since $tag ($tagged)"
+echo "release owed: $count shipped file(s) changed on $ref since $tag ($tagged)"
 printf '%s\n' "$changed" | sed 's/^/  /'
 echo
 echo "recommended bump: $kind, $version to $next — $why"

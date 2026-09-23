@@ -251,3 +251,86 @@ boundary cannot fall between them. The audit checks that.
 # Results
 
 *Nothing above this line was written after the numbers came in.*
+
+## The scoped batch: the reading moves, and the sentinel pays for it in prose
+
+*1,680 runs, 0 failed, four shards, 2026-09-23, all sonnet.
+`python3 evals/bench/release.py` over the five snapshots: **no unreadable span,
+and no arm is imbalanced across a release** — every run is CLI 2.1.280. Every
+snapshot declares `--concurrency 4`.*
+
+The batch was generated in two passes. The sentinel and `conditional` shards
+finished in the first. The three design shards stopped at 04:08 with 319, 316
+and 310 of their 408, 396 and 396 runs written and no failure recorded, when
+the loop iteration that started them ended. They were resumed at 04:51 with the
+registered commands from the same tree. The per-shard table below lists both
+passes, and the effect points the same way in all six segments.
+
+| | `laconic` | `-read` | test | |
+|---|--:|--:|--:|---|
+| **Primary**: design unread, six cells | 396/600 (66.0%) | **299/600 (49.8%)** | MH one-sided **p < 0.00001** | **passes** |
+| `conditional` edited (rise) | 5/80 | 0/80 | Fisher p = 1.00000 | held |
+| `conditional` locates_defect (fall) | 78/80 | 80/80 | Fisher p = 1.00000 | held |
+| sentinel opened something (rise) | 0/160 | 0/160 | Fisher p = 1.00000 | held |
+| design prose length | | 1.092x | blocked, p < 0.0001 | held, margin 1.10x |
+| **sentinel prose length** | | **1.111x** | blocked, p = 0.0006 | **FIRES**, margin 1.10x |
+
+The difference on the primary is −16.2 points, 90% CI [−20.7, −11.5]; the
+within-case permutation agrees. Every cell moves the same way:
+
+| cell | `laconic` | `-read` |
+|---|--:|--:|
+| `design-cache` | 68/100 | 43/100 |
+| `design-rate-limit` | 59/100 | 33/100 |
+| `design-realtime` | 58/100 | 40/100 |
+| `design-retry` | 62/100 | 53/100 |
+| `design-search` | 68/100 | 62/100 |
+| `design-upload` | 81/100 | 68/100 |
+
+| shard segment | `-read` | `laconic` |
+|---|--:|--:|
+| first pass, design-0 | 84/155 | 101/156 |
+| first pass, design-34 | 77/154 | 102/154 |
+| first pass, design-67 | 74/151 | 102/151 |
+| resume, design-0 | 23/49 | 27/48 |
+| resume, design-34 | 22/44 | 32/44 |
+| resume, design-67 | 19/47 | 32/47 |
+
+The sentinel's length ratio is not one cell carrying the pool. All four move
+up (per-cell blocked ratio, median words `laconic` against `-read`):
+
+| cell | ratio | median words |
+|---|--:|--:|
+| `code-fidelity` | 1.162x | 49 against 53 |
+| `decision` | 1.129x | 54 against 60.5 |
+| `floor` | 1.072x | 26 against 29 |
+| `ordered-steps` | 1.084x | 185 against 196.5 |
+
+## The verdict
+
+**Rejected on a fatal bound. `rules/laconic.md` does not move.**
+
+This is the failure the pre-mortem named as likeliest, and at about the size
+it predicted: round 63 read 1.103x on the same four cells and this round reads
+1.111x. The primary is far larger than the pre-mortem expected, −16.2 points
+against an expected −4 to −5 and round 63's −7.1. The shipped control read
+66.0% unread here against round 63's 55.2%, so part of the gap is a control
+that reads less in this window.
+
+Six sampled `decision` answers, three a side, do not show a visible mechanism.
+Both arms give the same recommendation with the same reasoning, and the `-read`
+answers run a clause or two longer. The pre-mortem's guess, that grounding is
+done in prose where there is no file, is not confirmed by that sample, and this
+document does not claim it.
+
+The rewording buys a large reading effect on design questions and costs about
+11% more prose where there is nothing to read. Under the registered bars that
+is a rejection. A successor that keeps the unconditional reading instruction
+has to show that the length cost is not intrinsic to it. The obvious
+candidate is a wording that scopes the reading instruction to questions that
+name something in the workspace, so it has nothing to say on the sentinel.
+
+No step 2 or step 3 is bought. Nothing was ever written to `rules/laconic.md`,
+because the edit was tested as an arm, so nothing needs reverting.
+`evals/arms/laconic-precheck-read.md`, the scorer and the five snapshots stay.
+No control worktree was held.

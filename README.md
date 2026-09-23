@@ -51,7 +51,9 @@ Ultra kept the conditional because dropping it would give wrong advice half the
 time.
 
 Length scales to the request at every level: a yes/no question gets a line, and
-a report, walkthrough, or explanation you asked for gets full detail.
+a report, walkthrough, or explanation you asked for gets full detail. A closed
+question confirming something you already know gets "Yes." and nothing after
+it, rather than your premise restated back to you.
 
 **The levels do not produce three measurably different lengths.** Across 330
 generations, `full` was not shorter than `lite` on either model, and `ultra`
@@ -219,9 +221,10 @@ what each number does and does not support are in
 [`docs/benchmark.md`](docs/benchmark.md).
 
 **That is no longer the revision this repository ships, and the gap runs in
-laconic's favour.** Master is at `rules_cksum` 594915793 for `full`, three
+laconic's favour.** Master is at `rules_cksum` 3285158247 for `full`, five
 accepted edits later — the design-question licence from rounds 24 and 26,
-round 28's asking-permission edit, and round 55's pre-action check. The case
+round 28's asking-permission edit, round 55's pre-action check, and the two
+true-premise edits from rounds 71 and 73 that shipped as v0.3.1 and v0.3.2. The case
 suite has grown from the 22 cases above to 37. No round-wide five-arm benchmark
 has been generated at that revision, so the table above is the most recent
 complete one and it is stale rather than wrong. The column that has been re-measured across
@@ -241,11 +244,22 @@ diagnosis still named in every non-editing answer. Pooled over the three rounds
 that ran it the check reads 4.4% against 25.8%
 ([`round-65.md`](evals/results/loop/round-65.md)).
 
-**Fifteen rounds since have shipped nothing.** Rounds 56 through 70 proposed
-six rule edits and reverted every one, and the ten of them aimed at response
-length closed out every named explanation for the gap between the field reports
-and what the benchmark measures — inherited register, interleaved work, and
-session depth are each measured and refuted
+**The two edits shipped since are both about closed questions whose premise is
+true.** Round 71 added a worked specimen answering one with a bare "Yes.", and
+cut prose on the scoped cells by 23.00 words (p = 0.00008), replicated at
+-23.67 on an independent 450 runs
+([`round-71.md`](evals/results/loop/round-71.md), v0.3.1). Round 73 named the
+one word as the whole answer, so a restatement of the premise falls outside it:
+-8.33 words (p = 0.022), replicated at -8.00 (p = 0.038), with every individual
+cell null — the result rests on three medians moving the same way
+([`round-73.md`](evals/results/loop/round-73.md), v0.3.2).
+
+**Most rounds still ship nothing.** Rounds 56 through 70 proposed six rule edits
+and reverted every one, and rounds 72, 74 and 75 reverted three more on the same
+issue as round 73. The ten of rounds 56 to 70 aimed at response length closed out
+every named explanation for the gap between the field reports and what the
+benchmark measures — inherited register, interleaved work, and session depth are
+each measured and refuted
 ([`over-length-cluster.md`](evals/results/loop/over-length-cluster.md)). The
 accept rate is the disclosure that goes with any claim the loop produces, and it
 is in [`LEDGER.md`](evals/results/loop/LEDGER.md).

@@ -134,7 +134,7 @@ fi
 rules_never_cut=$(sed -n "${never_cut_ln},${never_cut_end_ln}p" "$RULES")
 
 for kw in "code" "config" "command" "error string" "ecurity warning" "estructive" \
-          "rdered" "ad news" "ncertainty"; do
+          "rdered" "ad news" "ncertainty" "xplain"; do
   if printf '%s' "$rules_never_cut" | grep -qi -- "$kw"; then
     ok "rules/laconic.md keeps never-cut: $kw"
   else

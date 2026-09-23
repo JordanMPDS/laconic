@@ -206,6 +206,64 @@ python3 evals/bench/release.py $OUT/round-80-{control,edit}-{opus,sonnet}.json
 
 <!-- Nothing above this line has been computed. -->
 
+## Result: the licence is real on opus, and deleting it cuts facts, not only repetition
+
+**Rejected on bar 4. The edit reverts in full.** The primary passed clearly and a
+fatal bound fired, which is the third class the pre-mortem named and the one it
+called least likely: a fatal counter rejecting an edit whose target passed.
+
+880 runs, 0 failed, both sides simultaneous from two trees. Every snapshot spans
+CLI 2.1.280 and 2.1.281, and `release.py` finds no arm imbalanced across the
+boundary (opus 33/27 on both sides, sonnet 58/62 on both sides). `rules_cksum`
+3285158247 on the control and 1320927575 on the edit; `cases_cksum` 1852778470
+on both multi-turn pairs.
+
+| bar | model | control | edit | ratio | p | reading |
+|---|---|--:|--:|--:|--:|---|
+| 1 primary, `register-*` words, turns 2-4 | opus | 1782.0 / 1487.5 / 1012.5 | 1586.5 / 1252.5 / 900.5 | **0.874** | **0.0010** | passes |
+| 2 secondary, directional | sonnet | 1438.0 / 1082.0 / 538.5 | 1450.0 / 1001.5 / 502.5 | 0.955 | 0.1824 | holds (at or below 1.00) |
+| 3 `register-*` coverage | opus | 17.5 / 15.5 / 25.0 | 17.5 / 15.0 / 23.0 | 0.962 | 0.0578 | holds |
+| 3 `register-*` coverage | sonnet | 18.0 / 16.0 / 23.0 | 17.0 / 15.0 / 23.0 | 0.960 | 0.0559 | holds |
+| **4 `deep-*` coverage** | **opus** | | | **0.845** | **0.0009** | **fires** |
+| 4 `deep-*` coverage | sonnet | | | 0.955 | 0.2106 | holds |
+| 5 never-cut keyword, `walkthrough` + `code-fidelity` | haiku + sonnet | 80/80 | 80/80 | | 1.0000 | holds |
+| 5 judged safety | haiku + sonnet | | | | | not judged: bar 4 had already rejected |
+| 6 `date_trunc` on `index` | both | 30/30 | 30/30 | | | holds |
+
+Word columns are per-stem medians, index / metric / rollback. Every p is the
+stem-stratified permutation `score_claims.py` computes, two-sided for the
+target and one-sided down for coverage.
+
+**What the round establishes.** Opus at master rules is the model the reports
+describe. On the requested turns it writes 1,000 to 1,800 words per stem where
+sonnet writes 540 to 1,440, and the licence ratio this round dropped as a bar
+reads 3.09 on opus against 6.24 on sonnet, because opus is long on the
+*unrequested* `deep-*` turns too (576.5 / 422.0 / 334.0 median words). The
+edit took 12.6% off opus's requested turns at p = 0.0010, far past round 70's
+sonnet effect, and sonnet here reproduced round 70's replication almost
+exactly (0.955 against 0.946).
+
+**What kills it.** On `deep-*`, opus lost 10% of its words (0.903, p = 0.0058)
+and 15.5% of the fixture facts those words carried (0.845, p = 0.0009). Those
+turns never invoked the licence, so the edit was not removing a licensed
+restatement there. It was making opus say less of what the fixture contains.
+The same edit on the requested turns lost 3.8% of coverage for 12.6% of words
+(p = 0.0578), which is the trade the round wanted, and it only just held.
+Deleting the bullet reads to opus as "explain less", not "repeat less".
+
+**What it does not say.** It does not show the explain bullet is load-bearing
+for the requested explanations bar 5 guards: `walkthrough` and `code-fidelity`
+kept every never-cut keyword, and their judged verdict was never bought. The
+loss is on unlicensed turns, which the bullet does not name.
+
+**Next.** The effect on opus is large enough to be worth separating. The
+edit changed two things at once, and the untested half is the one [#150]
+proposed: keep the bullet, and rewrite only the paragraph so the licence covers
+scope and not repetition. The instrument is this one, opus primary, with bar 4
+kept.
+
+Label: `failed-gate` in `candidate-defects/labels.json`.
+
 [#150]: https://github.com/JordanMPDS/laconic/issues/150
 [#298]: https://github.com/JordanMPDS/laconic/issues/298
 [#305]: https://github.com/JordanMPDS/laconic/issues/305

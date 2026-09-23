@@ -51,8 +51,7 @@ Ultra kept the conditional because dropping it would give wrong advice half the
 time.
 
 Length scales to the request at every level: a yes/no question gets a line, and
-a report, walkthrough, or explanation you asked for gets the scope it needs,
-with no claim made twice. A closed
+a report, walkthrough, or explanation you asked for gets full detail. A closed
 question confirming something you already know gets "Yes." and nothing after
 it, rather than your premise restated back to you.
 
@@ -70,6 +69,7 @@ Every level, including `ultra`:
 - Confirmation before destructive or irreversible actions, naming exactly what
   will be affected, from the material you were pointed at rather than by
   telling you to go check.
+- Anything you asked to have explained: "why", "how", "walk me through", "explain".
 - Ordered instructions: every step, and the words that fix their order.
 - Bad news: a failure, a broken test, a limit hit, a thing not done.
 - Uncertainty that changes what you should do.

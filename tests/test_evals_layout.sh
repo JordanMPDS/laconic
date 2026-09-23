@@ -645,6 +645,21 @@ PYEOF
   fi
 done
 
+# The ledger is one line per attempt, including rejected ones, and a round
+# that merges without its row is invisible to the attempt count. Rounds 71,
+# 76, 77 and 78 all did (#340). A round document that says it "takes no
+# ledger row" (round 13) is exempt; round-28-composition.md is a sub-document.
+LOOP="$ROOT/evals/results/loop"
+for doc in "$LOOP"/round-[0-9][0-9].md; do
+  name="$(basename "$doc")"
+  grep -q 'takes no ledger row' "$doc" && continue
+  if grep -qF "](${name})" "$LOOP/LEDGER.md"; then
+    ok "LEDGER.md has a row for $name"
+  else
+    fail "LEDGER.md has a row for $name"
+  fi
+done
+
 printf '\n%d failure(s)\n' "$fails"
 
 [ "$fails" -eq 0 ]

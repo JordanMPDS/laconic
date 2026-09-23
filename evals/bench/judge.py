@@ -410,7 +410,7 @@ def main():
 
     criteria = criteria_cksum(CASES)
     meta = {"judge_model": args.model, "rules_cksum": rules_cksum,
-            "criteria_cksum": criteria}
+            "criteria_cksum": criteria, "effort": bench_run.EFFORT}
 
     # `prior["metadata"] = meta` below replaces the block wholesale, so a resume
     # that omits --carry-judgments-from would delete a stamp describing verdicts

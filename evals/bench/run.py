@@ -1041,6 +1041,14 @@ def stop_hook_command(level, never_cut=(), record=None, reason_mode="named"):
     return " ".join(parts)
 
 
+# Pinned rather than inherited: with no --effort the CLI takes effortLevel from
+# the operator's own settings.json, so a local preference change would silently
+# change every generation and judgment after it, and no snapshot recorded which
+# level produced it. xhigh is what that settings file held when this was
+# pinned, so rounds before and after the pin are generated at the same level.
+EFFORT = "xhigh"
+
+
 def call(claude_bin, model, prompt, system_prompt, cwd, output_style=None,
          resume=None, stop_hook=None, safe_mode=True):
     # stream-json rather than json because only the stream carries the
@@ -1048,7 +1056,7 @@ def call(claude_bin, model, prompt, system_prompt, cwd, output_style=None,
     # combination under --print without it. The terminal result event is the
     # json payload verbatim, so nothing about the stored record changes
     # except the tool list that is added beside it.
-    cmd = [claude_bin, "-p", "--model", model,
+    cmd = [claude_bin, "-p", "--model", model, "--effort", EFFORT,
            "--output-format", "stream-json", "--verbose"]
     # #166: a later turn continues the session the previous one opened, which
     # is what puts the model's own prior answer in its context rather than a
@@ -1465,6 +1473,7 @@ def main():
     # adding correct ones beside them, so the flag stays false for good. It is
     # what tells a later reader whether stratifying on claude_cli_version is
     # sound, which is the question round 57 answered wrongly by assuming.
+    meta["effort"] = EFFORT
     if fresh:
         meta["cli_versions_per_run"] = True
     else:

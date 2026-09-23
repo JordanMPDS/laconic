@@ -403,7 +403,8 @@ def main():
                 at[key] = len(prior["comparisons"])
                 prior["comparisons"].append(rec)
             prior["metadata"] = {"judge_model": args.model, "rules_cksum": rules_cksum,
-                                 "treatment": args.treatment, "control": args.control}
+                                 "treatment": args.treatment, "control": args.control,
+                                 "effort": bench_run.EFFORT}
             bench_run.save_snapshot(args.out, prior)  # after each: resumable if killed
             print("[%d/%d] %-14s %-7s rep%d order%d -> %s"
                   % (i, len(todo), rec["case"], rec["model"], rec["rep"],

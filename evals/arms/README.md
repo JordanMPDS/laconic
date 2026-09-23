@@ -149,13 +149,21 @@ instrument, and the arm stands unused rather than refuted.
 **[Round 77](../results/loop/round-77.md) rebuilt `-read` alone** against the
 slice at `rules_cksum` 3285158247, where both it and the shipped slice run
 1,143 words, and tests it directly against `laconic` as a candidate edit. `-off`
-was not rebuilt and stays stale at 594915793.
+was not rebuilt and stays stale at 594915793. It moved the unread rate
+−16.2 points and was rejected on sentinel prose length, 1.111x against a 1.10x
+margin.
+
+**`laconic-precheck-scoped.md`** is [round 78](../results/loop/round-78.md)'s
+successor, on the same base and word-matched to it. It scopes the reading
+instruction to a workspace that has files — "Does the answer depend on files in
+this workspace? Read them first." — so that it has nothing to say on a
+question with no fixture, where `-read` cost prose.
 
 [#264]: https://github.com/JordanMPDS/laconic/issues/264
 
 ## Staleness: `BUILT-FROM.json`
 
-Seven of these arms are not free-standing texts. `laconic-abl-*`,
+Eight of these arms are not free-standing texts. `laconic-abl-*`,
 `laconic-repl-*` and `laconic-precheck-*` are each defined as a transformation
 of the shipped `full` slice, so each one means what the section above says it
 means only against the slice it was cut from. `BUILT-FROM.json` records that

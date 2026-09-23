@@ -277,7 +277,7 @@ try:
 finally:
     bench_run.call = _orig_call
 
-check("arms include all sixteen",
+check("arms include all seventeen",
       sorted(bench_run.ARMS) == ["baseline", "concise-style", "laconic",
                                  "laconic-abl-arrow", "laconic-abl-shown",
                                  "laconic-enforced",
@@ -285,6 +285,7 @@ check("arms include all sixteen",
                                  "laconic-min-a", "laconic-min-b",
                                  "laconic-precheck-off",
                                  "laconic-precheck-read",
+                                 "laconic-precheck-scoped",
                                  "laconic-repl-told",
                                  "laconic-repl-unframed",
                                  "laconic-repl-unlabelled",
@@ -424,7 +425,8 @@ check("no arm is stale against its own recorded base",
       all(a not in bench_run.stale_arms(b)
           for a, b in bench_run.BUILT_FROM.items()))
 # Arms are rebuilt one at a time by the round that needs them, so their bases
-# may differ: round 77 rebuilt `laconic-precheck-read` alone.
+# may differ: round 77 rebuilt `laconic-precheck-read` alone, and round 78
+# built `laconic-precheck-scoped` on the same base.
 check("an arm rebuilt alone is live while the others stay stale",
       bench_run.stale_arms(bench_run.BUILT_FROM["laconic-precheck-read"])
       == sorted(a for a, b in bench_run.BUILT_FROM.items()
@@ -589,6 +591,16 @@ _PRECHECKS = {
 2. What is the smallest set of claims that fully answers this?
 3. Is anything here something the user did not ask for?
 """,
+    # Round 78: the reading instruction scoped to a workspace that has files,
+    # so it has nothing to say where round 77's cost prose.
+    "laconic-precheck-scoped": """One check before acting, and two before sending:
+
+1. Does the answer depend on files in this workspace? Read them first. If
+   something is broken, diagnose it rather than fix it: name what is wrong
+   and leave the fix for the user to ask for.
+2. What is the smallest set of claims that fully answers this?
+3. Is anything here something the user did not ask for?
+""",
 }
 _precheck_slice = bench_run.laconic_rules(ROOT, "full")
 check("the shipped slice carries the pre-action check exactly once",
@@ -608,9 +620,10 @@ for _pre, _block in _PRECHECKS.items():
 # a slice 41 words shorter, which is the check's own weight and is the thing
 # round 55 bought. Registered here so a rewording that drifts either way fails.
 if not (_STALE & set(_PRECHECKS)):
-    check("laconic-precheck-read is word-matched to the shipped slice",
-          len(bench_run.ARMS["laconic-precheck-read"].split())
-          == len(_precheck_slice.split()))
+    for _pre in ("laconic-precheck-read", "laconic-precheck-scoped"):
+        check("%s is word-matched to the shipped slice" % _pre,
+              len(bench_run.ARMS[_pre].split())
+              == len(_precheck_slice.split()))
     check("laconic-precheck-off is the slice minus the check's 41 words",
           len(_precheck_slice.split())
           - len(bench_run.ARMS["laconic-precheck-off"].split()) == 41)
@@ -2192,7 +2205,7 @@ check("carrying names the arms it could not carry",
           "laconic-enforced", "laconic-enforced-reminder",
           "laconic-min-a", "laconic-min-b",
           "laconic-precheck-off", "laconic-precheck-read",
-          "laconic-repl-told",
+          "laconic-precheck-scoped", "laconic-repl-told",
           "laconic-repl-unframed", "laconic-repl-unlabelled",
           "word-compression"])
 check("an arm being regenerated is not reported as missing",
@@ -2256,6 +2269,7 @@ with tempfile.TemporaryDirectory() as td_gap:
                                "laconic-min-b",
                                "laconic-precheck-off",
                                "laconic-precheck-read",
+                               "laconic-precheck-scoped",
                                "laconic-repl-told",
                                "laconic-repl-unframed",
                                "laconic-repl-unlabelled", "terse-control",

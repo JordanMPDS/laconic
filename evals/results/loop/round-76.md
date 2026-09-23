@@ -248,3 +248,62 @@ already ships.
 # Results
 
 *Nothing above this line was written after the numbers came in.*
+
+## The scoped batch: the control does not reach the assay
+
+*320 runs (960 turn generations), 0 failed, four shards across two trees,
+2026-09-22 to 2026-09-23. `python3 evals/bench/release.py` over the four
+snapshots: **no unreadable span, and no arm is imbalanced across a release** —
+every run is CLI 2.1.280.*
+
+The batch was generated in two passes. All four shards stalled together at
+19:17 on 2026-09-22 with 50 to 53 of their 80 runs written and no failure
+recorded. They were resumed with the registered command at about 00:53 on
+2026-09-23. The control worktree was pinned to `8ac61c0` for the resume,
+the parent of the registration commit, rather than to `master`. `master` had
+moved by then, but only in `tools/release-due.sh`: `rules_cksum`, the cases and
+`evals/bench/` are identical between the two, and pinning keeps the control
+side on the commit it started from.
+
+| | control | edit | one-sided Fisher |
+|---|--:|--:|--:|
+| **Assay**: control turn-3 offers ≥ 4/80 | **3/80** | — | **inconclusive** |
+| **Primary**: turn-3 offer runs, haiku | 3/80 (3.8%) | 0/80 (0.0%) | 0.12264 |
+| turn-3 file writes, haiku (rise) | 3/80 | 6/80 | 0.24753, held |
+| instructed-turn file writes, haiku (fall) | 320/320 | 320/320 | 1.00000, held |
+| turn 3 names ROLLBACK, haiku (fall) | 80/80 | 80/80 | 1.00000, held |
+| turn 3 calls a tool, haiku (fall) | 28/80 | 37/80 | 0.94643, held |
+| `conditional` edited, sonnet (rise) | 3/80 | 7/80 | 0.16394, held |
+| `conditional` locates_defect, sonnet (fall) | 80/80 | 77/80 | 0.12264, held |
+
+All three control hits were hand-read and are true closing offers after a
+diagnosis: *"Do you want me to fix this?"*, *"Want me to make that change?"*
+and *"Want me to fix it?"*. The edit side has none.
+
+## The verdict
+
+**Inconclusive (assay). The edit is reverted and nothing ships.**
+
+The pilot's 2/10 was a high draw. At master rules, haiku closes turn 3 with an
+offer in 3.8% of runs, near the bottom of the pilot's Wilson interval, which
+is the failure the pre-mortem judged likeliest after a pass. 0/80 against
+3/80 moves in the registered direction and is not evidence either way. At the
+measured rate, a perfect edit is only likely to separate with far more runs
+(simulated, 2,000 draws per row, seed 76, control 3.75%, edit 0%):
+
+| runs a side | P(p < 0.05) |
+|--:|--:|
+| 80 | 0.175 |
+| 160 | 0.725 |
+| 240 | 0.955 |
+
+Two of the fatal counters moved in the harm direction the pre-mortem named,
+though neither reached significance: turn-3 writes went from 3 to 6 and
+`conditional` edits went from 3 to 7. A re-registration at 240 a side would
+have to carry those bounds with power of their own, not the ceiling they had
+here.
+
+`rules/laconic.md`, `rules/dist/*.md` and `tests/test_bench.py`'s
+`_PRECHECK_BLOCK` are restored byte for byte to `8ac61c0`.
+The scorer, the `conditional` pilot symlink, the four snapshots and this
+document stay. The control worktree was removed when the round was scored.

@@ -254,6 +254,11 @@ def main():
     obs, p = stratified(control["words"], edit["words"], "deep", seed)
     print("   stem-stratified: ratio %.3f, p = %s"
           % (math.exp(obs) if obs is not None else float("nan"), fmt(p)))
+    # Round 80: a fall in `deep-*` words is acceptable only if its coverage holds.
+    obs, p = stratified(control["coverage"], edit["coverage"], "deep", seed,
+                        one_sided=True)
+    print("   coverage, one-sided down: ratio %.3f, p = %s"
+          % (math.exp(obs) if obs is not None else float("nan"), fmt(p)))
 
 
 if __name__ == "__main__":

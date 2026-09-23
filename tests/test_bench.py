@@ -421,8 +421,14 @@ check("BUILT-FROM covers every derived arm and no other",
 check("a stale arm is one whose recorded base is not this tree's slice",
       bench_run.stale_arms("nosuchcksum") == sorted(bench_run.BUILT_FROM))
 check("no arm is stale against its own recorded base",
-      all(not bench_run.stale_arms(b) or a in bench_run.stale_arms(b)
+      all(a not in bench_run.stale_arms(b)
           for a, b in bench_run.BUILT_FROM.items()))
+# Arms are rebuilt one at a time by the round that needs them, so their bases
+# may differ: round 77 rebuilt `laconic-precheck-read` alone.
+check("an arm rebuilt alone is live while the others stay stale",
+      bench_run.stale_arms(bench_run.BUILT_FROM["laconic-precheck-read"])
+      == sorted(a for a, b in bench_run.BUILT_FROM.items()
+                if b != bench_run.BUILT_FROM["laconic-precheck-read"]))
 
 # The #275 ablation arms. These are a different kind of thing from the minimal
 # slices above and need a different invariant: an ablation arm is the shipped

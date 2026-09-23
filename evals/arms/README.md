@@ -146,6 +146,11 @@ rounds is on the *no-check* arm, 46.7% to 53.8%, which is the window rather than
 the rules. So the premise `-read` was built to repair is not established on the
 instrument, and the arm stands unused rather than refuted.
 
+**[Round 77](../results/loop/round-77.md) rebuilt `-read` alone** against the
+slice at `rules_cksum` 3285158247, where both it and the shipped slice run
+1,143 words, and tests it directly against `laconic` as a candidate edit. `-off`
+was not rebuilt and stays stale at 594915793.
+
 [#264]: https://github.com/JordanMPDS/laconic/issues/264
 
 ## Staleness: `BUILT-FROM.json`

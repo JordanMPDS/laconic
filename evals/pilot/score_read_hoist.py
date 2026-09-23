@@ -22,6 +22,11 @@ was 202/420 against 232/420. This round tests it once, directly.
 
 Everything is deterministic. Nothing here reads a judge verdict.
 
+Round 78 scores `laconic-precheck-scoped` under the same bars with
+`--edit-arm laconic-precheck-scoped`. Any other arm in the snapshots, such as
+round 78's `-read` on the sentinel, is printed as a disclosure and decides
+nothing.
+
 [#264]: https://github.com/JordanMPDS/laconic/issues/264
 """
 import argparse
@@ -48,18 +53,18 @@ def _count(runs, arm, cases, pred):
     return sum(1 for r in rows if pred(r)), len(rows)
 
 
-def _ratio(runs, cases):
-    got = sd.blocked_log_words(runs, READ_ARM, cases, strata=False, ref=SHIP_ARM)
+def _ratio(runs, cases, arm=READ_ARM):
+    got = sd.blocked_log_words(runs, arm, cases, strata=False, ref=SHIP_ARM)
     return (got[1], got[2], got[3]) if got else None
 
 
-def verdict(runs, out=print):
+def verdict(runs, out=print, arm=READ_ARM):
     """Print the round and return (accept, reasons)."""
     reasons = []
     design = [r for r in runs if r["case"] in DESIGN_CASES
               and r.get("model") == "sonnet"]
-    out("=== primary: unread rate, %s against %s ===" % (READ_ARM, SHIP_ARM))
-    z, _ = contrast_line(design, READ_ARM, SHIP_ARM, DESIGN_CASES,
+    out("=== primary: unread rate, %s against %s ===" % (arm, SHIP_ARM))
+    z, _ = contrast_line(design, arm, SHIP_ARM, DESIGN_CASES,
                          "unread rate", out)
     # contrast_line prints p for a rise; the claim is a fall.
     p = 0.5 * math.erfc(-z / math.sqrt(2))
@@ -68,9 +73,9 @@ def verdict(runs, out=print):
         % (p, "PASSES" if fires else "does not pass"))
     if not fires:
         reasons.append("primary: p = %.5f" % p)
-    per_cell(design, [SHIP_ARM, READ_ARM], DESIGN_CASES, out)
-    per_shard(design, READ_ARM, SHIP_ARM, DESIGN_CASES, out)
-    turns(design, [SHIP_ARM, READ_ARM], DESIGN_CASES, out)
+    per_cell(design, [SHIP_ARM, arm], DESIGN_CASES, out)
+    per_shard(design, arm, SHIP_ARM, DESIGN_CASES, out)
+    turns(design, [SHIP_ARM, arm], DESIGN_CASES, out)
 
     out("")
     out("=== fatal bounds ===")
@@ -82,7 +87,7 @@ def verdict(runs, out=print):
     )
     for label, cases, pred, rise in rows:
         c, cn = _count(runs, SHIP_ARM, cases, pred)
-        e, en = _count(runs, READ_ARM, cases, pred)
+        e, en = _count(runs, arm, cases, pred)
         if not cn or not en:
             out("  %-36s not bought" % label)
             reasons.append("%s: not bought" % label)
@@ -95,7 +100,8 @@ def verdict(runs, out=print):
             reasons.append("%s: p = %.5f" % (label, bp))
     for label, cases in (("design prose length", DESIGN_CASES),
                          ("sentinel prose length", SENTINEL_CASES)):
-        got = _ratio([r for r in runs if r.get("model") == "sonnet"], cases)
+        got = _ratio([r for r in runs if r.get("model") == "sonnet"], cases,
+                     arm)
         if not got:
             out("  %-36s not bought" % label)
             reasons.append("%s: not bought" % label)
@@ -107,6 +113,23 @@ def verdict(runs, out=print):
                "held" if held else "FIRES"))
         if not held:
             reasons.append("%s: %.3fx" % (label, ratio))
+    others = sorted({r["arm"] for r in runs} - {SHIP_ARM, arm})
+    for other in others:
+        out("")
+        out("=== disclosure, decides nothing: %s ===" % other)
+        for label, cases in (("design", DESIGN_CASES),
+                             ("sentinel", SENTINEL_CASES)):
+            got = _ratio([r for r in runs if r.get("model") == "sonnet"],
+                         cases, other)
+            if got:
+                out("  %s prose length against %s: %.3fx over %d blocks"
+                    " (p = %.4f)" % (label, SHIP_ARM, got[0], got[2], got[1]))
+            got = sd.blocked_log_words(
+                [r for r in runs if r.get("model") == "sonnet"], other,
+                cases, strata=False, ref=arm)
+            if got:
+                out("  %s prose length against %s: %.3fx over %d blocks"
+                    " (p = %.4f)" % (label, arm, got[1], got[3], got[2]))
     accept = not reasons
     out("")
     out("VERDICT: %s" % ("ACCEPT step 1" if accept else
@@ -169,6 +192,19 @@ def _selftest():
                       out=quiet.append)
     check("an unbought bound rejects rather than passing silently",
           not ok and any("not bought" in w for w in why))
+    # Round 78: the same bars on another arm, with -read as a disclosure.
+    scoped = [dict(r, arm="laconic-precheck-scoped") if r["arm"] == READ_ARM
+              else r for r in build(0.40)]
+    extra = [dict(r, arm=READ_ARM, text="word " * 30) for r in scoped
+             if r["arm"] == SHIP_ARM and r["case"] in SENTINEL_CASES]
+    lines = []
+    ok, why = verdict(scoped + extra, out=lines.append,
+                      arm="laconic-precheck-scoped")
+    check("--edit-arm scores the named arm and a third arm decides nothing",
+          ok and not why and any("disclosure" in l for l in lines))
+    ok, why = verdict(scoped, out=quiet.append)
+    check("the default arm absent from the data rejects rather than passes",
+          not ok)
     print("\n%d failure(s)" % len(fails))
     return 1 if fails else 0
 
@@ -177,6 +213,8 @@ def main():
     ap = argparse.ArgumentParser(description=__doc__.split("\n")[0])
     ap.add_argument("snapshots", nargs="*")
     ap.add_argument("--selftest", action="store_true")
+    ap.add_argument("--edit-arm", default=READ_ARM,
+                    help="the arm the bars score (default %(default)s)")
     args = ap.parse_args()
     if args.selftest:
         return _selftest()
@@ -184,7 +222,7 @@ def main():
         return ap.error("give the round's snapshots, or --selftest")
     runs, versions = sd.load(args.snapshots)
     print("%d usable runs, CLI release(s): %s\n" % (len(runs), ", ".join(versions)))
-    accept, _ = verdict(runs)
+    accept, _ = verdict(runs, arm=args.edit_arm)
     return 0 if accept else 1
 
 

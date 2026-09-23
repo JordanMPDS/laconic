@@ -708,6 +708,9 @@ try:
               argv_tail[argv_tail.index("--output-format") + 1] == "stream-json")
         check("call() passes the --verbose the stream format requires",
               "--verbose" in argv_tail)
+        check("call() pins --effort rather than inheriting the operator's "
+              "settings.json",
+              argv_tail[argv_tail.index("--effort") + 1] == bench_run.EFFORT)
 
         argv_no_prompt = Path(td_argv) / "argv-no-prompt.txt"
         os.environ["STUB_ARGV_OUT"] = str(argv_no_prompt)

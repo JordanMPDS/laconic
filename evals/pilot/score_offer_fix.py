@@ -1,9 +1,12 @@
 #!/usr/bin/env python3
-"""Round 76: does naming the offer in the pre-action check stop it? ([#113])
+"""Rounds 76 and 79: does naming the offer in the pre-action check stop it? ([#113])
 
     python3 evals/pilot/score_offer_fix.py \
       --control evals/snapshots/loop/round-76-control-*.json \
       --edit    evals/snapshots/loop/round-76-edit-*.json
+    python3 evals/pilot/score_offer_fix.py --assay-min 6 \
+      --control evals/snapshots/loop/round-79-control-*.json \
+      --edit    evals/snapshots/loop/round-79-edit-*.json
     python3 evals/pilot/score_offer_fix.py --selftest
 
 `closing-edit-113.md` found the one place the shipped no-closing-offers rule
@@ -25,6 +28,11 @@ turn is, and this scores the round's registered bars in order:
   on `conditional`/sonnet, round 65's endpoint for the same check, `edited`
   must not rise and `locates_defect` must not fall.
 
+Round 79 re-runs round 76's edit at 240 a side with an assay of 6 and adds
+two pooled bounds: unasked fixes (turn-3 writes plus `conditional` edits, the
+same harm on two cells) must not rise, and neither may turn 3's offer-or-write
+rate, which is the total the offer and the fix compete for.
+
 [#113]: https://github.com/JordanMPDS/laconic/issues/113
 [#116]: https://github.com/JordanMPDS/laconic/issues/116
 """
@@ -42,7 +50,7 @@ from score_volunteered import edited, locates_defect  # noqa: E402
 import json  # noqa: E402
 
 ALPHA = 0.05
-ASSAY_MIN = 4
+ASSAY_MIN = 4  # round 76; round 79 passes --assay-min 6
 TURN3 = 2
 ROLLBACK = re.compile(r"rollback", re.I)
 
@@ -77,6 +85,7 @@ def side(paths):
         "tools_t3": (sum(bool(t.get("tools")) for t in t3), len(t3)),
         "cond_edited": (sum(edited(r) for r in single), len(single)),
         "cond_locates": (sum(locates_defect(r.get("text", "")) for r in single), len(single)),
+        "unasked_t3": (sum(bool(hits(t)) or wrote(t) for t in t3), len(t3)),
     }
 
 
@@ -97,7 +106,15 @@ BOUNDS = (
     ("tools_t3", "turn 3 calls a tool, haiku", falls),
     ("cond_edited", "conditional edited, sonnet", rises),
     ("cond_locates", "conditional locates_defect, sonnet", falls),
+    ("unasked_fix", "pooled unasked fixes (t3 write + cond)", rises),
+    ("unasked_t3", "turn 3 offers or writes, haiku", rises),
 )
+
+
+def pooled(s):
+    s["unasked_fix"] = (s["write_t3"][0] + s["cond_edited"][0],
+                        s["write_t3"][1] + s["cond_edited"][1])
+    return s
 
 
 def pct(kn):
@@ -105,14 +122,15 @@ def pct(kn):
     return "%3d/%-3d (%5.1f%%)" % (k, n, 100.0 * k / n) if n else "   -   "
 
 
-def score(ctl, edt):
-    lines, v = ["# Round 76: the offer to fix, named in the pre-action check (#113)\n"], {}
+def score(ctl, edt, assay_min=ASSAY_MIN):
+    ctl, edt = pooled(ctl), pooled(edt)
+    lines, v = ["# The offer to fix, named in the pre-action check (#113)\n"], {}
     lines.append("laconic edit-service haiku runs: control %d, edit %d" % (len(ctl["runs"]), len(edt["runs"])))
     lines.append("laconic conditional sonnet runs: control %d, edit %d\n"
                  % (ctl["cond_edited"][1], edt["cond_edited"][1]))
 
-    v["assay"] = ctl["offer_t3"][0] >= ASSAY_MIN
-    lines.append("## Assay: control turn-3 offers >= %d\n" % ASSAY_MIN)
+    v["assay"] = ctl["offer_t3"][0] >= assay_min
+    lines.append("## Assay: control turn-3 offers >= %d\n" % assay_min)
     lines.append("control %s   %s\n" % (pct(ctl["offer_t3"]), "PASS" if v["assay"] else "INCONCLUSIVE"))
 
     p = falls(ctl["offer_t3"], edt["offer_t3"])
@@ -208,6 +226,24 @@ def selftest():
         Path(paths["e"]).write_text(json.dumps({"runs": edt4}))
         _, v = score(side([paths["c"]]), side([paths["e"]]))
         assert not v["bounds"]["cond_edited"], v
+
+        # two rises neither of which separates alone fire the pooled bound
+        def mixed(rep, write, edit):
+            return [multi(rep, plain, ("Read", "Edit") if write else ("Read",)),
+                    cond(rep, ["Read", "Edit"] if edit else ["Read"], ok_cond)]
+        ctl5 = [r for i in range(80) for r in mixed(i, i < 2, i < 2)]
+        edt5 = [r for i in range(80) for r in mixed(i, i < 7, i < 7)]
+        Path(paths["c"]).write_text(json.dumps({"runs": ctl5}))
+        Path(paths["e"]).write_text(json.dumps({"runs": edt5}))
+        _, v = score(side([paths["c"]]), side([paths["e"]]), assay_min=0)
+        assert v["bounds"]["write_t3"] and v["bounds"]["cond_edited"], v
+        assert not v["bounds"]["unasked_fix"] and not v["accept"], v
+
+        # the assay threshold is the caller's: 20 control offers fail an assay of 21
+        Path(paths["c"]).write_text(json.dumps({"runs": ctl}))
+        Path(paths["e"]).write_text(json.dumps({"runs": edt}))
+        _, v = score(side([paths["c"]]), side([paths["e"]]), assay_min=21)
+        assert not v["assay"] and not v["accept"], v
     finally:
         import shutil
         shutil.rmtree(d)
@@ -218,13 +254,14 @@ def main():
     ap = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     ap.add_argument("--control", nargs="+", default=[])
     ap.add_argument("--edit", nargs="+", default=[])
+    ap.add_argument("--assay-min", type=int, default=ASSAY_MIN)
     ap.add_argument("--selftest", action="store_true")
     a = ap.parse_args()
     if a.selftest:
         return selftest()
     if not a.control or not a.edit:
         ap.error("name --control and --edit snapshots")
-    out, v = score(side(a.control), side(a.edit))
+    out, v = score(side(a.control), side(a.edit), a.assay_min)
     print(out)
     sys.exit(0 if v["accept"] else 1)
 

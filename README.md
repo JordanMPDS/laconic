@@ -20,10 +20,11 @@ From a clone, which is also how you develop against it:
 
 ```bash
 git clone https://github.com/JordanMPDS/laconic ~/projects/laconic
-ln -s ~/projects/laconic ~/.claude/skills/laconic
+/plugin marketplace add ~/projects/laconic
+/plugin install laconic@laconic
 ```
 
-Restart Claude Code, then run `/laconic full`. With no level set, laconic
+Then run `/laconic full`. With no level set, laconic
 injects nothing. To skip that step, set `LACONIC_DEFAULT` — see
 [Configuration](docs/configuration.md#default-level).
 
@@ -55,10 +56,12 @@ a report, walkthrough, or explanation you asked for gets full detail. A closed
 question confirming something you already know gets "Yes." and nothing after
 it, rather than your premise restated back to you.
 
-**The levels do not produce three measurably different lengths.** Across 330
-generations, `full` was not shorter than `lite` on either model, and `ultra`
-shortened the model's tool turns more than its answer. Pick by which cuts you
-want — [`evals/results/2026-07-31-levels.md`](evals/results/2026-07-31-levels.md).
+**The levels have not been shown to produce three different lengths.** On an
+earlier revision of the rules (330 generations, 2026-07-31), `full` was not
+shorter than `lite` on either model, and `ultra` shortened the model's tool
+turns more than its answer. No level comparison has been run on the shipped
+rules. Pick by which cuts you want —
+[`evals/results/2026-07-31-levels.md`](evals/results/2026-07-31-levels.md).
 
 ## Never cut
 
@@ -83,6 +86,9 @@ Every level, including `ultra`:
 Both hooks — `SessionStart` and `UserPromptSubmit` — then exit without emitting
 anything. No lingering state.
 
+`/laconic status` reports the active level and which flag file it came from,
+and `/laconic-help` prints a reference card for the levels and commands.
+
 To turn it off in one repository only, see
 [Per-project level](docs/configuration.md#per-project-level).
 
@@ -99,6 +105,8 @@ To turn it off in one repository only, see
 Codex CLI, Gemini CLI and Cursor all have hook systems close enough to Claude
 Code's that the same scripts serve them. Cursor gets a partial port: the rules
 load at session start, and nothing there can carry the per-turn reminder.
+GitHub Copilot CLI's hooks cannot carry laconic at all; see
+[`docs/other-agents.md`](docs/other-agents.md#github-copilot-cli-the-hooks-cannot-carry-it).
 
 - **Codex CLI** — append [`hooks/codex-config.toml`](hooks/codex-config.toml) to
   `~/.codex/config.toml` and point it at your clone. Codex will not run a new

@@ -2,8 +2,9 @@
 
 Cases under test, not in the scored suite. Reached only by
 `--cases-dir evals/pilot`; the default glob does not see them, so nothing here
-changes `cases_cksum`, joins a round's fatal counters, or appears in a
-published table.
+changes the default suite's `cases_cksum` or joins its fatal counters. A pilot
+family can still carry a registered round's target, as most rounds since 70 have, and
+those tables are in the round documents.
 
 A case lives here while the question is whether it measures anything. It moves
 to `evals/cases/` only with a pilot behind it and a seeded baseline — adding one
@@ -65,7 +66,7 @@ effect and the control that made it readable. The scoped arm accepted at 0.903
 with `deep-*` falling 0.945 alongside it, and the edit reverted. The pair is
 sound and the round is the thing that failed, so nothing here changed.
 
-**Two families are borrowed rather than resident.** `register-*` and `deep-*`
+**Two families supply other families' middle turns.** `register-*` and `deep-*`
 are also `fullexplain-*`'s and `deepexplain-*`'s source of middle turns, so an
 edit to either changes three designs at once, and `tests/test_evals_layout.sh`
 holds every one of those contracts.
@@ -176,6 +177,57 @@ the change." on turns 1, 2, 4 and 5, and dropped on turn 3, a walk-through with
 no change to make. The scored case is symlinked in, not copied, so both halves
 are generated in one interleaved pass and the control cannot drift from the case
 the suite ships. `tests/test_evals_layout.sh` holds the pair to that contract.
-Scored by `score_closing_edit.py`.
+Scored by `score_closing_edit.py`; rounds 76 and 79 scored their edit against it
+with `score_offer_fix.py`.
+
+## `cited-*` and `contra-*`
+
+`cited-*` is `settled-*`'s closed question with the grounds asked for
+explicitly ("Quote the part of the record that settles it"), and its fixture is
+a symlink to `settled-*`'s, so the only difference is the request. Scored by
+`score_cited.py`. `contra-*` asks `settled-*`'s question against a record that
+says the opposite, so the correct answer denies the premise; it is the bound
+`score_echo.py` holds a true-premise edit to.
+
+## Borrowed by symlink
+
+`deep-*`, `drift-service` and `conditional` are symlinks to the scored cases of
+the same name in `evals/cases/`, so a pilot pass can generate them beside a
+pilot family without copying them.
+
+## Scripts
+
+Each script's docstring holds its usage, its registered bars, and the round or
+issue it was written for.
+
+| script | what it scores |
+|---|---|
+| `score_aa.py` | Round 53: how often the fatal quality gate fires on nothing. |
+| `rescore_gate.py` | Round 54 bar E: the archive under both count gates ([#259]). |
+| `score_closed.py` | Round 64: whether a worked closed question shortens a closed answer. |
+| `score_compression.py` | Round 51: whether the pre-action check compresses a diagnostic answer. |
+| `score_dilution.py` | Round 58: whether a 300-word slice does what the full one does. |
+| `score_precheck.py` | Round 63: the reading instruction hoisted out of the pre-action check. |
+| `score_structure.py` | Round 66: whether prohibiting scaffolding removes it, and whether prose follows. |
+| `score_persistence.py` | Round 47: whether a persistence clause makes the licensed-long register expire. |
+| `score_register.py` | The `register-*`/`work-*` carry-forward pilot, and round 69's interaction. |
+| `score_reexplain.py` | The [#298] re-explanation pilot on `explain-*`/`reexplain-*`. |
+| `interaction_calibration.py` | [#298]: what the interaction null costs, and which repair sizes it. |
+| `round69_supplement.py` | Round 69's reporting figures, which decide nothing. |
+| `score_claims.py` | Rounds 70 and 80: requested-report words, fixture-token coverage on `register-*` and `deep-*`. |
+| `score_explain_bound.py` | Round 80: whether deleting the explain bullet cut `walkthrough` or `code-fidelity`. |
+| `score_authored.py` | The [#150] `authored-*` pair: deliverable length and correctness. |
+| `score_premise.py` | The true-premise instrument for `settled-*`/`unsettled-*` ([#136], [#305]). |
+| `audit_verdict.py` | The admission audit for a change to `score_premise.verdict`. |
+| `audit_confirm_ambiguity.py` | The [#305] `confirm` caveat, computed; labels in `confirm-ambiguity-labels.json`. |
+| `score_settled.py` | Round 71: whether a worked true-premise closed question stops haiku re-deriving grounds. |
+| `score_echo.py` | Round 72's target, and the `contra-*` bound. |
+| `score_cited.py` | Whether a `settled-*` answer's grounds citation responds to being asked for. |
+| `score_volunteered.py` | [#116]'s counters on `conditional`: did the answer do the work, and say what was wrong. |
+| `score_closing_edit.py` | Whether laconic's closing-offer rate survives a session that edits. |
+| `score_offer_fix.py` | Rounds 76 and 79: naming the offer in the pre-action check ([#113]). |
+| `score_read_hoist.py` | Round 77: the hoisted reading instruction's unread rate on `design-*`. |
 
 [#113]: https://github.com/JordanMPDS/laconic/issues/113
+[#259]: https://github.com/JordanMPDS/laconic/issues/259
+[#116]: https://github.com/JordanMPDS/laconic/issues/116

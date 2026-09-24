@@ -11,11 +11,13 @@ Snapshot: `evals/snapshots/loop/round-21.json`, judged into
 1830906901.
 
 **1830906901 is no longer the revision this repository ships.** Master is at
-594915793 for `full`, three accepted edits later: the design-question licence
-from rounds 24 and 26, round 28's asking-permission edit, and round 55's
-pre-action check. This is still the most recent round-wide five-arm benchmark —
-none has been generated at 594915793 — so every figure on this page describes
-1830906901 and should be read as dated rather than as current. Where the two
+3285158247 for `full`, five accepted edits later: the design-question licence
+from rounds 24 and 26, round 28's asking-permission edit, round 55's
+pre-action check, round 71's worked true-premise question, and round 73's
+named answer boundary. This is still the most recent round-wide five-arm
+benchmark — none has been generated on the shipped rules — so every figure on
+this page describes 1830906901 and should be read as dated rather than as
+current. Where the two
 revisions have been put on one instrument the shipped rules win: arrow rates
 fell by roughly two thirds overall, and on `walkthrough` chains fell 125.4 per
 100 responses to 37.5. See

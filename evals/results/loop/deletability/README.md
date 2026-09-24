@@ -86,8 +86,14 @@ python3 evals/results/loop/deletability/detector.py \
   --out evals/results/loop/restatement-b2/verdicts-deletable.json
 
 python3 evals/results/loop/restatement/score_detector.py \
-  --verdicts verdicts-deletable.json
+  --verdicts verdicts-deletable.json                    # all kinds pooled
+python3 evals/results/loop/restatement/score_detector.py \
+  --verdicts verdicts-deletable.json --kinds redundant  # predictions 2 and 4
+python3 evals/results/loop/deletability/compare.py      # predictions 1 and 3
 ```
+
+`compare.py` reads `fp_shapes.json`, the 14 mixed-closing false positives
+prediction 1 is scored on.
 
 120 calls at roughly $0.065 each. The verdicts land beside the key and labels
 they are scored against, because that is where `score_detector.py` looks and a

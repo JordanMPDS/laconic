@@ -106,7 +106,7 @@ slice. Because the floor is itself checked against the live hook output, an edit
 to `rules/laconic.md` that moves the block retires all five arms at once — see
 **Staleness** below.
 
-## `laconic-precheck-off.md`, `laconic-precheck-read.md` — the [#264] arms
+## `laconic-precheck-off.md`, `laconic-precheck-read.md`, `laconic-precheck-scoped.md` — the [#264] arms
 
 Round 56 measured the pre-action check costing 7.8 points of reading rate on
 `design-*`/sonnet with no quality cost the loop can resolve, and proposed a
@@ -114,18 +114,18 @@ mechanism it could not test: the check's trigger is a broken thing, a design
 question has none, so the clause still in force is the one about not acting —
 and answering without acting means answering without reading.
 
-These two arms are the narrowest construction in this directory. **Each is the
+These three arms are the narrowest construction in this directory. **Each is the
 shipped `full` slice with the opening numbered list swapped and every other
 byte identical**, so `tests/test_bench.py` checks them by exact equality
 against the live hook output rather than structurally. Any edit to
-`rules/laconic.md`, inside the block or outside it, retires both — see
+`rules/laconic.md`, inside the block or outside it, retires all three — see
 **Staleness** below.
 
 | arm | words | the list it carries |
 |---|--:|---|
 | `laconic-precheck-off` | 1,000 | the two-item list the file carried before round 55 — the check deleted, nothing put back |
 | `laconic` (shipped) | 1,041 | the check as round 55 accepted it |
-| `laconic-precheck-read` | 1,041 | the check with the reading instruction hoisted out of the broken-thing conditional |
+| `laconic-precheck-read` | 1,041 | the check with the reading instruction hoisted out of the broken-thing conditional (1,143 since round 77's rebuild) |
 
 `-read` is **word-matched to the shipped slice**, which is the property that
 makes the recovery contrast interpretable: the two arms differ in where one
@@ -157,7 +157,9 @@ margin.
 successor, on the same base and word-matched to it. It scopes the reading
 instruction to a workspace that has files — "Does the answer depend on files in
 this workspace? Read them first." — so that it has nothing to say on a
-question with no fixture, where `-read` cost prose.
+question with no fixture, where `-read` cost prose. It moved the unread rate
+−26.0 points and was rejected on sentinel prose length, 1.208x against the
+1.10x margin.
 
 [#264]: https://github.com/JordanMPDS/laconic/issues/264
 
@@ -192,14 +194,16 @@ while this file went on describing the old one.
 
 Round 64 left all seven recorded at `594915793`, the slice rounds 59 through 63
 measured, rather than rebuilding them against the edit it was testing. The word
-counts in the tables above are that slice's.
+counts in the tables above are that slice's, except where a row says otherwise.
 
-**At master all seven are stale.** They stayed live through the rejections of
+**At master six are stale.** They stayed live through the rejections of
 rounds 64, 66, 68 and 70, until round 71's accepted edit (v0.3.1) moved the
 `full` slice off `594915793`, and round 73's (v0.3.2) moved it again to
-`3285158247`, 1,143 words. `BUILT-FROM.json` still records `594915793` for
-every arm, so `run.py` refuses to generate with any of them unless a round
-rebuilds it or passes `--allow-stale-arm`.
+`3285158247`, 1,143 words. `BUILT-FROM.json` still records `594915793` for the
+`abl-*` and `repl-*` arms and for `precheck-off`, so `run.py` refuses to
+generate with any of them unless a round rebuilds it or passes
+`--allow-stale-arm`. `precheck-read` (round 77) and `precheck-scoped`
+(round 78) were built at `3285158247` and are live.
 
 
 [#275]: https://github.com/JordanMPDS/laconic/issues/275

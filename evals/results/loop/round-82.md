@@ -122,7 +122,58 @@ reportable result and not a reason to build another case.
 
 ## Results
 
-_Not computed._
+72 runs (the 60 `drift-service` sessions hold 300 turn-responses), 0 failed,
+three shards at `--concurrency 3` each reconstructing to one generator, and
+all on CLI 2.1.281 with no release span.
+
+```sh
+python3 evals/pilot/score_depth.py evals/snapshots/loop/round-82-*.json
+```
+
+**Branch C. Neither readout comes near its bar.**
+
+| readout | reading | bar |
+|---|---|---|
+| R1, opus laconic over 600 words | **0/72**, 95% Wilson [0.0%, 5.1%] | 10% |
+| R2, depth on opus, exp(D) | **0.580**, one-sided p = 1.0000 | at least 1.25, p < 0.05 |
+
+The longest opus laconic response in the round is **331 words**, on
+`drift-service` turn 3. On #46's own prompt the laconic median is 220.5 words
+with a maximum of 283, against a baseline median of 594.5. The upper bound on
+the tail excludes the registered 10% outright.
+
+**Depth runs the other way from #46's report.** Under the shipped reminder
+wiring, laconic's later turns shrink relative to the baseline's:
+
+| turn | opus laconic median | opus baseline median | ratio | laconic opus/sonnet |
+|---|--:|--:|--:|--:|
+| 1 | 176.5 | 364.5 | 0.484 | 1.634 |
+| 2 | 102.5 | 397.5 | 0.258 | 1.881 |
+| 3 | 274.5 | 766.0 | 0.358 | 1.336 |
+| 4 | 107.5 | 436.0 | 0.247 | 1.335 |
+| 5 | 151.0 | 582.0 | 0.259 | 1.373 |
+
+Sonnet shows the same pattern (exp(D) = 0.507). Opus laconic is 1.3x to
+1.9x sonnet laconic on every turn, which is inside round 80's 2x to 3x
+finding and below it. Closing offers were 0 of 120 on laconic across both
+models. The opus baseline also made none; the sonnet baseline made 14 of 60.
+Unread counts are similar across the arms. Turns 2, 4 and 5 go unread on both
+arms of opus because the fixture was already read in the session.
+
+## Verdict
+
+**Branch C, as the pre-mortem expected.** On the loop's instrument, #46 does
+not reproduce on opus, single-turn or five turns deep, at current rules.
+Round 83 takes a `rules` issue other than #46 and has to carry an edit.
+
+This is not evidence that #46 is fixed. The report's session was a long
+working context over a real document. `drift-service` is five questions over
+a small fixture, so what this round rules out is depth alone, under the
+shipped reminder, as the cause. A case that reproduces #46 would need that
+working context, and building one is not registered here.
+
+Label: none. This round carried no candidate, so it takes no row in
+`candidate-defects/labels.json`.
 
 [#46]: https://github.com/JordanMPDS/laconic/issues/46
 [#60]: https://github.com/JordanMPDS/laconic/issues/60

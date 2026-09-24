@@ -128,7 +128,7 @@ Each refusal names the round that bought it:
 | Guard | Refuses when | Override |
 |---|---|---|
 | `--turn-delivery` | the pass has multi-turn work left and no delivery mode was named. `plugin` reproduces the shipped hook wiring; `repeat` re-appends the whole slice every turn and is what every snapshot below round 40 holds | name one; there is no default |
-| `--allow-opus '<why>'` | any named model is an opus. Opus costs about 9x haiku per call and spends the operator's usage window, not a separate API budget | `--allow-opus` with a reason, recorded as `metadata.opus_justification` |
+| `--allow-opus '<why>'` | `judge.py` only: the judge model is an opus. Generation includes opus by default since 2026-09-24 and `run.py` refuses nothing | `--allow-opus` with a reason, recorded as `metadata.opus_justification` |
 | `--max-shards` | that many `run.py` processes are already running. Five shards plus the supervisor's own child took the loop for low memory on a 7.6 GiB machine | `--max-shards N`, `LACONIC_MAX_SHARDS=N` per machine, or `--max-shards 0` |
 | `--cells` | it is passed alongside `--cases` or `--models`, or a resume names a different cell set | drop the other two flags |
 | `--allow-stale-arm` | a requested arm under `evals/arms/` was built from a different rules slice than this tree carries | rebuild the arm and update `evals/arms/BUILT-FROM.json`, or pass the flag deliberately |

@@ -93,19 +93,21 @@ one that catches stale generated files, and it is the easiest to skip by acciden
   `LACONIC_MAX_SHARDS=N` for a machine that has the memory; `--max-shards 0`
   disables it. This is a different thing from `--concurrency`, which records
   the fan-out and refuses nothing.
-- **Opus needs a stated reason, and a round is spent from a person's usage
+- **Every round generates on opus, and a round is spent from a person's usage
   window.** These harnesses shell out to the `claude` binary, so every
   generation and every judgment is a CLI session drawing on the operator's
-  Claude Code subscription rather than a separate API budget. Opus costs about
-  9x haiku per call. It is not the default — `run.py --models` is
-  `haiku,sonnet` and `judge.py --model` is `sonnet` — but naming it used to
-  cost nothing, and on 2026-09-03 an unattended round bought 220 opus
-  generations and 140 opus judgments, emptied a fresh usage window in half an
-  hour, and stalled the loop for the four hours after. Both harnesses now
-  refuse an opus model unless `--allow-opus '<why this hypothesis needs opus>'`
-  is given, and `run.py` records it as `metadata.opus_justification`. A
-  confirmatory round does not qualify: run it on haiku and sonnet, and reserve
-  opus for a hypothesis that is about opus.
+  Claude Code subscription rather than a separate API budget. Since 2026-09-24
+  `run.py --models` defaults to `haiku,sonnet,opus`, and a round that scopes
+  its models or cells includes opus too. [Round 80](evals/results/loop/round-80.md)
+  found opus two to three times longer than sonnet at master rules, and it
+  responds to an edit differently. A behaviour nobody has tested on opus is
+  not a behaviour known to match sonnet, and opus is what the plugin is run on.
+  `run.py` no longer refuses opus; `--allow-opus` is an optional note recorded
+  as `metadata.opus_justification`. The cost is real: opus is about 9x haiku
+  per call, so a round takes several times the usage it used to, and more
+  rounds will pause at a usage limit and resume. The judge stays on sonnet,
+  and `judge.py` still refuses an opus judge without `--allow-opus`, because
+  on 2026-09-03 140 opus judgments helped empty a usage window in half an hour.
 - **A multi-turn round has to name its delivery mode.** `run.py` can send the
   rules to a later turn two ways, and they are different treatments: `repeat`
   re-appends the whole rule slice every turn, while `plugin` reproduces the

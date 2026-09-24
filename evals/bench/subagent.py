@@ -468,7 +468,7 @@ def main():
     ap.add_argument("--judgments", default=str(RELAY_JUDGMENTS))
     ap.add_argument("--snapshot-dir", default=str(SNAPSHOTS))
     ap.add_argument("--arms", default=",".join(ARM_ORDER))
-    ap.add_argument("--models", default="haiku,sonnet")
+    ap.add_argument("--models", default="haiku,sonnet,opus")
     ap.add_argument("--parent-model", default="sonnet")
     ap.add_argument("--reps", type=int, default=3)
     ap.add_argument("--cases", default="*")

@@ -5845,6 +5845,13 @@ check("the refusal quotes the plan's cost when it knows the call count",
       "200 call(s)" in _priced and "$29.80" in _priced)
 check("judge.py enforces the same guard",
       "require_opus_reason" in (ROOT / "evals" / "bench" / "judge.py").read_text())
+# Since 2026-09-24 opus is a default generation model and run.py refuses
+# nothing; the guard above now protects only the judge.
+_run_src = (ROOT / "evals" / "bench" / "run.py").read_text()
+check("run.py generates on opus by default",
+      'else "haiku,sonnet,opus").split(",")' in _run_src)
+check("run.py no longer refuses opus",
+      "opus_reason = require_opus_reason(" not in _run_src)
 
 
 # --- A multi-turn round must name its delivery mode ------------------------

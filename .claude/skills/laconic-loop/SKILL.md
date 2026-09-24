@@ -260,20 +260,19 @@ the cost, at roughly 9x haiku per call:
 | sonnet | $0.075 | $16.50 |
 | haiku | $0.016 | $3.52 |
 
-**Opus needs a stated reason.** It has never been the default, but naming it
-used to cost nothing, and #117 bought 220 opus generations plus 140 opus
-judgments, emptied a fresh usage window in half an hour and stalled the loop for
-the four hours after. Both harnesses now refuse it unless the round says why:
+**Every round generates on opus.** Since 2026-09-24 `run.py --models` defaults
+to `haiku,sonnet,opus`, and a round that names its models or `--cells` names
+opus beside them. [Round 80](../../../evals/results/loop/round-80.md) is why: at
+master rules opus was two to three times longer than sonnet on the same
+prompts, and an edit that sonnet barely registered moved opus 12.6% at
+p = 0.0010. Every earlier round measured the plugin on the models it is least
+used on. An untested behaviour is not one known to match sonnet, so opus is in
+every round rather than in the rounds someone expects it to matter in.
 
-```bash
---allow-opus 'the hypothesis is about opus, not confirmed on it'
-```
-
-`run.py` stamps that into `metadata.opus_justification`, so a snapshot holding
-opus runs carries the reason they were bought. **A confirmatory round does not
-qualify.** #117's own finding — that the compression claim generalises to opus —
-is what makes further opus rounds confirmatory, and confirmatory work belongs on
-haiku and sonnet.
+It costs about 9x haiku per call. Size opus's reps to what the round can
+afford, and expect a round to pause at a usage limit and resume, which
+`run.py` does by key. The judge stays on sonnet: `judge.py` still refuses an
+opus judge without `--allow-opus`, the guard #117's 140 opus judgments earned.
 
 Size the round before buying it. The staged rule below already says to open at
 10 reps and extend only if the round needs it; that matters most on the arm that

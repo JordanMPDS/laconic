@@ -328,9 +328,11 @@ def require_opus_reason(models, reason, calls=None):
     opus generations and 140 opus judgments and emptied a fresh usage window in
     half an hour, which stalled the loop for the following four.
 
-    Opus is not the default and never has been - `--models` is `haiku,sonnet`
-    and `judge.py --model` is `sonnet`. What was missing is that asking cost
-    nothing. This is the same shape as `--allow-case-change`: the override
+    Since 2026-09-24 opus is a default generation model - round 80 found it
+    two to three times longer than sonnet at master rules, and a behaviour
+    untested on opus is not a behaviour known to match sonnet - so `run.py` no
+    longer calls this. `judge.py` still does: the judge is sonnet, and an opus
+    judge has no such reason. This is the same shape as `--allow-case-change`: the override
     exists, it has to be deliberate, and the reason is stamped into the snapshot
     instead of living in a transcript nobody reads.
 
@@ -1179,13 +1181,12 @@ def main():
                          "and recorded as metadata.turn_delivery")
     ap.add_argument("--models", default=None,
                     help="comma-separated models, crossed with --cases. "
-                         "Defaults to haiku,sonnet. Not accepted alongside "
+                         "Defaults to haiku,sonnet,opus. Not accepted alongside "
                          "--cells, which names the cross product directly")
     ap.add_argument("--allow-opus", metavar="REASON", default=None,
-                    help="why this hypothesis needs opus. Required whenever "
-                         "--models names an opus model, and recorded as "
-                         "metadata.opus_justification. A confirmatory round "
-                         "does not need opus; run it on haiku and sonnet")
+                    help="optional note on why this round buys opus, recorded "
+                         "as metadata.opus_justification. Opus is a default "
+                         "model, so nothing requires it")
     ap.add_argument("--reps", type=int, default=5)
     ap.add_argument("--rep-offset", type=int, default=0,
                     help="first rep index this process generates, so several "
@@ -1295,7 +1296,7 @@ def main():
                  "and --models do not apply. Drop them, or drop --cells (#285)")
     models = [m.strip()
               for m in (args.models if args.models is not None
-                        else "haiku,sonnet").split(",") if m.strip()]
+                        else "haiku,sonnet,opus").split(",") if m.strip()]
     arm_names = [a.strip() for a in args.arms.split(",") if a.strip()]
     bad_arms = [a for a in arm_names if a not in ARMS]
     if bad_arms:
@@ -1328,15 +1329,9 @@ def main():
             sys.exit("no cases matched: %s" % (args.cases or "*"))
         cells = sorted((d.name, m) for d in cases for m in models)
     cellset = set(cells)
-    # The gate, placed as early as the numbers allow: after the scope is known,
-    # so the refusal can price the round, and before the snapshot is opened, so
-    # a refused round leaves nothing behind. The count is the whole plan rather
-    # than the calls left to make, which overstates a resume - the right
-    # direction for a warning about spending.
-    opus_reason = require_opus_reason(
-        models, args.allow_opus,
-        calls=args.reps * len(arm_names)
-        * sum(1 for _, m in cells if "opus" in m))
+    # Opus is a default model since 2026-09-24, so a note is recorded if given
+    # and nothing is refused.
+    opus_reason = (args.allow_opus or "").strip() or None
 
     # The snapshot-level stamp is written when the file is created and never
     # again, so a round assembled into a pre-seeded file inherits that file's

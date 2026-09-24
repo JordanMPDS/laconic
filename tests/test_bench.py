@@ -1030,6 +1030,50 @@ check("parses a verdict wrapped in prose", v["verdict"] == "fail")
 v = bench_judge.parse_verdict('{"verdict":"maybe","quote":"q","reason":"r"}')
 check("rejects an out-of-range verdict", v["verdict"] == "not_exercised")
 check("rejects garbage", bench_judge.parse_verdict("nope")["verdict"] == "not_exercised")
+
+# --- The judge panel (2026-09-24) -------------------------------------------
+# The record's verdict is the majority of sonnet, opus and kimi; a vote that
+# failed or did not parse is not a vote, and nothing short of two agreeing
+# votes decides.
+def _vote(verdict):
+    return {"verdict": verdict, "quote": "q-" + verdict, "reason": "r-" + verdict}
+
+_pv = bench_judge.panel_verdict
+check("panel: two of three decide",
+      _pv({"sonnet": _vote("pass"), "opus": _vote("fail"), "kimi": _vote("pass")})["verdict"] == "pass")
+check("panel: the quote is the first majority member's",
+      _pv({"sonnet": _vote("fail"), "opus": _vote("pass"), "kimi": _vote("pass")})["quote"] == "q-pass")
+check("panel: two agreeing votes decide with the third call failed",
+      _pv({"sonnet": _vote("fail"), "opus": _vote("fail"), "kimi": None})["verdict"] == "fail")
+_split = _pv({"sonnet": _vote("pass"), "opus": _vote("fail"), "kimi": _vote("not_exercised")})
+check("panel: a three-way split is a decided not_exercised, not an infra failure",
+      _split["verdict"] == "not_exercised"
+      and _split["reason"] == bench_judge.REASON_PANEL_SPLIT
+      and not bench_judge._is_infra_failure(_split))
+_short = _pv({"sonnet": _vote("pass"), "opus": _vote("fail"), "kimi": None})
+check("panel: two disagreeing votes with one missing are retried, not frozen",
+      bench_judge._is_infra_failure(_short))
+_unparsed = _pv({"sonnet": _vote("pass"), "opus": bench_judge.parse_verdict("nope"),
+                 "kimi": None})
+check("panel: an unparseable reply is not a vote",
+      bench_judge._is_infra_failure(_unparsed)
+      and _unparsed["panel"]["opus"]["verdict"] is None)
+check("panel: every member's vote is kept on the record",
+      set(_pv({"sonnet": _vote("pass"), "opus": _vote("pass"), "kimi": _vote("fail")})["panel"])
+      == set(bench_judge.PANEL))
+check("panel: kimi is the Kimi Code subscription alias, not the API model",
+      bench_judge.KIMI_MODEL.startswith("kimi-code/"))
+check("setup: the panel is the default and a single judge keeps its bare name",
+      bench_judge.judge_setup(None) == "panel:sonnet,opus,kimi"
+      and bench_judge.judge_setup("sonnet") == "sonnet")
+check("setup: a sonnet-graded file conflicts with the panel",
+      bench_judge.setup_conflict({"judge_model": "sonnet"}, "panel:sonnet,opus,kimi") == "sonnet")
+check("setup: a matching or unstamped file does not conflict",
+      bench_judge.setup_conflict({"judge_model": "sonnet"}, "sonnet") is None
+      and bench_judge.setup_conflict({}, "panel:sonnet,opus,kimi") is None)
+_report_src = (ROOT / "evals" / "bench" / "report.py").read_text()
+check("report.py refuses to compare two judge setups",
+      "graded by different judge" in _report_src)
 check("not_exercised is a supported verdict",
       bench_judge.parse_verdict('{"verdict":"not_exercised","quote":"","reason":"r"}')["verdict"]
       == "not_exercised")
@@ -1099,7 +1143,7 @@ with tempfile.TemporaryDirectory() as td_judge_e2e:
     out_path = Path(td_judge_e2e) / "judgments.json"
 
     proc = subprocess.run(
-        [sys.executable, str(ROOT / "evals" / "bench" / "judge.py"),
+        [sys.executable, str(ROOT / "evals" / "bench" / "judge.py"), "--model", "sonnet",
          "--claude-bin", str(bad_bin), "--results", str(snap_path),
          "--out", str(out_path)],
         capture_output=True, text=True,
@@ -1559,7 +1603,7 @@ with tempfile.TemporaryDirectory() as td_retry:
     # --judge-all because floor is a rule-adherence case, which the default
     # coverage skips. This test is about the retry, not about what gets graded.
     proc = subprocess.run(
-        [sys.executable, str(ROOT / "evals" / "bench" / "judge.py"),
+        [sys.executable, str(ROOT / "evals" / "bench" / "judge.py"), "--model", "sonnet",
          "--claude-bin", str(flaky), "--results", str(snap_path),
          "--out", str(out_path), "--judge-all"],
         capture_output=True, text=True,
@@ -1595,7 +1639,7 @@ with tempfile.TemporaryDirectory() as td_cksum:
     judg_path.write_text(json.dumps(stale))
 
     proc = subprocess.run(
-        [sys.executable, str(ROOT / "evals" / "bench" / "judge.py"),
+        [sys.executable, str(ROOT / "evals" / "bench" / "judge.py"), "--model", "sonnet",
          "--claude-bin", resolved_rel, "--results", str(snap_path), "--out", str(judg_path)],
         capture_output=True, text=True,
     )
@@ -1635,7 +1679,7 @@ with tempfile.TemporaryDirectory() as td_blind:
 
     env = dict(os.environ, JUDGE_CWD_LOG=str(cwd_log))
     proc = subprocess.run(
-        [sys.executable, str(ROOT / "evals" / "bench" / "judge.py"),
+        [sys.executable, str(ROOT / "evals" / "bench" / "judge.py"), "--model", "sonnet",
          "--claude-bin", str(cwd_stub), "--results", str(snap_path),
          "--out", str(out_path), "--judge-all"],  # floor is rule-adherence
         capture_output=True, text=True, env=env,
@@ -3750,7 +3794,7 @@ with tempfile.TemporaryDirectory() as td_jobs:
     out_path = Path(td_jobs) / "judgments.json"
 
     proc = subprocess.run(
-        [sys.executable, str(ROOT / "evals" / "bench" / "judge.py"),
+        [sys.executable, str(ROOT / "evals" / "bench" / "judge.py"), "--model", "sonnet",
          "--claude-bin", str(stub), "--jobs", "4", "--judge-all",
          "--results", str(snap_path), "--out", str(out_path)],
         capture_output=True, text=True,
@@ -3775,7 +3819,7 @@ with tempfile.TemporaryDirectory() as td_jobs:
 
     # Resuming a complete file must call nothing and add nothing.
     proc2 = subprocess.run(
-        [sys.executable, str(ROOT / "evals" / "bench" / "judge.py"),
+        [sys.executable, str(ROOT / "evals" / "bench" / "judge.py"), "--model", "sonnet",
          "--claude-bin", str(stub), "--jobs", "4", "--judge-all",
          "--results", str(snap_path), "--out", str(out_path)],
         capture_output=True, text=True,
@@ -3881,7 +3925,7 @@ with tempfile.TemporaryDirectory() as td_cj:
 
     out_path = Path(td_cj) / "judgments.json"
     proc = subprocess.run(
-        [sys.executable, str(ROOT / "evals" / "bench" / "judge.py"),
+        [sys.executable, str(ROOT / "evals" / "bench" / "judge.py"), "--model", "sonnet",
          "--claude-bin", str(stub), "--jobs", "2", "--judge-all",
          "--results", str(snap_path), "--out", str(out_path),
          "--carry-judgments-from", str(src_path)],
@@ -3921,7 +3965,7 @@ with tempfile.TemporaryDirectory() as td_cj:
     # A second pass must buy nothing: carried keys are decided, judged keys
     # are decided, and a carry may not overwrite a verdict this round bought.
     proc2 = subprocess.run(
-        [sys.executable, str(ROOT / "evals" / "bench" / "judge.py"),
+        [sys.executable, str(ROOT / "evals" / "bench" / "judge.py"), "--model", "sonnet",
          "--claude-bin", str(stub), "--jobs", "2", "--judge-all",
          "--results", str(snap_path), "--out", str(out_path),
          "--carry-judgments-from", str(src_path)],
@@ -3946,7 +3990,7 @@ with tempfile.TemporaryDirectory() as td_nc:
     src_path = Path(td_nc) / "src.json"
     bench_run.save_snapshot(src_path, {"metadata": {}, "judgments": []})
     proc = subprocess.run(
-        [sys.executable, str(ROOT / "evals" / "bench" / "judge.py"),
+        [sys.executable, str(ROOT / "evals" / "bench" / "judge.py"), "--model", "sonnet",
          "--claude-bin", resolved_rel, "--results", str(snap_path),
          "--out", str(Path(td_nc) / "j.json"),
          "--carry-judgments-from", str(src_path)],
@@ -4159,7 +4203,7 @@ with tempfile.TemporaryDirectory() as td_86:
                                                   "model": "haiku", "rep": 0,
                                                   "verdict": "pass"}]}))
     _op86 = Path(td_86) / "judgments.json"
-    _cmd86 = [sys.executable, str(ROOT / "evals" / "bench" / "judge.py"),
+    _cmd86 = [sys.executable, str(ROOT / "evals" / "bench" / "judge.py"), "--model", "sonnet",
               "--claude-bin", str(_stub86), "--results", str(_sp86),
               "--out", str(_op86)]
     _r86a = subprocess.run(_cmd86 + ["--carry-judgments-from", str(_srcp86)],
@@ -4192,7 +4236,7 @@ with tempfile.TemporaryDirectory() as td_69:
     _stub69.write_text("#!/usr/bin/env bash\nexit 1\n")
     _stub69.chmod(0o755)
     _r69 = subprocess.run(
-        [sys.executable, str(ROOT / "evals" / "bench" / "judge.py"),
+        [sys.executable, str(ROOT / "evals" / "bench" / "judge.py"), "--model", "sonnet",
          "--claude-bin", str(_stub69),
          "--results", str(_s69), "--out", str(Path(td_69) / "j.json")],
         capture_output=True, text=True)
@@ -4220,7 +4264,7 @@ with tempfile.TemporaryDirectory() as td_69b:
     _stub69b.write_text("#!/usr/bin/env bash\nexit 1\n")
     _stub69b.chmod(0o755)
     _r69b = subprocess.run(
-        [sys.executable, str(ROOT / "evals" / "bench" / "judge.py"),
+        [sys.executable, str(ROOT / "evals" / "bench" / "judge.py"), "--model", "sonnet",
          "--claude-bin", str(_stub69b), "--cases", "destructive",
          "--results", str(_s69b), "--out", str(Path(td_69b) / "j.json")],
         capture_output=True, text=True)
@@ -4876,7 +4920,7 @@ with tempfile.TemporaryDirectory() as td_jstop:
 
     def _judge_stop(out, calls, ok_call="0", *extra):
         return subprocess.run(
-            [sys.executable, str(ROOT / "evals" / "bench" / "judge.py"),
+            [sys.executable, str(ROOT / "evals" / "bench" / "judge.py"), "--model", "sonnet",
              "--claude-bin", str(_stub), "--results", str(_res),
              "--out", str(Path(td_jstop) / out),
              # One worker, so "consecutive completions" is exactly "consecutive
@@ -4957,7 +5001,7 @@ with tempfile.TemporaryDirectory() as td_gates:
 
     def _judge(out, *extra):
         return subprocess.run(
-            [sys.executable, str(ROOT / "evals" / "bench" / "judge.py"),
+            [sys.executable, str(ROOT / "evals" / "bench" / "judge.py"), "--model", "sonnet",
              "--claude-bin", str(ROOT / "tests" / "stubs" / "claude-stub.sh"),
              "--results", str(_res), "--out", str(Path(td_gates) / out),
              "--jobs", "2"] + list(extra),
@@ -4971,7 +5015,7 @@ with tempfile.TemporaryDirectory() as td_gates:
           sorted((j["case"], j["model"]) for j in _gj["judgments"])
           == [("design-cache", "sonnet"), ("ordered-steps", "sonnet")])
     check("and prints the judge budget before spending it",
-          "budget: 2 judge call(s) to make" in _r.stdout
+          "budget: 2 judgment(s) to make by sonnet, 2 call(s)" in _r.stdout
           and _r.stdout.index("budget:") < _r.stdout.index("[1/2]"))
     check("and names what it skipped, rather than skipping it silently",
           "floor/sonnet" in _r.stdout and "ordered-steps/haiku" in _r.stdout)

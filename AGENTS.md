@@ -105,9 +105,19 @@ one that catches stale generated files, and it is the easiest to skip by acciden
   `run.py` no longer refuses opus; `--allow-opus` is an optional note recorded
   as `metadata.opus_justification`. The cost is real: opus is about 9x haiku
   per call, so a round takes several times the usage it used to, and more
-  rounds will pause at a usage limit and resume. The judge stays on sonnet,
-  and `judge.py` still refuses an opus judge without `--allow-opus`, because
-  on 2026-09-03 140 opus judgments helped empty a usage window in half an hour.
+  rounds will pause at a usage limit and resume.
+- **Every judgment is a panel's: sonnet, opus and kimi, by majority.** Since
+  2026-09-24 `judge.py` asks all three blind and records their majority as the
+  `verdict`, with each vote kept beside it. kimi is the Kimi Code subscription
+  through the `kimi` CLI (`kimi-code/kimi-for-coding`), never the Moonshot API
+  key. Two agreeing votes decide; a three-way split is recorded as
+  `not_exercised`; anything less than two agreeing votes is retried on resume.
+  A judgments file holds one judge setup, stamped as `judge_model`, and
+  `judge.py` refuses to resume or carry across two while `report.py` refuses
+  to compare them. `--model <name>` is the single-judge compatibility mode,
+  for resuming, extending or reproducing a file graded before the panel, and
+  nothing else qualifies. `python3 evals/bench/panel_agreement.py` prints how
+  the members agreed.
 - **A multi-turn round has to name its delivery mode.** `run.py` can send the
   rules to a later turn two ways, and they are different treatments: `repeat`
   re-appends the whole rule slice every turn, while `plugin` reproduces the

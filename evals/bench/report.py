@@ -2884,7 +2884,17 @@ def main():
             sys.exit("--against needs --against-judgments; without the previous "
                      "round's verdicts every comparison reads as a quality "
                      "regression from 0")
-        prev_judg = _load_judgments(args.against_judgments)["judgments"]
+        prev_file = _load_judgments(args.against_judgments)
+        # Two judge setups are two instruments: a fatal quality counter read
+        # off a sonnet file on one side and a panel file on the other reports
+        # the change of judge as the edit's effect.
+        setups = {(d.get("metadata") or {}).get("judge_model")
+                  for d in (judg, prev_file)} - {None}
+        if len(setups) > 1:
+            sys.exit("the two judgments files were graded by different judge "
+                     "setups (%s). Re-judge one side so both carry the same"
+                     % " and ".join(sorted(setups)))
+        prev_judg = prev_file["judgments"]
         # Arbitration needs both halves: a replication snapshot without its
         # judgments would read every judge-verdict metric as 0 in the
         # replication and clear cells nothing ever re-checked.

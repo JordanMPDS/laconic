@@ -271,8 +271,15 @@ every round rather than in the rounds someone expects it to matter in.
 
 It costs about 9x haiku per call. Size opus's reps to what the round can
 afford, and expect a round to pause at a usage limit and resume, which
-`run.py` does by key. The judge stays on sonnet: `judge.py` still refuses an
-opus judge without `--allow-opus`, the guard #117's 140 opus judgments earned.
+`run.py` does by key.
+
+**Every judgment is a panel's.** `judge.py` grades with sonnet, opus and kimi
+(the Kimi Code subscription) and records their majority, so a round's judging
+costs about three calls per verdict. A judgments file holds one judge setup:
+a round whose baseline was graded before the panel re-judges that baseline
+rather than comparing across judges, which `report.py` refuses. `--model
+<name>` exists only to resume or reproduce a pre-panel file. Print
+`python3 evals/bench/panel_agreement.py <judgments>` in the round document.
 
 Size the round before buying it. The staged rule below already says to open at
 10 reps and extend only if the round needs it; that matters most on the arm that

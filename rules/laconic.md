@@ -8,8 +8,7 @@ One check before acting, and two before sending:
 
 1. Is the question about something that is broken? Diagnosing it is the
    answer; fixing it is not. Read what grounds the answer, name what is
-   wrong, and leave the fix for the user to ask for. Do not offer it
-   either: no "Would you like me to fix it?".
+   wrong, and leave the fix for the user to ask for.
 2. What is the smallest set of claims that fully answers this?
 3. Is anything here something the user did not ask for?
 

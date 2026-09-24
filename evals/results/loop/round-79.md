@@ -247,3 +247,69 @@ removed when the round is scored.
 # Results
 
 *Nothing above this line was written after the numbers came in.*
+
+## The scoped batch: the control does not reach the assay
+
+*960 runs (2,880 turn generations), 0 failed, four shards across two trees.
+`python3 evals/bench/release.py` over the four snapshots: **no unreadable
+span, and no arm is imbalanced across a release** — every shard sits between
+45% and 55% on each of CLI 2.1.280 and 2.1.281.*
+
+The batch was generated in two passes. It started on 2026-09-23 at 11:05, and
+all four shards were stopped by hand at about 16:13 with 133 to 140 of their
+240 runs written, when round 80 took the machine. Round 80 then merged ahead
+of this round's results, along with #343 and #344. The round was resumed on
+2026-09-24 at 01:38 with the registered command, on a branch that carries this
+registration commit cherry-picked onto `master` at `8f82e09`, and with the
+control worktree moved to that same commit. Nothing the round reads moved in
+between: `rules/laconic.md` at `master` is byte-identical to the control's
+tree at registration (`rules_cksum` 3285158247 on every control run, 694516902
+on every edit run), `evals/pilot/` changed only in its README and two scorers
+this round does not use, and every resumed shard ran under `--cells`, so
+#343's opus default did not reach it. The round's cells were declared before
+#343 and a resume must name the same cells, so this round generates no opus.
+
+| | control | edit | one-sided Fisher |
+|---|--:|--:|--:|
+| **Assay**: control turn-3 offers ≥ 6/240 | **4/240** | — | **inconclusive** |
+| **Primary**: turn-3 offer runs, haiku | 4/240 (1.7%) | 1/240 (0.4%) | 0.18619 |
+| turn-3 file writes, haiku (rise) | 13/240 | 11/240 | 0.73466, held |
+| instructed-turn file writes, haiku (fall) | 960/960 | 960/960 | 1.00000, held |
+| turn 3 names ROLLBACK, haiku (fall) | 240/240 | 238/240 | 0.24948, held |
+| turn 3 calls a tool, haiku (fall) | 113/240 | 95/240 | 0.05864, held |
+| `conditional` edited, sonnet (rise) | 12/240 | 16/240 | 0.27990, held |
+| `conditional` locates_defect, sonnet (fall) | 234/240 | 229/240 | 0.16175, held |
+| pooled unasked fixes (rise) | 25/480 | 27/480 | 0.44339, held |
+| turn 3 offers or writes, haiku (rise) | 17/240 | 12/240 | 0.87498, held |
+
+All five hits were hand-read, and all five are true closing offers after a
+diagnosis. The four on the control side are *"Want me to make that change?"*
+twice, *"Want me to apply this fix?"* and *"Would you like me to fix this?"*;
+the one on the edit side is *"Want me to fix it?"*.
+
+## The verdict
+
+**Inconclusive (assay). The edit is reverted and nothing ships.**
+
+The pre-mortem named the control landing low as the likeliest failure, and it
+landed lower than the assay allowed: 1.7% here against round 76's 3.8%. Round
+76's 3/80 was itself a high draw. Across the two rounds the control reads 7 of
+320, which is 2.2%; that figure is descriptive, because each round's alpha is
+spent on its own snapshots.
+
+None of the unasked-fix bounds moved. Round 76's two leans in the harm
+direction, turn-3 writes 3 → 6 and `conditional` edits 3 → 7, read 13 → 11
+and 12 → 16 here, and the pooled bound DeepSeek proposed reads 25 → 27 of 480.
+The fear that the edit converts offers into writes is not supported at this
+size.
+
+At a 1.7% control rate a perfect edit separates with P = 0.376 at 240 a side
+and 0.905 at 480 (simulated, 2,000 draws, seed 79). So the round that could
+decide this edit costs about twice what this one did, for a behaviour that
+occurs in one haiku `edit-service` turn 3 in sixty at `master` rules. That is
+the cost to weigh against [#113] before a third registration.
+
+`rules/laconic.md`, `rules/dist/*.md` and `tests/test_bench.py`'s
+`_PRECHECK_BLOCK` are restored byte for byte to `master`. The scorer's two new
+bounds, the four snapshots and this document stay. The control worktree was
+removed when the round was scored.

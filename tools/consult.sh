@@ -28,7 +28,7 @@ KEYS=${DELEGATE_KEYS:-$HOME/.config/delegate/keys.env}
 KIMI_CONFIG="$HOME/.kimi-code/config.toml"
 DEEPSEEK_BASE_URL="https://api.deepseek.com/anthropic"
 DEEPSEEK_MODEL_DEFAULT="deepseek-v4-pro"
-KIMI_MODEL_DEFAULT="k2.7-code"
+KIMI_MODEL_DEFAULT="kimi-code/kimi-for-coding"
 TIMEOUT=${CONSULT_TIMEOUT:-240}
 # A feeler is meant to be read by a model that still has an issue to work. Three
 # unbounded essays would spend the context the round needs, so each answer is
@@ -53,8 +53,10 @@ why_unavailable() { # <target> -> reason on stdout, empty when available
     kimi)
       command -v kimi >/dev/null || { echo "the kimi binary is not on PATH"; return; }
       [ -f "$KIMI_CONFIG" ] || { echo "no config at $KIMI_CONFIG"; return; }
-      grep -q 'PASTE_YOUR_MOONSHOT_KEY_HERE' "$KIMI_CONFIG" 2>/dev/null \
-        && { echo "$KIMI_CONFIG still holds the placeholder api_key"; return; }
+      # The subscription, not the Moonshot API key: kimi-code/* bills the flat
+      # Kimi Code plan that `kimi login` sets up, which is what delegate checks.
+      grep -qF '[providers."managed:kimi-code"]' "$KIMI_CONFIG" 2>/dev/null \
+        || { echo "no Kimi Code subscription in $KIMI_CONFIG (run: kimi login)"; return; }
       ;;
     *) echo "unknown target" ;;
   esac
@@ -115,7 +117,7 @@ STUB
     chmod +x "$tmp/stub/$b"
   done
   printf 'DEEPSEEK_API_KEY=stub-key\n' > "$tmp/cfg/keys.env"
-  printf 'api_key = "stub"\n' > "$tmp/kimi.toml"
+  printf '[providers."managed:kimi-code"]\napi_key = ""\n' > "$tmp/kimi.toml"
 
   failed=0
   check() { # name, expected-grep, actual
@@ -135,11 +137,11 @@ STUB
   check "the question reaches the target" 'what am I missing\?' "$out"
   check "each answer is attributed" '^## deepseek' "$out"
 
-  # A placeholder key must be named, not silently dropped: a reader has to tell
-  # "no concerns" from "never asked".
-  printf 'api_key = "PASTE_YOUR_MOONSHOT_KEY_HERE"\n' > "$tmp/.kimi-code/config.toml"
+  # A config without the subscription must be named, not silently dropped: a
+  # reader has to tell "no concerns" from "never asked".
+  printf 'api_key = "stub"\n' > "$tmp/.kimi-code/config.toml"
   out=$(bash "$0" "q" 2>&1)
-  check "a placeholder key is reported by name" 'placeholder api_key' "$out"
+  check "a missing subscription is reported by name" 'no Kimi Code subscription' "$out"
   check "a skipped target is still listed" '^## kimi' "$out"
   cp "$tmp/kimi.toml" "$tmp/.kimi-code/config.toml"
 

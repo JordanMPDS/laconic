@@ -6,11 +6,21 @@ in its prompt - so it cannot be biased toward or against the plugin under test.
 
 not_exercised is a first-class verdict. v0.1.0 recorded three traps that never
 fired; without this category they would have been read as passes.
+
+Every judgment is a panel's since 2026-09-24: sonnet, opus and kimi each grade
+the response blind and the record's `verdict` is their majority, so report.py
+reads it unchanged and each vote is kept beside it. A single judge was one
+unvalidated grader with a measured 63% preference for the longer answer, and
+opus now also generates in every round, so it would otherwise grade its own
+family's answers alone. `--model X` is the single-judge compatibility mode, for
+resuming, extending or reproducing a judgments file graded before the panel:
+one file holds one judge setup, and a resume or carry across two is refused.
 """
 import argparse
 import json
 import re
 import shutil
+import subprocess
 import sys
 import tempfile
 import threading
@@ -36,6 +46,19 @@ VERDICTS = ("pass", "fail", "not_exercised")
 REASON_JUDGE_CALL_FAILED = "judge call failed"
 REASON_UNPARSEABLE = "unparseable"
 INFRA_REASONS = (REASON_JUDGE_CALL_FAILED, REASON_UNPARSEABLE)
+
+# The panel. kimi is the Kimi Code subscription through the `kimi` CLI - the
+# alias `kimi login` writes, never the Moonshot API key - so it bills a flat
+# subscription rather than this machine's Claude usage window. The other two go
+# through the same `claude` binary a single judge always used.
+PANEL = ("sonnet", "opus", "kimi")
+KIMI_MODEL = "kimi-code/kimi-for-coding"
+KIMI_TIMEOUT = 300
+# Three decided votes with no two alike. It is a grading, not a failure - the
+# panel reached it and a resume would only re-roll it - so it is not an infra
+# reason, and it is recorded as not_exercised, which no counter reads as a pass
+# or a fail.
+REASON_PANEL_SPLIT = "panel split three ways"
 
 # The cost fields run.py's parse_cli_json already lifts off every call. Named
 # here rather than inlined because prefer.py records the same set, and a round
@@ -274,14 +297,95 @@ def _call_blind(claude_bin, model, prompt):
     return res
 
 
+def _call_kimi(prompt):
+    """One kimi judgment, retried once, blind in a fresh temp dir.
+
+    kimi has no --cd flag, so the working directory is the only way to keep it
+    out of the repository, where rules/laconic.md and the arm-labelled
+    snapshots would unblind it - the reason _call_blind uses a scratch dir too.
+    Its reasoning goes to stderr; stdout carries the reply, which
+    parse_verdict reads the same way it reads a claude reply.
+    """
+    res = {"ok": False}
+    for _ in range(2):
+        scratch = tempfile.mkdtemp()
+        try:
+            p = subprocess.run(["kimi", "-p", prompt, "-m", KIMI_MODEL],
+                               cwd=scratch, capture_output=True, text=True,
+                               timeout=KIMI_TIMEOUT, stdin=subprocess.DEVNULL)
+            res = {"ok": p.returncode == 0 and bool(p.stdout.strip()),
+                   "text": p.stdout}
+        except (OSError, subprocess.TimeoutExpired):
+            res = {"ok": False}
+        finally:
+            shutil.rmtree(scratch, ignore_errors=True)
+        if res.get("ok"):
+            return res
+    return res
+
+
+def judge_setup(model):
+    """The string a judgments file is stamped with, and compared on.
+
+    A single judge keeps the bare model name every pre-panel file already
+    carries, so `--model sonnet` resumes those files without a migration.
+    """
+    return model if model else "panel:" + ",".join(PANEL)
+
+
+def setup_conflict(meta, setup):
+    """The recorded setup, when it differs from this pass's; else None.
+
+    A file with no stamp predates the field and cannot conflict.
+    """
+    had = (meta or {}).get("judge_model")
+    return had if had and had != setup else None
+
+
+def panel_verdict(votes):
+    """The panel's record out of each member's parsed vote, in PANEL order.
+
+    `votes` maps a member to parse_verdict's dict, or to None when its call
+    failed. A vote that did not parse is not a vote. Two agreeing votes decide,
+    whatever the third did. Fewer than two votes, or two that disagree with the
+    third missing, decide nothing, so the record is an infra failure and a
+    resume retries it rather than freezing a coin flip.
+    """
+    decided = {m: v for m, v in votes.items()
+               if v and v.get("reason") not in INFRA_REASONS}
+    tally = {}
+    for m, v in decided.items():
+        tally.setdefault(v["verdict"], []).append(m)
+    majority = [vd for vd, ms in tally.items() if len(ms) >= 2]
+    if majority:
+        first = tally[majority[0]][0]
+        out = {"verdict": majority[0], "quote": decided[first]["quote"],
+               "reason": decided[first]["reason"]}
+    elif len(decided) == len(PANEL):
+        out = {"verdict": "not_exercised", "quote": "", "reason": REASON_PANEL_SPLIT}
+    else:
+        out = {"verdict": "not_exercised", "quote": "",
+               "reason": REASON_JUDGE_CALL_FAILED}
+    out["panel"] = {m: ({"verdict": v["verdict"], "reason": v["reason"]}
+                        if m in decided else {"verdict": None,
+                                              "reason": (v or {}).get("reason")
+                                              or REASON_JUDGE_CALL_FAILED})
+                    for m, v in votes.items()}
+    return out
+
+
 def main():
     global CASES
     ap = argparse.ArgumentParser()
-    ap.add_argument("--model", default="sonnet")
+    ap.add_argument("--model", default=None,
+                    help="grade with this one model instead of the panel. "
+                         "Compatibility only: for resuming, extending or "
+                         "reproducing a judgments file graded before the panel, "
+                         "whose stamp names a single model")
     ap.add_argument("--allow-opus", metavar="REASON", default=None,
-                    help="why this grading needs an opus judge. Required "
-                         "whenever --model is an opus model. A judge is not "
-                         "the hypothesis; sonnet grades every published round")
+                    help="why a single-judge pass needs an opus judge. Required "
+                         "whenever --model is an opus model; the panel includes "
+                         "opus by standing decision and needs no reason")
     ap.add_argument("--cases", default="*")
     ap.add_argument("--results", default=str(RESULTS))
     ap.add_argument("--out", default=str(JUDGMENTS))
@@ -326,7 +430,13 @@ def main():
     CASES = Path(args.cases_dir)
 
     claude_bin = bench_run.require_claude_bin(args.claude_bin)
-    bench_run.require_opus_reason([args.model], args.allow_opus)
+    if args.model:
+        bench_run.require_opus_reason([args.model], args.allow_opus)
+    elif not shutil.which("kimi"):
+        sys.exit("the panel needs the kimi CLI on PATH, logged in to the Kimi Code "
+                 "subscription (kimi login). Pass --model <name> only to resume or "
+                 "reproduce a pre-panel judgments file")
+    setup = judge_setup(args.model)
 
     snap = bench_run.load_snapshot(args.results)
     if snap is None:
@@ -371,6 +481,15 @@ def main():
     # this is the third harness and the pattern is the same one.
     at, done = resume_index(prior["judgments"])
 
+    # One file, one judge setup. A panel resuming a sonnet-graded file would
+    # publish a round graded by two instruments under one stamp.
+    had = setup_conflict(prior_meta, setup) if prior["judgments"] else None
+    if had:
+        sys.exit("%s was graded by %s and this pass would grade with %s. One "
+                 "file holds one judge setup: write to a new --out, or pass "
+                 "--model %s to resume it as it was graded"
+                 % (args.out, had, setup, had))
+
     # Same glob semantics as run.py --cases, so the two flags select alike.
     # Resolved here rather than beside `todo` because the #69 guard below reads
     # it: a guard that runs after the work it guards is not a guard.
@@ -409,7 +528,7 @@ def main():
               "mid-round case change cannot be detected in it")
 
     criteria = criteria_cksum(CASES)
-    meta = {"judge_model": args.model, "rules_cksum": rules_cksum,
+    meta = {"judge_model": setup, "rules_cksum": rules_cksum,
             "criteria_cksum": criteria, "effort": bench_run.EFFORT}
 
     # `prior["metadata"] = meta` below replaces the block wholesale, so a resume
@@ -430,6 +549,11 @@ def main():
         if source is None:
             sys.exit("no judgments snapshot to carry from: %s"
                      % args.carry_judgments_from)
+        src_setup = setup_conflict(source.get("metadata"), setup)
+        if src_setup:
+            sys.exit("%s was graded by %s, not %s, so its verdicts cannot be "
+                     "carried into this file. Re-judge the carried arms instead"
+                     % (args.carry_judgments_from, src_setup, setup))
         prov = carry_judgments(prior, at, done, source, snap, arms,
                                args.carry_judgments_from, criteria)
         meta["carried_judgments_from"] = prov
@@ -484,11 +608,13 @@ def main():
 
     # Printed before the first call, for the same reason run.py prints one:
     # a judging pass is hundreds of CLI sessions and nothing said so up front.
-    print("budget: %d judge call(s) to make, of %d usable run(s) in this "
-          "snapshot (%d already graded or carried, %d skipped as feeding no "
-          "gate). A failed call is retried once, so the ceiling is %d."
-          % (len(todo), len(runs), len(runs) - len(todo) - len(ungated),
-             len(ungated), 2 * len(todo)))
+    per = 1 if args.model else len(PANEL)
+    print("budget: %d judgment(s) to make by %s, %d call(s), of %d usable "
+          "run(s) in this snapshot (%d already graded or carried, %d skipped as "
+          "feeding no gate). A failed call is retried once, so the ceiling is %d."
+          % (len(todo), setup, per * len(todo), len(runs),
+             len(runs) - len(todo) - len(ungated), len(ungated),
+             2 * per * len(todo)))
 
     # The one piece of state a worker thread does touch, so it takes a lock.
     # "Consecutive" means consecutive *completions*, which is the only ordering
@@ -518,11 +644,25 @@ def main():
         prompt = build_judge_prompt((case_dir / "prompt.md").read_text(),
                                     expect["trap"],
                                     metrics.graded_text(r, expect))
-        res = _call_blind(claude_bin, args.model, prompt)
-        v = parse_verdict(res.get("text", "")) if res.get("ok") else \
-            {"verdict": "not_exercised", "quote": "", "reason": REASON_JUDGE_CALL_FAILED}
+        if args.model:
+            res = _call_blind(claude_bin, args.model, prompt)
+            v = parse_verdict(res.get("text", "")) if res.get("ok") else \
+                {"verdict": "not_exercised", "quote": "", "reason": REASON_JUDGE_CALL_FAILED}
+            usage = usage_of(res)
+        else:
+            # Members in sequence, not in parallel: --jobs already runs that
+            # many judgments at once, and three processes each would triple the
+            # open sessions on a machine #255 found memory-bound.
+            votes, usage = {}, {k: 0 for k in USAGE_FIELDS}
+            for m in PANEL:
+                res = _call_kimi(prompt) if m == "kimi" else \
+                    _call_blind(claude_bin, m, prompt)
+                votes[m] = parse_verdict(res.get("text", "")) if res.get("ok") else None
+                for k, n in usage_of(res).items():
+                    usage[k] += n or 0
+            v = panel_verdict(votes)
         v.update({"case": r["case"], "arm": r["arm"], "model": r["model"], "rep": r["rep"],
-                  "usage": usage_of(res)})
+                  "usage": usage})
         with stop_lock:
             if not _is_infra_failure(v):
                 stop["streak"] = 0

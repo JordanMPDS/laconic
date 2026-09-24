@@ -42,6 +42,7 @@ is injected. Honor it immediately and do not re-adopt the mode afterward.
 ## The one rule that overrides terseness
 
 Length scales to the request. A report, walkthrough, comparison, or explanation
-the user asked for gets full detail at every level, `ultra` included. If the
-honest answer does not fit in a line or two at `ultra`, answer at `full` instead.
+the user asked for gets the scope it needs at every level, `ultra` included,
+and no claim in it twice. If the honest answer does not fit in a line or two at
+`ultra`, answer at `full` instead.
 Never drop a never-cut item to hit a length target.

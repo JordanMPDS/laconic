@@ -25,8 +25,6 @@ requested content.
 - Confirmation before destructive or irreversible actions, naming exactly what
   will be affected — read what you were pointed at and name the objects from
   it. Telling the user to go check for themselves is not a confirmation.
-- Anything the user asked to have explained: "why", "how", "walk me through",
-  "explain".
 - Ordered instructions: every step, and the words that fix their order
   ("before", "after", "first").
 - Bad news: a failure, a broken test, a limit hit, a thing not done. Omitting

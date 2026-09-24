@@ -202,4 +202,111 @@ python3 evals/bench/release.py $OUT/round-81-{control,edit,bullet}-opus.json
 
 <!-- Nothing above this line has been computed. -->
 
+## Result: the paragraph alone passes, twice, and neither half loses the facts
+
+**Accept. The edit stays.** Every registered bar passed on the first look, the
+replication reproduced the primary, and the holdout did not regress.
+
+720 runs, 0 failed, and 420 judgments by sonnet. Every snapshot in the round,
+the factorial arm, the replication and the holdout included, is entirely on CLI
+**2.1.281**, so `release.py` has no boundary to test. `rules_cksum` 3285158247
+on the control, 288018845 on the edit and 3781701985 on the factorial arm;
+`cases_cksum` 1852778470 on every pilot snapshot.
+
+| bar | model | control | edit | ratio | p | reading |
+|---|---|--:|--:|--:|--:|---|
+| 1 primary, `register-*` words, turns 2-4 | opus | 1797.0 / 1434.0 / 1024.0 | 1488.5 / 1340.5 / 952.5 | **0.896** | **0.0002** | passes |
+| 2 `register-*` coverage | opus | 17.0 / 15.5 / 25.0 | 16.5 / 15.5 / 24.0 | 0.977 | 0.2530 | holds |
+| 3 `deep-*` coverage | opus | | | 0.955 | 0.2395 | holds |
+| 4 judged safety, `walkthrough` + `code-fidelity` | haiku + sonnet + opus | 120/120 | 113/113 | | 1.0000 | holds |
+| 4 never-cut keyword, same cells | haiku + sonnet + opus | 120/120 | 120/120 | | 1.0000 | holds |
+| 5 `date_trunc` on `index` | opus | 20/20 | 20/20 | | | holds |
+
+Word columns are per-stem medians, index / metric / rollback. Every p is the
+stem-stratified permutation `score_claims.py` computes, two-sided for the
+target and one-sided down for coverage, and bar 4 is `score_explain_bound.py`'s
+one-sided Fisher. All three stems fell on the primary.
+
+**Bar 4's denominators differ, and that is disclosed rather than scored.** The
+edit side's judge returned `not_exercised` on 7 of 120 runs and the control's on
+none; the bar reads pass rates over exercised runs, as registered, and there is
+no failure on either side. The edit's bound cells were generated about three
+hours before 100 of the control's 120: the control worktree was lost between
+sessions, and the rest of the control was resumed from a fresh worktree at
+`ad6650d`, the registration's parent, with the same `rules_cksum` and
+`cases_cksum`. Both halves are on 2.1.281. Both sides were judged by the
+single-sonnet `judge.py` on this branch, at `criteria_cksum` 5539815, so they
+are the same instrument; the three-judge panel that master adopted in [#346]
+came after the registration and did not grade this round.
+
+### The factorial arm: round 80's loss needed both changes
+
+| arm | `register-*` words | `register-*` coverage | `deep-*` words | `deep-*` coverage |
+|---|--:|--:|--:|--:|
+| paragraph only (the edit) | **0.896**, p = 0.0002 | 0.977, p = 0.2530 | 0.920, p = 0.0279 | 0.955, p = 0.2395 |
+| bullet deleted only (disclosure) | 1.002, p = 0.9486 | 0.986, p = 0.3199 | 0.874, p = 0.0017 | 1.001, p = 0.5229 |
+| both, round 80 | 0.874, p = 0.0010 | 0.962, p = 0.0578 | 0.903, p = 0.0058 | **0.845, p = 0.0009** |
+
+Both single changes hold `deep-*` coverage, which is the fourth row of the
+registered table: round 80's loss needed both changes together, or was a draw
+that neither half reproduces. The pre-mortem expected the bullet deletion to
+carry it, and it did not. The two halves do different things. The paragraph
+takes words off the requested turns, and the bullet deletion does not move them
+at all; the bullet deletion takes 12.6% of words off the unrequested `deep-*`
+turns while keeping every fixture fact. It also let one `deep-index` answer drop
+`date_trunc` (9/10). The arm decides nothing, as registered.
+
+### Step 8: the replication
+
+A fresh opus generation of both sides at the same size, simultaneous, scored
+with the same bars:
+
+| bar | control | edit | ratio | p | reading |
+|---|--:|--:|--:|--:|---|
+| 1 `register-*` words | 1785.0 / 1463.0 / 993.0 | 1632.5 / 1366.0 / 858.0 | **0.904** | **0.0001** | passes |
+| 2 `register-*` coverage | 18.0 / 15.0 / 24.0 | 17.0 / 14.5 / 23.5 | 0.963 | 0.1242 | holds |
+| 3 `deep-*` coverage | | | 0.984 | 0.3231 | holds |
+| 5 `date_trunc` | 20/20 | 20/20 | | | holds |
+
+The effect reproduced at the same size, 10.4% against 9.6% of the primary
+look, with all three stems down again.
+
+### Step 9: the holdout
+
+**180 runs, 90 a side**: all six reserved cases on haiku, sonnet and opus at
+n = 5, both sides generated simultaneously from the two trees, and judged by
+sonnet at `criteria_cksum` 4035777201. `cases_cksum` 374866881 on both. As the
+loop requires, the reserved set is reported as directions and significance only,
+using the test [round 71](round-71.md) and [round 73](round-73.md) published
+under.
+
+| holdout case | direction | p |
+|---|---|--:|
+| `holdout-design` | worse | 1.0000 |
+| `holdout-destructive` | worse | 1.0000 |
+| `holdout-explain` | better | 0.6513 |
+| `holdout-ordered` | level | 1.0000 |
+| `holdout-short` | better | 0.4497 |
+| `holdout-verdict` | worse | 1.0000 |
+
+**Round-wide: better, p = 0.8695.** No reserved case is worse by more than one
+verdict. `report.py`'s gated counters agree: never-cut 5 to 7 at p = 0.3872 and
+safety 2 to 3 at p = 0.5323, each a rise no cell can be tested for at five runs a
+side, and the [#49] turn gate is held with 0 of 13 cells rising.
+
+## The verdict
+
+**Accept.** The length paragraph now reads *"gets the scope it needs, and no
+claim in it twice. Laconic governs volunteered content."* The never-cut bullet
+*"Anything the user asked to have explained"* is kept, and `skills/laconic/SKILL.md`
+carries the same wording. On opus the requested turns of `register-*` are about
+10% shorter in two independent generations (p = 0.0002 and 0.0001) with no
+registered bound moving. [#150]'s paragraph half is resolved. The edit is
+unreleased until step 11.
+
+Label: `accept` in `candidate-defects/labels.json`.
+
+[#49]: https://github.com/JordanMPDS/laconic/issues/49
+[#346]: https://github.com/JordanMPDS/laconic/pull/346
+
 [#150]: https://github.com/JordanMPDS/laconic/issues/150

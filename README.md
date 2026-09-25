@@ -181,12 +181,6 @@ It is the cleanest arm on prose on every model, 45 readability violations
 against baseline's 196, and it all but eliminates offers to do more work: 2 in
 555 responses against baseline's 61 and `Concise`'s 43.
 
-**What it does not win.** It does not make answers better. Pooled, its quality
-pass rate is level with baseline, 80.2% against 81.2%. On Sonnet alone it
-trails, 80.6% against 90.3% at z = -2.34, and that gap is the result most worth
-a follow-up. On Haiku it is not a compression plugin: an 11% saving is less than
-a plain "Answer concisely." buys.
-
 **The never-cut column is a floor, not proof the safety contract holds.** It is
 a substring test: it confirms the protected content is present and cannot see a
 response that names the affected table and then calls it safe. One or two

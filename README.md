@@ -151,70 +151,50 @@ implementation reads a flag the other wrote.
 
 ## Benchmark
 
-The most recent full benchmark predates the shipped rules. It made 1100 API
-calls: 22 cases x 5 reps x 2 models x 5 arms — baseline, a terse-only control, a
+2,775 generations on 2026-09-24 and 2026-09-25: 37 cases x 5 reps x 3 models
+(Haiku 4.5, Sonnet 5, Opus 5.5) x 5 arms — baseline, a terse-only control, a
 synthetic word-compression foil, Claude Code's own built-in `Concise` output
-style, and laconic. It was scored offline on compression, readability, latency
-and cost, with a deterministic never-cut safety check and a blind judge for
-answer quality. Every figure below is a `full`-level figure from
-`evals/snapshots/loop/round-21.json`, at `rules_cksum` 1830906901; the shipped
-`full` slice is 3285158247, and no five-arm benchmark has been run on it. The
-three control arms were generated on an older CLI than the other two, so
-laconic against `concise-style` is the clean comparison. Per-case tables, cost,
-and what each number does and does not support are in
+style, and laconic at the `full` rules that ship in v0.3.3. Every arm was
+generated in the same interleaved batch, so nothing is carried from an older
+run. Scored offline on compression, readability, closing offers, latency and
+cost, with a deterministic never-cut check, and every response was graded blind
+by a three-model judge panel. Per-case tables, per-model breakdowns and what
+each number does and does not support are in
 [`docs/benchmark.md`](docs/benchmark.md).
 
-| vs baseline | tokens (sonnet) | tokens (haiku) | latency (sonnet) | readability violations | quality pass rate | never-cut failures |
-|---|--:|--:|--:|--:|--:|--:|
-| **laconic** | -32% | -9% | -32% | **66** | 59.7% | 0 / 50 † |
-| concise-style | **-55%** | **-12%** | **-52%** | 113 | 58.4% | 3 / 50 † |
-| terse-control | -3% | -2% | 0% | 107 | **71.9%** | 1 / 50 |
-| word-compression | +7% | +5% | +6% | 176 | 70.3% | 1 / 50 |
-| baseline | 0% | 0% | 0% | 134 | 68.1% | 0 / 50 |
+| vs baseline | tokens (haiku) | tokens (sonnet) | tokens (opus) | latency (sonnet) | latency (opus) | readability violations | closing offers | quality pass rate | never-cut failures |
+|---|--:|--:|--:|--:|--:|--:|--:|--:|--:|
+| **laconic** | -11% | **-60%** | **-44%** | **-46%** | **-46%** | **45** | **2** | 80.2% | 1 / 135 |
+| concise-style | -14% | -47% | -28% | -41% | -18% | 180 | 43 | 77.5% | 2 / 135 |
+| terse-control | **-17%** | -46% | -32% | -34% | -41% | 118 | 63 | 78.6% | 0 / 135 |
+| word-compression | -14% | -26% | -28% | -34% | -32% | 536 | 60 | 78.4% | 2 / 135 |
+| baseline | 0% | 0% | 0% | 0% | 0% | 196 | 61 | **81.2%** | 1 / 135 |
 
-† **The never-cut column is not a gap between laconic and `concise-style`.**
-Both figures are five-rep draws. On the only two cells they differ on, at n = 20
-a side, the two arms are level at 4 failures of 40 each
-([docs/benchmark.md](docs/benchmark.md#compression)).
+Counts are over each arm's 555 responses, all three models pooled. The quality
+pass rate is the judge panel's majority over the 29 cases whose criteria come
+from the fixture rather than from the rules.
 
-**What laconic wins.** It is the cleanest arm on readability by a wide margin —
-66 violations against baseline's 134, and 31 of 220 responses carrying one
-against baseline's 49. It is the cheapest arm per call on Sonnet, $0.0636
-against baseline's $0.1099, despite not being the shortest. And it leads the
-rule-adherence cases, 63.3% against baseline's 43.3%, which is the grading that
-tests the style prohibitions the rules actually state.
+**What laconic wins.** On Sonnet and Opus it is the shortest, fastest and
+cheapest arm: it cuts output 60% and 44%, against 47% and 28% for Claude Code's
+built-in `Concise` style, and it costs 39% less per call than baseline on Opus.
+It is the cleanest arm on prose on every model, 45 readability violations
+against baseline's 196, and it all but eliminates offers to do more work: 2 in
+555 responses against baseline's 61 and `Concise`'s 43.
 
-**What it does not win, and this is the important half.** Laconic does not beat
-baseline on answer quality: 59.7% against 68.1%. That gap is z = -1.45 and does
-not reach significance, so it is not a demonstrated regression — but it is not a
-win either, and nothing in this table supports a claim that the rules make
-answers better. Against `terse-control` the 12.2-point gap **is** significant
-(z = -2.14): a plain "Answer concisely." instruction produced better answers on
-the quality-graded cases than the whole rule file did.
+**What it does not win.** It does not make answers better. Pooled, its quality
+pass rate is level with baseline, 80.2% against 81.2%. On Sonnet alone it
+trails, 80.6% against 90.3% at z = -2.34, and that gap is the result most worth
+a follow-up. On Haiku it is not a compression plugin: an 11% saving is less than
+a plain "Answer concisely." buys.
 
-**Claude Code ships a competitor, and on compression it wins.** The built-in
-`Concise` output style cuts Sonnet output 55% against laconic's 32%, at half the
-latency, and is statistically indistinguishable from laconic on answer quality
-(58.4% against 59.7%, z = +0.22). **Laconic's remaining edge over it is prose
-quality, and not safety** — 113 readability violations against laconic's 66.
+**The never-cut column is a floor, not proof the safety contract holds.** It is
+a substring test: it confirms the protected content is present and cannot see a
+response that names the affected table and then calls it safe. One or two
+failures in 135 separates no arm from another.
 
-If you want maximum compression, the built-in style is free and already
-installed.
-
-**One column contradicts another, and the judge is the one to believe.** On
-`destructive`, laconic has a clean never-cut sheet and still passes only 2 of 10
-under the blind judge. The never-cut check is a substring test: it confirms the
-response names the `sessions` table, which laconic always does. The judge also
-applies the criterion added in
-[#18](https://github.com/JordanMPDS/laconic/issues/18), which fails a response
-that names the affected table and then tells the user it is safe. Laconic is
-producing that shape. Read the never-cut column as a floor, not as evidence that
-the safety contract holds.
-
-**These numbers do not say a reader prefers the result.** A blind judge asked
-exactly that, over 130 comparisons of an archived arm, did not prefer laconic to
-baseline — and its own length and position biases came out larger than the gap
-between the arms, so that run supports no conclusion either way:
+**These numbers do not say a reader prefers the result.** The one blind run
+that asked which answer serves the reader better did not prefer laconic, and
+its own length and position biases were larger than the gap between arms:
 [`evals/results/2026-08-01-preference.md`](evals/results/2026-08-01-preference.md).
 
 ## How this differs from caveman

@@ -5497,6 +5497,11 @@ _expected_concurrent = {
     # above, a resume is still one sequential invocation, so it widens the span
     # without widening what was in flight.
     "round-73-wide-control.json", "round-73-wide-edit.json",
+    # The 2026-09-24 five-arm benchmark docs/benchmark.md publishes: four
+    # strictly sequential shards, one rep of every case each, then rep 4 split
+    # across the same four by case, every one declaring --concurrency 4. Only
+    # the merge reaches the sweep, and it reconstructs to exactly those four.
+    "benchmark-2026-09-24.json",
 }
 _found = set()
 for _p in sorted((ROOT / "evals" / "snapshots").rglob("*.json")):

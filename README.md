@@ -186,11 +186,6 @@ a substring test: it confirms the protected content is present and cannot see a
 response that names the affected table and then calls it safe. One or two
 failures in 135 separates no arm from another.
 
-**These numbers do not say a reader prefers the result.** The one blind run
-that asked which answer serves the reader better did not prefer laconic, and
-its own length and position biases were larger than the gap between arms:
-[`evals/results/2026-08-01-preference.md`](evals/results/2026-08-01-preference.md).
-
 ## How this differs from caveman
 
 [`caveman`](https://github.com/JuliusBrussee/caveman) is a separate project by a

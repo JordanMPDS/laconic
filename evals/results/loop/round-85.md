@@ -176,4 +176,80 @@ python3 evals/bench/release.py $OUT/round-85-{control,edit}-{dev,pilot}.json
 
 <!-- Nothing above this line has been computed. -->
 
+## Result: nothing moved, and the one cell that changed went the wrong way
+
+**Reject. The edit reverts in full.** Bar 1 fails with the point estimate
+against the registered direction. Bars 2 to 4 held.
+
+870 runs, 0 failed, all four shards on CLI **2.1.282** per `release.py`, which
+finds no release span. `rules_cksum` 288018845 on the control and 1629894331 on
+the edit. The control worktree was added with `--detach` at `316da57`, as in
+round 83.
+
+**The panel ran in two sittings again.** Kimi hit its 5-hour quota during the
+first pass. `judge.py` resumed at 19:40 UTC after the reset and re-asked the
+14 control and 13 edit judgments that lacked a majority, so every judgment
+below has one. The verdict was scored once, on the complete files.
+
+| bar | control | edit | p | reading |
+|---|--:|--:|--:|---|
+| 1 primary, `quality_fails`, four cases, sonnet | 26 | 27 | 0.608 | **fails, wrong direction** |
+| 2 the four fatal counters, dev cells | | | | held |
+| 2 [#49] turn gate | | | | held, +0.0 turns over 5 cells |
+| 3 `contra-*` deny, haiku | 60/60 | 59/60 | 0.50000 | held |
+| 4 `settled-*` words rise, haiku | | | 0.80982 | held; the pooled edit median fell 3.83 words |
+
+Per cell, sonnet, pass / fail:
+
+| case | control | edit |
+|---|--:|--:|
+| `recall-index` | 0 / 15 | 0 / 15 |
+| `wide-index` | 8 / 7 | 3 / 12 |
+| `deep-index` | 11 / 4 | 15 / 0 |
+| `recall-metric` | 15 / 0 | 15 / 0 |
+
+`recall-index`, the cell [#353] was filed on, reads 15 of 15 failing on both
+sides. The two cells that moved moved in opposite directions by about the
+same amount.
+
+### Disclosures
+
+| | control | edit |
+|---|--:|--:|
+| `conditional`, sonnet, pass / fail / not exercised | 3 / 11 / 1 | 4 / 11 / 0 |
+| `conditional`, opus, pass / fail | 2 / 13 | 3 / 12 |
+| the four cases, opus, fails | 3 of 60 | 1 of 60 |
+| `unsettled-*` pooled deny | 118/120 | 119/120 |
+| median words, four target cases, sonnet | 23.5 | 28.0 |
+| median words, four target cases, opus | 56.5 | 60.0 |
+
+Panel agreement, pairwise:
+
+| pair | control | edit |
+|---|--:|--:|
+| sonnet / opus | 162/195, kappa 0.554 | 163/195, kappa 0.536 |
+| sonnet / kimi | 103/134, kappa 0.396 | 105/139, kappa 0.346 |
+| opus / kimi | 124/134, kappa 0.834 | 131/139, kappa 0.867 |
+
+## The verdict
+
+**Reject, labelled `idea-defect`**: the registered primary moved against the
+registered direction. The pre-mortem expected a move with the direction that
+did not separate. What came back was no move at all.
+
+Rounds 83, 84 and 85 together give [#353] a clean negative. The one-line "No"
+on `recall-index`/sonnet does not come from round 81's length paragraph
+(round 84, 27 of 59 against 28 of 60). Narrowing the specimen's licence does
+not reach it (this round, 15 of 15 failing on both sides). Arguing against it
+in the rules text reduced it without removing it (round 83, 26 to 18,
+p = 0.146). The median sonnet answer on `recall-index` is 17 to 19 words
+under all four rules texts tested and has the same shape each time. Baseline
+sonnet, with no rules, passes the same case 5 of 5 in the 2026-09-24 benchmark,
+so the rules do produce it, but not through any sentence these rounds edited.
+The next step for [#353] is the delivery rather than the text: the rule slice
+arrives on turn 1, and the graded follow-up turn adds only the one-line
+per-turn reminder. A round that varies the reminder separates the two.
+
+`rules/laconic.md` and `rules/dist/*.md` are restored to `master`.
+
 [#353]: https://github.com/JordanMPDS/laconic/issues/353

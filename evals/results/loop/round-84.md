@@ -144,4 +144,67 @@ with the one-sided Fisher `evals/pilot/score_settled.fisher_le` computes.
 
 <!-- Nothing above this line has been computed. -->
 
+## Result: reading B. The rules before round 81 fail the same way
+
+200 runs, 0 failed, all four shards on CLI **2.1.282** per `release.py`, which
+finds no release span. `rules_cksum` 288018845 on master and 3285158247 on
+v0.3.2, `cases_cksum` 4127785747 on all four. All four shards hit a usage limit
+at 05:05 UTC and resumed by key. Every judgment has a panel majority, or is a
+three-way split recorded as `not_exercised`, of which there is one:
+`wide-index`/sonnet rep 14 on master.
+
+**Primary: sonnet `quality_fails` over the four cases, 27 of 59 on master
+against 28 of 60 on v0.3.2, one-sided Fisher p = 0.611.** v0.3.2 fails 28, above
+the registered threshold of 15, so this is **reading B**.
+
+Per cell, sonnet, pass / fail:
+
+| case | master | v0.3.2 |
+|---|--:|--:|
+| `recall-index` | 2 / 13 | 0 / 15 |
+| `wide-index` | 5 / 9 | 6 / 9 |
+| `deep-index` | 12 / 3 | 13 / 2 |
+| `recall-metric` | 13 / 2 | 13 / 2 |
+
+Every cell is within two runs of the other tree's count. The shape is the
+same on both sides: on `recall-index` and `wide-index`, 26 of master's 30
+sonnet answers and 28 of v0.3.2's are under 40 words, with medians of 17 and
+18 words on `recall-index`.
+
+**The pre-mortem's second branch is what happened.** The archive's 14 of 15
+under v0.3.2 was round 73's single sonnet judge. Under the panel the same
+rules fail `recall-index` 15 of 15. Round 81 did not cause [#353]; the judge
+change hid a failure that was already there.
+
+### Disclosures
+
+| | master | v0.3.2 |
+|---|--:|--:|
+| `conditional`, sonnet, pass / fail / not exercised | 0 / 14 / 1 | 1 / 14 / 0 |
+| `conditional`, opus, pass / fail | 1 / 4 | 1 / 4 |
+| the four cases, opus, fails | 1 of 20 | 0 of 20 |
+| median words, `recall-index`, sonnet | 17 | 18 |
+| median words, `recall-index`, opus | 57 | 64 |
+
+Panel agreement, pairwise, sonnet files:
+
+| pair | master | v0.3.2 |
+|---|--:|--:|
+| sonnet / opus | 47/75, kappa 0.311 | 49/75, kappa 0.369 |
+| sonnet / kimi | 40/68, kappa 0.228 | 49/75, kappa 0.327 |
+| opus / kimi | 65/68, kappa 0.912 | 69/75, kappa 0.839 |
+
+Sonnet as a judge agrees with the other two members far less than they agree
+with each other, on both trees. That is the judge difference that made the
+archive table look like a regression.
+
+## What round 85 carries
+
+Reading B's registered candidate: scope the closed-question specimen's
+*"The one word is the whole answer, not the opening of one"* to a true
+premise, so that a closed question with a false premise loses the licence for
+a one-line answer. [Round 83](round-83.md) added a sentence arguing against
+the bare "No" and moved the target 26 to 18. Round 85 narrows the sentence
+that licenses it instead.
+
 [#353]: https://github.com/JordanMPDS/laconic/issues/353

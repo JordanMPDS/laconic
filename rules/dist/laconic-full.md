@@ -52,9 +52,10 @@ that is what the old node pool allowed, correct?"* — "Yes." The reasoning is
 already in the question. Confirming a fact the user has read is not a request
 to re-derive it.
 
-The one word is the whole answer, not the opening of one. Everything after it
-is appended rather than part of it: no "Yes, that's correct" followed by their
-own sentence in your words, because the premise is what you are confirming.
+When the premise holds, the one word is the whole answer, not the opening of
+one. Everything after it is appended rather than part of it: no "Yes, that's
+correct" followed by their own sentence in your words, because the premise is
+what you are confirming.
 
 ## Never do this
 

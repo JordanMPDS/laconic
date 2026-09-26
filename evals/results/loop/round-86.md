@@ -126,4 +126,63 @@ python3 evals/bench/release.py $OUT/round-86-{plugin,silent}-{sonnet,opus}.json
 
 <!-- Nothing above this line has been computed. -->
 
+## Result: reading A. The reminder produces the bare "No"
+
+160 runs, 0 failed, all four shards on CLI **2.1.282** per `release.py`, which
+finds no release span. `rules_cksum` 288018845 on all four; `reminder_cksum`
+1027894636 on the plugin side and 0 on the no-reminder side, as registered.
+Every judgment has a panel majority; there are no three-way splits.
+
+**Primary: sonnet `quality_fails` over the four cases, 25 of 60 with the
+reminder against 5 of 60 without it, one-sided Fisher p = 1.9 × 10⁻⁵.** This is
+**reading A**.
+
+Per cell, sonnet, pass / fail, and median words on the graded turn:
+
+| case | reminder | no reminder | words, reminder | words, no reminder |
+|---|--:|--:|--:|--:|
+| `recall-index` | 1 / 14 | 11 / 4 | 17 | 59 |
+| `wide-index` | 5 / 10 | 14 / 1 | 19 | 71 |
+| `deep-index` | 15 / 0 | 15 / 0 | 59 | 87 |
+| `recall-metric` | 14 / 1 | 15 / 0 | 29 | 61 |
+
+The reminder side reproduces rounds 83 to 85's control, 25 against 26, 27
+and 26. The four failures left on the no-reminder side are the same one-line
+*"No — FINDINGS.md says that index cannot serve this query, since …
+`date_trunc` …"*, so removing the reminder makes the line rarer rather than
+impossible.
+
+**The pre-mortem's second branch is what happened.** Four rules texts did not
+move the failure because the rules were not what produced it: on the graded
+turn, the last instruction the model reads is *"Make fewer claims … Cut
+content"*, and sonnet reads a named fix as a claim to cut.
+
+### Disclosures
+
+| | reminder | no reminder |
+|---|--:|--:|
+| the four cases, opus, fails | 0 of 20 | 0 of 20 |
+| median words on the graded turn, opus, cases in the order above | 55, 90, 58, 45 | 73, 78, 95, 54 |
+
+Removing the reminder lengthens sonnet's graded turn on every cell, `deep-index`
+included, where it changed no verdict. That is why round 87 rewrites the line
+rather than deleting it: the reminder is the only laconic instruction a later
+turn carries.
+
+Panel agreement, pairwise, sonnet files:
+
+| pair | reminder | no reminder |
+|---|--:|--:|
+| sonnet / opus | 39/60, kappa 0.212 | 55/60, kappa 0.265 |
+| sonnet / kimi | 40/60, kappa 0.226 | 56/60, kappa 0.314 |
+| opus / kimi | 59/60, kappa 0.966 | 59/60, kappa 0.900 |
+
+## What round 87 carries
+
+Reading A's registered candidate: a rewritten reminder, in `hooks/laconic.sh`,
+`hooks/laconic.ps1` and `run.py`'s `REMINDER` together. It has to keep the
+later-turn length control the table above shows the reminder provides, and
+stop reading as a licence to drop the answer's substance. [#353]'s four cases
+are the target, and round 48's reminder instrument is the precedent.
+
 [#353]: https://github.com/JordanMPDS/laconic/issues/353

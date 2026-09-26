@@ -203,4 +203,101 @@ python3 evals/bench/release.py $OUT/round-83-{control,edit}-{dev,pilot}.json
 
 <!-- Nothing above this line has been computed. -->
 
+## Result: the target moves the right way and does not separate
+
+**Reject. The edit reverts in full.** Bar 1 fails. Bars 2 to 4 held, so the
+rejection is on the hypothesis, not on a fatal counter.
+
+870 runs, 0 failed: 195 a side on the dev cells and 240 a side on the pilot
+cells, four shards at `--concurrency 4`, both trees generating at the same time.
+`python3 evals/bench/release.py` reads all four shards entirely on CLI
+**2.1.282**, so there is no release boundary. `rules_cksum` 288018845 on the
+control and 1309967557 on the edit.
+
+**Deviation from the registered commands.** `master` was already checked out in
+the main tree, so the control worktree was added with `--detach` at the same
+commit, `16006f1`, and the edit ran from its own worktree on `round-83`. The
+text each side generated from is what the checksums above record.
+
+**The panel ran in two sittings.** Kimi hit its 5-hour quota during the first
+pass, which left 62 control and 67 edit judgments without its vote and 20
+judgments with fewer than two agreeing votes, 4 of them on sonnet target cells.
+`judge.py` resumed after the quota reset at 04:40 UTC and re-asked all of them,
+so every judgment below has a panel majority. The verdict was scored once,
+on the complete file. A first `report.py` read on the incomplete file said
+24 to 16 at p = 0.134 and is superseded.
+
+| bar | control | edit | p | reading |
+|---|--:|--:|--:|---|
+| 1 primary, `quality_fails`, four cases, sonnet | 26 | 18 | 0.146 | **fails** |
+| 2 the four fatal counters, dev cells | | | | held, none rose |
+| 2 [#49] turn gate | | | | held, +0.0 turns over 5 cells |
+| 3 `contra-*` deny, haiku | 60/60 | 60/60 | 1.00000 | held |
+| 4 `settled-*` words rise, haiku | 73.5 | 76.5 | 0.10479 | held |
+
+`report.py` prints `REJECT: quality_fails 26 -> 18 on deep-index, recall-index,
+recall-metric, wide-index (sonnet only), p = 0.146 (needs 0.0500)`. Per cell,
+pass / fail on sonnet:
+
+| case | control | edit |
+|---|--:|--:|
+| `recall-index` | 1 / 14 | 4 / 11 |
+| `wide-index` | 6 / 9 | 8 / 7 |
+| `deep-index` | 13 / 2 | 15 / 0 |
+| `recall-metric` | 14 / 1 | 15 / 0 |
+
+Opus passed all four cases 15/15 on the control. On the edit it did too,
+except `recall-metric`, at 13 / 2.
+
+**The failure shape survived the edit.** Every edit-side failure on
+`recall-index` and `wide-index` is the control's answer in one line: *"No —
+that index can't be used, since the query filters on `date_trunc('day',
+created_at)`, not `created_at` itself."* All of them are one turn, with no file
+opened on the graded turn. The edit made the one-line denial less frequent,
+and did not change it when sonnet still gave it. `recall-index` is the case the
+benchmark flagged hardest, and it is where the edit moved least.
+
+**Bar 4 held, but its point estimate went against the edit.** All three
+`settled-*` cells rose, 57 to 61, 89 to 95 and 74.5 to 80 words. A true-premise
+"Yes" got longer next to a paragraph about "No", which is the leak the bar
+was there to catch, at a size it could not resolve.
+
+### Disclosures
+
+| | control | edit |
+|---|--:|--:|
+| `conditional`, sonnet, pass / fail | 0 / 15 | 1 / 14 |
+| `conditional`, opus, pass / fail | 2 / 13 | 5 / 10 |
+| `unsettled-*` pooled deny | 119/120 | 120/120 |
+| `unsettled-*` pooled correction | 120/120 | 120/120 |
+| median words, four target cases, sonnet | 26.5 | 31.5 |
+| median words, four target cases, opus | 59.0 | 83.0 |
+
+`conditional` confirms the benchmark's reading at three times its size: under
+the shipped rules, laconic drops the second branch on sonnet 15 times in 15.
+The case is `rule-adherence` and decides nothing here.
+
+Panel agreement, `python3 evals/bench/panel_agreement.py`, pairwise:
+
+| pair | control | edit |
+|---|--:|--:|
+| sonnet / opus | 168/195, kappa 0.632 | 171/195, kappa 0.615 |
+| sonnet / kimi | 119/145, kappa 0.353 | 113/136, kappa 0.245 |
+| opus / kimi | 142/145, kappa 0.939 | 133/136, kappa 0.920 |
+
+## The verdict
+
+**Reject, labelled `noise-floor`**: the registered primary moved in the
+registered direction, 26 to 18, and did not reach significance. The pre-mortem
+named this outcome as the likeliest, but for the wrong reason. It expected the
+control to come back low, with nothing to move. The control came back worse
+than the benchmark, 26 fails in 60 against 8 in 20, and the edit moved it by
+less than a third.
+
+`rules/laconic.md` and `rules/dist/*.md` are restored to `master`. [#353]
+stays open. What this round adds to it is that sonnet's one-line denial on a
+follow-up turn survives a rule sentence placed right next to the specimen that
+licenses short answers. The next candidate should change what licenses the
+bare line, rather than add a sentence that argues against it.
+
 [#353]: https://github.com/JordanMPDS/laconic/issues/353

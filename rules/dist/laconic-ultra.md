@@ -56,10 +56,6 @@ The one word is the whole answer, not the opening of one. Everything after it
 is appended rather than part of it: no "Yes, that's correct" followed by their
 own sentence in your words, because the premise is what you are confirming.
 
-When the premise is wrong, "No" is the opening, not the answer. The answer is
-what is true instead: why the premise fails and, when the question proposed a
-fix, the fix that works.
-
 ## Never do this
 
 No dropped articles. No telegraphic fragments. Do not shorten words in running

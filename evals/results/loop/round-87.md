@@ -129,4 +129,81 @@ before `report.py`.
 
 <!-- Nothing above this line has been computed. -->
 
+## Result: reject. The target moved and did not separate, and the guards got longer
+
+400 runs, 0 failed, all four shards on CLI **2.1.282** per `release.py`, which
+finds no release span. `rules_cksum` 288018845 on all four; `reminder_cksum`
+1027894636 on the control and 2065362485 on the edit, as registered. Judging
+ran in two sittings: kimi's quota ran out during the first, and 28 sonnet
+judgments where sonnet and opus split were left without a majority. They were
+retried on resume after kimi's reset, and every judgment is scored on a
+complete panel.
+
+**Bar 1, primary: sonnet `quality_fails` on the four target cases, 20 → 14 in
+60, p = 0.196.** It moved in the registered direction and did not separate.
+**Fails.**
+
+**Bar 2: the four counters over all twenty cells.** `report.py` rejects on the
+target alone and names no fatal counter; round-wide `quality_fails` went
+35 → 31. **Holds.**
+
+**Bar 3: graded-turn words on the six guard cases must not rise.** Mean over
+the twelve cells of the change in median, +12.5 words, one-sided p = 0.0002.
+**Fails.**
+
+Sonnet, pass / fail:
+
+| case | control | edit |
+|---|--:|--:|
+| `recall-index` | 3 / 12 | 4 / 11 |
+| `wide-index` | 8 / 7 | 14 / 1 |
+| `deep-index` | 14 / 1 | 14 / 1 |
+| `recall-metric` | 15 / 0 | 14 / 1 |
+
+Median words on the graded turn, guard cases, control → edit:
+
+| case | sonnet | opus |
+|---|--:|--:|
+| `recall-rollback` | 25 → 34 | 56 → 75 |
+| `wide-rollback` | 21 → 39 | 61 → 68 |
+| `wide-metric` | 30 → 52 | 45 → 58 |
+| `deep-rollback` | 35 → 35 | 62 → 69 |
+| `deep-metric` | 40 → 62 | 53 → 59 |
+| `drift-service` | 130 → 193 | 247 → 211 |
+
+**The pre-mortem's likeliest failure happened, and so did its second.** The
+rewrite removed most of `wide-index`'s failures and almost none of
+`recall-index`'s, where the one-line "No" survived at 11 of 15. It lengthened
+ten of the twelve guard cells. The line did not separate what to keep from
+what to cut: it loosened the cut everywhere, and not enough on the case that
+fails most.
+
+### Disclosures
+
+Opus fails, the four target cases: 0 of 20 on the control, 1 of 20 on the
+edit. The guard cells' opus verdicts are unchanged except `wide-rollback`,
+1 fail → 4. `deep-rollback` and `recall-rollback` fail 5 of 5 on opus on both
+sides.
+
+Panel agreement, pairwise, sonnet files. kimi is counted only where its vote
+was taken:
+
+| pair | control | edit |
+|---|--:|--:|
+| sonnet / opus | 126/150, kappa 0.338 | 141/150, kappa 0.609 |
+| sonnet / kimi | 30/54, kappa −0.207 | 87/96, kappa 0.522 |
+| opus / kimi | 52/54, kappa 0.911 | 96/96, kappa 1.000 |
+
+## The verdict
+
+**Reject, labelled `noise-floor`**: the registered primary moved in the
+registered direction and failed on significance. Bar 3 would have rejected it
+anyway. The five files the edit touched are reverted to `master`.
+
+This was the last round on [#353], as registered. Five rounds are recorded on
+it. Round 86 found the cause, the per-turn reminder: without the reminder, the
+target falls from 25 to 5 in 60. No rewrite has been found yet that keeps the
+reminder's length control and loses the failure. The issue goes back to the
+loop's queue.
+
 [#353]: https://github.com/JordanMPDS/laconic/issues/353

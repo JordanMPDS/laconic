@@ -535,8 +535,8 @@ def parse_cli_stream(raw):
 # SessionStart to `laconic.sh start`, which emits the full slice once, and
 # UserPromptSubmit to `laconic.sh remind`, which emits this one line before every
 # prompt. Kept in step with the string in hooks/laconic.sh.
-REMINDER = ("LACONIC MODE ACTIVE (%s). Cut what was not asked for, never "
-            "what the answer needs, and keep normal grammar.")
+REMINDER = ("LACONIC MODE ACTIVE (%s). Make fewer claims and keep normal "
+            "grammar. Cut content, not words.")
 
 
 def call_turns(claude_bin, model, turns, system_prompt, cwd, output_style=None,

@@ -112,7 +112,7 @@ assert_lacks "remind is not the rules" "No preamble" "$out"
 # The per-turn reminder itself must not be a telegraphic fragment — the exact
 # defect this plugin exists to avoid, repeated on every single turn.
 assert_has "reminder text is a full sentence, not a fragment" \
-  "Make fewer claims and keep normal grammar" "$out"
+  "never what the answer needs, and keep normal grammar" "$out"
 
 # 9. A /laconic switch in the payload persists.
 out=$(printf '{"prompt":"/laconic ultra"}' | bash "$SCRIPT" remind)

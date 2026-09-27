@@ -230,7 +230,7 @@ $rank = switch -CaseSensitive ($level) {
 if ($rank -eq 0) { exit 0 }
 
 if ($Mode -eq 'remind') {
-  Emit "LACONIC MODE ACTIVE ($level). Make fewer claims and keep normal grammar. Cut content, not words.`n"
+  Emit "LACONIC MODE ACTIVE ($level). Cut what was not asked for, never what the answer needs, and keep normal grammar.`n"
   exit 0
 }
 

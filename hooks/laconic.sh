@@ -201,7 +201,7 @@ laconic_emit() {
 }
 
 if [ "$MODE" = "remind" ]; then
-  printf 'LACONIC MODE ACTIVE (%s). Make fewer claims and keep normal grammar. Cut content, not words.\n' "$LEVEL" | laconic_emit
+  printf 'LACONIC MODE ACTIVE (%s). Cut what was not asked for, never what the answer needs, and keep normal grammar.\n' "$LEVEL" | laconic_emit
   exit 0
 fi
 

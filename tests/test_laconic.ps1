@@ -158,7 +158,7 @@ Assert-Lacks 'remind is not the rules' 'No preamble' $out
 # The per-turn reminder itself must not be a telegraphic fragment — the exact
 # defect this plugin exists to avoid, repeated on every single turn.
 Assert-Has 'reminder text is a full sentence, not a fragment' `
-  'Make fewer claims and keep normal grammar' $out
+  'never what the answer needs, and keep normal grammar' $out
 # The reminder is model context, so it must end in a bare newline. PowerShell's
 # own output pipeline would write CRLF here and the carriage return would be
 # noise in the prompt.

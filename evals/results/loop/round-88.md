@@ -142,4 +142,54 @@ python3 evals/bench/release.py $OUT/round-88-{S,F,C,H}-{sonnet,opus}.json
 
 <!-- Nothing above this line has been computed. -->
 
+## Result: the control stopped failing, so the round is uninformative
+
+720 runs, 0 failed, and 288 panel judgments. `release.py` finds no arm
+imbalanced across the 2.1.285/2.1.286 boundary.
+
+| arm | sonnet fails, target cases | opus fails |
+|---|--:|--:|
+| S, shipped reminder | 0/60 | 0/12 |
+| F, drop *"Cut content, not words."* | 0/60 | 0/11 |
+| C, drop *"Make fewer claims"* | 0/60 | 0/12 |
+| H, header only | 0/60 | 0/12 |
+
+**S is round 87's control, byte for byte**: `rules_cksum` 288018845 and
+reminder 1027894636 on both, the same cases, the same panel and
+`criteria_cksum` 5539815. Round 87's control failed **20 of 60** on CLI 2.1.282
+on 2026-09-27; S fails **0 of 60** on 2.1.285 and 2.1.286 on 2026-09-30,
+one-sided Fisher **p = 1.4e-07**. `recall-index`, the stem that carried most
+of the failure, went from 12 fails at a 15-word median graded turn to none
+at 30 words. The bare "No" that [#353] reports did not occur in 180 sonnet
+target runs across four trees.
+
+The registered primary cannot pass when the control reads 0, so the table's
+"none passes" row does not apply either. That row reads the header as the
+licence, and the header was never tested against a failure here. **Nothing in
+this round bears on which clause produces #353.** What it does show is that the
+failure moved between two CLI releases with the rules held fixed, which is
+round 37's lesson reaching a judged counter for the first time.
+
+### The length bar, which did separate
+
+Median graded-turn words on the six guard cases, twelve cells, against S:
+
+| arm | mean change | one-sided p |
+|---|--:|--:|
+| F, drop *"Cut content, not words."* | +1.1 | 0.3301 |
+| C, drop *"Make fewer claims"* | +13.2 | 1e-05 |
+| H, header only | +9.1 | 6e-05 |
+
+*"Make fewer claims"* carries the reminder's length control, and *"Cut
+content, not words"* is not measurably doing anything on these cells. That is
+disclosed, not acted on: no edit was registered on it.
+
+`panel_agreement.py` on S sonnet: 60/60 kimi, sonnet and opus agree on 58/60.
+
+## Next
+
+[#353] stays open and goes back to the queue. Its next step is a fire-rate
+check at master rules on the current CLI before any candidate is bought,
+under the procedure [round 89](round-89.md) introduces.
+
 [#353]: https://github.com/JordanMPDS/laconic/issues/353

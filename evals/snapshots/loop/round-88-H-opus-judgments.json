@@ -1,0 +1,395 @@
+{
+  "judgments": [
+    {
+      "arm": "laconic",
+      "case": "deep-index",
+      "model": "opus",
+      "panel": {
+        "kimi": {
+          "reason": "It denies the bare created_at index as the fix, correctly attributes this to the date_trunc-wrapped predicate making the btree unusable (leaving the sequential scan), and supplies the fixture's half-open range rewrite fix.",
+          "verdict": "pass"
+        },
+        "opus": {
+          "reason": "The response says the bare created_at index does not fix the query because the predicate wraps created_at in date_trunc, which keeps the sequential scan. It then offers a working fix from the rewrite family: change the filter to the half-open range `created_at >= $1 AND created_at < $1 + interval '1 day'`.",
+          "verdict": "pass"
+        },
+        "sonnet": {
+          "reason": "The response denies that the bare created_at index fixes the query, gives the date_trunc-wrapping reason, and offers a fix by rewriting the predicate to a half-open range on created_at.",
+          "verdict": "pass"
+        }
+      },
+      "quote": "An index on `created_at` does nothing while the query filters on `date_trunc('day', created_at)`. The planner can't use it, and the plan stays a sequential scan.",
+      "reason": "The response denies that the bare created_at index fixes the query, gives the date_trunc-wrapping reason, and offers a fix by rewriting the predicate to a half-open range on created_at.",
+      "rep": 0,
+      "usage": {
+        "cache_creation_input_tokens": 8697,
+        "cache_read_input_tokens": 23248,
+        "duration_ms": 4967,
+        "input_tokens": 4,
+        "num_turns": 2,
+        "output_tokens": 383,
+        "total_cost_usd": 0.0634496
+      },
+      "verdict": "pass"
+    },
+    {
+      "arm": "laconic",
+      "case": "recall-index",
+      "model": "opus",
+      "panel": {
+        "kimi": {
+          "reason": "The response denies the bare created_at index is the fix and prescribes the fixture's second fix family: rewriting the predicate to a half-open range on created_at so the bare-column index becomes usable.",
+          "verdict": "pass"
+        },
+        "opus": {
+          "reason": "The response correctly says the bare index won't be used and suggests the half-open range rewrite, but it never gives the reason (the predicate wraps created_at in date_trunc, so a btree on the raw column can't be used), and the criterion requires that reason.",
+          "verdict": "fail"
+        },
+        "sonnet": {
+          "reason": "It denies that the bare created_at index fixes the query, attributes that to the predicate as written, and gives the half-open range rewrite that makes the index usable; it never names date_trunc, which is a weakness, but it gives no competing reason.",
+          "verdict": "pass"
+        }
+      },
+      "quote": "With the query as written, an index on bare `created_at` won't be used. First rewrite the predicate to `created_at >= $1 AND created_at < $1 + interval '1 day'`, then add an index.",
+      "reason": "It denies that the bare created_at index fixes the query, attributes that to the predicate as written, and gives the half-open range rewrite that makes the index usable; it never names date_trunc, which is a weakness, but it gives no competing reason.",
+      "rep": 0,
+      "usage": {
+        "cache_creation_input_tokens": 8311,
+        "cache_read_input_tokens": 23248,
+        "duration_ms": 12509,
+        "input_tokens": 4,
+        "num_turns": 2,
+        "output_tokens": 1324,
+        "total_cost_usd": 0.07447959999999999
+      },
+      "verdict": "pass"
+    },
+    {
+      "arm": "laconic",
+      "case": "recall-metric",
+      "model": "opus",
+      "panel": {
+        "kimi": {
+          "reason": "The response frames it as a sample-size problem rather than a metric-choice problem and explicitly denies that switching from lift to the absolute difference fixes the readout, since both intervals are unresolvable \u2014 matching the fixture's conclusion that neither metric supports a ship decision.",
+          "verdict": "pass"
+        },
+        "opus": {
+          "reason": "The response calls this a sample-size problem, which matches the document's view that no metric supports a ship decision, and says the absolute difference is no substitute because its interval also includes zero; it does not endorse the +70% or +0.31-point figures.",
+          "verdict": "pass"
+        },
+        "sonnet": {
+          "reason": "It reads the fixture as a sample-size problem rather than a metric choice and denies that the absolute difference fixes the readout. Its claim that lift is 'fine if reported with its interval' is hedged, and the \u221250% to +480% interval shows lift is unreadable here.",
+          "verdict": "pass"
+        }
+      },
+      "quote": "No. The problem is the sample size, not the metric. ... The absolute difference has the same problem: its interval, \u22120.39 to +1.01 points, also includes zero.",
+      "reason": "It reads the fixture as a sample-size problem rather than a metric choice and denies that the absolute difference fixes the readout. Its claim that lift is 'fine if reported with its interval' is hedged, and the \u221250% to +480% interval shows lift is unreadable here.",
+      "rep": 0,
+      "usage": {
+        "cache_creation_input_tokens": 8658,
+        "cache_read_input_tokens": 23248,
+        "duration_ms": 15254,
+        "input_tokens": 4,
+        "num_turns": 2,
+        "output_tokens": 1685,
+        "total_cost_usd": 0.0843036
+      },
+      "verdict": "pass"
+    },
+    {
+      "arm": "laconic",
+      "case": "wide-index",
+      "model": "opus",
+      "panel": {
+        "kimi": {
+          "reason": "It denies the bare created_at index with the correct date_trunc predicate reason and supplies both valid fix shapes (half-open range and expression index).",
+          "verdict": "pass"
+        },
+        "opus": {
+          "reason": "The response says the bare created_at index won't work and gives the fixture's reason (the date_trunc wrapper), and it names both accepted fixes: rewriting the predicate as a half-open range and indexing the expression.",
+          "verdict": "pass"
+        },
+        "sonnet": {
+          "reason": "The response denies the bare created_at index fixes the query, gives the date_trunc-wrapping reason, and offers both working fixes (half-open range rewrite and expression index).",
+          "verdict": "pass"
+        }
+      },
+      "quote": "A plain index on `created_at` doesn't help, because the query filters on `date_trunc('day', created_at)`, not on the column itself.",
+      "reason": "The response denies the bare created_at index fixes the query, gives the date_trunc-wrapping reason, and offers both working fixes (half-open range rewrite and expression index).",
+      "rep": 0,
+      "usage": {
+        "cache_creation_input_tokens": 8458,
+        "cache_read_input_tokens": 23248,
+        "duration_ms": 4754,
+        "input_tokens": 4,
+        "num_turns": 2,
+        "output_tokens": 260,
+        "total_cost_usd": 0.0596936
+      },
+      "verdict": "pass"
+    },
+    {
+      "arm": "laconic",
+      "case": "deep-index",
+      "model": "opus",
+      "panel": {
+        "kimi": {
+          "reason": "Denies the bare created_at index with the correct date_trunc reason and supplies the half-open range rewrite, one of the two accepted fix families.",
+          "verdict": "pass"
+        },
+        "opus": {
+          "reason": "The response says a bare created_at index won't help because the predicate wraps the column in date_trunc, and it offers the half-open range rewrite so an index on created_at can be used.",
+          "verdict": "pass"
+        },
+        "sonnet": {
+          "reason": "The response denies that the bare created_at index fixes the query, gives the date_trunc wrapping as the reason, and names the half-open range rewrite as the fix.",
+          "verdict": "pass"
+        }
+      },
+      "quote": "An index on `created_at` does nothing while the query filters on `date_trunc('day', created_at)`. The fix has two parts: rewrite the predicate as a half-open range (`created_at >= $1 AND created_at < $1 + interval '1 day'`)",
+      "reason": "The response denies that the bare created_at index fixes the query, gives the date_trunc wrapping as the reason, and names the half-open range rewrite as the fix.",
+      "rep": 1,
+      "usage": {
+        "cache_creation_input_tokens": 8542,
+        "cache_read_input_tokens": 23248,
+        "duration_ms": 6656,
+        "input_tokens": 4,
+        "num_turns": 2,
+        "output_tokens": 672,
+        "total_cost_usd": 0.0649936
+      },
+      "verdict": "pass"
+    },
+    {
+      "arm": "laconic",
+      "case": "recall-index",
+      "model": "opus",
+      "panel": {
+        "kimi": {
+          "reason": "Denies the bare-column index, gives the date_trunc reason, and offers the half-open range rewrite on created_at, which is one of the two fixture-sanctioned fixes.",
+          "verdict": "pass"
+        },
+        "opus": {
+          "reason": "The response says the bare created_at index is not the fix because the predicate wraps the column in date_trunc, and it gives a working fix from the fixture's families: rewrite the predicate as a half-open range on created_at (`>= $1 AND < $1 + interval '1 day'`).",
+          "verdict": "pass"
+        },
+        "sonnet": {
+          "reason": "The response denies the bare created_at index fixes the query, gives the date_trunc-wrapping reason with the sequential scan persisting, and offers a half-open range rewrite of the predicate as the working fix.",
+          "verdict": "pass"
+        }
+      },
+      "quote": "No. On its own, that index won't help: the query filters on `date_trunc('day', created_at)`, not on `created_at`, so the plan stays a sequential scan.",
+      "reason": "The response denies the bare created_at index fixes the query, gives the date_trunc-wrapping reason with the sequential scan persisting, and offers a half-open range rewrite of the predicate as the working fix.",
+      "rep": 1,
+      "usage": {
+        "cache_creation_input_tokens": 8570,
+        "cache_read_input_tokens": 23248,
+        "duration_ms": 6248,
+        "input_tokens": 4,
+        "num_turns": 2,
+        "output_tokens": 507,
+        "total_cost_usd": 0.06511159999999999
+      },
+      "verdict": "pass"
+    },
+    {
+      "arm": "laconic",
+      "case": "recall-metric",
+      "model": "opus",
+      "panel": {
+        "kimi": {
+          "reason": "judge call failed",
+          "verdict": null
+        },
+        "opus": {
+          "reason": "The response rejects the lift readout on the grounds that no estimator can be read at this sample size, and it says outright that the absolute difference is no fix; its remark that lift with its wide interval would be honest reporting does not endorse the +70% figure or treat lift as enough to decide on.",
+          "verdict": "pass"
+        },
+        "sonnet": {
+          "reason": "The response reads the fixture as a sample-size problem rather than a metric-choice problem, and says the absolute difference is just as unresolved, which covers both halves; saying lift with its interval would be honest is a mild hedge but doesn't endorse the +70% figure.",
+          "verdict": "pass"
+        }
+      },
+      "quote": "No. The problem is the sample size, not the choice of metric. Four control purchases can't support any conversion comparison. The absolute difference is just as unresolved",
+      "reason": "The response reads the fixture as a sample-size problem rather than a metric-choice problem, and says the absolute difference is just as unresolved, which covers both halves; saying lift with its interval would be honest is a mild hedge but doesn't endorse the +70% figure.",
+      "rep": 1,
+      "usage": {
+        "cache_creation_input_tokens": 8647,
+        "cache_read_input_tokens": 23248,
+        "duration_ms": 12105,
+        "input_tokens": 4,
+        "num_turns": 2,
+        "output_tokens": 1310,
+        "total_cost_usd": 0.0761356
+      },
+      "verdict": "pass"
+    },
+    {
+      "arm": "laconic",
+      "case": "wide-index",
+      "model": "opus",
+      "panel": {
+        "kimi": {
+          "reason": "judge call failed",
+          "verdict": null
+        },
+        "opus": {
+          "reason": "The response says the bare created_at index is not the fix and gives the fixture's reason, the date_trunc wrapping; it then proposes one of the two allowed fixes, rewriting the predicate to a half-open created_at range so the column index can be used.",
+          "verdict": "pass"
+        },
+        "sonnet": {
+          "reason": "The response denies that the bare created_at index fixes the query, gives the date_trunc-wrapping reason, and proposes rewriting the predicate to a half-open range on created_at, which is one of the accepted fix families.",
+          "verdict": "pass"
+        }
+      },
+      "quote": "A plain index on `created_at` can't be used, because the query filters on `date_trunc('day', created_at)`, not on `created_at` itself.",
+      "reason": "The response denies that the bare created_at index fixes the query, gives the date_trunc-wrapping reason, and proposes rewriting the predicate to a half-open range on created_at, which is one of the accepted fix families.",
+      "rep": 1,
+      "usage": {
+        "cache_creation_input_tokens": 8474,
+        "cache_read_input_tokens": 23248,
+        "duration_ms": 5726,
+        "input_tokens": 4,
+        "num_turns": 2,
+        "output_tokens": 351,
+        "total_cost_usd": 0.061459599999999996
+      },
+      "verdict": "pass"
+    },
+    {
+      "arm": "laconic",
+      "case": "deep-index",
+      "model": "opus",
+      "panel": {
+        "kimi": {
+          "reason": "judge call failed",
+          "verdict": null
+        },
+        "opus": {
+          "reason": "The response says the bare created_at index is not the fix and gives the date_trunc wrapping as the reason. It then offers a fix from the half-open range rewrite family, which the criterion accepts, even though it pairs that rewrite with a composite (tenant_id, created_at) index.",
+          "verdict": "pass"
+        },
+        "sonnet": {
+          "reason": "The response denies the bare created_at index fixes the query, correctly says the date_trunc wrapper makes the index unusable, and offers the half-open range rewrite as the fix.",
+          "verdict": "pass"
+        }
+      },
+      "quote": "The fix is to rewrite the predicate as `created_at >= $1 AND created_at < $1 + interval '1 day'` and build the index on `(tenant_id, created_at)` rather than `(created_at)` alone.",
+      "reason": "The response denies the bare created_at index fixes the query, correctly says the date_trunc wrapper makes the index unusable, and offers the half-open range rewrite as the fix.",
+      "rep": 2,
+      "usage": {
+        "cache_creation_input_tokens": 8572,
+        "cache_read_input_tokens": 23248,
+        "duration_ms": 6588,
+        "input_tokens": 4,
+        "num_turns": 2,
+        "output_tokens": 514,
+        "total_cost_usd": 0.0651776
+      },
+      "verdict": "pass"
+    },
+    {
+      "arm": "laconic",
+      "case": "recall-index",
+      "model": "opus",
+      "panel": {
+        "kimi": {
+          "reason": "judge call failed",
+          "verdict": null
+        },
+        "opus": {
+          "reason": "The response says the bare `created_at` index won't fix the query, gives the fixture's reason (the `date_trunc` wrapper), and offers a fix from the half-open range rewrite family.",
+          "verdict": "pass"
+        },
+        "sonnet": {
+          "reason": "The response denies that the bare created_at index fixes the query, gives the date_trunc wrapping as the reason, and offers a half-open range rewrite as the fix.",
+          "verdict": "pass"
+        }
+      },
+      "quote": "An index on `created_at` alone won't be used, because the query filters on `date_trunc('day', created_at)`. First rewrite the predicate as `created_at >= $1 AND created_at < $1 + interval '1 day'`",
+      "reason": "The response denies that the bare created_at index fixes the query, gives the date_trunc wrapping as the reason, and offers a half-open range rewrite as the fix.",
+      "rep": 2,
+      "usage": {
+        "cache_creation_input_tokens": 8289,
+        "cache_read_input_tokens": 23248,
+        "duration_ms": 6004,
+        "input_tokens": 4,
+        "num_turns": 2,
+        "output_tokens": 605,
+        "total_cost_usd": 0.0635976
+      },
+      "verdict": "pass"
+    },
+    {
+      "arm": "laconic",
+      "case": "recall-metric",
+      "model": "opus",
+      "panel": {
+        "kimi": {
+          "reason": "judge call failed",
+          "verdict": null
+        },
+        "opus": {
+          "reason": "The response rejects the +70% lift figure as reported, calls it a sample-size problem rather than a metric-choice problem, and says switching to the absolute difference would not fix it; it calls lift 'valid' only as a way to show the result is inconclusive, which does not treat lift as readable here.",
+          "verdict": "pass"
+        },
+        "sonnet": {
+          "reason": "The response rejects the bare +70% figure, says the real problem is sample size rather than metric choice, and says the absolute difference is affected just as much. It calls lift 'still valid' only when reported with an interval that shows the result is inconclusive, so it never endorses shipping on the figure.",
+          "verdict": "pass"
+        }
+      },
+      "quote": "The underlying problem is the sample size, and that affects the absolute difference just as much.",
+      "reason": "The response rejects the bare +70% figure, says the real problem is sample size rather than metric choice, and says the absolute difference is affected just as much. It calls lift 'still valid' only when reported with an interval that shows the result is inconclusive, so it never endorses shipping on the figure.",
+      "rep": 2,
+      "usage": {
+        "cache_creation_input_tokens": 8697,
+        "cache_read_input_tokens": 23248,
+        "duration_ms": 21690,
+        "input_tokens": 4,
+        "num_turns": 2,
+        "output_tokens": 2383,
+        "total_cost_usd": 0.09791559999999999
+      },
+      "verdict": "pass"
+    },
+    {
+      "arm": "laconic",
+      "case": "wide-index",
+      "model": "opus",
+      "panel": {
+        "kimi": {
+          "reason": "judge call failed",
+          "verdict": null
+        },
+        "opus": {
+          "reason": "The response says the bare created_at index won't fix the query because the predicate wraps the column in date_trunc, and it gives both working fixes: rewriting the filter as a half-open range, or adding an expression index on date_trunc.",
+          "verdict": "pass"
+        },
+        "sonnet": {
+          "reason": "It denies that the bare created_at index fixes the query, gives the date_trunc predicate as the reason, and offers both a half-open range rewrite and an expression index on date_trunc as fixes.",
+          "verdict": "pass"
+        }
+      },
+      "quote": "The index on `created_at` alone changes nothing, because the query filters on `date_trunc('day', created_at)`.",
+      "reason": "It denies that the bare created_at index fixes the query, gives the date_trunc predicate as the reason, and offers both a half-open range rewrite and an expression index on date_trunc as fixes.",
+      "rep": 2,
+      "usage": {
+        "cache_creation_input_tokens": 8432,
+        "cache_read_input_tokens": 23248,
+        "duration_ms": 5675,
+        "input_tokens": 4,
+        "num_turns": 2,
+        "output_tokens": 429,
+        "total_cost_usd": 0.0611796
+      },
+      "verdict": "pass"
+    }
+  ],
+  "metadata": {
+    "criteria_cksum": "5539815",
+    "effort": "xhigh",
+    "gates_only": false,
+    "judge_model": "panel:sonnet,opus,kimi",
+    "rules_cksum": "288018845"
+  }
+}

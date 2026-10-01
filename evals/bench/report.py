@@ -31,7 +31,7 @@ ARM_ORDER = ["baseline", "terse-control", "word-compression",
              "laconic-repl-told", "laconic-repl-unlabelled",
              "laconic-repl-unframed", "laconic-precheck-off",
              "laconic-precheck-read", "laconic-precheck-scoped",
-             "laconic-enforced",
+             "laconic-design-read", "laconic-enforced",
              "laconic-enforced-reminder", "laconic"]
 # A ratio of small integers is not evidence: floor/sonnet laconic (26 words,
 # 0 auxiliary verbs) and code-fidelity/haiku baseline (49 words, ~1 auxiliary

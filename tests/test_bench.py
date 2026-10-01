@@ -277,9 +277,10 @@ try:
 finally:
     bench_run.call = _orig_call
 
-check("arms include all seventeen",
+check("arms include all eighteen",
       sorted(bench_run.ARMS) == ["baseline", "concise-style", "laconic",
                                  "laconic-abl-arrow", "laconic-abl-shown",
+                                 "laconic-design-read",
                                  "laconic-enforced",
                                  "laconic-enforced-reminder",
                                  "laconic-min-a", "laconic-min-b",
@@ -627,6 +628,29 @@ if not (_STALE & set(_PRECHECKS)):
     check("laconic-precheck-off is the slice minus the check's 41 words",
           len(_precheck_slice.split())
           - len(bench_run.ARMS["laconic-precheck-off"].split()) == 41)
+# Round 90's arm leaves the pre-action check alone and moves the design
+# licence's reading instruction from the tail of its sub-bullet to the head of
+# the bullet, as an 11-word swap, so the slice keeps its word count.
+_DESIGN_HEAD = ('''- A design question asks for an approach, not a treatise. "How would that be
+  built?" is about something''',
+                '''- A design question is answered from its files: open them first. A design
+  question asks for an approach, not a treatise. "How would that be
+  built?" is about something''')
+_DESIGN_TAIL = ("  above. Read what the question is about, then be brief about it.\n",
+                "  above.\n")
+if "laconic-design-read" not in _STALE:
+    for _old, _new in (_DESIGN_HEAD, _DESIGN_TAIL):
+        check("the shipped slice carries the design-bullet text exactly once",
+              _precheck_slice.count(_old) == 1)
+    check("laconic-design-read is the shipped slice with only the reading "
+          "instruction moved",
+          bench_run.ARMS["laconic-design-read"]
+          == _precheck_slice.replace(*_DESIGN_HEAD).replace(*_DESIGN_TAIL))
+    check("laconic-design-read is word-matched to the shipped slice",
+          len(bench_run.ARMS["laconic-design-read"].split())
+          == len(_precheck_slice.split()))
+    check("laconic-design-read keeps the shipped pre-action check",
+          _PRECHECK_BLOCK in bench_run.ARMS["laconic-design-read"])
 check("the two pre-action arms are two different texts",
       bench_run.ARMS["laconic-precheck-off"]
       != bench_run.ARMS["laconic-precheck-read"])
@@ -2246,7 +2270,7 @@ check("carrying stamps the source and its cksum",
 check("carrying names the arms it could not carry",
       carried["metadata"]["carried_arms_from"]["missing_arms"]
       == ["concise-style", "laconic-abl-arrow", "laconic-abl-shown",
-          "laconic-enforced", "laconic-enforced-reminder",
+          "laconic-design-read", "laconic-enforced", "laconic-enforced-reminder",
           "laconic-min-a", "laconic-min-b",
           "laconic-precheck-off", "laconic-precheck-read",
           "laconic-precheck-scoped", "laconic-repl-told",
@@ -2307,7 +2331,8 @@ with tempfile.TemporaryDirectory() as td_gap:
     check("subprocess: the gap is recorded in the snapshot, not only printed",
           json.loads(gap_out.read_text())["metadata"]["carried_arms_from"]
           ["missing_arms"] == ["concise-style", "laconic-abl-arrow",
-                               "laconic-abl-shown", "laconic-enforced",
+                               "laconic-abl-shown",
+                               "laconic-design-read", "laconic-enforced",
                                "laconic-enforced-reminder",
                                "laconic-min-a",
                                "laconic-min-b",

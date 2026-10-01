@@ -23,7 +23,9 @@ was 202/420 against 232/420. This round tests it once, directly.
 Everything is deterministic. Nothing here reads a judge verdict.
 
 Round 78 scores `laconic-precheck-scoped` under the same bars with
-`--edit-arm laconic-precheck-scoped`. Any other arm in the snapshots, such as
+`--edit-arm laconic-precheck-scoped`, and round 90 scores
+`laconic-design-read`, then reads the same bars on opus with `--model opus`
+as a disclosure that decides nothing. Any other arm in the snapshots, such as
 round 78's `-read` on the sentinel, is printed as a disclosure and decides
 nothing.
 
@@ -47,9 +49,12 @@ from report import _fisher_upper_tail as fisher  # noqa: E402
 ALPHA = 0.05
 
 
+MODEL = "sonnet"
+
+
 def _count(runs, arm, cases, pred):
     rows = [r for r in runs if r["arm"] == arm and r["case"] in cases
-            and r.get("model") == "sonnet"]
+            and r.get("model") == MODEL]
     return sum(1 for r in rows if pred(r)), len(rows)
 
 
@@ -62,7 +67,7 @@ def verdict(runs, out=print, arm=READ_ARM):
     """Print the round and return (accept, reasons)."""
     reasons = []
     design = [r for r in runs if r["case"] in DESIGN_CASES
-              and r.get("model") == "sonnet"]
+              and r.get("model") == MODEL]
     out("=== primary: unread rate, %s against %s ===" % (arm, SHIP_ARM))
     z, _ = contrast_line(design, arm, SHIP_ARM, DESIGN_CASES,
                          "unread rate", out)
@@ -100,7 +105,7 @@ def verdict(runs, out=print, arm=READ_ARM):
             reasons.append("%s: p = %.5f" % (label, bp))
     for label, cases in (("design prose length", DESIGN_CASES),
                          ("sentinel prose length", SENTINEL_CASES)):
-        got = _ratio([r for r in runs if r.get("model") == "sonnet"], cases,
+        got = _ratio([r for r in runs if r.get("model") == MODEL], cases,
                      arm)
         if not got:
             out("  %-36s not bought" % label)
@@ -119,13 +124,13 @@ def verdict(runs, out=print, arm=READ_ARM):
         out("=== disclosure, decides nothing: %s ===" % other)
         for label, cases in (("design", DESIGN_CASES),
                              ("sentinel", SENTINEL_CASES)):
-            got = _ratio([r for r in runs if r.get("model") == "sonnet"],
+            got = _ratio([r for r in runs if r.get("model") == MODEL],
                          cases, other)
             if got:
                 out("  %s prose length against %s: %.3fx over %d blocks"
                     " (p = %.4f)" % (label, SHIP_ARM, got[0], got[2], got[1]))
             got = sd.blocked_log_words(
-                [r for r in runs if r.get("model") == "sonnet"], other,
+                [r for r in runs if r.get("model") == MODEL], other,
                 cases, strata=False, ref=arm)
             if got:
                 out("  %s prose length against %s: %.3fx over %d blocks"
@@ -210,12 +215,17 @@ def _selftest():
 
 
 def main():
+    global MODEL
     ap = argparse.ArgumentParser(description=__doc__.split("\n")[0])
     ap.add_argument("snapshots", nargs="*")
     ap.add_argument("--selftest", action="store_true")
     ap.add_argument("--edit-arm", default=READ_ARM,
                     help="the arm the bars score (default %(default)s)")
+    ap.add_argument("--model", default=MODEL,
+                    help="the model the bars read (default %(default)s); "
+                         "round 90 reads opus this way as a disclosure")
     args = ap.parse_args()
+    MODEL = args.model
     if args.selftest:
         return _selftest()
     if not args.snapshots:

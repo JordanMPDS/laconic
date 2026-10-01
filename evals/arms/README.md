@@ -163,6 +163,18 @@ question with no fixture, where `-read` cost prose. It moved the unread rate
 
 [#264]: https://github.com/JordanMPDS/laconic/issues/264
 
+## `laconic-design-read.md` — round 90's [#264] arm
+
+Rounds 77 and 78 moved reading by editing item 1 of the pre-action check, which
+every question passes through, and both paid for it in prose on the no-fixture
+sentinel cells. This arm leaves the check byte for byte and moves the reading
+instruction the design licence already carries instead: the sub-bullet's
+closing *"Read what the question is about, then be brief about it."* (11 words)
+is deleted, and the bullet now opens with *"A design question is answered from
+its files: open them first."* (11 words). Built from the `full` slice at
+`288018845`, 1,146 words on both sides; `tests/test_bench.py` checks it by exact
+equality against the hook's output.
+
 ## Staleness: `BUILT-FROM.json`
 
 Eight of these arms are not free-standing texts. `laconic-abl-*`,
@@ -196,14 +208,16 @@ Round 64 left all seven recorded at `594915793`, the slice rounds 59 through 63
 measured, rather than rebuilding them against the edit it was testing. The word
 counts in the tables above are that slice's, except where a row says otherwise.
 
-**At master six are stale.** They stayed live through the rejections of
+**At master eight are stale.** They stayed live through the rejections of
 rounds 64, 66, 68 and 70, until round 71's accepted edit (v0.3.1) moved the
 `full` slice off `594915793`, and round 73's (v0.3.2) moved it again to
 `3285158247`, 1,143 words. `BUILT-FROM.json` still records `594915793` for the
 `abl-*` and `repl-*` arms and for `precheck-off`, so `run.py` refuses to
 generate with any of them unless a round rebuilds it or passes
 `--allow-stale-arm`. `precheck-read` (round 77) and `precheck-scoped`
-(round 78) were built at `3285158247` and are live.
+(round 78) were built at `3285158247`, which round 81's accepted edit retired;
+`design-read` (round 90) is built at `288018845` and is the one live derived
+arm.
 
 
 [#275]: https://github.com/JordanMPDS/laconic/issues/275

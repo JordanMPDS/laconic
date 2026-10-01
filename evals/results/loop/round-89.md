@@ -4,7 +4,12 @@
 round 68's figures, which are merged. This file, the edit and the regenerated
 `rules/dist/*.md` are committed in one commit before any generation.
 
-`bash tools/candidate-due.sh` exits 1: [round 88](round-88.md) was the one
+**This round proposes no rule edit.** Its candidate was registered behind the
+stage-1 precheck below, the precheck did not fire, and the edit was reverted
+before any of it was generated, so the round is recorded as measuring and the
+next round has to carry a candidate.
+
+`bash tools/candidate-due.sh` exited 1 at registration: [round 88](round-88.md) was the one
 measuring round the cap allows, so round 89 has to carry a rule edit. It does,
 under **The edit** below.
 
@@ -169,3 +174,29 @@ bound rejecting an edit whose target passed.
 ## Results
 
 <!-- Nothing above this line has been computed. -->
+
+## Result: #298 does not fire on opus either, and stage 2 was not bought
+
+Stage 1 only: 120 runs at master rules, 0 failed. Sonnet in the scorer's
+"control" slot, opus in its "edit" slot:
+
+| model | cold (`explain-*`) median | told (`reexplain-*`) median | told / cold |
+|---|--:|--:|--:|
+| sonnet | 98.0 | 62.5 | 0.638 |
+| opus | 137.0 | 68.5 | 0.500 |
+
+Log ratio of ratios **0.905**, aligned-residual interaction **p = 0.4131**.
+The registered pass condition needed a ratio above 1 at p < 0.05, and the point
+estimate is on the other side of 1: opus answers longer than sonnet on both
+families, as round 80 found, and shortens the already-told answer at least as
+much. `date_trunc` was kept on 40 of 40 `index` graded turns.
+
+So the edit was reverted unrun and no opus round was bought, which is the
+outcome the pre-mortem named as likeliest. Round 68 found the harm absent on
+sonnet at 0.415; it is absent on opus at 0.500 in this instrument. #298's
+report was a long analytical session with three turns of prior material, and
+this two-turn pair may simply be too short to reproduce it. A case built from
+that shape, not a rule edit, is the next step on #298.
+
+The procedure worked as intended: about 180 calls, 90 of them opus, settled what
+round 68's design would have spent about 840 opus calls on.

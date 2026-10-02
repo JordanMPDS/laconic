@@ -277,13 +277,14 @@ try:
 finally:
     bench_run.call = _orig_call
 
-check("arms include all eighteen",
+check("arms include all nineteen",
       sorted(bench_run.ARMS) == ["baseline", "concise-style", "laconic",
                                  "laconic-abl-arrow", "laconic-abl-shown",
                                  "laconic-design-read",
                                  "laconic-enforced",
                                  "laconic-enforced-reminder",
                                  "laconic-min-a", "laconic-min-b",
+                                 "laconic-ponytail",
                                  "laconic-precheck-off",
                                  "laconic-precheck-read",
                                  "laconic-precheck-scoped",
@@ -325,6 +326,40 @@ check("the enforcement arm's rules are a placeholder in ARMS, so they can "
 check("laconic is a placeholder for the same reason, so the two arms resolve "
       "from one hook call and cannot differ",
       bench_run.ARMS["laconic"] == "")
+
+# #46's co-activation arm. It is the live laconic slice plus a vendored copy of
+# ponytail's `full` SessionStart text, so the one thing it may differ from
+# `laconic` in is that text, and the text has to be ponytail's, unedited.
+check("laconic-ponytail is a placeholder, composed from the live hook at "
+      "runtime", bench_run.ARMS["laconic-ponytail"] == "")
+check("the vendored ponytail text is the `full` hook output",
+      bench_run.PONYTAIL_FULL.startswith("PONYTAIL MODE ACTIVE — level: full\n")
+      and "| **full** |" in bench_run.PONYTAIL_FULL
+      and "| **lite** |" not in bench_run.PONYTAIL_FULL
+      and "give it in full" in bench_run.PONYTAIL_FULL)
+check("the vendored text keeps its licence beside it",
+      "MIT License" in (ROOT / "evals" / "arms" / "vendor"
+                        / "PONYTAIL-LICENSE").read_text())
+with tempfile.TemporaryDirectory() as td_pt:
+    _pt_out = Path(td_pt) / "pt.json"
+    _pt_cmd = [sys.executable, str(ROOT / "evals" / "bench" / "run.py"),
+               "--claude-bin", str(ROOT / "tests" / "stubs" / "claude-stub.sh"),
+               "--arms", "laconic,laconic-ponytail", "--models", "haiku",
+               "--reps", "1", "--cases", "floor", "--snapshot", str(_pt_out)]
+    _pt = subprocess.run(_pt_cmd, capture_output=True, text=True)
+    _pt_snap = json.loads(_pt_out.read_text()) if _pt_out.exists() else {}
+    _pt_arms = _pt_snap.get("arms", {})
+    check("subprocess: laconic-ponytail generates", _pt.returncode == 0)
+    check("subprocess: laconic-ponytail is the laconic slice plus the "
+          "vendored text and nothing else",
+          _pt_arms.get("laconic-ponytail", {}).get("system_prompt")
+          == _pt_arms.get("laconic", {}).get("system_prompt") + "\n\n"
+          + bench_run.PONYTAIL_FULL)
+    _pt_arms["laconic-ponytail"]["system_prompt"] += " edited"
+    _pt_out.write_text(json.dumps(_pt_snap))
+    _pt2 = subprocess.run(_pt_cmd, capture_output=True, text=True)
+    check("subprocess: a resume refuses a changed ponytail text",
+          _pt2.returncode != 0 and "ponytail-full.md changed" in _pt2.stderr)
 
 # #283's second enforcement arm. It exists to answer whether the block has to
 # quote the rule, so the one thing that must hold is that the two arms differ
@@ -2272,7 +2307,7 @@ check("carrying names the arms it could not carry",
       carried["metadata"]["carried_arms_from"]["missing_arms"]
       == ["concise-style", "laconic-abl-arrow", "laconic-abl-shown",
           "laconic-design-read", "laconic-enforced", "laconic-enforced-reminder",
-          "laconic-min-a", "laconic-min-b",
+          "laconic-min-a", "laconic-min-b", "laconic-ponytail",
           "laconic-precheck-off", "laconic-precheck-read",
           "laconic-precheck-scoped", "laconic-repl-told",
           "laconic-repl-unframed", "laconic-repl-unlabelled",
@@ -2337,6 +2372,7 @@ with tempfile.TemporaryDirectory() as td_gap:
                                "laconic-enforced-reminder",
                                "laconic-min-a",
                                "laconic-min-b",
+                               "laconic-ponytail",
                                "laconic-precheck-off",
                                "laconic-precheck-read",
                                "laconic-precheck-scoped",

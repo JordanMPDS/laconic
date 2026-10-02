@@ -175,6 +175,28 @@ its files: open them first."* (11 words). Built from the `full` slice at
 `288018845`, 1,146 words on both sides; `tests/test_bench.py` checks it by exact
 equality against the hook's output.
 
+## `vendor/ponytail-full.md` — round 101's [#46] co-activation arm
+
+`laconic-ponytail` is not a file here: `run.py` composes it at runtime as the
+live laconic slice, a blank line, and `vendor/ponytail-full.md`, so it never
+goes stale and differs from `laconic` in the second plugin's text alone. #46
+was reported with [ponytail](https://github.com/DietrichGebert/ponytail) 4.8.4
+active at `full` beside laconic, and no other arm reproduces a second plugin.
+
+The file is the output of ponytail's SessionStart hook at `full`:
+`PONYTAIL MODE ACTIVE — level: full`, then `skills/ponytail/SKILL.md` without
+its frontmatter and without the `lite` and `ultra` table rows and examples,
+filtered the way `hooks/ponytail-instructions.js` filters it. It was taken from
+4.9.0, whose `SKILL.md`, instruction builder and activate hook are byte-identical
+to the 4.8.4 release commit. It is unedited, ponytail's MIT licence is kept
+beside it as `vendor/PONYTAIL-LICENSE`, and it is used to benchmark laconic,
+never shipped. Ponytail's UserPromptSubmit hook emits nothing, so under
+`--turn-delivery plugin` a later turn gets laconic's reminder only, as a real
+session does. `rules_cksum` does not cover this text, so a resume compares the
+composed arm against the one the snapshot was started with and refuses a change.
+
+[#46]: https://github.com/JordanMPDS/laconic/issues/46
+
 ## Staleness: `BUILT-FROM.json`
 
 Eight of these arms are not free-standing texts. `laconic-abl-*`,

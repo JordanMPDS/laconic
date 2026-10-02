@@ -4,8 +4,13 @@
 figures quoted from rounds 83 to 88, which are merged. This file and
 `evals/pilot/score_reminder.py` are committed before any generation. The edit
 is registered here as text and is applied only if stage 1 fires, so stage 1
-runs at master rules and the shipped reminder (`rules_cksum` 288018845,
+runs at master rules and the shipped reminder (`rules_cksum` 3660436060,
 `reminder_cksum` 1027894636).
+
+**This round proposes no rule edit.** Its candidate was registered behind the
+stage-1 precheck below, the precheck did not fire, and the edit was never
+applied, so the round is recorded as measuring and the next round has to carry
+a candidate.
 
 `bash tools/candidate-due.sh` exited 1 at registration: [round 98](round-98.md)
 was the one measuring round the cap allows, so round 99 carries an edit, under
@@ -152,3 +157,39 @@ ever reached 5 in 60.
 ## Results
 
 <!-- Nothing above this line has been computed. -->
+
+## Result: #353 does not fire on CLI 2.1.287, and stage 2 was not bought
+
+100 runs, 0 failed, all on CLI 2.1.287 (`release.py`: one release), master
+rules `rules_cksum` 3660436060 and the shipped reminder, `reminder_cksum`
+1027894636. The registration first named `rules_cksum` 288018845, master's
+checksum before round 97's accept; it was corrected to the stamped value with
+this result, and nothing in the design depended on it.
+
+```
+recall-index   0/20
+wide-index     0/20
+deep-index     0/20
+sonnet index   0/60  fires at >= 12: does not fire
+recall-metric  0/20  (disclosed)
+sonnet index graded-turn median words 44.0
+opus index     0/15  (opus, disclosed)
+```
+
+The panel agreed on all 80 sonnet verdicts. Every sonnet graded turn denies
+the bare index and names a working fix, in a median of 37.5 words on
+`recall-index` (25 to 49), the stem that failed 12 of 15 in round 87:
+
+> No. An index on bare `created_at` cannot serve a predicate on
+> `date_trunc('day', created_at)`, so the plan would not change. Rewrite the
+> predicate to a range on `created_at` and index `(tenant_id, created_at)`.
+
+With round 88 that is 0 of 105 sonnet index verdicts on the shipped reminder
+across CLI 2.1.285 to 2.1.287, against 45 of 105 on 2.1.282 in rounds 86 and 87.
+The failure left with a CLI release and has not come back, so the edit was
+withdrawn unrun as the pre-mortem expected, and round 100 owes a candidate on
+another issue.
+
+Arm F stays the registered candidate for #353: if a later screen fires, this
+document's stage 2 can be bought as written.
+

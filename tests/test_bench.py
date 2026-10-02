@@ -3786,11 +3786,12 @@ with tempfile.TemporaryDirectory() as td_jobs:
     stub = Path(td_jobs) / "counting-claude.sh"
     stub.write_text(
         "#!/usr/bin/env bash\n"
-        'exec 9>"%s.lock"; flock 9\n'
+        # mkdir, not flock: flock is util-linux and macOS has none.
+        'L="%s.lock"; until mkdir "$L" 2>/dev/null; do sleep 0.01; done\n'
         'n=$(cat "%s" 2>/dev/null || echo 0)\n'
         "n=$((n+1))\n"
         'printf \'%%s\' "$n" > "%s"\n'
-        "flock -u 9\n"
+        'rmdir "$L"\n'
         # Each invocation is its own process, so $$ names it uniquely. Holding
         # the marker across a short sleep is what makes overlap observable at
         # all: without it every call could still be strictly sequential and
@@ -3910,8 +3911,9 @@ with tempfile.TemporaryDirectory() as td_cj:
     stub = Path(td_cj) / "claude.sh"
     stub.write_text(
         "#!/usr/bin/env bash\n"
-        'exec 9>"%s.lock"; flock 9\n'
+        'L="%s.lock"; until mkdir "$L" 2>/dev/null; do sleep 0.01; done\n'
         'n=$(cat "%s" 2>/dev/null || echo 0); n=$((n+1)); printf \'%%s\' "$n" > "%s"\n'
+        'rmdir "$L"\n'
         "cat <<'JSON'\n"
         '{"type":"result","is_error":false,"result":"{\\"verdict\\":\\"pass\\",\\"quote\\":\\"\\",'
         '\\"reason\\":\\"fresh\\"}","num_turns":1,"total_cost_usd":0.01,'
@@ -4921,10 +4923,10 @@ with tempfile.TemporaryDirectory() as td_log:
 # first). ThreadPoolExecutor.map submits every item up front, so stopping means
 # making the remaining items call nothing.
 _JUDGE_SEQ_STUB = """#!/usr/bin/env bash
-exec 9>"$CFILE.lock"; flock 9
+until mkdir "$CFILE.lock" 2>/dev/null; do sleep 0.01; done
 n=$(( $(cat "$CFILE" 2>/dev/null || echo 0) + 1 ))
 echo "$n" > "$CFILE"
-flock -u 9
+rmdir "$CFILE.lock"
 if [ "$n" = "$OK_CALL" ]; then
   echo '{"type":"result","is_error":false,"result":"{\\"verdict\\":\\"pass\\",\\"quote\\":\\"\\",\\"reason\\":\\"r\\"}","num_turns":1,"usage":{"output_tokens":1}}'
   exit 0
@@ -6492,32 +6494,35 @@ finally:
 # End to end against a real process list: a genuine sibling at a genuine
 # evals/bench/run.py path, so the guard is proven through main() and against
 # /proc itself rather than against the fixture above.
-with tempfile.TemporaryDirectory() as td_e2e_shard:
-    _sib_dir = Path(td_e2e_shard) / "evals" / "bench"
-    _sib_dir.mkdir(parents=True)
-    (_sib_dir / "run.py").write_text("import time\ntime.sleep(60)\n")
-    _snap_shard = Path(td_e2e_shard) / "snap.json"
-    _sib = subprocess.Popen([sys.executable, str(_sib_dir / "run.py")])
-    try:
-        _cmd_shard = [sys.executable, str(ROOT / "evals" / "bench" / "run.py"),
-                      "--claude-bin", "tests/stubs/claude-stub.sh",
-                      "--models", "haiku", "--reps", "1", "--cases", "floor",
-                      "--arms", "laconic", "--snapshot", str(_snap_shard)]
-        _r_shard = subprocess.run(_cmd_shard + ["--max-shards", "1"],
-                                  capture_output=True, text=True, cwd=str(ROOT))
-        check("subprocess: the sixth shard exits instead of starting",
-              _r_shard.returncode != 0)
-        check("subprocess: and says what the limit was",
-              "the limit is 1" in (_r_shard.stdout + _r_shard.stderr))
-        check("subprocess: it refuses before any work, so no snapshot is written",
-              not _snap_shard.exists())
-        _r_ok = subprocess.run(_cmd_shard + ["--max-shards", "0"],
-                               capture_output=True, text=True, cwd=str(ROOT))
-        check("subprocess: the same command runs with the bound disabled",
-              _r_ok.returncode == 0 and _snap_shard.exists())
-    finally:
-        _sib.kill()
-        _sib.wait()
+# Only where /proc exists: without it the guard lets every round through,
+# which the fixture checks above already cover (macOS has no /proc).
+if Path("/proc/self").exists():
+    with tempfile.TemporaryDirectory() as td_e2e_shard:
+        _sib_dir = Path(td_e2e_shard) / "evals" / "bench"
+        _sib_dir.mkdir(parents=True)
+        (_sib_dir / "run.py").write_text("import time\ntime.sleep(60)\n")
+        _snap_shard = Path(td_e2e_shard) / "snap.json"
+        _sib = subprocess.Popen([sys.executable, str(_sib_dir / "run.py")])
+        try:
+            _cmd_shard = [sys.executable, str(ROOT / "evals" / "bench" / "run.py"),
+                          "--claude-bin", "tests/stubs/claude-stub.sh",
+                          "--models", "haiku", "--reps", "1", "--cases", "floor",
+                          "--arms", "laconic", "--snapshot", str(_snap_shard)]
+            _r_shard = subprocess.run(_cmd_shard + ["--max-shards", "1"],
+                                      capture_output=True, text=True, cwd=str(ROOT))
+            check("subprocess: the sixth shard exits instead of starting",
+                  _r_shard.returncode != 0)
+            check("subprocess: and says what the limit was",
+                  "the limit is 1" in (_r_shard.stdout + _r_shard.stderr))
+            check("subprocess: it refuses before any work, so no snapshot is written",
+                  not _snap_shard.exists())
+            _r_ok = subprocess.run(_cmd_shard + ["--max-shards", "0"],
+                                   capture_output=True, text=True, cwd=str(ROOT))
+            check("subprocess: the same command runs with the bound disabled",
+                  _r_ok.returncode == 0 and _snap_shard.exists())
+        finally:
+            _sib.kill()
+            _sib.wait()
 
 
 # --- #272: the CLI release is read per run, not once per pass ---

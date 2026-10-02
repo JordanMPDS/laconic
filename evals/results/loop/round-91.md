@@ -123,3 +123,43 @@ the four snapshots before any count is read, per [#272].
 # Results
 
 *Nothing above this line was written after the numbers came in.*
+
+## Nothing fires
+
+*90 runs, 0 failed, four shards, all `--concurrency 4`. The `edit-service`
+shard was stopped by the session's background time limit at 12 of 20 runs and
+resumed with the registered command from the same tree. `release.py` finds
+all 90 runs on CLI 2.1.287, with no span to read.*
+
+| issue | counted | observed | fires at | 95% upper bound | median prose words |
+|---|---|--:|--:|--:|--:|
+| [#305] | settled answers over 80 prose words | **0/30** | 9 | 11.6% | 1 |
+| [#116] | `conditional` runs that edited a file | **0/20** | 5 | 16.8% | 117.5 |
+| [#113] | `edit-service` turn-3 closing offers | **0/20** | 3 | 16.8% | 168 (turn 5) |
+| [#46] | `design-alerting` over 600 prose words | **0/20** | 2 | 16.8% | 232 |
+
+Each zero was checked against the transcripts, not just the counter. All 30
+settled answers are the single word `Yes.`. Every `conditional` run used
+`Bash` alone, to read the fixture, and none wrote. Every `edit-service` run
+has five turns, and turn 3 ends on the defect it found, with no offer and no
+write in any of them. The longest `design-alerting` answer is 314 words.
+
+## The verdict
+
+**No open `rules` issue not measured in the last 72 hours fires on opus at
+master rules under CLI 2.1.287.** With rounds 88, 89 and 90, that covers all
+seven. The pre-mortem expected one fire, most likely #305. Instead #305 read
+the floor of its scale: opus answers the one-word question with one word,
+every time.
+
+Round 92 still owes a candidate, and none of the backlog's instruments can
+carry one. As registered, its next step is a case built closer to one report.
+The reports share a shape these cells do not: #305, #298, #113 and #46 each
+came from a long working session with several turns of the model's own prior
+material in context, while every cell here is a single turn or five short
+ones over a small fixture. Round 82 found the same for #46 when it held
+everything constant except depth. A case that carries a long prior context is
+the untested condition.
+
+No arm, rule or worktree was created, so there is nothing to revert or
+reclaim. The four snapshots stay.

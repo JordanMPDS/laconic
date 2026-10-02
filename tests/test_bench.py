@@ -5527,6 +5527,12 @@ _expected_concurrent = {
     # across the same four by case, every one declaring --concurrency 4. Only
     # the merge reaches the sweep, and it reconstructs to exactly those four.
     "benchmark-2026-09-24.json",
+    # Round 97's replication and holdout: four strictly sequential shards, two
+    # per side split by --rep-offset, every one declaring --concurrency 4. Only
+    # the merges reach the sweep, and each reconstructs to the two shards that
+    # produced its own side.
+    "round-97-rep-control.json", "round-97-rep-edit.json",
+    "round-97-holdout-control.json", "round-97-holdout-edit.json",
 }
 _found = set()
 for _p in sorted((ROOT / "evals" / "snapshots").rglob("*.json")):

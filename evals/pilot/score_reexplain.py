@@ -14,6 +14,11 @@ rationale before the definition request arrives. The manipulation is whether the
 content is already in the transcript, and nothing else.
 
     python3 evals/pilot/score_reexplain.py <control.json> <edit.json> [seed]
+    python3 evals/pilot/score_reexplain.py --told fullexplain <control.json> <edit.json> [seed]
+
+`--told` names the already-told family. Round 100 reads `fullexplain-*`, whose
+three middle turns were written at length on request, in place of
+`reexplain-*`; `explain-*` stays the cold placebo either way.
 
 The two snapshots are the two rules revisions, generated simultaneously from two
 worktrees per [round 38](../results/loop/round-38.md), because this project has
@@ -41,7 +46,8 @@ import metrics  # noqa: E402
 import run as bench_run  # noqa: E402
 
 STEMS = ("index", "metric", "rollback")
-FAMILIES = ("explain", "reexplain")
+TOLD = "reexplain"
+FAMILIES = ("explain", TOLD)
 SEED = 68
 
 #: Two-sided permutation on two independent samples. Shared with the other
@@ -62,7 +68,7 @@ def difference_of_differences(g):
     """
     def mean(key):
         return sum(g[key]) / len(g[key])
-    return ((mean(("edit", "reexplain")) - mean(("control", "reexplain")))
+    return ((mean(("edit", TOLD)) - mean(("control", TOLD)))
             - (mean(("edit", "explain")) - mean(("control", "explain"))))
 
 
@@ -168,6 +174,11 @@ def load(path, side, graded, cell, kept, counts, raw):
 
 
 def main():
+    global TOLD, FAMILIES
+    if sys.argv[1:2] == ["--told"]:
+        TOLD = sys.argv[2]
+        FAMILIES = ("explain", TOLD)
+        del sys.argv[1:3]
     if len(sys.argv) < 3:
         sys.exit(__doc__)
     seed = int(sys.argv[3]) if len(sys.argv) > 3 else SEED
@@ -191,11 +202,11 @@ def main():
 
     print("\n## The harm, on the control side: does already-told inflate the answer?")
     c_ex = graded[("control", "explain")]
-    c_re = graded[("control", "reexplain")]
+    c_re = graded[("control", TOLD)]
     print("   explain (cold)     n=%3d  median %6.1f words"
           % (len(c_ex), metrics.median(c_ex)))
-    print("   reexplain (told)   n=%3d  median %6.1f words"
-          % (len(c_re), metrics.median(c_re)))
+    print("   %-18s n=%3d  median %6.1f words"
+          % (TOLD + " (told)", len(c_re), metrics.median(c_re)))
     print("   ratio %.3f, p = %s"
           % ((metrics.median(c_re) / metrics.median(c_ex)) if c_ex and metrics.median(c_ex) else float("nan"),
              fmt(permutation(c_ex, c_re, seed))))
@@ -209,7 +220,7 @@ def main():
               % (fam, len(a), ma, mb, (mb / ma) if ma else float("nan"),
                  fmt(permutation(a, b, seed))))
 
-    print("\n   interaction (edit's effect on reexplain minus its effect on explain)")
+    print("\n   interaction (edit's effect on %s minus its effect on explain)" % TOLD)
     print("   raw words, p = %s" % fmt(interaction(graded, seed)))
     logged = log_words(graded)
     if logged is None:
@@ -223,7 +234,7 @@ def main():
 
     print("\n## Secondary: the same interaction per cell (consistency, not a verdict)")
     print("%-9s %-7s %19s %19s %9s"
-          % ("stem", "model", "explain c/e", "reexplain c/e", "log DiD"))
+          % ("stem", "model", "explain c/e", TOLD + " c/e", "log DiD"))
     diffs = []
     for stem in STEMS:
         for model in sorted({k[3] for k in cell}):
@@ -240,13 +251,13 @@ def main():
                 print("%-9s %-7s %19s %19s %9s"
                       % (stem, model, "-", "-", "(a median is zero)"))
                 continue
-            did = ((math.log(med[("edit", "reexplain")]) - math.log(med[("control", "reexplain")]))
+            did = ((math.log(med[("edit", TOLD)]) - math.log(med[("control", TOLD)]))
                    - (math.log(med[("edit", "explain")]) - math.log(med[("control", "explain")])))
             diffs.append(did)
             print("%-9s %-7s %19s %19s %9.3f"
                   % (stem, model,
                      "%.1f / %.1f" % (med[("control", "explain")], med[("edit", "explain")]),
-                     "%.1f / %.1f" % (med[("control", "reexplain")], med[("edit", "reexplain")]),
+                     "%.1f / %.1f" % (med[("control", TOLD)], med[("edit", TOLD)]),
                      did))
     p, neg, n = sign_test(diffs)
     print("\n   %d of %d cells negative, two-sided exact sign test p = %s"

@@ -11,6 +11,11 @@ not have passed however worded. Round 49 scored the identical text on the
 scored the edit on the quantity the issue is about.
 
     python3 evals/pilot/score_claims.py <control.json> <edit.json> [seed]
+    python3 evals/pilot/score_claims.py --register-family fullexplain <control.json> <edit.json> [seed]
+
+`--register-family` reads another family's turns 2 to 4 as `register-*`'s.
+`fullexplain-*` asks `register-*`'s first four turns byte for byte, so round
+100 scores its explicitly requested stretch with this file unchanged.
 
 This does. Both snapshots are the laconic arm; the group label is the rules
 revision, so the two sides come from two trees generated simultaneously, which
@@ -62,6 +67,8 @@ SIDES = ("control", "edit")
 FAMILIES = ("register", "deep")
 #: The licensed stretch: the three turns that ask for the full form.
 MIDDLE = (1, 2, 3)
+#: The family read as `register`; see `--register-family`.
+REGISTER_FAMILY = "register"
 #: Round 49's bound, carried forward verbatim. The licence has to still fire.
 LICENCE_FLOOR = 5.0
 
@@ -117,6 +124,7 @@ def collect(path):
         if r["arm"] != "laconic" or "-" not in r["case"]:
             continue
         family, stem = r["case"].split("-", 1)
+        family = "register" if family == REGISTER_FAMILY else family
         if family not in FAMILIES or stem not in STEMS:
             continue
         counts = [turn_words(r, i) for i in MIDDLE]
@@ -185,6 +193,10 @@ def stratified(control, edit, family, seed, log=True, resamples=50000,
 
 
 def main():
+    global REGISTER_FAMILY
+    if sys.argv[1:2] == ["--register-family"]:
+        REGISTER_FAMILY = sys.argv[2]
+        del sys.argv[1:3]
     if "--tokens" in sys.argv:
         for stem in STEMS:
             tokens = fixture_tokens(stem)

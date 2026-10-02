@@ -55,6 +55,8 @@ RELIST_AT, FIRE_AT = 5, 9
 ALPHA = 0.05
 SEED = 93
 ID = re.compile(r"\bOQ-0*(\d+)(?!\d)")
+# "OQ-3, 7, 11 and 30": bare numbers continuing a list that opened on an ID.
+LIST = re.compile(r"\bOQ-\d+((?:\s*(?:,\s*and|,|and|&|/)\s*(?:OQ-)?\d+(?!\d|\.\d))+)")
 RANGE = re.compile(r"\bOQ-0*(\d+)\s*(?:–|—|-|\.\.\.?|to|through|thru)\s*(?:OQ-)?0*(\d+)(?!\d)")
 
 
@@ -62,6 +64,8 @@ def named(text, stem):
     """The seeded open questions `text` names, as a set of their numbers."""
     seeded = SEEDED[stem]
     got = {int(n) for n in ID.findall(text)}
+    for tail in LIST.findall(text):
+        got.update(int(n) for n in re.findall(r"\d+", tail))
     for a, b in RANGE.findall(text):
         got.update(range(int(a), int(b) + 1))
     got.update(n for n, key in seeded.items() if key in text)
@@ -178,6 +182,9 @@ def selftest():
     assert named("OQ-3–11", "ledger") == {3, 7, 11}
     assert named("OQ-9 and OQ-27 are deliberate", "ledger") == set()
     assert named("OQ-140", "ledger") == set()
+    assert named("OQ-3, 7, 11, 14, 18, 21, 25 and 30 wait", "ledger") == set(SEEDED["ledger"])
+    assert named("OQ-2, 6, 10, 13, 17, 20, 24, and 28.", "scheduler") == set(SEEDED["scheduler"])
+    assert named("OQ-3, then 7.5 seconds", "ledger") == {3}
     listing = " ".join("OQ-%d" % n for n in SEEDED["ledger"])
 
     def run(rep, graded, t1=listing, t1_words=300):

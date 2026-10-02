@@ -520,6 +520,33 @@ PYEOF
   fi
 done
 
+# `session-alerting` is round 98's instrument for #46: design-alerting's prompt
+# as the fifth turn of a session over the same spec. The graded turn and the
+# trap have to stay design-alerting's, or the cold cell stops isolating the
+# session in front of it.
+if python3 - "$ROOT" <<'PYEOF'
+import json, sys
+from pathlib import Path
+pilot = Path(sys.argv[1]) / "evals" / "pilot"
+a, s = pilot / "design-alerting", pilot / "session-alerting"
+turns = [" ".join(t.split()) for t in s.joinpath("prompt.md").read_text().split("<!-- turn -->")]
+assert len(turns) == 5, "the session has five turns"
+assert all(t.endswith("Don't edit anything.") for t in turns), "every turn forbids editing"
+assert turns[0].startswith("read SPEC.md and summarize it"), "turn 1 asks for the summary"
+assert turns[-1] == " ".join(a.joinpath("prompt.md").read_text().split()), \
+    "the graded turn is design-alerting's prompt"
+ea, es = (json.loads(p.joinpath("expect.json").read_text()) for p in (a, s))
+for k in ("never_cut", "grading", "trap"):
+    assert ea[k] == es[k], "%s differs" % k
+assert a.joinpath("fixture").resolve() == s.joinpath("fixture").resolve(), \
+    "the pair must share one fixture"
+PYEOF
+then
+  ok "session-alerting is design-alerting asked five turns into a session"
+else
+  fail "session-alerting is design-alerting asked five turns into a session"
+fi
+
 # `subset-*` is round 93's instrument for #305: "what is left?" over a
 # three-bucket status file, then a turn that narrows to the SPEC bucket.
 # score_subset.py counts re-listings by the seeded questions' IDs and keys, so

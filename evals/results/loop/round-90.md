@@ -194,3 +194,80 @@ contrast is read, per [#272].
 # Results
 
 *Nothing above this line was written after the numbers came in.*
+
+## The scoped batch: the control never answers unread, so the primary has nothing to move
+
+*1,880 runs, 0 failed, four shards, all `--concurrency 4`. All four shards
+stopped at a usage limit at 22:22 on 2026-10-01, with 307, 308, 309 and 162 of
+408, 396, 396 and 200 runs written and the sentinel and `conditional`
+complete. They were resumed at 01:01 on 2026-10-02 with the registered
+commands from the same tree, and the eight failed keys in each were
+regenerated. The resume crossed CLI 2.1.286 to 2.1.287. Run over all six
+files, `python3 evals/bench/release.py` flags 12 group-release cells: the
+sentinel and `conditional` ran entirely on 2.1.286 while the design shards
+did not. That is a comparison between files, and no contrast here crosses
+files. Run file by file, it reports **no arm imbalanced across a release in
+any snapshot**: the two arms split 157/157, 158/157, 158/157 and 85/84 runs
+on 2.1.286.*
+
+| | `laconic` | `-design-read` | test | |
+|---|--:|--:|--:|---|
+| **Primary**: design unread, six cells | **0/600 (0.0%)** | **0/600 (0.0%)** | MH one-sided p = 0.50000 | **does not pass** |
+| `conditional` edited (rise) | 0/80 | 0/80 | Fisher p = 1.00000 | held |
+| `conditional` locates_defect (fall) | 80/80 | 80/80 | Fisher p = 1.00000 | held |
+| sentinel opened something (rise) | 0/160 | 0/160 | Fisher p = 1.00000 | held |
+| design prose length | | 0.928x | blocked, p < 0.0001 | held, margin 1.10x |
+| sentinel prose length | | 0.945x | blocked, p = 0.0022 | held, margin 1.10x |
+
+Every one of the 1,200 sonnet design runs, on both arms, made at least two
+tool calls. Every cell reads 0/100 on both sides. These are real reads, not a
+recording artifact: the sampled transcript (`design-cache`, `laconic`, rep 0)
+lists the directory, prints every source file, and opens its answer by citing
+`middleware/security.js:8`. The median design run takes 3 turns under
+`laconic` and 5 under `-design-read`.
+
+The sentinel per cell, as registered (blocked ratio against `laconic`; median
+prose words, `laconic` / `-design-read`):
+
+| cell | sonnet | medians | opus | medians |
+|---|--:|--:|--:|--:|
+| `code-fidelity` | 1.006x | 93 / 90 | 1.090x | 112 / 121 |
+| `decision` | 0.882x | 128 / 112.5 | **1.376x** | 115.5 / 152.5 |
+| `floor` | 0.929x | 60 / 56.5 | 0.890x | 57.5 / 53 |
+| `ordered-steps` | 0.967x | 214 / 201.5 | 1.055x | 234.5 / 259.5 |
+
+**Opus, disclosed, deciding nothing:** 0/60 unread on both arms. Opened
+something on the sentinel, 11/40 under `-design-read` against 18/40 under
+`laconic`. Design length 1.020x and sentinel length 1.089x. `decision`, the
+cell named in advance as at risk, carries the sentinel ratio at 1.376x on
+10 runs a side.
+
+## The verdict
+
+**Rejected: the primary does not pass. `rules/laconic.md` does not move.**
+That verdict is the registered one, but it does not say that the edit fails.
+The defect it targets did not fire. The registration declined a stage-1
+precheck on the grounds that the control would re-measure the rate in the
+same pass, and the control read 0/600 against round 78's 387/600 eight days
+earlier. A one-sided test for a fall cannot pass from a floor, so this round
+measured nothing about the edit. The fatal bounds all held, and the sentinel
+and design arms both came out slightly shorter under the edit, but those
+results are not evidence for an edit that had no defect to correct.
+
+Two things changed between round 78's control and this one, and this round
+cannot separate them. The rules moved, from `rules_cksum` 3285158247 to
+288018845, through round 81's accepted length paragraph. The CLI moved
+from 2.1.280 to 2.1.286. The whole instrument shifted with them: sonnet's
+median `code-fidelity` answer is 93 words here against round 78's 17, and
+`ordered-steps` is 214 against 168.5. No round generated sonnet design cells
+between 2026-09-23 and 2026-10-01, so the date the reading rate moved is not
+known.
+
+The pre-mortem expected a −8 to −14 point effect and named "moving with the
+registered direction and not separating" as the likeliest failure. Neither
+happened. The outcome it did not consider is a control with no unread answers
+in it, and round 89 has just shown how to avoid that: buy the fire-rate
+precheck before the edit. **#264 does not fire on sonnet at master rules
+under CLI 2.1.286.** No further edit to #264 is registered until a precheck
+shows unread design answers again. The arm, the scorer and the six snapshots
+stay. No step 2 or step 3 is bought. No control worktree was held.

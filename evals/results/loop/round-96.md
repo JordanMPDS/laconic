@@ -164,6 +164,70 @@ DeepSeek and Kimi all timed out or exited without one.
 
 <!-- Nothing above this line has been computed. -->
 
+## Result: the back-reference drops the two deliberate non-decisions
+
+**Reject, labelled `failed-gate`**: the registered primary replicated, the
+three turn-1 bounds held, and bar 4, judged quality on the graded turn, did
+not. The bullet and its pair are reverted from `rules/laconic.md` and
+`rules/dist/`. The spillover screen was not bought.
+
+90 runs a side, 0 failed, both sides on CLI 2.1.287 (`release.py`: no span, no
+imbalance). The edit side started about ten minutes before the control: a first
+launch was stopped after writing some edit runs and resumed, and the control's
+first launch failed on a shell error before writing anything.
+
+| bar | control | edit | p | |
+|---|--:|--:|--:|---|
+| 1. mean re-listings, graded turn | 8.00 | 0.53 | < 0.0001 (two-sided) | **pass** |
+| 2. turn-1 IMPL/VAL items covered, mean of 11 | 11.00 | 11.00 | 0.500 (one-sided) | holds |
+| 2b. turn-1 median prose words, ratio to control | 189.0 | 179.0 | ratio 0.947, floor 0.85 | holds |
+| 3. turn-1 seeded questions named | 8.00 | 7.86 | 0.123 (one-sided) | holds |
+| 4. graded-turn panel quality | 90/90 | 83/90 | 0.0069 (one-sided Fisher) | **fatal** |
+| disclosed: round 95's bar 2, turn-1 mean log prose words | 5.24 | 5.19 | 0.0022 (one-sided) | |
+| disclosed: graded prose words, median | 54.0 | 49.0 | | |
+
+**The primary replicated round 95.** Re-listings fell from 8.00 to 0.53 a
+graded turn, against round 95's 7.82 to 0.13. Turn 1 shortened again by about
+5%, and again kept every item: 11 of 11 IMPL and VAL items in every run on both
+sides.
+
+**The edit reaches turn 1 a little.** Three edit inventories counted the eight
+seeded questions instead of naming them ("eight of the ten are waiting on the
+measurement pass"); no control inventory did. Bar 3 holds at p = 0.123, and
+each of the three still covered every IMPL and VAL item.
+
+**All seven quality failures are one failure, and it is the one the pre-mortem
+named.** Six are on `subset-scheduler`, one on `subset-gateway`. Each answers
+with the eight seeded values by back-reference and says nothing about the two
+deliberate non-decisions, or names them only as exclusions:
+
+> Only the eight seeded values from my last answer remain. All eleven sections
+> are closed, and Appendix B is empty. Those eight values can't be finalized
+> until the load-test measurement pass runs, and that pass depends on IMPL-1
+> through IMPL-6 being built.
+
+The two non-decisions had also been listed by name in turn 1, so the bullet's
+"items you already listed by name get a count or a back-reference" covers them
+too, and on these runs opus gave them neither. The panel decided all 90 edit
+verdicts with no split: sonnet and opus agreed on every one, and kimi agreed on
+62 of the 65 it voted on, with 25 failed votes.
+
+**Whether the trap is right to fail these is a fair question and not this
+round's to settle.** The non-decisions are not work, and "what is left to
+finish" can be answered without them. But the trap was written before rounds
+93 to 96 and was registered here as a fatal falsifier, so it decides.
+
+The pre-mortem named bar 4 as the likeliest failure, through the mechanism
+observed: "opus folding OQ-9 and OQ-27 into 'the same ten open questions' and no
+longer saying they are left open on purpose". The exact form differs, since
+opus dropped them rather than folding them in. The registered branch for a bar 4
+failure applies: the next candidate on #305 names what a back-reference must
+still carry, so that items left out of the subset are accounted for rather than
+dropped.
+
+The control worktree was removed once the round was scored. All four snapshots
+stay.
+
 [#305]: https://github.com/JordanMPDS/laconic/issues/305
 [#353]: https://github.com/JordanMPDS/laconic/issues/353
 [#164]: https://github.com/JordanMPDS/laconic/issues/164

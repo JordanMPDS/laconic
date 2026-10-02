@@ -488,6 +488,38 @@ PYEOF
   fi
 done
 
+# `narrow-*` is round 92's instrument for #305's narrowing follow-up:
+# `settled-*`'s question asked as turn 2, after a turn 1 that requested a full
+# inventory of the same record. The graded turn has to stay the settled
+# question, or the contrast with `settled-*` stops isolating the prior turn.
+for stem in retention failover rounding; do
+  a="$ROOT/evals/pilot/settled-$stem"
+  n="$ROOT/evals/pilot/narrow-$stem"
+  if python3 - "$a" "$n" <<'PYEOF'
+import json, sys
+from pathlib import Path
+a, n = Path(sys.argv[1]), Path(sys.argv[2])
+turns = n.joinpath("prompt.md").read_text().split("<!-- turn -->")
+assert len(turns) == 2, "the narrow half has exactly two turns"
+pa = " ".join(a.joinpath("prompt.md").read_text().split())
+t1, t2 = (" ".join(t.split()) for t in turns)
+assert t1.endswith("Don't edit anything."), "turn 1 must forbid editing"
+assert "full inventory" in t1, "turn 1 must ask for the inventory"
+assert pa.endswith(" — " + t2) and pa.startswith(t1.split(" — ")[0] + " — "), \
+    "turn 2 must be the settled prompt with its read clause removed"
+ea, en = (json.loads(p.joinpath("expect.json").read_text()) for p in (a, n))
+for k in ("never_cut", "grading", "trap"):
+    assert ea[k] == en[k], "%s differs" % k
+assert a.joinpath("fixture").resolve() == n.joinpath("fixture").resolve(), \
+    "the pair must share one fixture"
+PYEOF
+  then
+    ok "narrow-$stem is settled-$stem asked after an inventory turn"
+  else
+    fail "narrow-$stem is settled-$stem asked after an inventory turn"
+  fi
+done
+
 # `contra-*` is the fourth member of each family and the unchecked-confirmation
 # bound for round 72. Its prompt is `settled-*`'s byte for byte and its fixture
 # is a *separate* record stating the opposite, so the question cannot be told

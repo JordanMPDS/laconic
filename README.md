@@ -146,7 +146,7 @@ Destinations per agent, and what a static file gives up against the hook, are in
 
 Both implementations share one flag file, so a machine used from both WSL and
 native Windows keeps a single level. CI runs the bash suites on `ubuntu-latest`
-and the PowerShell suite on `windows-latest`, including a check that each
+and `macos-latest` and the PowerShell suite on `windows-latest`, including a check that each
 implementation reads a flag the other wrote.
 
 ## Benchmark

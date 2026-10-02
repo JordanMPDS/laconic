@@ -58,6 +58,30 @@ SEEDED = {
                 19: "circuit_open_ms", 23: "max_header_kb", 26: "retry_budget_pct",
                 31: "tls_session_cache"},
 }
+# Round 96: each IMPL/VAL item, by stem: a description regex matched case-insensitively.
+# Lookarounds keep a seeded key (`cron_jitter_ms`) from counting as its item.
+ITEMS = {
+    "ledger": {
+        "IMPL-1": r"multi-?currency", "IMPL-2": r"sweep", "IMPL-3": r"alert",
+        "IMPL-4": r"replay", "IMPL-5": r"(?<!_)cach(e|ing)(?!_)", "IMPL-6": r"postgres|in-memory|idempotency (store|table)",
+        "IMPL-7": r"adapter", "IMPL-8": r"histogram|posting latency",
+        "VAL-1": r"conformance|vectors?\b", "VAL-2": r"audit[- ]trail|ordering", "VAL-3": r"\bCI\b|pull requests?|\bPRs?\b"},
+    "scheduler": {
+        "IMPL-1": r"reclaim", "IMPL-2": r"steal(?!_)|stealing", "IMPL-3": r"(?<!_)jitter(?!_)",
+        "IMPL-4": r"dead[- ]letter|parked|parking", "IMPL-5": r"(?<!_)shard(ing|s)?(?!_)|coordinator",
+        "IMPL-6": r"(?<!_)grace(?!_)|preemption", "IMPL-7": r"pause|resume|admin",
+        "IMPL-8": r"gauge|queue[- ]depth",
+        "VAL-1": r"conformance|vectors?\b", "VAL-2": r"at[- ]most[- ]once", "VAL-3": r"\bCI\b|pull requests?|\bPRs?\b"},
+    "gateway": {
+        "IMPL-1": r"evict", "IMPL-2": r"(?<!_)burst(?!_)", "IMPL-3": r"response cach|cach(e|ing) (is |has )?(not|n't) (been )?started|\bcache layer",
+        "IMPL-4": r"half[- ]open|circuit[- ]breaker", "IMPL-5": r"header (limit|size)|response headers?|headers? (on|in|of) responses",
+        "IMPL-6": r"retry budget|unbounded", "IMPL-7": r"resumption|\bTLS\b",
+        "IMPL-8": r"histogram|upstream latency",
+        "VAL-1": r"conformance|vectors?\b", "VAL-2": r"forwarding", "VAL-3": r"\bCI\b|pull requests?|\bPRs?\b"},
+}
+ITEM_ID = re.compile(r"\b(IMPL|VAL)-0*(\d+)((?:\s*(?:,\s*and|,|and|&|/)\s*(?:(?:IMPL|VAL)-)?\d+(?!\d))*)")
+ITEM_RANGE = re.compile(r"\b(IMPL|VAL)-0*(\d+)\s*(?:–|—|-|to|through)\s*(?:(?:IMPL|VAL)-)?0*(\d+)(?!\d)")
+SHORTER_AT = 0.85
 RELIST_AT, FIRE_AT = 5, 9
 LONG_AT = 150
 ALPHA = 0.05
@@ -78,6 +102,16 @@ def named(text, stem):
         got.update(range(int(a), int(b) + 1))
     got.update(n for n, key in seeded.items() if key in text)
     return got & set(seeded)
+
+
+def covered(text, stem):
+    """The IMPL/VAL items `text` covers, by ID, ID list or range, or by description."""
+    got = set()
+    for kind, first, tail in ITEM_ID.findall(text):
+        got.update("%s-%d" % (kind, int(n)) for n in [first] + re.findall(r"\d+", tail))
+    for kind, a, b in ITEM_RANGE.findall(text):
+        got.update("%s-%d" % (kind, n) for n in range(int(a), int(b) + 1))
+    return {k for k, rx in ITEMS[stem].items() if k in got or re.search(rx, text, re.I)}
 
 
 def stem_of(r):
@@ -141,8 +175,12 @@ def one_sided_fall(control, edit):
     return p / 2 if sum(edit) / len(edit) < sum(control) / len(control) else 1 - p / 2
 
 
-def compare(control, edit, cj=None, ej=None):
-    """Print every bar; return True only if the primary passes and every bound holds."""
+def compare(control, edit, cj=None, ej=None, coverage=False):
+    """Print every bar; return True only if the primary passes and every bound holds.
+
+    `coverage` is round 96's bar 2: turn 1 may not cover fewer IMPL/VAL items, and its
+    median prose words may not fall below SHORTER_AT of control's. Round 95's bar 2, a
+    one-sided test on mean log prose words, is then disclosed instead of deciding."""
     if not control or not edit:
         print("a side is empty: no verdict")
         return False
@@ -156,15 +194,30 @@ def compare(control, edit, cj=None, ej=None):
           % (metrics.median([words(r) for r in control]), metrics.median([words(r) for r in edit])))
 
     holds = True
-    for label, f in (("turn-1 inventory log prose words",
-                      lambda r: math.log(max(words(r["turns"][0]), 1))),
-                     ("turn-1 seeded questions named", lambda r: len(named(turn_text(r, 0), stem_of(r))))):
+    bounds = [("turn-1 inventory log prose words",
+               lambda r: math.log(max(words(r["turns"][0]), 1))),
+              ("turn-1 seeded questions named", lambda r: len(named(turn_text(r, 0), stem_of(r))))]
+    if coverage:
+        bounds.insert(1, ("turn-1 IMPL/VAL items covered",
+                          lambda r: len(covered(turn_text(r, 0), stem_of(r)))))
+    for label, f in bounds:
         c, e = [f(r) for r in control], [f(r) for r in edit]
         p1 = one_sided_fall(c, e)
         ok = p1 is None or p1 >= ALPHA
+        disclosed = coverage and label.endswith("prose words")
+        if not disclosed:
+            holds &= ok
+        print("%s, %s: control mean %.2f, edit mean %.2f, one-sided p = %s: %s"
+              % ("disclosed" if disclosed else "bound", label, sum(c) / len(c), sum(e) / len(e),
+                 "n/a" if p1 is None else "%.4f" % p1,
+                 "-" if disclosed else "holds" if ok else "FATAL"))
+    if coverage:
+        mc1 = metrics.median([words(r["turns"][0]) for r in control])
+        me1 = metrics.median([words(r["turns"][0]) for r in edit])
+        ok = me1 >= SHORTER_AT * mc1
         holds &= ok
-        print("bound, %s: control mean %.2f, edit mean %.2f, one-sided p = %.4f: %s"
-              % (label, sum(c) / len(c), sum(e) / len(e), p1, "holds" if ok else "FATAL"))
+        print("bound, turn-1 median prose words: control %.1f, edit %.1f, ratio %.3f, floor %.2f: %s"
+              % (mc1, me1, me1 / mc1, SHORTER_AT, "holds" if ok else "FATAL"))
 
     vc, ve = verdicts(cj), verdicts(ej)
     if vc and ve:
@@ -271,6 +324,15 @@ def selftest():
     assert not compare(ctl, ctl)
     assert not compare(ctl, [run(i, "eight", t1_words=20) for i in range(30)])
     assert not compare(ctl, [run(i, "eight", t1="OQ-3 only") for i in range(30)])
+    assert covered("IMPL-1 to IMPL-8 are open; VAL-1, 2 and 3 fail", "ledger") == set(ITEMS["ledger"])
+    assert covered("`cron_jitter_ms`, `shard_count`, `preempt_grace_s`", "scheduler") == set()
+    assert covered("no jitter yet, work stealing not started", "scheduler") == {"IMPL-2", "IMPL-3"}
+    inv = "IMPL-1 to IMPL-8 open; VAL-1 to VAL-3 open. " + listing
+    ctl = [run(i, listing, t1=inv) for i in range(30)]
+    assert compare(ctl, [run(i, "eight", t1=inv, t1_words=280) for i in range(30)], coverage=True)
+    assert not compare(ctl, [run(i, "eight", t1=inv, t1_words=200) for i in range(30)], coverage=True)
+    assert not compare(ctl, [run(i, "eight", t1=inv.replace("IMPL-1 to IMPL-8", "IMPL-1"))
+                             for i in range(30)], coverage=True)
 
     def deep_run(rep, n_words, stem="ledger"):
         r = run(rep, " ".join(["word"] * n_words))
@@ -308,7 +370,8 @@ def main(argv):
             return
         ok = compare(load(opts["--control"]), load(opts["--edit"]),
                      (opts.get("--control-judgments") or [None])[0],
-                     (opts.get("--edit-judgments") or [None])[0])
+                     (opts.get("--edit-judgments") or [None])[0],
+                     "--coverage" in opts)
         sys.exit(0 if ok else 1)
     sys.exit(__doc__)
 

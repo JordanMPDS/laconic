@@ -242,6 +242,17 @@ graded turn's complete answer is still one word, so the contrast with
 `settled-*` isolates the prior inventory. `tests/test_evals_layout.sh` holds the
 pair to that contract; scored by `score_narrow.py`.
 
+## `session-alerting`
+
+Round 98's instrument for [#46]: `design-alerting`'s prompt, byte for byte, as
+the fifth turn of a session over the same `SPEC.md`. Turn 1 asks for a summary
+of the spec and turns 2 to 4 are closed questions it answers in a sentence, so
+the graded turn is asked with the model's own account of the document in
+context after a terse stretch, which is the report's shape. `design-alerting`
+is symlinked in so the cold cell is generated in the same pass.
+
+[#46]: https://github.com/JordanMPDS/laconic/issues/46
+
 ## `subset-ledger`, `subset-scheduler`, `subset-gateway`
 
 [Round 93](../results/loop/round-93.md)'s instrument for [#305]'s narrowing

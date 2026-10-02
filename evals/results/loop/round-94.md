@@ -129,3 +129,38 @@ and DeepSeek did not answer.
 ## Results
 
 <!-- Nothing above this line has been computed. -->
+
+**Does not fire.** 0 of 30 deep graded turns run over 150 prose words, against
+a screen of 9; the longest is 74. The shallow arm shows 0 of 30 too, longest
+96, so the instrument has not drifted since round 93. All 60 runs completed,
+none failed, every one on CLI 2.1.287.
+
+```
+graded turn on opus, master rules: shallow 30 runs, deep 30 runs
+  stem       depth     n  words median      > 150 re-listed >= 5    wrote
+  ledger     shallow  10          51.0          0              9        0
+  ledger     deep     10          58.5          0              9       10
+  scheduler  shallow  10          51.5          0             10        0
+  scheduler  deep     10          59.5          0             10       10
+  gateway    shallow  10          59.0          0             10        0
+  gateway    deep     10          62.0          0             10       10
+
+deep graded turns over 150 prose words: 0/30, fires at >= 9: does not fire
+disclosed: shallow graded turns over 150 prose words: 0/30
+depth contrast, mean log graded words, within stem: deep - shallow +0.071 (x1.07), two-sided p = 0.1197
+```
+
+The depth contrast is a 7% lengthening at p = 0.12, not significant. Re-listing
+of at least 5 of the 8 seeded questions is unchanged by depth, 29 of 30 at both.
+Every deep run wrote to the workspace, which turns 3 and 4 ask for; no shallow
+run wrote anything.
+
+The pre-mortem expected no fire and got it, without even the modest contrast
+it named as likeliest. What this licenses is the registered narrow claim: at
+six turns of this kind, opus does not produce #305's length on the narrowing
+question. A twelve-turn session, or one whose turns the model wrote at length,
+is untouched.
+
+**Round 95 owes an edit** and, per the registered null branch, takes it from
+the `rules` issue with the strongest current fire: #305's re-listing on
+`subset-*`, which fired 29 of 30 at each depth here and 87 of 90 in round 93.

@@ -147,3 +147,55 @@ answer.
 ## Results
 
 <!-- Nothing above this line has been computed. -->
+
+## Result: the edit removes the re-listing and shortens the inventory
+
+**Reject, labelled `failed-gate`**: the registered primary passed and bar 2, a
+fatal bound, did not hold. The bullet and its pair are reverted from
+`rules/laconic.md` and `rules/dist/`.
+
+90 runs a side, 0 failed, both sides on CLI 2.1.287, generated simultaneously
+from two trees (`release.py`: no span, no imbalance).
+
+| bar | control | edit | p | |
+|---|--:|--:|--:|---|
+| 1. mean re-listings, graded turn | 7.82 | 0.13 | < 0.0001 (two-sided) | **pass** |
+| 2. turn-1 mean log prose words | 5.26 | 5.20 | 0.0003 (one-sided) | **fatal** |
+| 3. turn-1 seeded questions named | 8.00 | 8.00 | 0.500 (one-sided) | holds |
+| disclosed: graded prose words, median | 51.0 | 48.0 | | |
+| disclosed: turn-1 prose words, median | 194.0 | 184.5 | | |
+
+| stem | control re-listing ≥ 5 | edit re-listing ≥ 5 | turn-1 median, control | turn-1 median, edit |
+|---|--:|--:|--:|--:|
+| ledger | 29/30 | 1/30 | 180.0 | 174.0 |
+| scheduler | 29/30 | 0/30 | 194.5 | 185.0 |
+| gateway | 30/30 | 0/30 | 206.0 | 196.5 |
+
+**The target moved as far as it could.** 88 of 90 control graded turns
+re-listed at least five of the eight; 1 of 90 edit graded turns did. The edit's
+graded turns read like #305's own 40-word ideal, for example: "Nothing at the
+spec level blocks finishing tally. The only remaining spec work is the load-test
+measurement pass, which settles the eight placeholder questions I listed
+earlier. The other two, OQ-9 and OQ-27, are meant to stay open." The graded
+turn kept about the same length, because the IDs were replaced with a
+back-reference sentence.
+
+**The edit also shortened turn 1, which it does not address.** The inventory
+fell about 5% in prose words, in all three stems, while still naming all
+eight seeded questions in every run. Bar 2 was registered as fatal so that
+the primary could not fall because the inventory stopped listing. Bar 3 shows
+that did not happen, but bar 2 is the registered bar, and it failed.
+
+**Bar 4 and the spillover screen were not bought.** A fatal bound had already
+failed, so no reading of either could make the round accept. No judgments file
+exists for this round, and nothing here claims the graded turn's quality held.
+
+The pre-mortem expected bar 1 to separate, and it did. It named bar 4 as the
+likeliest failure; the failure came from bar 2 instead. Round 93's reading (a)
+gains support: what to do with the already-listed items was the missing piece,
+since the same situation without that instruction moved the count by 0.18.
+Whether the turn-1 shortening comes from this bullet's content or from any added
+`full` text is not separated here.
+
+The control worktree was removed once the round was scored. Both snapshots
+stay.

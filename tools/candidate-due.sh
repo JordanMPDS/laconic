@@ -146,7 +146,8 @@ fi
 
 cd "$(dirname "$0")/.."
 
-mapfile -t nums < <(round_numbers)
+# Not mapfile: it is bash 4, and macOS ships bash 3.2.
+nums=($(round_numbers))
 if [ "${#nums[@]}" -eq 0 ]; then
   echo "no round document found under $ROUNDS — cannot tell what the last round did."
   exit 1

@@ -165,7 +165,9 @@ if [ "${1:-}" = "--selftest" ]; then
 
   # Half a release: the version bumped, the tag never cut. The diff alone reads
   # this as an ordinary patch, so it is tested separately from the diff.
-  sed -i 's/0\.3\.0/0.4.0/' "$r/.claude-plugin/plugin.json"
+  # A suffix, because BSD sed reads a bare -i as taking the next argument as one.
+  sed -i.bak 's/0\.3\.0/0.4.0/' "$r/.claude-plugin/plugin.json"
+  rm "$r/.claude-plugin/plugin.json.bak"
   git -C "$r" commit -qam 'release 0.4.0'
   out=$(due); st=$?
   check "a bump with no tag says to tag it, not to bump again" \

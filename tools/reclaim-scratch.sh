@@ -89,7 +89,9 @@ if [ "${1:-}" = "--selftest" ]; then
     printf 'FAIL %s\n  wanted exit %s, got %s\n' "$1" "$2" "$3"
   }
 
-  tmp=$(mktemp -d) || exit 1
+  # Resolved, because the script reports physical paths and macOS's /var is a
+  # symlink to /private/var.
+  tmp=$(cd "$(mktemp -d)" && pwd -P) || exit 1
   trap 'rm -rf "$tmp"' EXIT
 
   # A real repository with a real origin, because every predicate here is a git

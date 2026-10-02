@@ -231,3 +231,13 @@ issue it was written for.
 [#113]: https://github.com/JordanMPDS/laconic/issues/113
 [#259]: https://github.com/JordanMPDS/laconic/issues/259
 [#116]: https://github.com/JordanMPDS/laconic/issues/116
+
+## `narrow-failover`, `narrow-retention`, `narrow-rounding`
+
+[Round 92](../results/loop/round-92.md)'s instrument for [#305]'s narrowing
+follow-up. Each is `settled-*` asked as turn 2, after a turn 1 that requests the
+full inventory of the same decision record: same fixture by symlink, same trap,
+and turn 2 is the settled question with its "read X.md —" clause removed. The
+graded turn's complete answer is still one word, so the contrast with
+`settled-*` isolates the prior inventory. `tests/test_evals_layout.sh` holds the
+pair to that contract; scored by `score_narrow.py`.

@@ -125,3 +125,41 @@ Codex did not answer within its timeout.
 ---
 
 ## Results
+
+**Null: #46 does not fire five turns into a session on opus.** 40 runs, CLI
+2.1.287 throughout (`release.py`: one release, no unreadable span), `rules_cksum`
+3660436060, `--turn-delivery plugin`, level `full`.
+
+```
+session-alerting  n=20  graded median  153.0  max   214  over 600: 0
+design-alerting   n=20  graded median  242.5  max   303  over 600: 0
+  session turn 1 median  422.5  (n=20)
+  session turn 2 median   48.0  (n=20)
+  session turn 3 median   23.0  (n=20)
+  session turn 4 median   21.5  (n=20)
+
+session over 600: 0/20 against a bar of 2; cold 0/20: NULL
+```
+
+The instrument did what it was built to do: turn 1 put a summary of about 420
+prose words in context and the three closed turns stayed between 21 and 48. The
+graded turn then ran no longer than it does cold. It ran shorter: the geometric
+mean of the session's graded turns is **0.62x** the cold cell's, permutation
+p = 0.000005 (seed 98, two-sided, unregistered and disclosed). No graded answer
+in either cell carried a heading, against the report's eight H2 sections.
+
+So the model's own account of the document in context, followed by a terse
+stretch, does not bring back the essay at current rules; if anything it
+licenses a shorter answer, because the summary already covers what the cold
+answer has to restate. With rounds 82 and 91 that is 0 of 112 opus laconic
+responses over 600 words on three instruments.
+
+**What follows, as registered.** #46 is recorded as not reproducing with the
+model's own summary in context. Round 99 has to carry a candidate and takes
+another `rules` issue. The one condition of the report that no instrument has
+modelled is ponytail co-active at `full`, whose own licence for full-length
+explanations no harness arm reproduces; that would need a new arm in `run.py`,
+a harness change rather than a case.
+
+The four shard files were merged into `round-98.json` and are not committed;
+`metadata.shards` records them.

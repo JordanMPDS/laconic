@@ -194,3 +194,77 @@ its timeout.
 ## Results
 
 <!-- Nothing above this line has been computed. -->
+
+## Result: rejected on bar 1, for want of headroom, and on bar 2
+
+**Reject, labelled `noise-floor`.** Bar 1 did not separate and pointed the
+wrong way, and bar 2's fatal coverage bound failed as well. The bullet is
+reverted from `rules/laconic.md` and `rules/dist/` in this PR, so master's
+rules are unchanged at `rules_cksum` 3660436060.
+
+240 runs, 0 failed, `cases_cksum` 3178833469 on both sides; `rules_cksum`
+3660436060 on every control and 2672697832 on every edit. The first pass
+stopped at a usage limit at 18:57 UTC with about half of each shard written,
+and the same four commands resumed by key from 21:56, after the control
+worktree had been recreated at `ec281f2`. The resume crossed a CLI release:
+control 44 runs on 2.1.287 and 76 on 2.1.288, edit 47 and 73. `release.py`
+finds no unreadable span and no imbalance (p = 0.790). `merge.py`
+reconstructs 2 in flight per side from the timestamps against the declared
+4. The panel was not run, because bar 4 is bought only if bars 1 to 3 pass.
+
+### Bars 1 to 3
+
+| bar | control | edit | p | |
+|---|--:|--:|--:|---|
+| 1. graded-turn prose words, log difference of differences (aligned residuals) | | ratio of ratios 1.015 | 0.863 (two-sided) | **fails** |
+| &nbsp;&nbsp;`fullexplain-*` median | 53.0 | 55.0 | 0.504 | |
+| &nbsp;&nbsp;`explain-*` median | 140.5 | 141.0 | 0.859 | |
+| 2. fixture-token coverage, turns 2 to 4, stem-stratified | | ratio 0.948 | 0.021 (one-sided) | **fails, fatal** |
+| 2b. prose words, turns 2 to 4, stem-stratified | | ratio 1.009 | floor 0.85 | holds |
+| 3. `date_trunc` kept on the `index` graded turn | 40/40 | 40/40 | | holds |
+| 4. panel quality, `fullexplain-*` graded turn | | | | not bought |
+
+Per stem, as disclosed:
+
+| stem | `explain` c / e | `fullexplain` c / e | log DiD | coverage c / e (of) |
+|---|--:|--:|--:|--:|
+| `index` | 128.0 / 117.0 | 48.5 / 51.0 | 0.140 | 17.0 / 16.0 (37) |
+| `metric` | 119.5 / 133.5 | 39.5 / 36.5 | -0.190 | 16.0 / 14.5 (24) |
+| `rollback` | 204.0 / 197.5 | 75.5 / 84.0 | 0.139 | 24.0 / 24.0 (30) |
+
+One of three cells is negative, sign test p = 1.000. The raw-token format
+check moves with the prose count (`fullexplain` 69.0 against 66.0 raw tokens),
+so nothing here is markup.
+
+**Opus has no headroom on this instrument.** The control's told answer is
+0.377 of the cold one, 53.0 against 140.5 prose words, p < 0.0001. After three
+turns written at length on request, opus already answers the definition
+question in about a third of the words it uses cold. That is the same
+direction as rounds 68 (0.415) and 89 (0.500), and further from #298's
+report than either. There is little left for a pointer to remove, and the
+edit removed none of it. The pre-mortem's likeliest outcome is what happened.
+
+**Bar 2 fails on its own, and it is the cost the registration priced.** On
+the turns that ask for the full form the edit covers about 5% fewer fixture
+tokens, one-sided p = 0.021, from `index` and `metric`, while their prose
+length did not fall (bar 2b holds at 1.009). The pointer reaches requested
+full answers as a paraphrase that drops named fixture items rather than as a
+shortening, which is the case bar 2 was registered beside 2b to catch.
+
+The `score_claims.py` sections reading the licence ratio against `deep-*`
+print `nan`: this round generated no `deep-*` family, and those bounds were
+not registered here.
+
+### What this sends next
+
+Both registered branches apply. Bar 1 failed with the control ratio under 1,
+so **#298 has now been read on every instrument this repository has**
+(`reexplain-*` on sonnet and opus, `fullexplain-*` on sonnet and now opus), and
+no further candidate is registered on it until a new case reproduces the
+report's told answer running longer than its cold one. Bar 2 failed too, so
+any later candidate has to scope the pointer away from a turn that asks for
+the full form.
+
+The control worktree was removed once the round was scored. The four shard
+files were merged and are not committed; `metadata.shards` in each merged
+snapshot records them.

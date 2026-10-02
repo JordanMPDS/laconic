@@ -117,9 +117,6 @@ prose with the ceremony stripped.
     the API layer?" with the six names again.
   - Right: "The same six failing tests, unchanged, plus `auth_retry`, which
     broke since. `flaky_dns` stays quarantined."
-- A question whose answer would restate material you already gave this
-  session gets the part that is new; for the rest, point back to the earlier
-  answer rather than restating it.
 - A design question asks for an approach, not a treatise. "How would that be
   built?" is about something that does not exist yet, and what it wants is the
   recommendation, the one or two decisions that genuinely fork it, and a name

@@ -4,6 +4,7 @@
     python3 evals/pilot/score_subset.py precheck <snap>...
     python3 evals/pilot/score_subset.py compare --control <snap>... --edit <snap>... \
         [--control-judgments <j>] [--edit-judgments <j>]
+    python3 evals/pilot/score_subset.py depth --shallow <snap>... --deep <snap>...
     python3 evals/pilot/score_subset.py --selftest
 
 `subset-*` asks "what is left?" over a three-bucket status file, then narrows
@@ -24,9 +25,15 @@ turn, edit against control, two-sided permutation; lower is the registered
 direction. Three fatal bounds, each one-sided at `ALPHA`: turn 1's inventory
 may not get shorter in prose words, may not name fewer of the eight, and the
 panel's pass rate on the graded turn may not fall.
+
+**depth** is round 94, at master rules. `deepsubset-*` is `subset-*` with four
+turns between the inventory and the narrowing question. It fires when at least
+`FIRE_AT` deep graded turns run over `LONG_AT` prose words; the depth contrast
+on mean log graded prose words is permuted within stem, two-sided.
 """
 import json
 import math
+import random
 import re
 import sys
 from pathlib import Path
@@ -52,6 +59,7 @@ SEEDED = {
                 31: "tls_session_cache"},
 }
 RELIST_AT, FIRE_AT = 5, 9
+LONG_AT = 150
 ALPHA = 0.05
 SEED = 93
 ID = re.compile(r"\bOQ-0*(\d+)(?!\d)")
@@ -85,15 +93,15 @@ def relisted(r):
     return len(named(r.get("text") or "", s) & named(turn_text(r, 0), s))
 
 
-def load(paths):
-    """Usable laconic `subset-*` runs on MODEL with both turns, one per key."""
+def load(paths, family="subset"):
+    """Usable laconic `<family>-*` runs on MODEL with every turn, one per key."""
     seen, out = set(), []
     for p in paths:
         for r in bench_run.usable(json.loads(Path(p).read_text())["runs"]):
             fam, _, stem = r.get("case", "").partition("-")
             key = (r.get("case"), r.get("model"), r.get("arm"), r.get("rep"))
             if (key in seen or r.get("arm") != "laconic" or r.get("model") != MODEL
-                    or fam != "subset" or stem not in SEEDED or len(r.get("turns") or []) < 2):
+                    or fam != family or stem not in SEEDED or len(r.get("turns") or []) < 2):
                 continue
             seen.add(key)
             out.append(r)
@@ -176,6 +184,66 @@ def compare(control, edit, cj=None, ej=None):
     return primary and holds
 
 
+def blocked_log_shift(shallow, deep):
+    """Mean over stems of deep's mean log graded words minus shallow's."""
+    shifts = []
+    for stem in SEEDED:
+        a = [math.log(max(words(r), 1)) for r in shallow if stem_of(r) == stem]
+        b = [math.log(max(words(r), 1)) for r in deep if stem_of(r) == stem]
+        if a and b:
+            shifts.append(sum(b) / len(b) - sum(a) / len(a))
+    return sum(shifts) / len(shifts) if shifts else None
+
+
+def blocked_permutation(shallow, deep, seed=94, resamples=20000):
+    """Two-sided p for blocked_log_shift, shuffling the depth label inside each stem."""
+    obs = blocked_log_shift(shallow, deep)
+    if obs is None:
+        return None, None
+    rng = random.Random(seed)
+    pools = {s: ([r for r in shallow if stem_of(r) == s] + [r for r in deep if stem_of(r) == s],
+                 sum(stem_of(r) == s for r in shallow)) for s in SEEDED}
+    hits = 0
+    for _ in range(resamples):
+        a, b = [], []
+        for pool, n in pools.values():
+            rng.shuffle(pool)
+            a += pool[:n]
+            b += pool[n:]
+        if abs(blocked_log_shift(a, b)) >= abs(obs) - 1e-12:
+            hits += 1
+    return obs, (hits + 1) / (resamples + 1)
+
+
+def depth(shallow, deep):
+    """Round 94: does session depth produce #305's length? True when deep fires."""
+    print("graded turn on %s, master rules: shallow %d runs, deep %d runs"
+          % (MODEL, len(shallow), len(deep)))
+    print("  %-10s %-7s %3s %13s %10s %14s %8s" % (
+        "stem", "depth", "n", "words median", "> %d" % LONG_AT, "re-listed >= %d" % RELIST_AT,
+        "wrote"))
+    for stem in SEEDED:
+        for label, runs in (("shallow", shallow), ("deep", deep)):
+            cell = [r for r in runs if stem_of(r) == stem]
+            print("  %-10s %-7s %3d %13.1f %10d %14d %8d" % (
+                stem, label, len(cell), metrics.median([words(r) for r in cell]),
+                sum(words(r) > LONG_AT for r in cell),
+                sum(relisted(r) >= RELIST_AT for r in cell),
+                sum(bool(r.get("artifacts")) for r in cell)))
+    long_s = sum(words(r) > LONG_AT for r in shallow)
+    long_d = sum(words(r) > LONG_AT for r in deep)
+    fired = long_d >= FIRE_AT
+    print("\ndeep graded turns over %d prose words: %d/%d, fires at >= %d: %s"
+          % (LONG_AT, long_d, len(deep), FIRE_AT, "FIRES" if fired else "does not fire"))
+    print("disclosed: shallow graded turns over %d prose words: %d/%d"
+          % (LONG_AT, long_s, len(shallow)))
+    obs, p = blocked_permutation(shallow, deep)
+    if obs is not None:
+        print("depth contrast, mean log graded words, within stem: deep - shallow %+.3f "
+              "(x%.2f), two-sided p = %.4f" % (obs, math.exp(obs), p))
+    return fired
+
+
 def selftest():
     assert named("OQ-14 and `hold_expiry_h` and OQ-03", "ledger") == {3, 14}
     assert named("OQ-3 to OQ-11 are seeded", "ledger") == {3, 7, 11}
@@ -203,6 +271,21 @@ def selftest():
     assert not compare(ctl, ctl)
     assert not compare(ctl, [run(i, "eight", t1_words=20) for i in range(30)])
     assert not compare(ctl, [run(i, "eight", t1="OQ-3 only") for i in range(30)])
+
+    def deep_run(rep, n_words, stem="ledger"):
+        r = run(rep, " ".join(["word"] * n_words))
+        r["case"] = "deepsubset-" + stem
+        return r
+    shallow = [dict(run(i, " ".join(["word"] * 50)), case="subset-" + st)
+               for i in range(10) for st in SEEDED]
+    assert depth(shallow, [deep_run(i, 300 if i % 3 == 0 else 50, st)
+                           for i in range(10) for st in SEEDED])
+    assert not depth(shallow, [deep_run(i, 300 if i < 2 else 50, st)
+                               for i in range(10) for st in SEEDED])
+    obs, p = blocked_permutation(shallow, [deep_run(i, 300, st) for i in range(10) for st in SEEDED])
+    assert obs > 1.7 and p < 0.001
+    obs, p = blocked_permutation(shallow, [deep_run(i, 50, st) for i in range(10) for st in SEEDED])
+    assert obs == 0 and p == 1
     print("\nselftest ok")
 
 
@@ -212,7 +295,7 @@ def main(argv):
     if argv[:1] == ["precheck"] and len(argv) > 1:
         precheck(load(argv[1:]))
         return
-    if argv[:1] == ["compare"]:
+    if argv[:1] in (["compare"], ["depth"]):
         opts, cur = {}, None
         for a in argv[1:]:
             if a.startswith("--"):
@@ -220,6 +303,9 @@ def main(argv):
                 opts.setdefault(cur, [])
             else:
                 opts[cur].append(a)
+        if argv[0] == "depth":
+            depth(load(opts["--shallow"]), load(opts["--deep"], "deepsubset"))
+            return
         ok = compare(load(opts["--control"]), load(opts["--edit"]),
                      (opts.get("--control-judgments") or [None])[0],
                      (opts.get("--edit-judgments") or [None])[0])

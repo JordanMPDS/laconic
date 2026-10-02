@@ -551,6 +551,30 @@ PYEOF
   fi
 done
 
+# `deepsubset-*` is round 94's depth variant: subset-*'s fixture byte for byte
+# and its two turns as the first and last of six, so the only difference the
+# round can read is the four turns between them.
+for stem in ledger scheduler gateway; do
+  if python3 - "$ROOT" "$stem" <<'PYEOF'
+import filecmp, sys
+from pathlib import Path
+root, stem = Path(sys.argv[1]), sys.argv[2]
+p = root / "evals" / "pilot"
+shallow, deep = p / ("subset-" + stem), p / ("deepsubset-" + stem)
+split = lambda d: [t.strip() for t in d.joinpath("prompt.md").read_text().split("<!-- turn -->")]
+s, d = split(shallow), split(deep)
+assert len(d) == 6 and d[0] == s[0] and d[-1] == s[1], "subset's turns open and close six"
+cmp = filecmp.dircmp(shallow / "fixture", deep / "fixture")
+assert not (cmp.left_only or cmp.right_only or cmp.diff_files), "same fixture"
+assert [f.name for f in (deep / "fixture").iterdir()] == ["STATUS.md"], "one fixture file"
+PYEOF
+  then
+    ok "deepsubset-$stem is subset-$stem with four turns between"
+  else
+    fail "deepsubset-$stem is subset-$stem with four turns between"
+  fi
+done
+
 # `contra-*` is the fourth member of each family and the unchecked-confirmation
 # bound for round 72. Its prompt is `settled-*`'s byte for byte and its fixture
 # is a *separate* record stating the opposite, so the question cannot be told

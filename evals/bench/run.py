@@ -109,7 +109,10 @@ ARM_STOP_HOOKS = {
 # reading instruction to a workspace that has files. All three are the shipped
 # `full` slice outside that block, which tests/test_bench.py checks against the
 # live hook output, so an edit to `rules/laconic.md` anywhere else fails them
-# rather than confounding the round with it.
+# rather than confounding the round with it. `laconic-design-read` is round
+# 90's: the shipped slice with the reading instruction moved from the end of
+# the design licence's sub-bullet to the head of the design bullet, word for
+# word matched, and the pre-action check untouched.
 ARM_FILES = {
     "laconic-min-a": "laconic-min-a.md",
     "laconic-min-b": "laconic-min-b.md",
@@ -121,6 +124,7 @@ ARM_FILES = {
     "laconic-precheck-off": "laconic-precheck-off.md",
     "laconic-precheck-read": "laconic-precheck-read.md",
     "laconic-precheck-scoped": "laconic-precheck-scoped.md",
+    "laconic-design-read": "laconic-design-read.md",
 }
 
 
@@ -170,6 +174,7 @@ ARMS = {
     "laconic-precheck-off": _arm_file("laconic-precheck-off"),
     "laconic-precheck-read": _arm_file("laconic-precheck-read"),
     "laconic-precheck-scoped": _arm_file("laconic-precheck-scoped"),
+    "laconic-design-read": _arm_file("laconic-design-read"),
     # All placeholders, replaced at runtime with the same real hook output, so
     # the enforcement arms cannot drift from the rules they are meant to
     # enforce, or from each other.

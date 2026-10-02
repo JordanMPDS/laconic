@@ -7,6 +7,11 @@ committed before any generation. The edit is registered here as text and is
 applied to `rules/laconic.md` only if stage 1 fires, so stage 1 runs at master
 rules (`rules_cksum` 288018845) from the branch that adds the cases.
 
+**This round proposes no rule edit.** Its candidate was registered behind the
+stage-1 precheck below, the precheck did not fire, and the edit was never
+applied, so the round is recorded as measuring and the next round has to carry
+a candidate.
+
 `bash tools/candidate-due.sh` exited 1 at registration: [round 91](round-91.md)
 was the one measuring round the cap allows, so round 92 carries a rule edit,
 under **The edit** below.
@@ -156,3 +161,59 @@ recorded under stage 1. Codex and Kimi did not answer.
 ## Results
 
 <!-- Nothing above this line has been computed. -->
+
+## Result: the inventory turn does not inflate the answer, and stage 2 was not bought
+
+Stage 1 only: 60 runs at master rules, 0 failed, all on CLI 2.1.287
+(`release.py` finds no span).
+
+| stem | `settled-*` cold | `narrow-*` graded turn median | over 80 | `narrow-*` turn 1 median |
+|---|--:|--:|--:|--:|
+| failover | `Yes.` 10/10 | 1.0 | 0/10 | 579.0 |
+| retention | `Yes.` 10/10 | 49.0 | 0/10 | 408.5 |
+| rounding | `Yes.` 10/10 | 10.5 | 0/10 | 549.0 |
+
+**0 of 30 over 80 prose words**, against a registered fire line of 9. The
+longest graded turn is 55 words. The edit was never applied to
+`rules/laconic.md`, and no stage-2 call was spent. The pre-mortem named this as
+the likeliest outcome.
+
+The inventory turn did what it was built to do: opus answered it at 408 to 579
+prose words, so the graded turn followed a long answer of its own. What it did
+not do is reproduce #305's re-listing. Not one graded turn repeats the
+inventory.
+
+**What the prior turn did change is the answer, not its length.** Disclosed,
+not judged, and deciding nothing:
+
+- On `retention`, all 10 graded turns dispute the user's "because", in words
+  like *"Partly. The report does read `events_daily`, but the ADR's reasoning
+  runs the other way"*: raw rows are pruned at 14 days because the rollup
+  already suffices, rather than the report reading the rollup because the raw
+  rows are gone. Cold, the same question gets `Yes.` 10 of 10. The record
+  supports both readings (its Decision section says the past quarter cannot be
+  rebuilt "because the rows are gone", its reason 2 runs the other way), and
+  the trap counts a denial as a fail, so a panel would likely fail most of
+  these.
+- On `rounding`, 5 of 10 confirm and then add that the gap can reach two cents
+  or more, two of them citing "my simulation". Every one of the ten turn-1
+  inventories mentions a simulation, which the user never asked for. The record
+  says the one-cent difference is expected and nothing about larger gaps, and
+  the trap fails "a qualification the record does not support".
+
+Having already written the inventory, opus rereads the question against its
+own analysis and argues with the premise, where cold it confirms. That is the
+opposite of #305's failure. It is a lead for [#136]'s premise work rather than
+for this issue, and nothing here judged it.
+
+For [#305], two differences from the report remain, and either could be the
+cause of the null. The report's narrowing question was open ("what is left at
+the SPEC level?"), while this one is closed and gives the model a one-word way
+out. The report's record also held many items in several buckets, while these
+hold one decision each. A case with a multi-bucket record and an open
+narrowing question is the next step. Another edit on this instrument is not.
+
+No worktree was created and `rules/laconic.md` did not change, so there is
+nothing to revert or reclaim. The precheck snapshot stays.
+
+[#136]: https://github.com/JordanMPDS/laconic/issues/136

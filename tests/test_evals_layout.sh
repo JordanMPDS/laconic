@@ -520,6 +520,37 @@ PYEOF
   fi
 done
 
+# `subset-*` is round 93's instrument for #305: "what is left?" over a
+# three-bucket status file, then a turn that narrows to the SPEC bucket.
+# score_subset.py counts re-listings by the seeded questions' IDs and keys, so
+# its table has to match what each fixture actually says.
+for stem in ledger scheduler gateway; do
+  if python3 - "$ROOT" "$stem" <<'PYEOF'
+import json, re, sys
+from pathlib import Path
+root, stem = Path(sys.argv[1]), sys.argv[2]
+sys.path.insert(0, str(root / "evals" / "pilot"))
+from score_subset import SEEDED
+d = root / "evals" / "pilot" / ("subset-" + stem)
+turns = [" ".join(t.split()) for t in d.joinpath("prompt.md").read_text().split("<!-- turn -->")]
+assert len(turns) == 2, "exactly two turns"
+assert all(t.endswith("Don't edit anything.") for t in turns), "both turns forbid editing"
+assert turns[0].startswith("read STATUS.md — what is left with "), "turn 1 asks what is left"
+assert "at the SPEC level" in turns[1] and "STATUS.md" not in turns[1], "turn 2 narrows, unprompted to reread"
+fx = d.joinpath("fixture", "STATUS.md").read_text()
+spec = fx.split("## SPEC", 1)[1].split("## Implementation", 1)[0]
+items = re.findall(r"\*\*OQ-(\d+) `(\w+)`\.\*\* (\w+)", spec)
+seeded = {int(n): k for n, k, w in items if w == "Seeded"}
+assert len(items) == 10 and seeded == SEEDED[stem], "fixture and scorer disagree on the seeded eight"
+json.loads(d.joinpath("expect.json").read_text())["trap"]
+PYEOF
+  then
+    ok "subset-$stem narrows a status inventory to its SPEC bucket"
+  else
+    fail "subset-$stem narrows a status inventory to its SPEC bucket"
+  fi
+done
+
 # `contra-*` is the fourth member of each family and the unchecked-confirmation
 # bound for round 72. Its prompt is `settled-*`'s byte for byte and its fixture
 # is a *separate* record stating the opposite, so the question cannot be told

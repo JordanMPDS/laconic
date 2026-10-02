@@ -241,3 +241,14 @@ and turn 2 is the settled question with its "read X.md —" clause removed. The
 graded turn's complete answer is still one word, so the contrast with
 `settled-*` isolates the prior inventory. `tests/test_evals_layout.sh` holds the
 pair to that contract; scored by `score_narrow.py`.
+
+## `subset-ledger`, `subset-scheduler`, `subset-gateway`
+
+[Round 93](../results/loop/round-93.md)'s instrument for [#305]'s narrowing
+follow-up, with the two differences round 92 left open: the question is open,
+and the record holds many items in three buckets. Turn 1 asks what is left
+overall; turn 2 narrows to the SPEC bucket, whose ten open questions include
+eight seeded values sharing one status, so the narrowed answer can count them
+rather than name them again. `score_subset.py` counts a re-listing as a seeded
+question the graded turn names that its own turn 1 already named, and
+`tests/test_evals_layout.sh` holds its table to the fixtures.

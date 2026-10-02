@@ -167,3 +167,77 @@ Codex did not answer.
 ## Results
 
 <!-- Nothing above this line has been computed. -->
+
+## Result: the defect fires, and the edit does not move it
+
+**Reject, labelled `noise-floor`**: the registered primary moved in the
+registered direction and did not separate. Mean re-listings per graded turn
+were **7.91 on the control and 7.73 on the edit**, two-sided p = 0.622. The
+bullet is reverted from `rules/laconic.md` and `rules/dist/`.
+
+### Stage 1: it fires, under a counter corrected before stage 2
+
+30 runs at master rules, 0 failed, all on CLI 2.1.287.
+
+As committed at registration, the counter read **13 of 30** graded turns
+re-listing at least 5 of the 8, against a fire line of 9. The transcripts
+showed it undercounting. A list written "OQ-3, 7, 11, 14, 18, 21, 25 and 30"
+was counted as OQ-3 alone, so `subset-ledger` rep 0, which names all eight
+in both turns, scored 1. The fix counts bare numbers that continue a list
+opened on an ID, and it was committed (`25ccca2`) before any stage-2 call.
+It can only raise a count, so the registered fire stands under either
+version. Corrected, the precheck reads **28 of 30**:
+
+| stem | re-listed median | re-listing ≥ 5 | turn 1 names (median) | graded prose words (median) |
+|---|--:|--:|--:|--:|
+| ledger | 8.0 | 8/10 | 8.0 | 48.0 |
+| scheduler | 8.0 | 10/10 | 8.0 | 59.0 |
+| gateway | 8.0 | 10/10 | 8.0 | 54.5 |
+
+**What fires is the re-listing, not #305's length.** Every turn 1 named the
+eight, and nearly every graded turn named them again, but the graded turns
+ran a median of about 50 prose words. That is close to the report's own
+40-word ideal, not its 309. The eight IDs cost about ten words. The report's
+other surplus, which was unrequested design detail, transitions and a
+closing recap, did not appear in this two-turn instrument.
+
+### Stage 2: deterministic bars
+
+90 runs a side, 0 failed, both sides on CLI 2.1.287, generated simultaneously
+from two trees (`release.py`: no span, no imbalance).
+
+| bar | control | edit | p | |
+|---|--:|--:|--:|---|
+| 1. mean re-listings, graded turn | 7.91 | 7.73 | 0.622 (two-sided) | **fail** |
+| 2. turn-1 mean log prose words | 5.26 | 5.25 | 0.373 (one-sided) | holds |
+| 3. turn-1 seeded questions named | 8.00 | 8.00 | 0.500 (one-sided) | holds |
+| disclosed: graded prose words, median | 53.0 | 50.0 | | |
+
+Per stem, at least 5 of the 8 were re-listed in 29, 30 and 30 of 30 control
+runs and 28, 29 and 30 of 30 edit runs.
+
+**Bar 4 was not bought.** Accept needs bar 1 to pass, and the skill's
+buy-in-sequence rule stops at the first failed step. Judging 180 graded turns
+by the panel would have cost about 540 calls to read a bound that could not
+change the verdict. No judgments file exists for this round, and nothing here
+claims the edit's quality held.
+
+### What this says about #305
+
+The narrowing follow-up now reproduces on opus in a cheap, judge-free form:
+after an inventory that named eight items, the narrowed answer names them
+again in 87 of 90 control runs. A rule bullet naming that exact situation
+moved it by 0.18 of an item. The pre-mortem's likeliest failure, given a fire,
+was this one.
+
+Two readings remain, and this round does not separate them. Opus may not
+regard repeating eight short IDs as "the earlier answer again", since the IDs
+are also the narrowed answer, which is DeepSeek's caution at the consult. Or a
+level-wide bullet among many has too little weight against an inventory
+sitting in context. Neither reading is about length, because the length harm
+did not fire. For the 309-word shape, the remaining difference from the
+report is session depth, which round 82 already found was not enough for
+#46 on its own.
+
+The control worktree was removed once the round was scored. The three
+snapshots stay.

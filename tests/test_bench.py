@@ -705,7 +705,8 @@ with tempfile.TemporaryDirectory() as claude_named_dir:
         os.environ["PATH"] = old_path_named
 check("resolve_claude_bin('claude') resolves through PATH to the stub's real "
       "absolute location, not the bare string",
-      resolved_named_claude == str(claude_named_bin.resolve()))
+      # Both sides resolved: macOS's temp dir sits under a /var symlink.
+      Path(resolved_named_claude).resolve() == claude_named_bin.resolve())
 
 # Test resolve_claude_bin: relative paths become absolute
 resolved_rel = bench_run.resolve_claude_bin("tests/stubs/claude-stub.sh")

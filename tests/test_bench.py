@@ -5584,6 +5584,9 @@ _expected_concurrent = {
     # Round 102's fire check: two simultaneous shards split by --rep-offset,
     # each declaring --concurrency 2, merged into one snapshot.
     "round-102-firecheck.json",
+    # Round 102: four simultaneous shards, two per side split by --rep-offset,
+    # each declaring --concurrency 4; each merge reconstructs to its own two.
+    "round-102-control.json", "round-102-edit.json",
 }
 _found = set()
 for _p in sorted((ROOT / "evals" / "snapshots").rglob("*.json")):

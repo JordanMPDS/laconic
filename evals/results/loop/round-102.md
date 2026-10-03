@@ -228,3 +228,65 @@ not answer within its timeout.
 ## Results
 
 <!-- Nothing below this line has been computed. -->
+
+## Result: rejected at stage 1
+
+**The sentence moves opus design answers the registered way and nowhere near
+far enough.** 560 runs, 0 failed, CLI 2.1.288 throughout (`release.py`: one
+release, no unreadable span), `cases_cksum` 2871706298; control at
+`rules_cksum` 3660436060 from `a4f243a`, edit at 4106391043 from `1a2ae1c`.
+`merge.py` reconstructs 2 in flight per side against the declared 4.
+
+```
+primary, opus design prose words (read stratum, n 160 / 160): ratio 0.976, one-sided p 0.0315: does not pass
+
+deterministic bounds:
+  unread design answers, opus and sonnet         control   0/240 edit   0/240 p = 1.0000  held
+  sonnet design prose words                      ratio 0.995 against 1.10  held
+  walkthrough never-cut misses, opus             control   0/20  edit   0/20  p = 1.0000  held
+```
+
+The shift clears its p-value and misses the margin: 0.976 against a bar of
+0.90, a 2.4% cut where 10% was registered. Every stage 1 bound held, so the
+rejection is the primary's alone. Judging was not bought, as registered.
+
+Per case, median prose words, control against edit, with the median count of
+numbered items in brackets:
+
+| case | opus | sonnet |
+|---|--:|--:|
+| `design-alerting` | 246.0 / 234.5 (0 / 0) | 297.5 / 262.5 (1 / 0) |
+| `design-audit-log` | 254.0 / 248.0 (2 / 0) | 272.5 / 308.5 (3 / 4) |
+| `design-cache` | 220.0 / 231.0 (0 / 0) | 247.5 / 259.5 (2 / 2.5) |
+| `design-rate-limit` | 216.5 / 211.5 (0 / 0) | 266.0 / 241.0 (2 / 1) |
+| `design-realtime` | 196.5 / 189.0 (0 / 0) | 242.5 / 249.5 (4 / 0) |
+| `design-retry` | 284.5 / 258.0 (3 / 0) | 314.0 / 313.5 (4 / 2.5) |
+| `design-search` | 153.5 / 148.5 (0 / 0) | 183.0 / 173.0 (2 / 0) |
+| `design-upload` | 296.0 / 318.0 (4 / 4) | 326.0 / 280.5 (4 / 3.5) |
+| `ordered-steps` | 271.0 / 252.5 (5 / 5) | - |
+| `walkthrough` | 524.5 / 534.0 (9 / 10.5) | - |
+
+Design answers with a question mark in their first half: opus 3/160 against
+6/160, sonnet 4/80 against 4/80. Opus sentinel prose ratio 1.009.
+
+The pre-mortem's likeliest failure is what happened. Opus control answers ran
+at the length rounds 98 and 101 measured (`design-alerting` 246.0 against
+242.5 and 240.5) and were already mostly prose: five of eight opus cases have
+a median of no numbered items at all. There was little build plan to remove.
+What the sentence did reach was numbering: it took the median numbered count
+to zero on opus `design-audit-log` and `design-retry` and on four sonnet
+cases, without shortening the answers, so the plan stayed and lost its
+numbers. A sentence that changes the form of the depth and not its amount is
+not the edit #46 needs.
+
+### What this sends next
+
+`rules/laconic.md` and `rules/dist/*.md` are reverted to master; the scorer,
+the fire check and both merged snapshots stay as evidence. The four shard
+files were merged and are not committed; `metadata.shards` in each merged
+snapshot records them. The withdrawn fork-first half is not the next
+candidate: it was held back on the condition that this one passed. #46 has
+now had a measured edit on opus and a ratio of 0.976, so a further length
+sentence for the design bullet needs an instrument where opus answers carry
+a plan worth cutting, which none of rounds 82, 91, 98, 101 and 102 has found.
+Round 103 may measure.

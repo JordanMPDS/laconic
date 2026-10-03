@@ -493,33 +493,72 @@
     },
     {
       "arm": "laconic",
+      "cache_creation_input_tokens": 8276,
+      "cache_read_input_tokens": 46322,
       "case": "walkthrough",
       "claude_cli_version": "2.1.288 (Claude Code)",
-      "generated_at": "2026-10-03T08:53:26Z",
-      "generator": "20261003T084213Z-688111",
+      "duration_ms": 24101,
+      "generated_at": "2026-10-03T12:02:11Z",
+      "generator": "20261003T120146Z-759777",
+      "input_tokens": 6,
       "model": "opus",
-      "ok": false,
-      "rep": 17
+      "num_turns": 3,
+      "ok": true,
+      "output_tokens": 2219,
+      "rep": 17,
+      "session_id": "e2e510cd-561b-4b25-a1a8-8a0093763e52",
+      "text": "The whole flow lives in two functions, and it runs on demand. Nothing refreshes in the background.\n\n**Normal path (`currentToken`, lines 6\u201310)**\n\n1. It reads `access` from the store.\n2. If the token exists and has more than 30 seconds left (`SKEW_MS`), it returns the cached value.\n3. Otherwise it calls `refresh(store)`. The 30-second skew means a token is refreshed slightly before it actually expires, so a request doesn't go out with a token that dies in transit.\n\n**Refresh (`refresh`, lines 12\u201338)**\n\n1. If a refresh is already running (`inFlight` is set), it returns that same promise and does nothing else.\n2. It reads the `refresh` token. If there isn't one, it throws `no refresh token; re-auth required`.\n3. It POSTs `grant_type: 'refresh_token'` to `/oauth/token` and stores the promise in `inFlight`.\n4. On success, it stores the new access token with `expiresAt = now + expires_in * 1000`. If the server sent a new refresh token (rotation), that replaces the old one; if not, the old one is kept. It then returns the access token.\n5. Whatever the outcome, `.finally` sets `inFlight` back to `null`, so the next expiry starts a fresh refresh.\n\n**What happens on a 401**\n\nThe only 401 this file handles is one from the **token endpoint**, meaning the refresh token itself was rejected. In that case it calls `store.clear()`, which wipes both the access and refresh tokens, and throws `refresh rejected; re-auth required`. Every later call then fails at step 2 with `no refresh token` until the user logs in again.\n\nOther failures are treated differently. A 5xx or other non-OK status throws `refresh failed: <status>`, and a network error rejects from `fetch`. Neither one clears the store, so the next call retries with the same refresh token.\n\nA 401 from your **API requests** is not handled here at all. If the server rejects an access token the client still thinks is valid (for example, because it was revoked or the clock skew is more than 30 seconds), nothing refreshes or retries, and the caller gets the 401. Any retry-on-401 logic would have to live in whatever wraps your requests, or be added here.\n\n**Two requests refreshing at once**\n\nRequest A calls `refresh`. There is no `await` before `inFlight = fetch(...)`, so A sets `inFlight` synchronously, before it yields to the event loop. When request B calls `refresh`, it sees `inFlight` and returns the same promise. Only one POST goes out. Both requests get the same new token, or both get the same rejection, including the 401 re-auth error.\n\nThere is one caveat to keep in mind when you change this. `inFlight` is a module-level variable, not one per store. If you ever use two different `store` instances, a refresh started for store A will hand its token to a caller using store B, and store B is never updated.",
+      "tools": [
+        "Bash",
+        "Read"
+      ],
+      "total_cost_usd": 0.1198764
     },
     {
       "arm": "laconic",
+      "cache_creation_input_tokens": 4670,
+      "cache_read_input_tokens": 49952,
       "case": "walkthrough",
       "claude_cli_version": "2.1.288 (Claude Code)",
-      "generated_at": "2026-10-03T08:53:29Z",
-      "generator": "20261003T084213Z-688111",
+      "duration_ms": 47271,
+      "generated_at": "2026-10-03T12:02:59Z",
+      "generator": "20261003T120146Z-759777",
+      "input_tokens": 6,
       "model": "opus",
-      "ok": false,
-      "rep": 18
+      "num_turns": 3,
+      "ok": true,
+      "output_tokens": 4647,
+      "rep": 18,
+      "session_id": "f1f3cb10-5ef0-409f-a299-6e94be9d4a48",
+      "text": "The file has two functions. `currentToken` decides whether a refresh is needed, and `refresh` performs it and deduplicates concurrent calls.\n\n**Normal path: `currentToken` (auth.js:6)**\n\n1. It reads `access` from the store. If the token exists and has more than 30 seconds (`SKEW_MS`) left before `expiresAt`, it returns the value without a network call.\n2. Otherwise it calls `refresh(store)`. A missing token, an expired token, and a token about to expire all take this path.\n\nFreshness is decided only by the local `expiresAt` clock.\n\n**Refresh: `refresh` (auth.js:12)**\n\n1. If a refresh is already running, it returns that same promise (see the concurrency section below).\n2. It reads `refresh` from the store. If there is none, it throws `no refresh token; re-auth required`.\n3. It POSTs `{ grant_type: 'refresh_token', refresh_token }` to `/oauth/token`.\n4. On success, it stores the new access token with `expiresAt = Date.now() + expires_in * 1000`. If the response includes a new `refresh_token` (rotation), that replaces the old one; otherwise the old one is kept.\n5. It resolves with the new access token string.\n6. In `.finally`, whether it succeeded or failed, it sets `inFlight` back to `null`.\n\n**What happens on a 401**\n\nThe only 401 this file handles comes from the token endpoint itself. When `/oauth/token` returns 401, the code treats the refresh token as dead. `store.clear()` wipes both tokens, and the promise rejects with `refresh rejected; re-auth required`. From then on, every call fails at step 2 with `no refresh token` until the user logs in again.\n\nAny other non-2xx status rejects with `refresh failed: <status>` and leaves the store alone, so the next call tries the refresh again. A network error from `fetch` behaves the same way.\n\nA 401 from your actual API requests is not handled anywhere in this file. Nothing retries the request or forces a refresh. If the server revokes a token early, or the clocks differ by more than 30 seconds, requests will get 401s that this module never sees. This directory contains only `auth.js`, so any retry-on-401 logic would have to be in whatever calls `currentToken`.\n\n**Two requests refreshing at once**\n\n`inFlight` holds the pending refresh promise. The check on line 13 and the assignment on line 16 run with no `await` between them, so within one JS runtime a second caller cannot slip in between. Request A starts the fetch and sets `inFlight`. Request B arrives before A's fetch settles and gets A's promise back. Only one POST is sent, and both requests resolve to the same token or reject with the same error, including the 401 case. Sending a single POST matters when the server rotates refresh tokens, because a second POST with the already-used refresh token would probably get a 401 and wipe the store.\n\nThe `.finally` handler clears `inFlight` before any waiting caller resumes. A request that arrives after that finds the new token in the store and takes the fast path in `currentToken`.\n\nThere are three limits to keep in mind before you change it:\n\n- **Shared across stores:** `inFlight` belongs to the module, not to a store. If two different `store` objects are used, a caller for store B can receive store A's refresh result, and store B is never updated.\n- **Only deduplicated after the fact if called directly:** `refresh` never checks whether the store already holds a fresh token. If two requests both call `refresh()` directly, for example to retry after an API 401, and the second call comes after the first has settled, a second POST is sent.\n- **One runtime only:** separate tabs, workers, or processes each have their own `inFlight`. If they share the underlying storage, they can refresh at the same moment. With rotation, the one that loses gets a 401, and its `store.clear()` logs out all of them.",
+      "tools": [
+        "Bash",
+        "Read"
+      ],
+      "total_cost_usd": 0.14031439999999998
     },
     {
       "arm": "laconic",
+      "cache_creation_input_tokens": 4670,
+      "cache_read_input_tokens": 49952,
       "case": "walkthrough",
       "claude_cli_version": "2.1.288 (Claude Code)",
-      "generated_at": "2026-10-03T08:53:33Z",
-      "generator": "20261003T084213Z-688111",
+      "duration_ms": 48131,
+      "generated_at": "2026-10-03T12:03:48Z",
+      "generator": "20261003T120146Z-759777",
+      "input_tokens": 6,
       "model": "opus",
-      "ok": false,
-      "rep": 19
+      "num_turns": 3,
+      "ok": true,
+      "output_tokens": 4649,
+      "rep": 19,
+      "session_id": "e7f18105-a69a-41db-ba69-84f56d41e847",
+      "text": "`auth.js` has two functions. `currentToken` serves a cached token while it is fresh, and `refresh` fetches a new one. The only 401 it handles comes from the token endpoint; it does nothing about 401s from your API calls.\n\n**Normal path: `currentToken` (lines 6\u201310)**\n\nIt reads `access` from the store. If that token has more than 30 seconds (`SKEW_MS`) left before `expiresAt`, it returns the cached value. Otherwise it returns whatever `refresh(store)` resolves to. Expiry is judged only from the stored `expiresAt`; the server is never asked.\n\n**Refresh: `refresh` (lines 12\u201338)**\n\n1. If a refresh is already in flight, it returns that same promise (line 13).\n2. It reads the refresh token. If there isn't one, it rejects with `no refresh token; re-auth required` (line 15). This happens before `inFlight` is set, so nothing shared is affected.\n3. It POSTs to `/oauth/token` and assigns the whole promise chain to `inFlight`.\n4. On success, it stores the new access token with `expiresAt = Date.now() + expires_in * 1000`. It stores a new refresh token only if the server sent one; otherwise the old one stays. Then it resolves with the access token.\n5. `.finally` sets `inFlight` back to `null` on success or failure. Because `.finally` is part of the chain stored in `inFlight`, callers see the result only after the reset.\n\n**Failures during refresh**\n\n- **401 from `/oauth/token`:** `store.clear()` wipes both tokens, and the promise rejects with `refresh rejected; re-auth required`. Every later call fails at step 2 with `no refresh token` until something logs in again.\n- **Any other non-OK status:** it rejects with `refresh failed: <status>` and leaves the store alone, so the next call tries again.\n- **Network error:** `fetch` rejects, the error passes through, and the store is unchanged.\n\nOne caveat: OAuth (RFC 6749) says servers should return 400 `invalid_grant` for an expired or revoked refresh token, not 401. If your server does that, a dead refresh token goes down the \"other status\" path. The store is never cleared, and every request retries the refresh and fails. Check what your server actually returns.\n\n**401 from a normal API call**\n\nNothing in this file handles it, and `auth.js` is the only file in the directory. If the API rejects a token that still looks valid locally (revoked, or clocks more than 30 seconds apart), `currentToken` keeps returning that token until `expiresAt` passes. Retrying after a 401 would have to happen in the calling code.\n\n**Two requests refreshing at once**\n\nRequest A finds the token expired, enters `refresh`, and sets `inFlight`. The check on line 13 and the assignment on line 16 have no `await` between them, so no other call can run in between. Request B then finds the token still expired, because the store isn't updated yet. It enters `refresh`, sees `inFlight`, and returns A's promise. Both requests get the same token from one network call. If that call fails, both get the same error. Adding any `await` between lines 13 and 16, such as an async store lookup, would break this sharing.\n\n**Security caveat:** `inFlight` is shared by the whole module, not kept per store. If one process uses several stores at once, for example one per user on a server, user B's request can join user A's refresh. B then receives A's access token, and only A's store is updated. With a single store per process, as in a browser client, this doesn't apply.",
+      "tools": [
+        "Bash",
+        "Read"
+      ],
+      "total_cost_usd": 0.1403544
     }
   ]
 }

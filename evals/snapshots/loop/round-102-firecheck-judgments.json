@@ -1,0 +1,1291 @@
+{
+  "judgments": [
+    {
+      "arm": "laconic",
+      "case": "design-alerting",
+      "model": "sonnet",
+      "panel": {
+        "kimi": {
+          "reason": "The response keeps alert evaluation outside the pure govern() core by deriving conditions from the supervisor's persisted cycle record, defers rule evaluation to the existing monitoring system, and explicitly surfaces the existing-monitoring dependency as the deciding open question.",
+          "verdict": "pass"
+        },
+        "opus": {
+          "reason": "The response keeps alert evaluation out of the pure govern() core and derives it from the cycle record the supervisor already persists. It places the rules in the user's existing monitoring system and names that system as the open question, without designing a bespoke scheduler or dedup store.",
+          "verdict": "pass"
+        },
+        "sonnet": {
+          "reason": "The response keeps alerting out of govern() by deriving conditions from the persisted cycle record, puts the rules in the user's monitoring system, and names the existing monitoring infrastructure as the open question.",
+          "verdict": "pass"
+        }
+      },
+      "quote": "Which monitoring and paging system do you already run? That decides step 2.",
+      "reason": "The response keeps alerting out of govern() by deriving conditions from the persisted cycle record, puts the rules in the user's monitoring system, and names the existing monitoring infrastructure as the open question.",
+      "rep": 0,
+      "usage": {
+        "cache_creation_input_tokens": 10150,
+        "cache_read_input_tokens": 22140,
+        "duration_ms": 6098,
+        "input_tokens": 4,
+        "num_turns": 2,
+        "output_tokens": 557,
+        "total_cost_usd": 0.076152
+      },
+      "verdict": "pass"
+    },
+    {
+      "arm": "baseline",
+      "case": "design-alerting",
+      "model": "sonnet",
+      "panel": {
+        "kimi": {
+          "reason": "It keeps evaluation out of govern() but then designs a bespoke alerting subsystem (outbox, dispatcher, dedup store, heartbeat watchdog, suppression/severity rules) and never surfaces the spec's unstated dependency on whatever monitoring infrastructure already exists or its absence as the open question.",
+          "verdict": "fail"
+        },
+        "opus": {
+          "reason": "The response correctly keeps alert evaluation out of govern(). However, it designs its own alerting subsystem (an outbox, a dispatcher, edge-triggered dedupe, suppression and persisted alert_state) and never asks what monitoring or alerting infrastructure already exists. Its only nod to that is the passing phrase \"or the monitoring system\" for the heartbeat, and its open questions cover the delivery channel rather than where the alert rules should live.",
+          "verdict": "fail"
+        },
+        "sonnet": {
+          "reason": "It keeps alerting out of govern(), but it designs a bespoke subsystem (pure evaluator with persisted alert_state, outbox and dispatcher, edge-triggered dedupe) and never asks what monitoring or alerting infrastructure already exists to hold these rules.",
+          "verdict": "fail"
+        }
+      },
+      "quote": "dedupe on `(tenant, condition, episode_start)`",
+      "reason": "It keeps alerting out of govern(), but it designs a bespoke subsystem (pure evaluator with persisted alert_state, outbox and dispatcher, edge-triggered dedupe) and never asks what monitoring or alerting infrastructure already exists to hold these rules.",
+      "rep": 0,
+      "usage": {
+        "cache_creation_input_tokens": 11066,
+        "cache_read_input_tokens": 23256,
+        "duration_ms": 11717,
+        "input_tokens": 4,
+        "num_turns": 2,
+        "output_tokens": 1329,
+        "total_cost_usd": 0.0917232
+      },
+      "verdict": "fail"
+    },
+    {
+      "arm": "laconic",
+      "case": "design-realtime",
+      "model": "sonnet",
+      "panel": {
+        "kimi": {
+          "reason": "The response designs exactly what the criterion asks for: a client-side timer re-fetching the existing /api/metrics endpoint, aligned to computed_at (skipping no-op renders and offering computed_at + 60s alignment), explicitly justified by PLATFORM.md's connection limits with no WebSockets, SSE, long polling, broker, or questions about the deployment target.",
+          "verdict": "pass"
+        },
+        "opus": {
+          "reason": "The response correctly picks client-side polling of /api/metrics because PLATFORM.md rules out held connections, but its main design polls every 10\u201315 seconds, faster than the once-a-minute rewrite, and only offers aligning to computed_at + 60s as an option if load matters.",
+          "verdict": "fail"
+        },
+        "sonnet": {
+          "reason": "The response correctly picks client-side polling of /api/metrics because PLATFORM.md rules out held connections, but it sets the default interval at 10\u201315 seconds, faster than the once-a-minute rewrite, and only mentions aligning to `computed_at + 60s` as an optional load reduction.",
+          "verdict": "fail"
+        }
+      },
+      "quote": "call it every 10 to 15 seconds with `setTimeout`",
+      "reason": "The response correctly picks client-side polling of /api/metrics because PLATFORM.md rules out held connections, but it sets the default interval at 10\u201315 seconds, faster than the once-a-minute rewrite, and only mentions aligning to `computed_at + 60s` as an optional load reduction.",
+      "rep": 0,
+      "usage": {
+        "cache_creation_input_tokens": 9417,
+        "cache_read_input_tokens": 23256,
+        "duration_ms": 11328,
+        "input_tokens": 4,
+        "num_turns": 2,
+        "output_tokens": 1215,
+        "total_cost_usd": 0.0787972
+      },
+      "verdict": "fail"
+    },
+    {
+      "arm": "baseline",
+      "case": "design-realtime",
+      "model": "sonnet",
+      "panel": {
+        "kimi": {
+          "reason": "The response designs client-side polling of the existing /api/metrics endpoint keyed on computed_at (including the computed_at + 60s schedule), explicitly rejects WebSockets/SSE/long-polling/pub-sub using PLATFORM.md's no-open-connection constraints, and reads the deploy platform from the docs instead of asking the user.",
+          "verdict": "pass"
+        },
+        "opus": {
+          "reason": "The response correctly picks client-side polling of /api/metrics because the platform can't hold connections, but it polls every ~15s and explicitly skips the computed_at-aligned schedule, so it re-fetches faster than the once-a-minute rewrite the criterion requires.",
+          "verdict": "fail"
+        },
+        "sonnet": {
+          "reason": "The response correctly rejects WebSockets, SSE, long-poll and pub/sub and settles on client-side polling of the existing endpoint, but it polls every ~15s, which is faster than the once-a-minute rewrite. It also explicitly declines the computed_at-aligned schedule (\"I'd skip it\"), so it misses the 'no faster than once a minute, aligned to computed_at' requirement.",
+          "verdict": "fail"
+        }
+      },
+      "quote": "Replace the one-shot `load()` with a self-rescheduling `setTimeout` loop that polls every ~15s, with some random jitter.",
+      "reason": "The response correctly rejects WebSockets, SSE, long-poll and pub/sub and settles on client-side polling of the existing endpoint, but it polls every ~15s, which is faster than the once-a-minute rewrite. It also explicitly declines the computed_at-aligned schedule (\"I'd skip it\"), so it misses the 'no faster than once a minute, aligned to computed_at' requirement.",
+      "rep": 0,
+      "usage": {
+        "cache_creation_input_tokens": 10588,
+        "cache_read_input_tokens": 23256,
+        "duration_ms": 17263,
+        "input_tokens": 4,
+        "num_turns": 2,
+        "output_tokens": 1902,
+        "total_cost_usd": 0.09502519999999999
+      },
+      "verdict": "fail"
+    },
+    {
+      "arm": "laconic",
+      "case": "design-alerting",
+      "model": "sonnet",
+      "panel": {
+        "kimi": {
+          "reason": "Alert evaluation is kept out of the pure govern() core (conditions returned as pure outputs, history in persisted state, supervisor raises alerts beside it) and the response explicitly surfaces the spec's unstated dependency on whatever monitoring/paging stack already exists as the open question, without designing a bespoke alerting subsystem.",
+          "verdict": "pass"
+        },
+        "opus": {
+          "reason": "The response keeps govern() pure: it only returns conditions, the supervisor raises the alerts, and the missed heartbeat goes to external monitoring. It also names the unknown monitoring stack as the open question, so even its in-state transition tracking does not amount to a bespoke subsystem built without regard to existing monitoring.",
+          "verdict": "pass"
+        },
+        "sonnet": {
+          "reason": "Delivery stays in the supervisor and external monitoring (heartbeat metric, alerts raised from govern()'s result), govern() stays pure, and the response flags the unnamed monitoring stack as the open question without designing a bespoke alerting subsystem.",
+          "verdict": "pass"
+        }
+      },
+      "quote": "Which monitoring or paging stack do you already run? The spec doesn't name one, and routing and severity depend on it.",
+      "reason": "Delivery stays in the supervisor and external monitoring (heartbeat metric, alerts raised from govern()'s result), govern() stays pure, and the response flags the unnamed monitoring stack as the open question without designing a bespoke alerting subsystem.",
+      "rep": 1,
+      "usage": {
+        "cache_creation_input_tokens": 9404,
+        "cache_read_input_tokens": 23256,
+        "duration_ms": 14688,
+        "input_tokens": 4,
+        "num_turns": 2,
+        "output_tokens": 1572,
+        "total_cost_usd": 0.0875612
+      },
+      "verdict": "pass"
+    },
+    {
+      "arm": "baseline",
+      "case": "design-alerting",
+      "model": "sonnet",
+      "panel": {
+        "kimi": {
+          "reason": "The response keeps alert evaluation outside the pure govern() core by deriving it from the persisted cycle record or metrics emitted beside it, and explicitly surfaces the spec's unstated dependency on existing monitoring infrastructure as the recommended path, flagging its absence as an open question rather than silently building a bespoke subsystem.",
+          "verdict": "pass"
+        },
+        "opus": {
+          "reason": "The response keeps govern() pure, has alerting read only the persisted cycle record, and names the missing information about existing monitoring as the open question, recommending that the rules live in that existing system rather than a bespoke subsystem.",
+          "verdict": "pass"
+        },
+        "sonnet": {
+          "reason": "The response keeps govern() pure, derives alerts from the persisted cycle record or emitted metrics, and flags that the spec doesn't say what monitoring stack exists, recommending that existing stack as the home for the rules.",
+          "verdict": "pass"
+        }
+      },
+      "quote": "There are two options, and the spec doesn't say what monitoring stack exists: **Existing monitoring stack (recommended).** The supervisor emits metrics or records. Rules like \"`feed_stale_cycles > 3`\" or \"`pace_error > 0.15` for 10m\" live in the alerting system.",
+      "reason": "The response keeps govern() pure, derives alerts from the persisted cycle record or emitted metrics, and flags that the spec doesn't say what monitoring stack exists, recommending that existing stack as the home for the rules.",
+      "rep": 1,
+      "usage": {
+        "cache_creation_input_tokens": 12173,
+        "cache_read_input_tokens": 22140,
+        "duration_ms": 7447,
+        "input_tokens": 4,
+        "num_turns": 2,
+        "output_tokens": 533,
+        "total_cost_usd": 0.08870800000000001
+      },
+      "verdict": "pass"
+    },
+    {
+      "arm": "laconic",
+      "case": "design-realtime",
+      "model": "sonnet",
+      "panel": {
+        "kimi": {
+          "reason": "The design is a client-side interval fetching the existing /api/metrics endpoint no faster than once a minute, aligned to computed_at, and explicitly grounded in the platform's inability to hold connections (501 for WebSockets, 10-second kill ruling out SSE/long-polling).",
+          "verdict": "pass"
+        },
+        "opus": {
+          "reason": "The design is a browser re-fetch of the existing endpoint, scheduled from computed_at at about 60s intervals, and it is justified by the platform being unable to hold a connection open; the 5-second retry runs only after a scheduled fetch returns stale data, so the steady rate stays once a minute, and it proposes no WebSockets, SSE, long polling, broker, push design or deployment question.",
+          "verdict": "pass"
+        },
+        "sonnet": {
+          "reason": "The response has the browser re-poll the existing /api/metrics on a client-side timer aligned to computed_at and no faster than once a minute. It rules out WebSockets, SSE and long polling because of the platform limits (501 on WebSockets, a 10-second kill, no long-lived process), and it proposes no broker or push mechanism. The 5-second retry when the data is stale is a small deviation from the once-a-minute floor, but it doesn't trigger any of the stated failure conditions.",
+          "verdict": "pass"
+        }
+      },
+      "quote": "after each `load()`, set a timer for `computed_at + 60s + ~2s` rather than a fixed 60-second interval",
+      "reason": "The response has the browser re-poll the existing /api/metrics on a client-side timer aligned to computed_at and no faster than once a minute. It rules out WebSockets, SSE and long polling because of the platform limits (501 on WebSockets, a 10-second kill, no long-lived process), and it proposes no broker or push mechanism. The 5-second retry when the data is stale is a small deviation from the once-a-minute floor, but it doesn't trigger any of the stated failure conditions.",
+      "rep": 1,
+      "usage": {
+        "cache_creation_input_tokens": 9170,
+        "cache_read_input_tokens": 23256,
+        "duration_ms": 13932,
+        "input_tokens": 4,
+        "num_turns": 2,
+        "output_tokens": 1335,
+        "total_cost_usd": 0.08116319999999999
+      },
+      "verdict": "pass"
+    },
+    {
+      "arm": "baseline",
+      "case": "design-realtime",
+      "model": "sonnet",
+      "panel": {
+        "kimi": {
+          "reason": "The design is exactly a client-side timer re-fetching the existing /api/metrics endpoint, gating re-renders on a computed_at comparison, and it rejects WebSockets, SSE, and managed pub/sub by citing PLATFORM.md's connection limits rather than asking where the app is deployed.",
+          "verdict": "pass"
+        },
+        "opus": {
+          "reason": "The response correctly uses client-side polling of /api/metrics and gives PLATFORM.md's ban on held connections as the reason, but it polls every ~15s, which is faster than the once-a-minute rollup the criterion sets as the floor, and it does not align the interval to computed_at.",
+          "verdict": "fail"
+        },
+        "sonnet": {
+          "reason": "The response correctly picks client-side polling of /api/metrics and rejects WebSockets and SSE on platform grounds, but it sets a ~15s poll, which is faster than the once-a-minute rollup. It does not align polling to computed_at, offering only an optional 5s poll around the minute boundary.",
+          "verdict": "fail"
+        }
+      },
+      "quote": "Poll every ~15s with random jitter. The worst-case staleness is then about 15s",
+      "reason": "The response correctly picks client-side polling of /api/metrics and rejects WebSockets and SSE on platform grounds, but it sets a ~15s poll, which is faster than the once-a-minute rollup. It does not align polling to computed_at, offering only an optional 5s poll around the minute boundary.",
+      "rep": 1,
+      "usage": {
+        "cache_creation_input_tokens": 11121,
+        "cache_read_input_tokens": 23256,
+        "duration_ms": 19166,
+        "input_tokens": 4,
+        "num_turns": 2,
+        "output_tokens": 2130,
+        "total_cost_usd": 0.10033120000000001
+      },
+      "verdict": "fail"
+    },
+    {
+      "arm": "laconic",
+      "case": "design-alerting",
+      "model": "sonnet",
+      "panel": {
+        "kimi": {
+          "reason": "Alert delivery stays out of the pure core (the supervisor only delivers what govern() returns, with no bespoke scheduler/dedup/escalation system designed), and the response explicitly surfaces the spec's unstated dependency on existing monitoring infrastructure by asking which alerting stack is already run.",
+          "verdict": "pass"
+        },
+        "opus": {
+          "reason": "The response puts alert evaluation, the consecutive-cycle counters and the transition deduplication inside govern() and its persisted state, instead of deriving alerts from the cycle record or metrics outside the core. It only asks which alerting stack exists to settle severity and destination, not as the place where the rules should live.",
+          "verdict": "fail"
+        },
+        "sonnet": {
+          "reason": "The response puts alert evaluation for seven of the eight conditions inside the pure govern() core, with alert state held in its persisted state, instead of deriving alerts from the persisted cycle record or beside it; the closing question about the existing alerting stack does not make up for that.",
+          "verdict": "fail"
+        }
+      },
+      "quote": "Seven conditions are computed inside `govern()`. Have it return an `alerts` set alongside `guardrail`, and keep the consecutive-cycle counters (band-edge pinning, pace error, stale cycles) in the persisted state.",
+      "reason": "The response puts alert evaluation for seven of the eight conditions inside the pure govern() core, with alert state held in its persisted state, instead of deriving alerts from the persisted cycle record or beside it; the closing question about the existing alerting stack does not make up for that.",
+      "rep": 2,
+      "usage": {
+        "cache_creation_input_tokens": 9168,
+        "cache_read_input_tokens": 23256,
+        "duration_ms": 16923,
+        "input_tokens": 4,
+        "num_turns": 2,
+        "output_tokens": 1894,
+        "total_cost_usd": 0.0908012
+      },
+      "verdict": "fail"
+    },
+    {
+      "arm": "baseline",
+      "case": "design-alerting",
+      "model": "sonnet",
+      "panel": {
+        "kimi": {
+          "reason": "Alert evaluation does stay outside govern(), but the response designs a bespoke alerting subsystem (its own outbox, dispatcher with retries, external watcher) and never surfaces the unstated dependency on whatever monitoring/alerting infrastructure already exists \u2014 the Prometheus mention is just one option for one alert, not an engagement with existing infra as the open question the criterion requires.",
+          "verdict": "fail"
+        },
+        "opus": {
+          "reason": "The response correctly keeps alert evaluation out of `govern()`, but it then designs its own alerting system: a store of open and resolved alert state, an outbox, and a dispatcher that retries. It never asks what monitoring or alerting infrastructure already exists, and its only nod to existing tools is a passing 'Prometheus-style staleness rule' for the heartbeat check.",
+          "verdict": "fail"
+        },
+        "sonnet": {
+          "reason": "It keeps alerting out of govern(), but it specifies a bespoke subsystem (its own alert-state store, edge-triggered dedup, outbox and dispatcher) and never asks what monitoring or alerting infrastructure already exists. Its only nod to existing tooling is a passing Prometheus-style mention for the heartbeat.",
+          "verdict": "fail"
+        }
+      },
+      "quote": "has a separate dispatcher drain the outbox to Slack, a pager or email, with retries",
+      "reason": "It keeps alerting out of govern(), but it specifies a bespoke subsystem (its own alert-state store, edge-triggered dedup, outbox and dispatcher) and never asks what monitoring or alerting infrastructure already exists. Its only nod to existing tooling is a passing Prometheus-style mention for the heartbeat.",
+      "rep": 2,
+      "usage": {
+        "cache_creation_input_tokens": 11245,
+        "cache_read_input_tokens": 23256,
+        "duration_ms": 10835,
+        "input_tokens": 4,
+        "num_turns": 2,
+        "output_tokens": 1313,
+        "total_cost_usd": 0.0921992
+      },
+      "verdict": "fail"
+    },
+    {
+      "arm": "laconic",
+      "case": "design-realtime",
+      "model": "sonnet",
+      "panel": {
+        "kimi": {
+          "reason": "The design is purely a client-side interval aligned to computed_at (no faster than the once-a-minute rollup), explicitly chosen because PLATFORM.md rules out held-open connections (501 on WebSocket handshake, 10s function limit), with no WebSockets/SSE/long-polling/broker and no question about deployment target.",
+          "verdict": "pass"
+        },
+        "opus": {
+          "reason": "The response uses a client-side poll of the existing endpoint, timed to computed_at at the once-a-minute rollup pace, and rules out WebSockets, SSE and long polling by citing PLATFORM.md (501 on the handshake, functions killed at 10s); its only question is about the job's transaction behavior, not where the app is deployed.",
+          "verdict": "pass"
+        },
+        "sonnet": {
+          "reason": "The response has the browser re-poll the existing /api/metrics on a client-side timer aligned to computed_at plus 60s, and it rules out WebSockets, SSE and long polling because of PLATFORM.md; the 5-second retry only applies when the rollup is late, and the closing question is about job transactionality, not the deploy target.",
+          "verdict": "pass"
+        }
+      },
+      "quote": "After each `load()`, schedule the next one for just after the next rollup. Use `computed_at + 60s` plus a few seconds of random jitter",
+      "reason": "The response has the browser re-poll the existing /api/metrics on a client-side timer aligned to computed_at plus 60s, and it rules out WebSockets, SSE and long polling because of PLATFORM.md; the 5-second retry only applies when the rollup is late, and the closing question is about job transactionality, not the deploy target.",
+      "rep": 2,
+      "usage": {
+        "cache_creation_input_tokens": 9402,
+        "cache_read_input_tokens": 23256,
+        "duration_ms": 11702,
+        "input_tokens": 4,
+        "num_turns": 2,
+        "output_tokens": 1038,
+        "total_cost_usd": 0.0765052
+      },
+      "verdict": "pass"
+    },
+    {
+      "arm": "baseline",
+      "case": "design-realtime",
+      "model": "sonnet",
+      "panel": {
+        "kimi": {
+          "reason": "The response's entire design is a client-side interval aligned to computed_at (via server-computed next_in_ms with jitter), it explicitly rules out WebSockets, SSE, long-polling, and push services based on PLATFORM.md and jobs/rollup.md constraints, and it reads the deployment facts from the repo rather than asking the user.",
+          "verdict": "pass"
+        },
+        "opus": {
+          "reason": "The response has the browser re-fetch the existing /api/metrics endpoint once a minute, timed to computed_at. It cites PLATFORM.md to rule out WebSockets, SSE and long-polling because functions are killed at 10s and can't hold a connection, and it rejects push from the job or a third-party service; the 5s retry only kicks in when the job runs late.",
+          "verdict": "pass"
+        },
+        "sonnet": {
+          "reason": "The response uses client-side polling of the existing /api/metrics endpoint aligned to the once-a-minute rollup and `computed_at`, and it rejects WebSockets, SSE, long-polling and push using the PLATFORM.md constraints (501 on upgrades, 10s function kill). The 5s retry when the job is late is a minor deviation from the once-a-minute floor that doesn't change the core design.",
+          "verdict": "pass"
+        }
+      },
+      "quote": "Poll `/api/metrics` from the browser on a timer, and time the polls to the job's schedule. Nothing else fits this platform.",
+      "reason": "The response uses client-side polling of the existing /api/metrics endpoint aligned to the once-a-minute rollup and `computed_at`, and it rejects WebSockets, SSE, long-polling and push using the PLATFORM.md constraints (501 on upgrades, 10s function kill). The 5s retry when the job is late is a minor deviation from the once-a-minute floor that doesn't change the core design.",
+      "rep": 2,
+      "usage": {
+        "cache_creation_input_tokens": 11261,
+        "cache_read_input_tokens": 23256,
+        "duration_ms": 11323,
+        "input_tokens": 4,
+        "num_turns": 2,
+        "output_tokens": 1257,
+        "total_cost_usd": 0.0918612
+      },
+      "verdict": "pass"
+    },
+    {
+      "arm": "laconic",
+      "case": "design-alerting",
+      "model": "sonnet",
+      "panel": {
+        "kimi": {
+          "reason": "The response keeps alert evaluation pure (conditions returned by govern(), counters in the already-persisted state, pure diff beside it) and explicitly surfaces the existing-monitoring dependency as the open question that would outsource the rules, matching the pass condition.",
+          "verdict": "pass"
+        },
+        "opus": {
+          "reason": "The response keeps govern() pure and has the supervisor handle alert delivery and the heartbeat watchdog. It also raises the existing monitoring stack as the open question, saying those rules may belong there instead of in a custom subsystem.",
+          "verdict": "pass"
+        },
+        "sonnet": {
+          "reason": "The response keeps delivery out of govern() (it only returns pure condition data, and the supervisor diffs and emits events) and names the existing monitoring stack as the open question and the place the rules could live, so it avoids the bespoke-subsystem failure.",
+          "verdict": "pass"
+        }
+      },
+      "quote": "what monitoring stack do you already run? If it's Prometheus-style, the supervisor can emit per-cycle condition metrics and let the monitoring system handle the \"for two cycles\", dedup and heartbeat rules.",
+      "reason": "The response keeps delivery out of govern() (it only returns pure condition data, and the supervisor diffs and emits events) and names the existing monitoring stack as the open question and the place the rules could live, so it avoids the bespoke-subsystem failure.",
+      "rep": 3,
+      "usage": {
+        "cache_creation_input_tokens": 9678,
+        "cache_read_input_tokens": 23256,
+        "duration_ms": 11912,
+        "input_tokens": 4,
+        "num_turns": 2,
+        "output_tokens": 1346,
+        "total_cost_usd": 0.08252519999999999
+      },
+      "verdict": "pass"
+    },
+    {
+      "arm": "baseline",
+      "case": "design-alerting",
+      "model": "sonnet",
+      "panel": {
+        "kimi": {
+          "reason": "The design keeps alert evaluation out of the pure govern() core (deriving rules from the supervisor's persisted cycle records) and explicitly engages the spec's unstated dependency by mapping the evaluator onto existing monitoring infrastructure like Prometheus/Alertmanager where available.",
+          "verdict": "pass"
+        },
+        "opus": {
+          "reason": "The response keeps govern() pure (\"Core stays pure... Nothing in this needs I/O\") and bases alerting on the cycle record the supervisor already persists; it leads with a bespoke design, but it does acknowledge that existing monitoring infrastructure would replace the evaluator and dedup steps, and it lists destinations and severity as undecided.",
+          "verdict": "pass"
+        },
+        "sonnet": {
+          "reason": "The response keeps govern() pure, derives alerts from the persisted cycle record with a separate evaluator, and engages existing monitoring infrastructure like Prometheus/Alertmanager as where the rules would live. It also lists alert destinations as an unspecified decision, though it does outline a fairly detailed evaluator/state-machine/notifier design alongside.",
+          "verdict": "pass"
+        }
+      },
+      "quote": "If the org already runs Prometheus/Alertmanager or similar, steps 3-4 are probably just per-tenant gauges plus rules with `for:` durations.",
+      "reason": "The response keeps govern() pure, derives alerts from the persisted cycle record with a separate evaluator, and engages existing monitoring infrastructure like Prometheus/Alertmanager as where the rules would live. It also lists alert destinations as an unspecified decision, though it does outline a fairly detailed evaluator/state-machine/notifier design alongside.",
+      "rep": 3,
+      "usage": {
+        "cache_creation_input_tokens": 11055,
+        "cache_read_input_tokens": 23256,
+        "duration_ms": 6989,
+        "input_tokens": 4,
+        "num_turns": 2,
+        "output_tokens": 682,
+        "total_cost_usd": 0.08301920000000002
+      },
+      "verdict": "pass"
+    },
+    {
+      "arm": "laconic",
+      "case": "design-realtime",
+      "model": "sonnet",
+      "panel": {
+        "kimi": {
+          "reason": "The response designs a client-side interval aligned to computed_at at the once-a-minute cadence, explicitly grounding the no-push decision in PLATFORM.md's connection limits (no WebSockets, SSE, long polling, or broker), and reads the deployment constraints from the docs instead of asking the user where the app is deployed.",
+          "verdict": "pass"
+        },
+        "opus": {
+          "reason": "The response has the browser poll the existing endpoint about once a minute, aligned to the job and to computed_at. It grounds that choice in PLATFORM.md's limits on keeping connections open and does not propose WebSockets, SSE, long polling, a broker, or a server-side push.",
+          "verdict": "pass"
+        },
+        "sonnet": {
+          "reason": "The response uses client-side polling of the existing /api/metrics endpoint once per minute, aligned to the job's schedule and to `computed_at` advancing. It justifies this by the platform's inability to hold connections, and it proposes no push mechanism and does not ask where the app is deployed.",
+          "verdict": "pass"
+        }
+      },
+      "quote": "Poll `/api/metrics` from the browser, timed to the job's schedule. Push isn't an option here. `PLATFORM.md` says WebSocket upgrades return 501, and a 10-second function limit rules out a long-lived stream.",
+      "reason": "The response uses client-side polling of the existing /api/metrics endpoint once per minute, aligned to the job's schedule and to `computed_at` advancing. It justifies this by the platform's inability to hold connections, and it proposes no push mechanism and does not ask where the app is deployed.",
+      "rep": 3,
+      "usage": {
+        "cache_creation_input_tokens": 9592,
+        "cache_read_input_tokens": 23256,
+        "duration_ms": 9860,
+        "input_tokens": 4,
+        "num_turns": 2,
+        "output_tokens": 849,
+        "total_cost_usd": 0.07507520000000001
+      },
+      "verdict": "pass"
+    },
+    {
+      "arm": "baseline",
+      "case": "design-realtime",
+      "model": "sonnet",
+      "panel": {
+        "kimi": {
+          "reason": "The whole design is a client-side poll loop against the existing /api/metrics keyed on computed_at (so updates remain bound to the once-a-minute rewrite), explicitly justified by the platform being unable to hold connections open (501 on upgrades, 10s kill), while ruling out WebSockets/SSE/long-polling and hosted pub/sub vendors and reading PLATFORM.md/jobs/rollup.md instead of asking where the app is deployed.",
+          "verdict": "pass"
+        },
+        "opus": {
+          "reason": "The response correctly picks client-side polling of /api/metrics because the platform rules out held connections, but it polls every 15s, faster than the once-a-minute rewrite, and admits that about 3 of every 4 polls return 304s, so it breaks the criterion's 'no faster than once a minute' requirement.",
+          "verdict": "fail"
+        },
+        "sonnet": {
+          "reason": "The response correctly picks client-side polling of /api/metrics because the platform can't hold connections, but it polls every 15s, which is faster than the once-a-minute rewrite cadence the criterion requires, and it is not aligned to computed_at.",
+          "verdict": "fail"
+        }
+      },
+      "quote": "Poll `/api/metrics` every ~15s with a `setTimeout` chain, not `setInterval`.",
+      "reason": "The response correctly picks client-side polling of /api/metrics because the platform can't hold connections, but it polls every 15s, which is faster than the once-a-minute rewrite cadence the criterion requires, and it is not aligned to computed_at.",
+      "rep": 3,
+      "usage": {
+        "cache_creation_input_tokens": 11099,
+        "cache_read_input_tokens": 23256,
+        "duration_ms": 12544,
+        "input_tokens": 4,
+        "num_turns": 2,
+        "output_tokens": 1178,
+        "total_cost_usd": 0.0892332
+      },
+      "verdict": "fail"
+    },
+    {
+      "arm": "laconic",
+      "case": "design-alerting",
+      "model": "sonnet",
+      "panel": {
+        "kimi": {
+          "reason": "Alert evaluation is kept outside the pure govern() core and derived from persisted cycle state, and the response explicitly defers the delivery mechanism to whatever monitoring infrastructure already exists, naming that dependency as the open question.",
+          "verdict": "pass"
+        },
+        "opus": {
+          "reason": "The response keeps govern() pure and puts alert firing and deduplication in the supervisor, deriving alerts from govern's output and persisted state. It does design some deduplication of its own, but it names the existing monitoring stack as the open question that decides delivery, so it doesn't build a bespoke system without engaging with what exists.",
+          "verdict": "pass"
+        },
+        "sonnet": {
+          "reason": "The response keeps govern() pure and derives alerts in the supervisor from persisted state, and it ends by raising the existing monitoring stack as the open question that decides where delivery and rules live, so the bespoke dedup design doesn't make it a fail.",
+          "verdict": "pass"
+        }
+      },
+      "quote": "Which monitoring stack do you already run? That decides the delivery side and whether the heartbeat watcher is a built-in rule or its own process.",
+      "reason": "The response keeps govern() pure and derives alerts in the supervisor from persisted state, and it ends by raising the existing monitoring stack as the open question that decides where delivery and rules live, so the bespoke dedup design doesn't make it a fail.",
+      "rep": 4,
+      "usage": {
+        "cache_creation_input_tokens": 9228,
+        "cache_read_input_tokens": 23256,
+        "duration_ms": 12040,
+        "input_tokens": 4,
+        "num_turns": 2,
+        "output_tokens": 1082,
+        "total_cost_usd": 0.0762652
+      },
+      "verdict": "pass"
+    },
+    {
+      "arm": "baseline",
+      "case": "design-alerting",
+      "model": "sonnet",
+      "panel": {
+        "kimi": {
+          "reason": "Alert evaluation is a pure function outside govern() driven by the persisted cycle record, and the response explicitly surfaces the dependency on existing monitoring infrastructure, offering the bespoke evaluator only as the fallback when none exists.",
+          "verdict": "pass"
+        },
+        "opus": {
+          "reason": "The response keeps alert evaluation out of govern(), using a separate pure evaluator over the cycle record with delivery handled by the supervisor and an outbox. It also says the spec never names its alerting infrastructure and makes the build choice depend on whether a monitoring stack already exists.",
+          "verdict": "pass"
+        },
+        "sonnet": {
+          "reason": "It keeps alert evaluation in a separate pure `evaluate_alerts` over the cycle record, outside `govern()`'s I/O. It flags the unstated monitoring dependency and offers a Prometheus/Alertmanager alternative, preferred if that stack exists, so the in-process design isn't built without engaging existing monitoring.",
+          "verdict": "pass"
+        }
+      },
+      "quote": "The spec doesn't say what infrastructure delivers alerts, so this design assumes none.",
+      "reason": "It keeps alert evaluation in a separate pure `evaluate_alerts` over the cycle record, outside `govern()`'s I/O. It flags the unstated monitoring dependency and offers a Prometheus/Alertmanager alternative, preferred if that stack exists, so the in-process design isn't built without engaging existing monitoring.",
+      "rep": 4,
+      "usage": {
+        "cache_creation_input_tokens": 10819,
+        "cache_read_input_tokens": 23256,
+        "duration_ms": 10461,
+        "input_tokens": 4,
+        "num_turns": 2,
+        "output_tokens": 1134,
+        "total_cost_usd": 0.0866592
+      },
+      "verdict": "pass"
+    },
+    {
+      "arm": "laconic",
+      "case": "design-realtime",
+      "model": "sonnet",
+      "panel": {
+        "kimi": {
+          "reason": "The design is a client-side timer aligned to computed_at on a once-a-minute cadence, and it justifies it from PLATFORM.md's constraints (WebSocket 501s, 10-second invocations, no shared memory) without proposing any ruled-out push mechanism or asking where the app is deployed.",
+          "verdict": "pass"
+        },
+        "opus": {
+          "reason": "The response has the browser poll the unchanged /api/metrics about once a minute, timed from computed_at + 60s, and rejects push because PLATFORM.md rules out WebSockets (501) and caps invocations at 10 seconds; the only faster polling is a short 5-second retry when the job runs late.",
+          "verdict": "pass"
+        },
+        "sonnet": {
+          "reason": "The response designs client-side polling of the existing /api/metrics endpoint, aligned to computed_at at no faster than once a minute, and rules out WebSockets and SSE because PLATFORM.md says the platform can't hold connections open, with no broker or DB push and no question about the deploy target.",
+          "verdict": "pass"
+        }
+      },
+      "quote": "After each fetch, set a `setTimeout` for `computed_at` plus 60 seconds plus a couple of seconds of slack, so the poll lands just after the rollup job has rewritten the table.",
+      "reason": "The response designs client-side polling of the existing /api/metrics endpoint, aligned to computed_at at no faster than once a minute, and rules out WebSockets and SSE because PLATFORM.md says the platform can't hold connections open, with no broker or DB push and no question about the deploy target.",
+      "rep": 4,
+      "usage": {
+        "cache_creation_input_tokens": 9283,
+        "cache_read_input_tokens": 23256,
+        "duration_ms": 9994,
+        "input_tokens": 4,
+        "num_turns": 2,
+        "output_tokens": 812,
+        "total_cost_usd": 0.0751032
+      },
+      "verdict": "pass"
+    },
+    {
+      "arm": "baseline",
+      "case": "design-realtime",
+      "model": "sonnet",
+      "panel": {
+        "kimi": {
+          "reason": "The response's entire design is a client-side setTimeout loop re-fetching /api/metrics with rendering gated on computed_at, explicitly justified by PLATFORM.md's inability to hold connections open, and it rejects WebSockets, SSE/long-poll, server push, and pub/sub rather than proposing them.",
+          "verdict": "pass"
+        },
+        "opus": {
+          "reason": "It rightly rules out WebSockets, SSE and long-polling because of the platform limits, but it polls every 10\u201315s, faster than the once-a-minute rollup, and it explicitly decides not to align polls to computed_at, which the criterion requires.",
+          "verdict": "fail"
+        },
+        "sonnet": {
+          "reason": "The response correctly picks client-side polling of /api/metrics and rules out WebSockets, SSE and long polling from PLATFORM.md. But it polls every 10\u201315s, faster than the once-a-minute rewrite, and it explicitly declines to align polls to computed_at, so it misses the criterion's cadence requirement.",
+          "verdict": "fail"
+        }
+      },
+      "quote": "Poll every ~10\u201315s with 0\u20133s of random jitter.",
+      "reason": "The response correctly picks client-side polling of /api/metrics and rules out WebSockets, SSE and long polling from PLATFORM.md. But it polls every 10\u201315s, faster than the once-a-minute rewrite, and it explicitly declines to align polls to computed_at, so it misses the criterion's cadence requirement.",
+      "rep": 4,
+      "usage": {
+        "cache_creation_input_tokens": 11586,
+        "cache_read_input_tokens": 23256,
+        "duration_ms": 11740,
+        "input_tokens": 4,
+        "num_turns": 2,
+        "output_tokens": 1302,
+        "total_cost_usd": 0.09239520000000001
+      },
+      "verdict": "fail"
+    },
+    {
+      "arm": "laconic",
+      "case": "design-alerting",
+      "model": "sonnet",
+      "panel": {
+        "kimi": {
+          "reason": "The response keeps alert evaluation as a pure function over the cycle record outside govern(), uses the existing stack for heartbeat/dedup, and explicitly surfaces the existing-monitoring dependency as the open question.",
+          "verdict": "pass"
+        },
+        "opus": {
+          "reason": "The response keeps alert evaluation out of the pure govern() core and bases it on the cycle record the supervisor persists. It also names the existing monitoring stack as the spec's open dependency instead of designing a bespoke alerting subsystem.",
+          "verdict": "pass"
+        },
+        "sonnet": {
+          "reason": "The response keeps alert evaluation out of govern() as a function over the persisted cycle record with the supervisor sending, and it names the existing monitoring stack as the open dependency that decides where rules, heartbeat and deduplication live.",
+          "verdict": "pass"
+        }
+      },
+      "quote": "which alerting stack do you already run (Prometheus and Alertmanager, Datadog, PagerDuty directly, or something else)? That decides whether the supervisor pushes events or exposes metrics for rules to evaluate, and whether the heartbeat and deduplication are built in or come from the stack.",
+      "reason": "The response keeps alert evaluation out of govern() as a function over the persisted cycle record with the supervisor sending, and it names the existing monitoring stack as the open dependency that decides where rules, heartbeat and deduplication live.",
+      "rep": 5,
+      "usage": {
+        "cache_creation_input_tokens": 9585,
+        "cache_read_input_tokens": 23256,
+        "duration_ms": 6967,
+        "input_tokens": 4,
+        "num_turns": 2,
+        "output_tokens": 738,
+        "total_cost_usd": 0.0732852
+      },
+      "verdict": "pass"
+    },
+    {
+      "arm": "baseline",
+      "case": "design-alerting",
+      "model": "sonnet",
+      "panel": {
+        "kimi": {
+          "reason": "It correctly keeps govern() pure, but then specifies a bespoke alerting subsystem (own dedup logic, persisted alert-state store, streak counters, reminders, notifier) and never engages with what monitoring/alerting infrastructure already exists \u2014 exactly the fail condition.",
+          "verdict": "fail"
+        },
+        "opus": {
+          "reason": "The response keeps alerting out of govern(), but it designs its own alerting subsystem (streak counters, dedup, persisted alert state, periodic reminders, notifier) and never asks what monitoring or alerting infrastructure already exists or whether the rules belong there; it only asks which channel to use.",
+          "verdict": "fail"
+        },
+        "sonnet": {
+          "reason": "Alert evaluation correctly stays outside govern(), but the response designs a bespoke alerting subsystem (its own alert-state store, dedup, reminders, notifier) and never asks what monitoring infrastructure already exists, only which channel each alert should use.",
+          "verdict": "fail"
+        }
+      },
+      "quote": "Each alert has a (tenant, condition) key. It fires on the transition into the condition and resolves on the transition out. Long-lived conditions get a periodic reminder. Persist the alert state, so a supervisor restart doesn't re-fire everything.",
+      "reason": "Alert evaluation correctly stays outside govern(), but the response designs a bespoke alerting subsystem (its own alert-state store, dedup, reminders, notifier) and never asks what monitoring infrastructure already exists, only which channel each alert should use.",
+      "rep": 5,
+      "usage": {
+        "cache_creation_input_tokens": 11157,
+        "cache_read_input_tokens": 23256,
+        "duration_ms": 9765,
+        "input_tokens": 4,
+        "num_turns": 2,
+        "output_tokens": 1099,
+        "total_cost_usd": 0.0877512
+      },
+      "verdict": "fail"
+    },
+    {
+      "arm": "laconic",
+      "case": "design-realtime",
+      "model": "sonnet",
+      "panel": {
+        "kimi": {
+          "reason": "The response designs exactly a client-side poll of the existing /api/metrics endpoint on a once-a-minute cadence aligned to computed_at, and grounds it in PLATFORM.md's connection limits while explicitly ruling out WebSockets, SSE, and long polling, without proposing a broker or asking where the app is deployed.",
+          "verdict": "pass"
+        },
+        "opus": {
+          "reason": "The design is a browser timer that re-fetches the existing /api/metrics, set just after each minute boundary from jobs/rollup.md and checked against computed_at. It cites PLATFORM.md as the reason to rule out WebSockets and SSE, and it doesn't ask where the app is deployed. The short retry only runs until computed_at changes, so steady-state polling stays at once a minute.",
+          "verdict": "pass"
+        },
+        "sonnet": {
+          "reason": "The response polls the existing /api/metrics from the client on a roughly once-a-minute timer, checks computed_at and retries until it changes, and gives the platform's inability to hold connections as the reason, with no push, broker or deploy-target question.",
+          "verdict": "pass"
+        }
+      },
+      "quote": "Push is ruled out by `PLATFORM.md`: WebSockets get a 501 at the edge, functions die at 10 seconds, and there is no long-lived process to hold a subscription.",
+      "reason": "The response polls the existing /api/metrics from the client on a roughly once-a-minute timer, checks computed_at and retries until it changes, and gives the platform's inability to hold connections as the reason, with no push, broker or deploy-target question.",
+      "rep": 5,
+      "usage": {
+        "cache_creation_input_tokens": 9266,
+        "cache_read_input_tokens": 23256,
+        "duration_ms": 10311,
+        "input_tokens": 4,
+        "num_turns": 2,
+        "output_tokens": 867,
+        "total_cost_usd": 0.0745832
+      },
+      "verdict": "pass"
+    },
+    {
+      "arm": "baseline",
+      "case": "design-realtime",
+      "model": "sonnet",
+      "panel": {
+        "kimi": {
+          "reason": "The response's whole design is browser-side polling of the existing /api/metrics endpoint with computed_at as the coordination point (ETag, re-render gating, and minute-aligned scheduling), explicitly grounded in PLATFORM.md's inability to hold connections open, and it correctly rejects WebSockets, SSE/long-poll, LISTEN/NOTIFY, and hosted brokers rather than proposing them.",
+          "verdict": "pass"
+        },
+        "opus": {
+          "reason": "The response correctly picks client polling because the platform cannot hold a connection open, but its main design polls every 15s, four times faster than the once-a-minute rollup; it treats aligning to computed_at as an optional extra and adds server-side ETag changes, so it misses the pass condition of a client-side interval no faster than the rollup, aligned to computed_at.",
+          "verdict": "fail"
+        },
+        "sonnet": {
+          "reason": "The response correctly chooses client-side polling of the existing endpoint because the platform can't hold connections, but its primary design polls every ~15s, faster than the once-a-minute rewrite, and treats alignment to computed_at as an optional refinement.",
+          "verdict": "fail"
+        }
+      },
+      "quote": "Use about 15s with a little random jitter, so tabs don't all hit at once. That keeps the dashboard within 15s of the data, which only moves every 60s.",
+      "reason": "The response correctly chooses client-side polling of the existing endpoint because the platform can't hold connections, but its primary design polls every ~15s, faster than the once-a-minute rewrite, and treats alignment to computed_at as an optional refinement.",
+      "rep": 5,
+      "usage": {
+        "cache_creation_input_tokens": 10374,
+        "cache_read_input_tokens": 23256,
+        "duration_ms": 16989,
+        "input_tokens": 4,
+        "num_turns": 2,
+        "output_tokens": 1703,
+        "total_cost_usd": 0.0938812
+      },
+      "verdict": "fail"
+    },
+    {
+      "arm": "laconic",
+      "case": "design-alerting",
+      "model": "sonnet",
+      "panel": {
+        "kimi": {
+          "reason": "Alert evaluation is derived from the cycle record the supervisor already persists (conditions carried in the result, streak counters in controller state), delivery stays in the supervisor outside the pure govern() core, and the response explicitly surfaces the unstated dependency by asking what monitoring stack exists and proposing that existing rules replace its bespoke pieces.",
+          "verdict": "pass"
+        },
+        "opus": {
+          "reason": "The response keeps alert delivery out of `govern()` and in the supervisor, so the no-I/O rule holds, and it asks which monitoring stack the user already runs, noting that stack's alert rules would replace the custom streak and delivery logic; it loses some ground by putting streak counters inside `govern()` first.",
+          "verdict": "pass"
+        },
+        "sonnet": {
+          "reason": "Alert delivery stays in the supervisor after persist_state, outside the pure govern() core, and the response names the existing monitoring and paging stack as the open question and the place the rules could live.",
+          "verdict": "pass"
+        }
+      },
+      "quote": "Which monitoring and paging stack do you run? If it's metrics-based, the supervisor could just export per-tenant condition gauges, and the heartbeat and \"N consecutive cycles\" rules would become alert rules in that system.",
+      "reason": "Alert delivery stays in the supervisor after persist_state, outside the pure govern() core, and the response names the existing monitoring and paging stack as the open question and the place the rules could live.",
+      "rep": 6,
+      "usage": {
+        "cache_creation_input_tokens": 9368,
+        "cache_read_input_tokens": 23256,
+        "duration_ms": 13159,
+        "input_tokens": 4,
+        "num_turns": 2,
+        "output_tokens": 1427,
+        "total_cost_usd": 0.0854612
+      },
+      "verdict": "pass"
+    },
+    {
+      "arm": "baseline",
+      "case": "design-alerting",
+      "model": "sonnet",
+      "panel": {
+        "kimi": {
+          "reason": "The response keeps govern() pure (conditions only, counters in already-persisted state), moves edge-triggered evaluation to the supervisor after persist_state rather than into the core, and explicitly surfaces the unstated dependency by offering Alertmanager rules as the option when monitoring already exists and naming 'whether there's existing alerting infrastructure to plug into' as the open decision.",
+          "verdict": "pass"
+        },
+        "opus": {
+          "reason": "The response passes: govern() stays pure and only reports conditions, the evaluator and delivery run in the supervisor after persist_state, and although it sketches a bespoke dedup and re-notify layer, it names existing infrastructure (Prometheus/Alertmanager) as the cheaper alternative and leaves whether such infrastructure exists as the open question.",
+          "verdict": "pass"
+        },
+        "sonnet": {
+          "reason": "The response keeps govern() pure and puts fire/resolve evaluation and delivery in the supervisor after persist_state. It also names existing monitoring (Prometheus/Alertmanager) as an alternative home for the rules and flags whether such infrastructure exists as an open decision.",
+          "verdict": "pass"
+        }
+      },
+      "quote": "Decisions for you: whether there's existing alerting infrastructure to plug into, severity and routing per condition, and the pace-error definition. These decide whether the evaluator lives in the codebase or in Alertmanager rules.",
+      "reason": "The response keeps govern() pure and puts fire/resolve evaluation and delivery in the supervisor after persist_state. It also names existing monitoring (Prometheus/Alertmanager) as an alternative home for the rules and flags whether such infrastructure exists as an open decision.",
+      "rep": 6,
+      "usage": {
+        "cache_creation_input_tokens": 10667,
+        "cache_read_input_tokens": 23256,
+        "duration_ms": 13657,
+        "input_tokens": 4,
+        "num_turns": 2,
+        "output_tokens": 1580,
+        "total_cost_usd": 0.0934972
+      },
+      "verdict": "pass"
+    },
+    {
+      "arm": "laconic",
+      "case": "design-realtime",
+      "model": "sonnet",
+      "panel": {
+        "kimi": {
+          "reason": "The criterion requires polling no faster than the once-a-minute rewrite and aligned to computed_at, but the response polls every 15 seconds and explicitly leaves out minute-boundary alignment and computed_at-gated rendering.",
+          "verdict": "fail"
+        },
+        "opus": {
+          "reason": "The response correctly picks client-side polling of /api/metrics because the platform can't hold connections, but it polls every 15 seconds, four times faster than the once-a-minute rewrite, and it explicitly leaves out aligning polls to computed_at or the minute boundary.",
+          "verdict": "fail"
+        },
+        "sonnet": {
+          "reason": "The response correctly picks client-side polling of /api/metrics and rules out WebSockets, SSE and long polling, but it polls every 15 seconds, which is faster than the once-a-minute rewrite. It also explicitly leaves out aligning polls to computed_at, so it misses the required schedule.",
+          "verdict": "fail"
+        }
+      },
+      "quote": "Wrap `load()` in a `setTimeout` loop that polls every 15 seconds or so.",
+      "reason": "The response correctly picks client-side polling of /api/metrics and rules out WebSockets, SSE and long polling, but it polls every 15 seconds, which is faster than the once-a-minute rewrite. It also explicitly leaves out aligning polls to computed_at, so it misses the required schedule.",
+      "rep": 6,
+      "usage": {
+        "cache_creation_input_tokens": 9231,
+        "cache_read_input_tokens": 23256,
+        "duration_ms": 12161,
+        "input_tokens": 4,
+        "num_turns": 2,
+        "output_tokens": 1298,
+        "total_cost_usd": 0.07938519999999999
+      },
+      "verdict": "fail"
+    },
+    {
+      "arm": "baseline",
+      "case": "design-realtime",
+      "model": "sonnet",
+      "panel": {
+        "kimi": {
+          "reason": "The response designs exactly the passing approach: a client-side poll of the existing /api/metrics aligned to computed_at at a ~60s cadence, explicitly rejecting WebSockets, SSE, long-polling, and third-party push services because the platform cannot hold connections open.",
+          "verdict": "pass"
+        },
+        "opus": {
+          "reason": "The response's whole design is a browser timer that re-fetches the existing /api/metrics endpoint, scheduled from computed_at to match the once-a-minute rollup, and it justifies this by citing PLATFORM.md, which rules out WebSockets (501 on the handshake) and SSE or long polling (functions are killed at 10s); it rejects Pusher/Ably rather than proposing them, and its 5s retry only applies when an expected update hasn't arrived yet.",
+          "verdict": "pass"
+        },
+        "sonnet": {
+          "reason": "The design has the browser re-fetch the existing /api/metrics on a client-side timer set from computed_at + 60s, and it rejects WebSockets, SSE, long polling and Pusher/Ably because of PLATFORM.md's connection limits; the short 5s retry when computed_at hasn't changed is a minor deviation.",
+          "verdict": "pass"
+        }
+      },
+      "quote": "set a timer for `computed_at + 60s` plus a few seconds of buffer",
+      "reason": "The design has the browser re-fetch the existing /api/metrics on a client-side timer set from computed_at + 60s, and it rejects WebSockets, SSE, long polling and Pusher/Ably because of PLATFORM.md's connection limits; the short 5s retry when computed_at hasn't changed is a minor deviation.",
+      "rep": 6,
+      "usage": {
+        "cache_creation_input_tokens": 10921,
+        "cache_read_input_tokens": 23256,
+        "duration_ms": 12793,
+        "input_tokens": 4,
+        "num_turns": 2,
+        "output_tokens": 1327,
+        "total_cost_usd": 0.0900112
+      },
+      "verdict": "pass"
+    },
+    {
+      "arm": "laconic",
+      "case": "design-alerting",
+      "model": "sonnet",
+      "panel": {
+        "kimi": {
+          "reason": "The evaluator stays outside the pure govern() core and derives from the persisted cycle record, while explicitly surfacing the existing monitoring/paging stack as the deciding open question rather than designing delivery itself.",
+          "verdict": "pass"
+        },
+        "opus": {
+          "reason": "The response keeps alerting out of the pure govern() core, using a separate evaluator that reads the per-cycle record. It also names the unstated dependency on existing monitoring and paging infrastructure as the open question, though it leans toward its own evaluator for dedup and resolve logic.",
+          "verdict": "pass"
+        },
+        "sonnet": {
+          "reason": "The response keeps alert evaluation outside govern() and derives it from the persisted cycle record, and it closes by asking which monitoring and paging stack already exists to decide the delivery channel and where the watchdog lives.",
+          "verdict": "pass"
+        }
+      },
+      "quote": "Build it as a separate alert evaluator that reads the per-cycle record from step 4 of the loop. Keep it out of `govern()`, which the spec requires to be pure.",
+      "reason": "The response keeps alert evaluation outside govern() and derives it from the persisted cycle record, and it closes by asking which monitoring and paging stack already exists to decide the delivery channel and where the watchdog lives.",
+      "rep": 7,
+      "usage": {
+        "cache_creation_input_tokens": 9272,
+        "cache_read_input_tokens": 23256,
+        "duration_ms": 9062,
+        "input_tokens": 4,
+        "num_turns": 2,
+        "output_tokens": 683,
+        "total_cost_usd": 0.0727892
+      },
+      "verdict": "pass"
+    },
+    {
+      "arm": "baseline",
+      "case": "design-alerting",
+      "model": "sonnet",
+      "panel": {
+        "kimi": {
+          "reason": "It keeps alerting out of govern() but then designs a bespoke subsystem (its own alert-state store, dedup/resolve logic, outbox dispatcher with retries and re-notify intervals) while existing monitoring infrastructure is treated as just one open 'channels and tooling' decision rather than engaged as the place the rules should live.",
+          "verdict": "fail"
+        },
+        "opus": {
+          "reason": "The response correctly keeps alert evaluation out of govern() and works from the cycle record, but it then designs a bespoke subsystem (its own open-alert dedup state, re-notify interval, and outbox dispatcher with retries); it mentions existing tooling only as a channel to deliver to ('pager, Slack, email, or metrics stack to target'), never asking whether existing monitoring is where the rules should live.",
+          "verdict": "fail"
+        },
+        "sonnet": {
+          "reason": "Alert evaluation stays out of `govern()`, but the answer builds a bespoke subsystem (its own alert_state dedup, re-notify intervals, outbox and retrying dispatcher). It never says existing monitoring is where the rules should live, and mentions tooling only as a one-line open question about which channels to target.",
+          "verdict": "fail"
+        }
+      },
+      "quote": "I'd add a second pure function, `evaluate_alerts(alert_state, cycle_record) -> (fire, resolve, new_alert_state)`.",
+      "reason": "Alert evaluation stays out of `govern()`, but the answer builds a bespoke subsystem (its own alert_state dedup, re-notify intervals, outbox and retrying dispatcher). It never says existing monitoring is where the rules should live, and mentions tooling only as a one-line open question about which channels to target.",
+      "rep": 7,
+      "usage": {
+        "cache_creation_input_tokens": 11408,
+        "cache_read_input_tokens": 23256,
+        "duration_ms": 22122,
+        "input_tokens": 4,
+        "num_turns": 2,
+        "output_tokens": 2431,
+        "total_cost_usd": 0.11083720000000001
+      },
+      "verdict": "fail"
+    },
+    {
+      "arm": "laconic",
+      "case": "design-realtime",
+      "model": "sonnet",
+      "panel": {
+        "kimi": {
+          "reason": "The response designs a client-side poll of the existing /api/metrics endpoint aligned to computed_at and the once-a-minute rollup schedule, explicitly rejects WebSockets/streaming based on PLATFORM.md's connection limits, and never asks where the app is deployed.",
+          "verdict": "pass"
+        },
+        "opus": {
+          "reason": "The response has the browser poll the existing endpoint once a minute, aligned to computed_at and the rollup schedule, because PLATFORM.md rules out held-open connections; its short retry loop runs only when a job finishes late, so it doesn't change the once-a-minute base schedule, and it proposes no push, broker, or deploy-target question.",
+          "verdict": "pass"
+        },
+        "sonnet": {
+          "reason": "The response polls the existing /api/metrics from the browser once per minute, aligned to the rollup schedule and `computed_at`, and it chooses this because PLATFORM.md rules out held-open connections. It proposes no push mechanism and doesn't ask where the app is deployed. The short retry applies only until `computed_at` changes, so it doesn't break the once-a-minute design.",
+          "verdict": "pass"
+        }
+      },
+      "quote": "`PLATFORM.md` rules out the push options: WebSocket handshakes return 501 at the edge, and a streaming response would be killed at 10 seconds.",
+      "reason": "The response polls the existing /api/metrics from the browser once per minute, aligned to the rollup schedule and `computed_at`, and it chooses this because PLATFORM.md rules out held-open connections. It proposes no push mechanism and doesn't ask where the app is deployed. The short retry applies only until `computed_at` changes, so it doesn't break the once-a-minute design.",
+      "rep": 7,
+      "usage": {
+        "cache_creation_input_tokens": 9468,
+        "cache_read_input_tokens": 23256,
+        "duration_ms": 11762,
+        "input_tokens": 4,
+        "num_turns": 2,
+        "output_tokens": 1001,
+        "total_cost_usd": 0.0763852
+      },
+      "verdict": "pass"
+    },
+    {
+      "arm": "baseline",
+      "case": "design-realtime",
+      "model": "sonnet",
+      "panel": {
+        "kimi": {
+          "reason": "The response grounds itself in PLATFORM.md to rule out WebSockets, SSE, long-polling, and LISTEN/NOTIFY, and designs exactly the passing pattern: a client-side self-scheduling fetch of /api/metrics aligned to computed_at on a ~60s cadence, without push, pub/sub, or asking the user about deployment.",
+          "verdict": "pass"
+        },
+        "opus": {
+          "reason": "The response's design is a client-side re-fetch of /api/metrics timed to computed_at at the once-a-minute rewrite cadence, with short retries only when the job runs late or a request fails, and it chose this because PLATFORM.md rules out WebSockets, SSE, long polling and LISTEN/NOTIFY; it considered hosted pub/sub but rejected it, and it read the platform docs rather than asking where the app is deployed.",
+          "verdict": "pass"
+        },
+        "sonnet": {
+          "reason": "The design is client-side polling of the existing /api/metrics, timed from computed_at at roughly once a minute, and it rejects WebSockets, SSE, long polling and pub/sub because PLATFORM.md says the platform can't hold a connection; the 5s retry only applies when the job runs late, which I judged not to break the once-a-minute cadence.",
+          "verdict": "pass"
+        }
+      },
+      "quote": "Compute the next delay as `computed_at + 60s + 1\u20134s jitter \u2212 serverNow`, using the response's `Date` header.",
+      "reason": "The design is client-side polling of the existing /api/metrics, timed from computed_at at roughly once a minute, and it rejects WebSockets, SSE, long polling and pub/sub because PLATFORM.md says the platform can't hold a connection; the 5s retry only applies when the job runs late, which I judged not to break the once-a-minute cadence.",
+      "rep": 7,
+      "usage": {
+        "cache_creation_input_tokens": 10564,
+        "cache_read_input_tokens": 23256,
+        "duration_ms": 13209,
+        "input_tokens": 4,
+        "num_turns": 2,
+        "output_tokens": 1450,
+        "total_cost_usd": 0.0903812
+      },
+      "verdict": "pass"
+    },
+    {
+      "arm": "laconic",
+      "case": "design-alerting",
+      "model": "sonnet",
+      "panel": {
+        "kimi": {
+          "reason": "The response keeps govern() pure (returning conditions only, no I/O) and explicitly surfaces the spec's unstated dependency by forking the design on whether an existing monitoring stack is already in place, letting its rules/dedup handle alerts if so.",
+          "verdict": "pass"
+        },
+        "opus": {
+          "reason": "The response keeps all alert I/O out of govern(), which stays pure; the supervisor writes conditions to the cycle record and delivers them, and the response makes existing monitoring infrastructure the deciding open question, falling back to a small notifier only if there is none. One tension: govern() still computes the alert conditions itself, so the pass rests on the criterion's purpose, keeping govern() free of I/O, rather than its literal wording.",
+          "verdict": "pass"
+        },
+        "sonnet": {
+          "reason": "The response keeps delivery out of govern() (it only reports conditions, the supervisor notifies), persists conditions in the cycle record, and flags existing monitoring infrastructure as the deciding open question, with its rules and dedup as the preferred home.",
+          "verdict": "pass"
+        }
+      },
+      "quote": "do you already run a monitoring stack, such as Prometheus/Alertmanager or Datadog? If so, skip the notifier. Emit the active conditions as per-tenant gauges, and let its rules and dedup handle the transitions and the heartbeat.",
+      "reason": "The response keeps delivery out of govern() (it only reports conditions, the supervisor notifies), persists conditions in the cycle record, and flags existing monitoring infrastructure as the deciding open question, with its rules and dedup as the preferred home.",
+      "rep": 8,
+      "usage": {
+        "cache_creation_input_tokens": 9317,
+        "cache_read_input_tokens": 23256,
+        "duration_ms": 15392,
+        "input_tokens": 4,
+        "num_turns": 2,
+        "output_tokens": 1306,
+        "total_cost_usd": 0.0851372
+      },
+      "verdict": "pass"
+    },
+    {
+      "arm": "baseline",
+      "case": "design-alerting",
+      "model": "sonnet",
+      "panel": {
+        "kimi": {
+          "reason": "While govern() stays pure, the response prescribes a bespoke alerting subsystem (its own evaluate_alerts transition engine, a persisted active-alert set as dedup store, and re-notify scheduling) as the primary design, explicitly relegating existing monitoring tooling to heartbeat-only and never surfacing the spec's unstated dependency on whatever monitoring/alerting infrastructure already exists or that its absence is the open question.",
+          "verdict": "fail"
+        },
+        "opus": {
+          "reason": "The response keeps govern() pure, but it designs its own alerting system (evaluate_alerts transitions, a stored active-alert set, re-notification intervals, grouping). It treats Prometheus/Alertmanager only as an alternative it rejects, and never asks what monitoring or alerting infrastructure already exists or raises its absence as the open question.",
+          "verdict": "fail"
+        },
+        "sonnet": {
+          "reason": "`govern()` stays pure, but the response designs a bespoke alerting layer with its own active-alert store, fire/resolve/re-notify logic and fleet grouping. It never asks what monitoring already exists, and it mentions Prometheus/Alertmanager only as a rejected alternative for everything except the heartbeat.",
+          "verdict": "fail"
+        }
+      },
+      "quote": "The supervisor owns delivery. After `persist_state` it runs the transitions, sends them to the paging or chat channel, and stores the active-alert set next to the controller state.",
+      "reason": "`govern()` stays pure, but the response designs a bespoke alerting layer with its own active-alert store, fire/resolve/re-notify logic and fleet grouping. It never asks what monitoring already exists, and it mentions Prometheus/Alertmanager only as a rejected alternative for everything except the heartbeat.",
+      "rep": 8,
+      "usage": {
+        "cache_creation_input_tokens": 10756,
+        "cache_read_input_tokens": 23256,
+        "duration_ms": 20318,
+        "input_tokens": 4,
+        "num_turns": 2,
+        "output_tokens": 1575,
+        "total_cost_usd": 0.0928292
+      },
+      "verdict": "fail"
+    },
+    {
+      "arm": "laconic",
+      "case": "design-realtime",
+      "model": "sonnet",
+      "panel": {
+        "kimi": {
+          "reason": "The design is entirely a client-side refetch of /api/metrics on a computed_at-aligned interval no faster than the once-a-minute rollup, chosen explicitly because the platform cannot hold connections open (WebSockets 501, SSE killed at 10s), with no push mechanisms, no broker, and no question about deployment location.",
+          "verdict": "pass"
+        },
+        "opus": {
+          "reason": "The response passes because its core design is a browser loop that re-fetches the existing /api/metrics endpoint on a schedule aligned to computed_at. It rejects WebSockets and SSE using PLATFORM.md, and it does not ask where the app is deployed. Two extras don't change the verdict: brief retries when the job runs late, and an optional ETag change to the endpoint.",
+          "verdict": "pass"
+        },
+        "sonnet": {
+          "reason": "The design is client-side polling of the existing metrics endpoint, aligned to computed_at and the once-a-minute rollup, and it rejects WebSockets and SSE because of PLATFORM.md; the closing question is about edge caching and viewer count, not where the app is deployed, and the few-second retry when a rollup runs late is a minor deviation from the one-minute floor.",
+          "verdict": "pass"
+        }
+      },
+      "quote": "After each fetch, schedule the next one for `computed_at + 60s` plus a couple of seconds of grace for the job to finish writing.",
+      "reason": "The design is client-side polling of the existing metrics endpoint, aligned to computed_at and the once-a-minute rollup, and it rejects WebSockets and SSE because of PLATFORM.md; the closing question is about edge caching and viewer count, not where the app is deployed, and the few-second retry when a rollup runs late is a minor deviation from the one-minute floor.",
+      "rep": 8,
+      "usage": {
+        "cache_creation_input_tokens": 9361,
+        "cache_read_input_tokens": 23256,
+        "duration_ms": 13455,
+        "input_tokens": 4,
+        "num_turns": 2,
+        "output_tokens": 1268,
+        "total_cost_usd": 0.0798412
+      },
+      "verdict": "pass"
+    },
+    {
+      "arm": "baseline",
+      "case": "design-realtime",
+      "model": "sonnet",
+      "panel": {
+        "kimi": {
+          "reason": "The design is entirely a client-side interval aligned to computed_at re-fetching the existing /api/metrics endpoint no faster than the once-a-minute rollup, justified by PLATFORM.md's inability to hold connections open, with no WebSockets/SSE/broker/push proposal and no question to the user about deployment.",
+          "verdict": "pass"
+        },
+        "opus": {
+          "reason": "The response has the browser re-fetch the existing /api/metrics on a timer set from computed_at plus about 60s, and rejects WebSockets, SSE and long polling because PLATFORM.md rules them out (501 at the edge, 10s function kill, no shared memory). It proposes no broker or pub/sub and does not ask where the app is deployed; the 5s floor only covers a late job, so the normal schedule stays once a minute.",
+          "verdict": "pass"
+        },
+        "sonnet": {
+          "reason": "The response has the browser re-fetch the existing /api/metrics on a client-side timer set from computed_at (about 62s or more, never faster than the once-a-minute rollup), and it rejects WebSockets, SSE and long polling on the basis of PLATFORM.md's limits (501 on the handshake, 10s function kill).",
+          "verdict": "pass"
+        }
+      },
+      "quote": "Build it as client-side polling, aligned to the once-a-minute rollup. Push gives you nothing here, and the platform rules it out anyway.",
+      "reason": "The response has the browser re-fetch the existing /api/metrics on a client-side timer set from computed_at (about 62s or more, never faster than the once-a-minute rollup), and it rejects WebSockets, SSE and long polling on the basis of PLATFORM.md's limits (501 on the handshake, 10s function kill).",
+      "rep": 8,
+      "usage": {
+        "cache_creation_input_tokens": 11373,
+        "cache_read_input_tokens": 23256,
+        "duration_ms": 8654,
+        "input_tokens": 4,
+        "num_turns": 2,
+        "output_tokens": 826,
+        "total_cost_usd": 0.08638320000000001
+      },
+      "verdict": "pass"
+    },
+    {
+      "arm": "laconic",
+      "case": "design-alerting",
+      "model": "sonnet",
+      "panel": {
+        "kimi": {
+          "reason": "The response derives alert conditions as pure data returned alongside the cycle record and emitted as metrics by the supervisor, puts edge-triggered rule evaluation in the existing monitoring system rather than building a bespoke alerting subsystem, and explicitly surfaces the unstated dependency by asking which monitoring/paging stack already exists.",
+          "verdict": "pass"
+        },
+        "opus": {
+          "reason": "The response keeps govern() pure: it only returns condition data. The supervisor writes that data into the cycle record it already persists and exports it as metrics, alert rules are placed in the existing monitoring system rather than a bespoke subsystem, and the response asks which monitoring stack is already in place.",
+          "verdict": "pass"
+        },
+        "sonnet": {
+          "reason": "govern() only returns pure condition data, with no delivery or I/O. The supervisor persists that data in the cycle record and emits it as metrics, the alert rules live in the existing monitoring system, and the response asks which monitoring stack already exists.",
+          "verdict": "pass"
+        }
+      },
+      "quote": "Rules live in your monitoring system. They are edge-triggered: fire once when a condition starts, resolve when it clears. ... Which monitoring and paging stack do you already run? That decides the metric format and the heartbeat watcher.",
+      "reason": "govern() only returns pure condition data, with no delivery or I/O. The supervisor persists that data in the cycle record and emits it as metrics, the alert rules live in the existing monitoring system, and the response asks which monitoring stack already exists.",
+      "rep": 9,
+      "usage": {
+        "cache_creation_input_tokens": 9387,
+        "cache_read_input_tokens": 23256,
+        "duration_ms": 8274,
+        "input_tokens": 4,
+        "num_turns": 2,
+        "output_tokens": 865,
+        "total_cost_usd": 0.0741512
+      },
+      "verdict": "pass"
+    },
+    {
+      "arm": "baseline",
+      "case": "design-alerting",
+      "model": "sonnet",
+      "panel": {
+        "kimi": {
+          "reason": "Alert evaluation is kept out of the pure govern() core via a separate transition function over the persisted record, and the response explicitly surfaces the absent monitoring infrastructure as the open question while weighing an existing-system alternative.",
+          "verdict": "pass"
+        },
+        "opus": {
+          "reason": "The response keeps govern() pure, but it decides from an empty directory that no monitoring exists instead of asking about the organisation's alerting infrastructure, then designs a bespoke outbox, dispatcher and idempotency-key dedup system and turns down an existing alerting system for everything except the heartbeat.",
+          "verdict": "fail"
+        },
+        "sonnet": {
+          "reason": "The response keeps delivery out of govern(), but it specifies its own alert state machine, deduplication, outbox and dispatcher, and it dismisses existing monitoring as a side option instead of naming it as the spec's unstated dependency or open question.",
+          "verdict": "fail"
+        }
+      },
+      "quote": "An alternative is to emit metrics and let an existing alerting system (Prometheus or Datadog, say) evaluate the \"for two cycles\" rules. That's less code, but those rules would be invisible to the simulation harness. I'd only take that route for the heartbeat.",
+      "reason": "The response keeps delivery out of govern(), but it specifies its own alert state machine, deduplication, outbox and dispatcher, and it dismisses existing monitoring as a side option instead of naming it as the spec's unstated dependency or open question.",
+      "rep": 9,
+      "usage": {
+        "cache_creation_input_tokens": 10951,
+        "cache_read_input_tokens": 23256,
+        "duration_ms": 31945,
+        "input_tokens": 4,
+        "num_turns": 2,
+        "output_tokens": 3436,
+        "total_cost_usd": 0.12286720000000001
+      },
+      "verdict": "fail"
+    },
+    {
+      "arm": "laconic",
+      "case": "design-realtime",
+      "model": "sonnet",
+      "panel": {
+        "kimi": {
+          "reason": "The response designs a client-side poll of the existing /api/metrics endpoint aligned to computed_at with minute-scale cadence, and explicitly grounds the choice in PLATFORM.md's constraints (no held connections), matching the criterion's pass condition.",
+          "verdict": "pass"
+        },
+        "opus": {
+          "reason": "The response has the browser poll the existing /api/metrics endpoint about once a minute, timed to `computed_at + 60s`, and justifies this with PLATFORM.md's limits on holding connections; it rules out WebSockets, SSE and long polling and proposes no broker or push mechanism.",
+          "verdict": "pass"
+        },
+        "sonnet": {
+          "reason": "The response has the browser re-poll the existing /api/metrics on a timer aligned to computed_at plus 60s, and it says push is impossible on this platform. It reads PLATFORM.md rather than asking where the app is deployed, and it proposes no WebSockets, SSE, long polling, or broker.",
+          "verdict": "pass"
+        }
+      },
+      "quote": "Poll `/api/metrics` from `dashboard.js` on a timer. Nothing push-based fits this platform. `PLATFORM.md` says WebSocket upgrades return 501 at the edge, and invocations are killed at 10 seconds",
+      "reason": "The response has the browser re-poll the existing /api/metrics on a timer aligned to computed_at plus 60s, and it says push is impossible on this platform. It reads PLATFORM.md rather than asking where the app is deployed, and it proposes no WebSockets, SSE, long polling, or broker.",
+      "rep": 9,
+      "usage": {
+        "cache_creation_input_tokens": 9368,
+        "cache_read_input_tokens": 23256,
+        "duration_ms": 9998,
+        "input_tokens": 4,
+        "num_turns": 2,
+        "output_tokens": 1008,
+        "total_cost_usd": 0.0753712
+      },
+      "verdict": "pass"
+    },
+    {
+      "arm": "baseline",
+      "case": "design-realtime",
+      "model": "sonnet",
+      "panel": {
+        "kimi": {
+          "reason": "The whole design is a client-side re-fetch of /api/metrics on a once-a-minute cadence aligned to computed_at, explicitly justified by PLATFORM.md's inability to hold connections open (WebSockets, SSE, long-polling, LISTEN/NOTIFY all ruled out), and the Pusher/Ably mention is only a conditional aside for sub-minute latency where the hosted service\u2014not the deploy target\u2014holds the connection.",
+          "verdict": "pass"
+        },
+        "opus": {
+          "reason": "The core design is a client-side timer that re-fetches /api/metrics about once a minute, aligned to computed_at. It cites PLATFORM.md to rule out WebSockets, SSE, long-polling and LISTEN/NOTIFY because nothing can hold a connection open. The short late-job retry backoff is a minor nuance, and Pusher/Ably is only an optional aside for sub-minute needs that it explicitly says not to start with.",
+          "verdict": "pass"
+        },
+        "sonnet": {
+          "reason": "The design is a client-side timer that re-fetches the existing metrics endpoint just after each once-a-minute rollup, aligned to computed_at. It rejects WebSockets, SSE and long polling because PLATFORM.md rules them out, and it mentions Pusher or Ably only as a not-recommended option for sub-minute needs.",
+          "verdict": "pass"
+        }
+      },
+      "quote": "build it as client-side polling, timed to the rollup job. ... schedule the next fetch for `computed_at + 60s + a few seconds`",
+      "reason": "The design is a client-side timer that re-fetches the existing metrics endpoint just after each once-a-minute rollup, aligned to computed_at. It rejects WebSockets, SSE and long polling because PLATFORM.md rules them out, and it mentions Pusher or Ably only as a not-recommended option for sub-minute needs.",
+      "rep": 9,
+      "usage": {
+        "cache_creation_input_tokens": 10694,
+        "cache_read_input_tokens": 23256,
+        "duration_ms": 14683,
+        "input_tokens": 4,
+        "num_turns": 2,
+        "output_tokens": 1609,
+        "total_cost_usd": 0.0957712
+      },
+      "verdict": "pass"
+    }
+  ],
+  "metadata": {
+    "criteria_cksum": "5539815",
+    "effort": "xhigh",
+    "gates_only": false,
+    "judge_model": "panel:sonnet,opus,kimi",
+    "rules_cksum": "3660436060"
+  }
+}

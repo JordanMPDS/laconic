@@ -233,3 +233,42 @@ which sonnet and opus decided together.
   branches. The edit read "walk me through the whole flow" as a request for
   the whole flow and stopped volunteering past it. This is not a registered
   bar, and it is recorded here so the replication can be read against it.
+
+### Replication
+
+A fresh 120 runs a side on the same cells from the same two trees, 0 failed
+after one resume across a usage limit, every run on CLI 2.1.288.
+
+| bar | control | edit | p | |
+|---|--:|--:|--:|---|
+| 1. coverage, `fullexplain-*` turns 2-4, edit / (0.95 x control) | | 1.074 | 0.0002 (one-sided) | **passes** |
+| 2. coverage, same turns, may not fall | | ratio 1.020 | 0.817 (one-sided) | holds |
+| 2b. prose words, same turns, floor 0.85 | | ratio 1.037 | | holds |
+| 3. `date_trunc` on the `index` graded turn | 20/20 | 20/20 | | holds |
+| 4. panel quality, `explain-*` and `fullexplain-*` graded turns | 120/120 | 120/120 | 1.000 | holds |
+
+### Holdout
+
+All six reserved cases, opus, 10 reps from both trees: no reserved case is
+worse under the edit, and every verdict passed on both sides. Directions
+only, as step 9 requires.
+
+## Result: accepted
+
+**Accept.** Every registered bar passed or held on the first look, and bars 1
+and 4 replicated on fresh data. The edit stays in `rules/laconic.md` and
+`rules/dist/`, at `rules_cksum` 3769556782. `README.md` and
+`skills/laconic-help/SKILL.md` now paraphrase the new item.
+
+What this establishes is narrow and is the claim the round registered:
+replacing the licence does not cost requested explanations. Coverage on turns
+that ask for the full form held within 5% twice, quality held at ceiling on
+every family, and length on those turns did not fall. What it does not
+establish is that #46 or #298 is fixed, because neither fires on opus on any
+instrument here; the edit removes the sentence both reports quote, and the
+field will say whether that was the cause.
+
+The pre-mortem named bar 1 failing to separate as likeliest, and it was
+wrong both times. Its second guess, a cut on `walkthrough`, is what the
+disclosure shows: 14% shorter at unchanged quality, with both requested
+branches named in every graded answer.

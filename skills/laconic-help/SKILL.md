@@ -27,6 +27,7 @@ default set, the plugin is inert.
 
 Never cut at any level: code, config, commands, error strings, security warnings,
 destructive-action confirmations, ordered steps, bad news, uncertainty that changes
-what the user should do, and anything the user asked to have explained. Read
+what the user should do, and anything the user asked to have explained (at the
+scope they set, not as a licence for length). Read
 `rules/laconic.md` for the authoritative list and the worked example at all three
 levels — if this summary and that file ever disagree, that file wins.

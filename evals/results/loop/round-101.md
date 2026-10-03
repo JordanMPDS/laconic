@@ -135,3 +135,48 @@ against 4.9.0. Codex did not answer within its timeout.
 ## Results
 
 <!-- Nothing below this line has been computed. -->
+
+## Result: null, with no label
+
+**#46 does not fire with ponytail co-active, on opus.** 80 runs, 0 failed, CLI
+2.1.288 throughout (`release.py`: one release, no unreadable span),
+`rules_cksum` 3660436060, `cases_cksum` 3426733662, `--turn-delivery plugin`,
+level `full`. `merge.py` reconstructs 4 in flight against the declared 4. The
+merged snapshot records the `laconic-ponytail` arm as 2,115 words against
+`laconic`'s 1,239, with ponytail's header present, so the second text was
+delivered.
+
+```
+laconic          session-alerting n=20  median  156.0  max   214  over 600:  0  fenced  0  H2 median 0.0
+laconic          design-alerting  n=20  median  240.5  max   279  over 600:  0  fenced  0  H2 median 0.0
+laconic-ponytail session-alerting n=20  median  149.5  max   190  over 600:  0  fenced  0  H2 median 0.0
+laconic-ponytail design-alerting  n=20  median  251.5  max   299  over 600:  0  fenced  0  H2 median 0.0
+
+session median ratio ponytail/laconic 0.958, permutation p 0.1839 (two-sided, log prose words, seed 101)
+ponytail session over 600: 0/20 against a bar of 2: NULL
+```
+
+No label printed. The cold cell did not clear the bar, the session ratio is
+under 1 rather than at 1.5, and none of the 80 answers carried a fenced block
+or an H2 heading, so "Code first" moved nothing into code either. The control
+reproduces round 98 closely (session median 156.0 against 153, cold 240.5
+against 242.5), which is the void row's other purpose: the window did not move.
+
+The pre-mortem's likeliest outcome is what happened. Ponytail's licence for
+requested explanation did not reach the design answer; its own closing line,
+that it "governs what you build, not how you talk", is the plausible reason,
+and this round cannot separate that from opus not reading *"how would that be
+built?"* as a requested explanation at all.
+
+### What this sends next
+
+The null row applies. #46 has now been read on four instruments on opus
+(rounds 82, 91, 98 and 101) and none fires, including the one carrying both
+plugins from the report. No candidate is registered on #46 until a new
+instrument fires; what this round leaves unmodelled is the report's own
+document, which was far longer than `SPEC.md`'s 458 words, and its earlier
+turns, which the report describes only as having gone well.
+
+`bash tools/candidate-due.sh` now exits 1, so round 102 carries a rule edit.
+The four shard files were merged and are not committed; `metadata.shards` in
+the merged snapshot records them.

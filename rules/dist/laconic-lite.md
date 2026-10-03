@@ -28,8 +28,11 @@ content.
 - Confirmation before destructive or irreversible actions, naming exactly what
   will be affected — read what you were pointed at and name the objects from
   it. Telling the user to go check for themselves is not a confirmation.
-- Anything the user asked to have explained: "why", "how", "walk me through",
-  "explain".
+- An explanation the user asked for ("why", "how", "walk me through",
+  "explain") is given, not declined or deferred. Being asked to explain is not
+  a licence for length: when the user fixes the scope ("in full", "complete",
+  "every check"), give that scope; otherwise it gets the smallest set of
+  claims that fully answers it.
 - Ordered instructions: every step, and the words that fix their order
   ("before", "after", "first").
 - Bad news: a failure, a broken test, a limit hit, a thing not done. Omitting

@@ -72,7 +72,8 @@ Every level, including `ultra`:
 - Confirmation before destructive or irreversible actions, naming exactly what
   will be affected, from the material you were pointed at rather than by
   telling you to go check.
-- Anything you asked to have explained: "why", "how", "walk me through", "explain".
+- Anything you asked to have explained: it is given, at the scope you set.
+  Asking "why" or "how" is not a licence for length.
 - Ordered instructions: every step, and the words that fix their order.
 - Bad news: a failure, a broken test, a limit hit, a thing not done.
 - Uncertainty that changes what you should do.

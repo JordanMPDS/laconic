@@ -547,6 +547,31 @@ else
   fail "session-alerting is design-alerting asked five turns into a session"
 fi
 
+# `session-alerting-long` is round 103's: the same session over a much longer
+# spec of the same system. Only the fixture may differ, or the contrast with
+# session-alerting stops being about the document.
+if python3 - "$ROOT" <<'PYEOF'
+import json, sys
+from pathlib import Path
+pilot = Path(sys.argv[1]) / "evals" / "pilot"
+s, l = pilot / "session-alerting", pilot / "session-alerting-long"
+assert s.joinpath("prompt.md").read_text() == l.joinpath("prompt.md").read_text(), \
+    "the five turns are session-alerting's byte for byte"
+es, el = (json.loads(p.joinpath("expect.json").read_text()) for p in (s, l))
+for k in ("never_cut", "grading", "trap"):
+    assert es[k] == el[k], "%s differs" % k
+short, long_ = (len(p.joinpath("fixture", "SPEC.md").read_text().split()) for p in (s, l))
+assert long_ >= 5 * short, "the long spec is at least five times the short one"
+text = l.joinpath("fixture", "SPEC.md").read_text()
+assert "# pure: no I/O inside" in text and 'alert("quota exceeded", tenant)' in text, \
+    "the trap's contradiction is in the long spec"
+PYEOF
+then
+  ok "session-alerting-long is session-alerting over a longer spec"
+else
+  fail "session-alerting-long is session-alerting over a longer spec"
+fi
+
 # `subset-*` is round 93's instrument for #305: "what is left?" over a
 # three-bucket status file, then a turn that narrows to the SPEC bucket.
 # score_subset.py counts re-listings by the seeded questions' IDs and keys, so

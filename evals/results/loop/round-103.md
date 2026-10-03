@@ -153,3 +153,56 @@ to keep the cost at 300 opus calls.
 ## Results
 
 <!-- Nothing below this line has been computed. -->
+
+## Result: null, with no label
+
+**#46 does not fire over a long design document, with or without ponytail, on
+opus.** 60 sessions, 300 calls, 0 failed, CLI 2.1.288 throughout
+(`release.py`: one release, no unreadable span), `rules_cksum` 3660436060,
+`cases_cksum` 4221810008, `--turn-delivery plugin`, level `full`. `merge.py`
+reconstructs 3 in flight against the declared 3. Its note that 60 runs exceed
+the 40 the merged `metadata.reps` of 10 implies is the registered ragged design
+(the long cells at 20 reps, the short at 10), not a gap.
+
+```
+laconic          session-alerting-long n=20  median  174.5  max   220  over 600:  0  fenced  0  H2 median 0.0  turn-1 median  623.0
+laconic          session-alerting      n=10  median  164.0  max   202  over 600:  0  fenced  0  H2 median 0.0  turn-1 median  424.5
+laconic-ponytail session-alerting-long n=20  median  168.0  max   237  over 600:  0  fenced  0  H2 median 0.0  turn-1 median  633.0
+laconic-ponytail session-alerting      n=10  median  135.5  max   174  over 600:  0  fenced  0  H2 median 0.0  turn-1 median  415.5
+
+ponytail median ratio long/short 1.240, permutation p 0.0020 (two-sided, log prose words, seed 103)
+laconic long: Spearman turn-1 summary against graded turn -0.140 (n=20)
+laconic-ponytail long: Spearman turn-1 summary against graded turn 0.141 (n=20)
+ponytail long over 600: 0/20 against a bar of 2: NULL
+```
+
+No label printed. `dose` needs a ratio of 1.5 and the long document read 1.240
+on the ponytail arm. That shift is real at p = 0.0020 and is the size the
+pre-mortem predicted, but it moved a 136-word answer to a 168-word one. The
+longest of the 60 graded turns is 237 prose words, and none carried a heading
+or a fenced block. The anchor reproduces rounds 98 and 101 (laconic short
+median 164.0 against 153 and 156.0), so the window did not move.
+
+The document did reach the answers. The turn-1 summary grew by half (median
+623 against 424.5) and the answers used the long spec's material: 34 of 40
+long answers raised deduplication, 14 named tenant operations and 13 on-call.
+The longest answer is a recommendation, two changes to the cycle record, a
+four-line routing default drawn from the spec's ownership section, and the
+monitoring-stack question. It contains the report's routing table, compressed
+into four lines and placed after the approach rather than delivered as a
+section. Turn-1 length does not predict graded length in either arm
+(Spearman -0.140 and 0.141).
+
+### What this sends next
+
+The null row applies. #46 has now been read on five instruments on opus
+(rounds 82, 91, 98, 101 and 103), including one with both plugins over a
+document 5.6 times the one every earlier instrument used, and none fires: 0 of
+172 over 600 prose words, counting the cells in the table above and this
+round's two long cells. The registered follow-up to a `dose`,
+an 8,000-word document, is not bought, because the length of the document
+moved the answer by a quarter, not by half. No candidate is registered on #46
+until a new instrument fires. The three shard files were merged and are not
+committed; `metadata.shards` in the merged snapshot records them.
+
+`bash tools/candidate-due.sh` now exits 1, so round 104 carries a rule edit.

@@ -189,3 +189,47 @@ DeepSeek did not answer within the timeout.
 ## Results
 
 <!-- Nothing above this line has been computed. -->
+
+### First sample
+
+240 runs on the pilot cells and 40 on `walkthrough`, 0 failed after one
+resume: the `walkthrough` pass hit a usage limit on its last four control and
+three edit runs, and the same command resumed them by key. `rules_cksum`
+3660436060 on every control and 3769556782 on every edit; every run on CLI
+2.1.288, so `release.py` finds no span on either pair. `merge.py` notes 120
+runs against a declared 60 per shard pair, which is the two `--rep-offset`
+shards and not a gap.
+
+| bar | control | edit | p | |
+|---|--:|--:|--:|---|
+| 1. coverage, `fullexplain-*` turns 2-4, edit / (0.95 x control) | | 1.045 | 0.018 (one-sided) | **passes** |
+| 2. coverage, same turns, may not fall | | ratio 0.993 | 0.300 (one-sided) | holds |
+| 2b. prose words, same turns, floor 0.85 | | ratio 0.991 | | holds |
+| 3. `date_trunc` on the `index` graded turn, `fullexplain` / `explain` | 20/20, 20/20 | 20/20, 20/20 | | holds |
+| 4. panel quality, `explain-*` graded turn | 60/60 | 60/60 | 1.000 | holds |
+| 4. panel quality, `fullexplain-*` graded turn | 60/60 | 60/60 | 1.000 | holds |
+| 4. panel quality, `walkthrough` | 20/20 | 20/20 | 1.000 | holds |
+
+Per stem, turns 2-4: coverage 17.0 / 17.0 (`index`, of 37), 15.0 / 15.0
+(`metric`, of 24), 24.0 / 23.5 (`rollback`, of 30); prose words 1623.0 /
+1582.5, 1273.5 / 1246.5, 865.0 / 882.0.
+
+Every bar-4 cell is at ceiling on both sides, so per [#94] it can detect a
+fall and not a rise, and it saw none. The panel was unanimous wherever all
+three voted; kimi returned no vote on 14 control and 11 edit pilot verdicts,
+which sonnet and opus decided together.
+
+**Disclosed, deciding nothing.**
+
+- Graded-turn prose words: `explain-*` 143.0 to 144.0 (ratio 1.007,
+  p = 0.906), `fullexplain-*` 57.5 to 54.0 (0.939, p = 0.828). The field
+  reports' direction does not appear, as registered: the control's told/cold
+  ratio is 0.402, so opus still has no #298 headroom here.
+- **`walkthrough` is 14% shorter under the edit**, median prose words 618.0
+  to 533.5, one-sided permutation p = 0.001, ranges 483-751 and 457-654. That
+  case names no scope word, so it is where the pre-mortem's second risk
+  lives, and the length moved. Its quality did not: 20/20 on both sides, the
+  `401` keyword kept 20/20, and every panel reason names both requested
+  branches. The edit read "walk me through the whole flow" as a request for
+  the whole flow and stopped volunteering past it. This is not a registered
+  bar, and it is recorded here so the replication can be read against it.

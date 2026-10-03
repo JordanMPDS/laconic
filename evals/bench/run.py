@@ -132,6 +132,16 @@ def _arm_file(name):
     return (ROOT / "evals" / "arms" / ARM_FILES[name]).read_text()
 
 
+# #46's report ran laconic and ponytail at `full` together, and no arm above
+# reproduces a second plugin's SessionStart text. `laconic-ponytail` is the
+# live laconic slice with a vendored copy of ponytail's (MIT, notice beside it
+# in evals/arms/vendor/), composed at runtime like the enforcement arms so it
+# cannot drift from the rules it is paired with. Ponytail's UserPromptSubmit
+# hook emits nothing, so under `plugin` delivery a later turn carries
+# laconic's reminder alone, which is what the real session got.
+PONYTAIL_FULL = (ROOT / "evals" / "arms" / "vendor" / "ponytail-full.md").read_text()
+
+
 # Eight of those arms are not free-standing texts: each is defined as a
 # transformation of the shipped `full` slice - a deletion, a replacement, a
 # swapped block - and means nothing except against the slice it was cut from.
@@ -180,6 +190,7 @@ ARMS = {
     # enforce, or from each other.
     "laconic-enforced": "",
     "laconic-enforced-reminder": "",
+    "laconic-ponytail": "",
     "laconic": "",
 }
 
@@ -724,6 +735,9 @@ def new_snapshot(reps, models, level, rules_cksum, arms, claude_bin="claude",
             entry["source"] = "hooks/laconic.sh start @ %s" % level
         if k in ARM_FILES:
             entry["source"] = "evals/arms/%s" % ARM_FILES[k]
+        if k == "laconic-ponytail":
+            entry["source"] = ("hooks/laconic.sh start @ %s + "
+                               "evals/arms/vendor/ponytail-full.md" % level)
         if k in ARM_OUTPUT_STYLES:
             entry["output_style"] = ARM_OUTPUT_STYLES[k]
         arms_dict[k] = entry
@@ -1364,6 +1378,7 @@ def main():
     # text, which is the whole contrast.
     for a in ARM_STOP_HOOKS:
         arms[a] = arms["laconic"]
+    arms["laconic-ponytail"] = arms["laconic"] + "\n\n" + PONYTAIL_FULL
     cksum = str(zlib.crc32(arms["laconic"].encode()))
 
     # A derived arm cut from a different slice is not a smaller version of this
@@ -1425,6 +1440,16 @@ def main():
         # then report a changed scope as an edited case file. That is the
         # conflation #285 is about, and with the design declared the older
         # guard no longer has to carry both meanings.
+        # rules_cksum covers the laconic slice only, so an edit to the
+        # vendored ponytail text between a pass and its resume would otherwise
+        # go unseen. The text the file was started with is in its arms table.
+        if "laconic-ponytail" in arm_names:
+            stored_pt = (snap.get("arms") or {}).get(
+                "laconic-ponytail", {}).get("system_prompt")
+            if stored_pt is not None and stored_pt != arms["laconic-ponytail"]:
+                sys.exit("evals/arms/vendor/ponytail-full.md changed since this "
+                         "snapshot was started; resuming would generate the "
+                         "laconic-ponytail arm from two different texts")
         stored_cells = snap["metadata"].get("cells")
         if stored_cells is None:
             print("note: this snapshot predates the cell declaration (#285), so "

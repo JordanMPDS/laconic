@@ -138,4 +138,95 @@ reader who does not share the bet.
 *Nothing above this line was computed from a panel call. Everything below it
 was.*
 
+**Not callable. None of the 25 pre-mortems named `idea-defect`. All three
+rounds that ended that way, 74, 85 and 100, were predicted to land in the noise
+floor.**
+
+```
+Pre-mortem against outcome, rounds 71 to 104 (25 rounds, 22 scored)
+
+  majority  named idea-defect  0, ended idea-defect 3, both 0: one-sided Fisher p = 1.0000
+  any vote  named idea-defect  0, ended idea-defect 3, both 0: one-sided Fisher p = 1.0000
+
+Verdict: NOT CALLABLE (registered: callable if either reading p < 0.05)
+```
+
+| predicted ↓ / ended → | idea-defect | noise-floor | failed-gate | accept | unscored |
+|---|--:|--:|--:|--:|--:|
+| noise-floor | **3** | 5 | 1 | 4 | 0 |
+| failed-gate | 0 | 2 | 4 | 1 | 0 |
+| unscored | 0 | 2 | 0 | 0 | 3 |
+
+**The panel was unanimous on all 25 rounds**, 75 votes from three model
+families with no split and no failed call. Every vote's quote appears in its
+round's pre-mortem once markdown emphasis is set aside. A registered pre-mortem
+is not an ambiguous document, so the zero is not a labelling artefact.
+
+**No outcome label can change the verdict.** With no pre-mortem naming
+`idea-defect`, the predicted margin is zero and Fisher reads 1 under any
+assignment of outcomes. That covers round 100, whose document calls itself
+`noise-floor`, and the eleven labels added here.
+
+### What the decision does
+
+By the rule fixed above, **[#26] is closed as not planned.** Reopening it still
+uses the revisit rule `classify.py` computes: the current run of weak-idea
+rejections exceeding the archive's longest. That run reads **0** against a
+longest of **6**.
+
+**The registered prediction held in its strongest form.** It said "at most once"
+and the count is zero. This author's account is the one registered beside it:
+the pre-mortem is written by someone who has already bet against the
+wrong-sign outcome by registering the edit, and no round in the 25 bet against
+its own sign.
+
+### What the pre-mortems do call
+
+*Post hoc, descriptive, and deciding nothing.*
+
+- **The tightest gate.** The pre-mortems named `failed-gate` seven times, and
+  four of those rounds ended there: 77, 78, 95 and 96. One-sided Fisher reads
+  p = 0.021, unregistered. When the primary looks strong, the author knows
+  which bound will bind.
+- **The precheck.** They named `unscored` five times. Three of those rounds
+  ended unscored. A fourth, round 76, is the assay failure its pre-mortem named,
+  labelled `noise-floor` only because the outcome criterion reads the sign of a
+  primary that the round's own rule declared inconclusive.
+- **The default.** They named `noise-floor` thirteen times, and five of those
+  rounds ended there (p = 0.76). Over the 17 rejections, exact class agreement
+  is 9, the same as a reader who always says `noise-floor`.
+- **Accepts.** All five accepted rounds had pre-mortems naming a failure. That
+  is the step's job and says nothing against it.
+
+The pre-mortem names the weakest bar of a design, and it does that well. It
+does not doubt the hypothesis, which is the one thing [#26]'s panel would exist
+to do.
+
+### Why closing does not rest on the null alone
+
+The registered caveat stands: **this measures the author, not a panel.** A
+reader who has not bet on the edit might call what its author did not. What
+closes [#26] is the registered rule together with the size of the prize, which
+has shrunk:
+
+| candidate rounds | rejections | idea-defect |
+|---|--:|--:|
+| 38 to 70 | 15 | 9 (60%) |
+| 71 to 104 | 17 | **3 (18%)** |
+
+Two-sided Fisher p = 0.027. That is descriptive, and the eras differ in design:
+rounds 89 onward decide on opus behind a fire-rate precheck. A panel that caught
+every weak idea in the last 25 candidate rounds would have saved three
+confirmation rounds out of 22 scored. Its own cost would be a panel pass on
+every registration, and its false refutations would have killed accepts.
+
+### What this unit does not establish
+
+- **Detection power.** There are three idea-defects in 22 rounds, so the
+  endpoint could only have detected an author who called at least two of them,
+  with almost no false alarm. A weaker skill would read as this one does.
+- **A second outcome labeller.** The eleven new outcome labels are one pass,
+  keyed on printed numbers. As above, no relabelling can move this verdict.
+- **Anything before round 71.** No earlier round registered a pre-mortem.
+
 [#26]: https://github.com/JordanMPDS/laconic/issues/26

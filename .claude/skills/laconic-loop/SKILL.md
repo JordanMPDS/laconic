@@ -777,19 +777,16 @@ edit whose target passed. It costs nothing, because the registration is
 committed before any generation, so the prediction is blind by construction and
 dated by git.
 
-It is there to make [#26] decidable. That issue proposed replacing this step
-with several proposers and an adversarial panel, and deferred it until the loop
-was "reliably rejecting candidates for being weak ideas rather than for landing
-inside the noise floor". [`candidate-defects-26.md`](../../../evals/results/loop/candidate-defects-26.md)
-measured that share for the first time — **9 of 15 rejections since round 38
-were weak ideas, 4 the noise floor, 2 a failed gate** — and found the condition
-unfirable as written: 13 of 15 rejections are "a failed hypothesis rather than a
-failed gate", so the literal wording is satisfied by the loop's base state,
-while the longest run of consecutive weak-idea rejections was **six**, rounds 38
-to 47, and nothing since comes near it. The one thing the archive cannot supply
-is whether a reader could have *called* those six in advance, because every
-stated failure reason was written after its author saw the result. The
-pre-mortem is that measurement, bought one round at a time.
+It was put here to make [#26] decidable, and it did. That issue proposed
+replacing this step with several proposers and an adversarial panel that refutes
+weak ideas before they are bought.
+[`premortem-26.md`](../../../evals/results/loop/premortem-26.md) scored the 25
+pre-mortems registered for rounds 71 to 104 with a blind panel. **None named the
+point estimate moving against its direction. All three rounds that ended that
+way were predicted to land in the noise floor.** The author does not doubt the
+hypothesis they registered, so [#26] was closed. What the pre-mortem does call is
+the design's tightest bar: four of the seven that named a failed gate ended
+there. Keep writing it for that.
 
 ```sh
 python3 evals/results/loop/candidate-defects/classify.py
@@ -798,6 +795,10 @@ python3 evals/results/loop/candidate-defects/classify.py
 Label the round in `candidate-defects/labels.json` when it is scored, whichever
 way it went. The script warns about an unlabelled candidate round rather than
 failing, because a registration commit legitimately has no result to label yet.
+An edit withdrawn unrun because its precheck did not fire is `unscored`. It is
+not a rejection, and it enters no count. [#26] reopens if the run of weak-idea
+rejections the script prints at the end of the archive exceeds six, the longest
+it had recorded when the issue closed.
 
 [#26]: https://github.com/JordanMPDS/laconic/issues/26
 

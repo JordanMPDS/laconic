@@ -45,7 +45,13 @@ HERE = pathlib.Path(__file__).resolve().parent
 ROUNDS = HERE.parent
 LABELS = HERE / "labels.json"
 
-CLASSES = ("idea-defect", "noise-floor", "failed-gate", "accept")
+CLASSES = ("idea-defect", "noise-floor", "failed-gate", "accept", "unscored")
+
+# Classes that are not a rejection of a scored candidate. An accept shipped;
+# an unscored round registered an edit and never generated it, because a
+# stage the registration put first (a fire-rate precheck) failed. Neither says
+# anything about whether the idea was weak, so neither enters a count or a run.
+NOT_REJECTED = ("accept", "unscored")
 
 # The two rejection classes #26's rationale contrasts. Its condition sentence
 # says "failed hypothesis rather than failed gate", which is a two-way split;
@@ -109,12 +115,13 @@ def longest_run(labels, cls):
 
     Accepts do not break a run and do not extend one: #26's condition is about
     what the loop rejects for, and a round that shipped is not a rejection at
-    all. Instrument rounds are absent from the labels entirely, so the sequence
-    here is the sequence of candidate rounds in round order.
+    all. Nor is an unscored round, whose edit was never generated. Instrument
+    rounds are absent from the labels entirely, so the sequence here is the
+    sequence of candidate rounds in round order.
     """
     best = run = 0
     for row in labels:
-        if row["class"] == "accept":
+        if row["class"] in NOT_REJECTED:
             continue
         run = run + 1 if row["class"] == cls else 0
         best = max(best, run)
@@ -122,10 +129,11 @@ def longest_run(labels, cls):
 
 
 def trailing_run(labels, cls):
-    """Run of class `cls` at the end of the sequence, accepts skipped."""
+    """Run of class `cls` at the end of the sequence, accepts and unscored
+    rounds skipped."""
     run = 0
     for row in reversed(labels):
-        if row["class"] == "accept":
+        if row["class"] in NOT_REJECTED:
             continue
         if row["class"] != cls:
             break
@@ -135,14 +143,15 @@ def trailing_run(labels, cls):
 
 def summarise(data, recent=4):
     labels = sorted(data["rounds"], key=lambda r: r["round"])
-    rejections = [r for r in labels if r["class"] != "accept"]
+    rejections = [r for r in labels if r["class"] not in NOT_REJECTED]
     counts = {c: sum(1 for r in rejections if r["class"] == c)
-              for c in CLASSES if c != "accept"}
+              for c in CLASSES if c not in NOT_REJECTED}
     tail = rejections[-recent:]
     return {
         "first_round": data["scope"]["first_round"],
         "candidate_rounds": len(labels),
-        "accepts": len(labels) - len(rejections),
+        "accepts": sum(1 for r in labels if r["class"] == "accept"),
+        "unscored": sum(1 for r in labels if r["class"] == "unscored"),
         "rejections": len(rejections),
         "counts": counts,
         "longest_idea_defect_run": longest_run(labels, WEAK_IDEA),
@@ -158,7 +167,7 @@ def render(data, recent=4):
     n = s["rejections"]
     lines = [
         f"Candidate rounds from {s['first_round']}: {s['candidate_rounds']} "
-        f"({s['accepts']} accept, {n} reject)",
+        f"({s['accepts']} accept, {n} reject, {s['unscored']} unscored)",
         "",
         "Rejections by class:",
     ]
@@ -185,7 +194,7 @@ def render(data, recent=4):
 
 
 def selftest():
-    """Seven checks over the arithmetic and the evidence gate.
+    """Eight checks over the arithmetic and the evidence gate.
 
     Coverage is deliberately not asserted here. CI runs this selftest, and a
     round's registration commit carries `## The edit` before any result exists
@@ -209,6 +218,10 @@ def selftest():
                     mk(3, "idea-defect")], "idea-defect") == 2,
        "an accept neither breaks nor extends a run of rejections")
 
+    ok(longest_run([mk(1, "idea-defect"), mk(2, "unscored"),
+                    mk(3, "idea-defect")], "idea-defect") == 2,
+       "an unscored round neither breaks nor extends a run of rejections")
+
     ok(trailing_run([mk(1, "idea-defect"), mk(2, "noise-floor")],
                     "idea-defect") == 0,
        "trailing_run is 0 when the last rejection is another class")
@@ -229,7 +242,7 @@ def selftest():
 
     for f in fails:
         print(f"FAIL: {f}")
-    print(f"{7 - len(fails)}/7 checks passed")
+    print(f"{8 - len(fails)}/8 checks passed")
     return 1 if fails else 0
 
 

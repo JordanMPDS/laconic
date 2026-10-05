@@ -6874,6 +6874,20 @@ if _classify.exists():
     if _got.returncode != 0:
         print(_got.stdout[-4000:] or _got.stderr[-4000:])
 
+# --- the scored pre-mortems have to stay predictions
+# premortem.py's selftest checks every round's `## Pre-mortem, registered`
+# section against the checksum taken at its registration commit, so a pre-mortem
+# edited after its result fails here instead of being scored as foresight.
+_premortem = _classify.parent / "premortem.py"
+check("the pre-mortem scorer ships", _premortem.exists())
+if _premortem.exists():
+    _got = subprocess.run([sys.executable, str(_premortem), "--selftest"],
+                          capture_output=True, text=True, cwd=str(ROOT))
+    check("candidate-defects/premortem.py --selftest passes",
+          _got.returncode == 0)
+    if _got.returncode != 0:
+        print(_got.stdout[-4000:] or _got.stderr[-4000:])
+
 # --- transcripts.py: what a Stop hook would have seen in a real session ----
 # The reconstruction is the whole audit (#283): a denominator that lets in tool
 # results, subagent turns or a resumed session's copied history reports a rate

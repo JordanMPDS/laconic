@@ -91,7 +91,9 @@ def cksum(text):
 
 
 def registration_doc(row):
-    """The round document at its registration commit, cut at `## Results`."""
+    """The round document at its registration commit, cut at its results
+    heading. Rounds 73 to 79 and 90 wrote it as `# Results`, the rest as
+    `## Results`, so both levels are cut."""
     spec = "%s:evals/results/loop/round-%d.md" % (row["registration_commit"], row["round"])
     got = subprocess.run(["git", "show", spec], cwd=ROOT, capture_output=True, text=True)
     if got.returncode != 0:
@@ -99,7 +101,7 @@ def registration_doc(row):
                        cwd=ROOT, check=True)
         got = subprocess.run(["git", "show", spec], cwd=ROOT, capture_output=True,
                              text=True, check=True)
-    return got.stdout.split("\n## Results", 1)[0] + "\n"
+    return re.split(r"^#{1,2} Results\b", got.stdout, maxsplit=1, flags=re.M)[0]
 
 
 def parse_vote(raw):
@@ -129,8 +131,8 @@ def majority(votes):
 def label(data, claude_bin="claude", jobs=3):
     import judge  # the panel's own blind calls; imported here so scoring needs no CLI
 
-    def one(row):
-        prompt = PROMPT + registration_doc(row)
+    def one(row, doc):
+        prompt = PROMPT + doc
         votes = dict(row.get("votes") or {})
         for m in PANEL:
             if votes.get(m):
@@ -140,10 +142,14 @@ def label(data, claude_bin="claude", jobs=3):
             votes[m] = parse_vote(res.get("text", "")) if res.get("ok") else None
         return row["round"], votes
 
-    todo = [r for r in data["rounds"] if majority(r.get("votes") or {}) is None]
+    # Every member's vote is needed, not just a majority: the any-vote reading
+    # exists to catch a lone idea-defect vote, so a failed third call is retried.
+    todo = [r for r in data["rounds"]
+            if not all((r.get("votes") or {}).get(m) for m in PANEL)]
     at = {r["round"]: r for r in data["rounds"]}
+    docs = {r["round"]: registration_doc(r) for r in todo}  # fetches, one at a time
     with ThreadPoolExecutor(max_workers=jobs) as pool:
-        for n, votes in pool.map(one, todo):
+        for n, votes in pool.map(lambda r: one(r, docs[r["round"]]), todo):
             at[n]["votes"] = votes
             at[n]["predicted"] = majority(votes)
             save(data)
@@ -216,6 +222,9 @@ def render(data, labels):
 
 def check(data, labels, rounds_dir=ROUNDS):
     problems = []
+    if data["prompt_cksum"] != cksum(PROMPT):
+        problems.append("PROMPT has changed since the votes in %s were taken"
+                        % DATA.name)
     outcome = {r["round"] for r in labels["rounds"]}
     for r in data["rounds"]:
         n = r["round"]
@@ -256,6 +265,9 @@ def selftest():
 
     ok(premortem_section("# T\n## Pre-mortem, registered\n\nA.\n## Next\nB.\n")
        == "\nA.\n", "the section ends at the next heading")
+    ok(all(re.split(r"^#{1,2} Results\b", d, maxsplit=1, flags=re.M)[0] == "A\n"
+           for d in ("A\n# Results\nX\n", "A\n## Results\nX\n")),
+       "the registration is cut at an h1 or an h2 results heading")
 
     data, labels = load(), classify.load()
     problems = check(data, labels)
@@ -263,7 +275,7 @@ def selftest():
 
     for f in fails:
         print("FAIL: %s" % f)
-    print("%d/9 checks passed" % (9 - len(fails)))
+    print("%d/10 checks passed" % (10 - len(fails)))
     return 1 if fails else 0
 
 

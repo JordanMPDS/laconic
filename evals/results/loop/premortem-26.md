@@ -159,8 +159,10 @@ Verdict: NOT CALLABLE (registered: callable if either reading p < 0.05)
 
 **The panel was unanimous on all 25 rounds**, 75 votes from three model
 families with no split and no failed call. Every vote's quote appears in its
-round's pre-mortem once markdown emphasis is set aside. A registered pre-mortem
-is not an ambiguous document, so the zero is not a labelling artefact.
+round's pre-mortem once markdown emphasis is set aside. That shows the panel
+read the pre-mortems consistently, so the zero is not panel noise. It does not
+show that the class boundary captures doubt, which is the next section's
+limit.
 
 **No outcome label can change the verdict.** With no pre-mortem naming
 `idea-defect`, the predicted margin is zero and Fisher reads 1 under any
@@ -180,27 +182,55 @@ the pre-mortem is written by someone who has already bet against the
 wrong-sign outcome by registering the edit, and no round in the 25 bet against
 its own sign.
 
+### What the endpoint can see, and what it cannot
+
+**The endpoint asks whether the author predicted a wrong sign, not whether the
+author doubted the edit.** Those differ, and the difference is built into the
+two criteria. The prompt files a pre-mortem that expects the target to move
+"barely at all" under `noise-floor`, following the loop skill's own wording to
+authors. The outcome criterion files a true null by the side of zero it lands
+on. So a correctly predicted null can never score a hit. Round 100 is that
+case. Its pre-mortem predicted that bar 1 would fail for lack of headroom,
+leaving the edit nothing to remove. The round document says "the pre-mortem's
+likeliest outcome is what happened", and the ratio of 1.015 landed on the wrong
+side of zero. Round 74's pre-mortem likewise named the trigger phrase its
+outcome label blames, under the wrong class.
+
+**Crediting a predicted null as a called weak idea does not rescue the
+pre-mortem.** The test that reading needs is post hoc and decides nothing.
+Count every `noise-floor` prediction as "this edit will not move its target",
+and every round that failed on its own target (`idea-defect` or `noise-floor`)
+as a hit. Then 8 of the 13 null predictions were right, against 4 of the other
+9 scored rounds, and one-sided Fisher reads **p = 0.36**. A null is the
+pre-mortem's default rather than a judgement. It was predicted for four of the
+five accepts.
+
 ### What the pre-mortems do call
 
 *Post hoc, descriptive, and deciding nothing.*
 
-- **The tightest gate.** The pre-mortems named `failed-gate` seven times, and
+- **A strong primary.** The pre-mortems named `failed-gate` seven times, and
   four of those rounds ended there: 77, 78, 95 and 96. One-sided Fisher reads
-  p = 0.021, unregistered. When the primary looks strong, the author knows
-  which bound will bind.
+  p = 0.021, unregistered. That is a match on class only. Rounds 78 and 95
+  named a different bound from the one that fired, so the bound itself was
+  named right in three of the seven: 77 and 96, plus 87, which is labelled
+  `noise-floor` because its primary did not pass either. When a pre-mortem
+  expected the primary to pass, it usually did, in 5 of the 7 rounds; which
+  guard would then bind was named right in 3.
 - **The precheck.** They named `unscored` five times. Three of those rounds
   ended unscored. A fourth, round 76, is the assay failure its pre-mortem named,
   labelled `noise-floor` only because the outcome criterion reads the sign of a
   primary that the round's own rule declared inconclusive.
 - **The default.** They named `noise-floor` thirteen times, and five of those
   rounds ended there (p = 0.76). Over the 17 rejections, exact class agreement
-  is 9, the same as a reader who always says `noise-floor`.
+  is 9, the same as a reader who always says `noise-floor`. One of the nine is
+  round 90, whose control never showed the defect. Its document says of the
+  pre-mortem's two failure modes, "Neither happened."
 - **Accepts.** All five accepted rounds had pre-mortems naming a failure. That
   is the step's job and says nothing against it.
 
-The pre-mortem names the weakest bar of a design, and it does that well. It
-does not doubt the hypothesis, which is the one thing [#26]'s panel would exist
-to do.
+Nothing here shows a pre-mortem separating weak ideas from strong ones in
+advance, and that separation is the one thing [#26]'s panel would exist to do.
 
 ### Why closing does not rest on the null alone
 
@@ -228,5 +258,29 @@ every registration, and its false refutations would have killed accepts.
 - **A second outcome labeller.** The eleven new outcome labels are one pass,
   keyed on printed numbers. As above, no relabelling can move this verdict.
 - **Anything before round 71.** No earlier round registered a pre-mortem.
+
+### Corrections to the registration
+
+Two statements in the registration above are wrong. They are corrected here
+rather than edited, because the registration is dated by its commit:
+
+- **"Every one of the 25 has an empty `## Results` section."** Rounds 73 to 79
+  and 90 head theirs `# Results`, and the first panel pass cut only at the h2
+  heading, so those eight documents reached the panel uncut. Their results
+  sections at registration hold only the "*Nothing above this line…*" line and
+  link references, so the panel saw no result. `premortem.py` now cuts at
+  either level. The eight rounds were re-run with the corrected cut, and all 24
+  votes came back the same class as before. The first pass is in this unit's
+  second commit.
+- **"`labels.json` carries a free-text `note` on fourteen of these rounds."**
+  Fourteen were labelled before this unit and thirteen of those carry a note.
+  Round 80 has none.
+
+One label rule was also amended after the review. The tie rule in
+`labels.json` covered a primary and an arbiter that disagree in sign. It now
+also names a primary whose point estimate is exactly zero, which reaches round
+90 alone, at 0/600 against 0/600. Labelled `unscored` instead, round 90 would
+leave the rejections at 16 and the weak-idea share at 3 of 16 (two-sided
+p = 0.029). Neither reading touches the verdict.
 
 [#26]: https://github.com/JordanMPDS/laconic/issues/26

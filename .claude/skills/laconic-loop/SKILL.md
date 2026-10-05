@@ -782,11 +782,12 @@ replacing this step with several proposers and an adversarial panel that refutes
 weak ideas before they are bought.
 [`premortem-26.md`](../../../evals/results/loop/premortem-26.md) scored the 25
 pre-mortems registered for rounds 71 to 104 with a blind panel. **None named the
-point estimate moving against its direction. All three rounds that ended that
-way were predicted to land in the noise floor.** The author does not doubt the
-hypothesis they registered, so [#26] was closed. What the pre-mortem does call is
-the design's tightest bar: four of the seven that named a failed gate ended
-there. Keep writing it for that.
+point estimate moving against its direction, and all three rounds that ended
+that way were predicted to land in the noise floor.** Counting a predicted null
+as a called weak idea does not help either, because a null is the pre-mortem's
+default: it was predicted for four of the five accepts. So [#26] was closed.
+Keep writing the pre-mortem. It costs nothing, and it is the data a reopened
+[#26] would need.
 
 ```sh
 python3 evals/results/loop/candidate-defects/classify.py

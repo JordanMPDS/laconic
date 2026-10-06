@@ -205,4 +205,42 @@ recall by 37 between two fresh samples drawn the same way.
 `detector_v3.py` stays in the tree, unpromoted, with its in-sample and fresh
 figures both recorded. `report.py` is untouched and still calls v2.
 
+## Closed: there is nothing left for a v4 to count
+
+On 2026-10-06 [#153] closes on two findings, neither of which is about the
+detector.
+
+**The counter has no exposure on the current CLI.** `unread_asks` is a rate
+over design answers that never opened a file. Under CLI 2.1.286 and later there
+are none: rounds 90 and 102 hold 2,016 design responses across sonnet and opus,
+and not one is one-turn. [Round 90](round-90.md) parked [#264] on the same
+fact. A v4 would be validated on responses from a CLI that no longer produces
+them, and then gate on an empty stratum.
+
+**No shipped edit needed the gate.** Every round from 28 on that accepted a
+rule edit, read through the shipped counter on its own committed snapshots,
+one-sided for treatment above control:
+
+| round | edit | control | treatment | p |
+|---|---|--:|--:|--:|
+| 28 | the fork that survives reading | 70/165 | 43/153 | 0.997 |
+| 55 | the pre-action check (its design-* cost, round 56) | 30/112 | 44/137 | 0.219 |
+| 71 | the true-premise closed question (wide) | 38/151 | 29/154 | 0.93 |
+| 73 | the answer's boundary named (wide) | 32/158 | 39/161 | 0.237 |
+| 81, 97, 104 | — | no design cases | | — |
+
+None reaches 0.05, and none reaches 0.2. A fatal `unread_asks` would have
+rejected nothing the loop shipped. Round 73's design-only cut, outside the
+shipped filter, reads 0.089 stratified by model; that is the closest any
+shipped edit came.
+
+**Reopen on the trigger [#264] already uses:** a fire-rate precheck that shows
+unread design answers at master rules again. The v4 to build then is semantic,
+not a fourth regex — a judged hand-back, scored against the 220 responses
+already labelled at kappa 0.902, which are out of sample for a judge that was
+never designed on their errors.
+
+Reproduce, no calls: `python3 evals/results/loop/unread-asks-v3/accepted_rounds.py`.
+
 [#153]: https://github.com/JordanMPDS/laconic/issues/153
+[#264]: https://github.com/JordanMPDS/laconic/issues/264

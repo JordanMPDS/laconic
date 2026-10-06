@@ -47,6 +47,10 @@ against.
   because this session had already seen their labels while diagnosing v2's
   errors. Agreement is therefore measured on a slightly easier subset than the
   full batch, and 96.7% is an upper bound rather than a point estimate.
+- `accepted_rounds.py` — why [#153] closed. `unread_asks` on every accepted
+  round from 28 on, through the shipped `report.aggregate`, plus its drift
+  across CLI releases to zero exposure. No calls; asserts it reproduces round
+  28's 70/165 to 43/153.
 
 There is no draw or resample script here. `key.json` is the record of the draw —
 id, snapshot, case and rep for all 80 — and `blind.md` was written from it
@@ -57,10 +61,10 @@ once.
 
 ## What this directory does not settle
 
-Nothing about round 28, which was scored through v2 and says so. Nothing about
-whether `unread_asks` should be fatal — but the case for ever making it fatal is
-weaker than it was, not stronger, because the counter's precision and recall are
-now known to move between fresh samples.
+Nothing about round 28, which was scored through v2 and says so. Whether
+`unread_asks` should be fatal is moot for now rather than settled: under CLI
+2.1.286 and later no design answer is unread, so the counter has nothing to
+count. See `accepted_rounds.py` above.
 
 [#153]: https://github.com/JordanMPDS/laconic/issues/153
 [#191]: https://github.com/JordanMPDS/laconic/pull/191

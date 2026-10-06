@@ -11,7 +11,7 @@
 > ceiling was computed from one draw of an instrument that re-draws a quarter of
 > the class it subtracts.
 
-**Status: parked. Detector v1 measured at 55.3% precision out of sample, which is not good enough, and the ceiling after fixing its dominant error class is about 72%. Picked up again, if at all, under [#155].**
+**Status: closed 2026-10-06 with [#155].** Every issue that needed this instrument was decided by a counted one instead; see [the closing section](#closed-the-questions-it-was-for-were-answered-without-it). Detector v1 measured 55.3% precision out of sample, which is not good enough.
 
 > **Direction A was run as far as it can be run, on 2026-09-20, and it stops at
 > the labels rather than at the criterion.** The sharpened criterion exists and
@@ -432,6 +432,48 @@ exactly that, and six readings show it does not.
 Everything above the re-label stands: a stable base rate near 43%, a large
 measured model effect, and a detector at 55.3% that is not accurate enough to
 carry either. Nothing here is a gate, a target, or a disclosure.
+
+## Closed: the questions it was for were answered without it
+
+On 2026-10-06 [#155] closes as not planned. Nothing above is refuted. What
+changed is that nothing is waiting for the instrument.
+
+**Every issue that was owed a redundancy verdict has since been decided by a
+counted instrument instead.**
+
+| issue | how it was decided | instrument |
+|---|---|---|
+| [#150] | [round 81](round-81.md) accepted "gets the scope it needs, and no claim in it twice": opus's requested turns fell to 0.896 (p = 0.0002) and again to 0.904 (p = 0.0001), with fixture coverage held both times | prose words and fixture-token coverage |
+| [#305] | [rounds 95](round-95.md) and [96](round-96.md) tested a count-or-back-reference bullet: re-listings fell from 7.82 to 0.13 and from 8.00 to 0.53 per graded turn, and each round rejected on a fatal bound | seeded item names, counted |
+| [#298] | [round 100](round-100.md) found opus's told answer already 0.377 of the cold one, so a point-back bullet had nothing to remove (ratio of ratios 1.015, p = 0.863) | told-over-cold prose-word ratio |
+
+The [#305] row is the named-fact route that this document's last step list
+offered, built into the case rather than into a detector. When the case seeds
+the facts that turn 1 must state, a restatement in turn 2 is a count of those
+facts. [`consensus.md`](restatement/consensus/consensus.md) closed that route
+for responses that already exist, because no lexical signal over free text
+separates a contrast from a recap. A seeded case does not have to separate
+them.
+
+**[#298], the one open restatement report, is outside this construct by
+design.** Its restated words have their antecedent in earlier turns.
+`restates` and `deletable` both judge a passage only against the response it
+sits in.
+
+**What is left is a labelling programme with no consumer.** The route
+`consensus.md` left is to rewrite the borderline convention, freeze it, draw a
+fresh batch, label it in six blind passes, and gate on the consensus ceiling.
+That registration declined to buy it on a post-hoc reading, and nothing since
+has asked for it.
+
+**What closing gives up.** Round 81's "no claim in it twice" is verified as
+shorter answers at held coverage, not as fewer restatements. The two can come
+apart, and this instrument is the one that would separate them.
+
+**Reopen on** a field report of restatement inside a single response or a
+single authored file, on a current model, of a kind a seeded case cannot count.
+Start from the consensus ceiling (89.7% precision) and the borderline
+convention, not from detector v1.
 
 [#49]: https://github.com/JordanMPDS/laconic/issues/49
 [#146]: https://github.com/JordanMPDS/laconic/issues/146

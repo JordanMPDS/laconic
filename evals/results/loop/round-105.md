@@ -228,3 +228,56 @@ committed after this table and before stage 2 generated.
 
 Disclosed: `neither-*` reads medians of 83.0 (`index`), 141.0 (`metric`) and
 68.0 (`rollback`), and every one of the 30 names the record's cause.
+
+### Stage 2
+
+150 runs a side, 0 failed, every run on CLI 2.1.299, so `release.py` finds no
+span. `rules_cksum` 3769556782 on every control run and 2293677676 on every edit
+run; `cases_cksum` 1267223679 over the nine cells on both sides. Panel
+judgments 150 a side; kimi returned no vote on 29 of 150 edit verdicts, which
+sonnet and opus decided together.
+
+| bar | control | edit | p | |
+|---|--:|--:|--:|---|
+| 1. prose words on `choose-*`, mean shift of stem medians | | −10.5 words | 0.0511 (one-sided) | **does not pass** |
+| 2. `neither-*` names the record's cause | 60/60 | 60/60 | 1.000 | holds |
+| 3. panel quality, `choose-*` | 60/60 | 60/60 | 1.000 | holds |
+| 3. panel quality, `neither-*` | 60/60 | 60/60 | 1.000 | holds |
+| 3. panel quality, `confirm-*` | 21/30 | 23/30 | 0.809 | holds |
+| 4. `date_trunc` on `confirm-index` | 10/10 | 10/10 | 1.000 | holds |
+
+Per stem, `choose-*` medians: 116.0 to 114.0 (`index`), 99.0 to 89.0
+(`metric`), 108.0 to 88.5 (`rollback`). `neither-*`: 83.5 to 71.0, 136.5 to
+137.5, 64.5 to 58.0.
+
+**Disclosed, deciding nothing.** No `choose-*` answer on either side is 20
+words or fewer; the shortest is 46 words on the control and 34 on the edit.
+The median first sentence grew from 10.0 to 16.5 words, because the edit's
+answers open with the option, often in bold, and carry the first piece of
+evidence in the same sentence. What follows it is [#384]'s shape unchanged:
+the mechanism restated from the record, then a caveat the user did not ask
+about ("One gap: ...", "The document infers this rather than quoting error
+logs").
+
+## Result: rejected
+
+**Reject, `noise-floor`.** The primary moved in the registered direction and
+missed alpha (p = 0.0511), and every bound held. As registered, there is no
+replication or holdout, and `rules/laconic.md` and `rules/dist/` are reverted
+to master before the merge. The instrument stays in `evals/pilot`.
+
+The precheck is the useful result: **#384 fires on opus at master rules on
+every run**, 30 of 30 over 45 words, with stem medians of 92 to 114 words,
+where a true-premise confirmation reads 1 word. This is the first open
+`rules` issue in two weeks to reproduce on opus, and `choose-*` is an
+instrument that sees it.
+
+The pre-mortem was wrong twice over: the precheck fired on every run, and
+bar 2 held at 60 of 60. What failed is the edit's size, about 10% off answers
+five times longer than the rule wants. The likeliest reason is in its own
+wording: *"the evidence for it is appended rather than part of it"* describes
+where the evidence goes rather than telling the model to leave it out, and the
+edit side appended it. The confirmation paragraph it copied uses the same
+phrase, and on a confirmation there is little to append. A next candidate on
+this instrument should say that the evidence is left out unless the user asked
+why, and should be judged on the same bars.

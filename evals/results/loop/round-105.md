@@ -210,3 +210,21 @@ not answer within the timeout.
 ## Results
 
 <!-- Nothing above this line has been computed. -->
+
+### Stage 1: it fires
+
+60 runs, 0 failed, at master rules, `cases_cksum` 3884565116 over the six
+cases.
+
+| case | n | median prose words | over 45 words | read the fixture |
+|---|--:|--:|--:|--:|
+| `choose-index` | 10 | 101.0 | 10 | 10 |
+| `choose-metric` | 10 | 92.0 | 10 | 10 |
+| `choose-rollback` | 10 | 114.0 | 10 | 10 |
+
+**30 of 30 over 45 words, every stem at 10 of 10: the condition is met and
+stage 2 is bought.** The edit and the regenerated `rules/dist/*.md` were
+committed after this table and before stage 2 generated.
+
+Disclosed: `neither-*` reads medians of 83.0 (`index`), 141.0 (`metric`) and
+68.0 (`rollback`), and every one of the 30 names the record's cause.

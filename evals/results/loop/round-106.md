@@ -166,3 +166,40 @@ run for this round.
 ## Results
 
 <!-- Nothing above this line has been computed. -->
+
+### Validity: the defect still fires
+
+Round 106's own control, scored with `--precheck`: 59 of 60 `choose-*` runs
+over 45 prose words, every stem at 19 or 20 of 20, with stem medians of 112.0
+(`index`), 105.0 (`metric`) and 104.0 (`rollback`). The round is not void.
+
+### First sample
+
+150 runs a side, 0 failed, every run on CLI 2.1.300, so `release.py` finds no
+span. `rules_cksum` 3769556782 on every control run and 3105749900 on every edit
+run; `cases_cksum` 1267223679 over the nine cells on both sides. Panel
+judgments 150 a side.
+
+| bar | control | edit | p | |
+|---|--:|--:|--:|---|
+| 1. prose words on `choose-*`, mean shift of stem medians | | −58.7 words | < 0.00001 (one-sided) | **passes** |
+| 2. `neither-*` names the record's cause | 60/60 | 60/60 | 1.000 | holds |
+| 3. panel quality, `choose-*` | 60/60 | 60/60 | 1.000 | holds |
+| 3. panel quality, `neither-*` | 60/60 | 60/60 | 1.000 | holds |
+| 3. panel quality, `confirm-*` | 24/30 | 24/30 | 0.626 | holds |
+| 4. `date_trunc` on `confirm-index` | 10/10 | 10/10 | 1.000 | holds |
+
+Per stem, `choose-*` medians: 112.0 to 62.0 (`index`), 105.0 to 53.5
+(`metric`), 104.0 to 29.5 (`rollback`). `neither-*`: 78.0 to 58.5, 130.5 to
+99.0, 63.5 to 53.0.
+
+**Disclosed, deciding nothing.** 16 of the 60 edit `choose-*` answers are 20
+words or fewer, against none of the control's; the shortest is 4 words on the
+edit and 42 on the control. The one-line answers are the option alone ("The
+time is going into the query itself."), and the longer ones still carry the
+record's mechanism after it, with a caveat on `metric` (the sample-size
+figure the fixture states). `confirm-*` reads medians of 117.5 and 111.5
+words and keeps its denial's reason on both sides. Pairwise panel agreement is
+kappa 0.66 to 0.91.
+
+Everything passed, so the replication and the holdout are bought.

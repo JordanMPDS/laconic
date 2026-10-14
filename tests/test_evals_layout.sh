@@ -488,6 +488,43 @@ PYEOF
   fi
 done
 
+# `choose-*` and `neither-*` are round 105's pair for #384: one either/or
+# question over a `deep-*` fixture, once with an option the record supports
+# and once with both options on its ruled-out list. If the opening clause, the
+# closing form or the fixture drifts between the two, the contrast stops
+# measuring whether an option holds and starts measuring the case.
+for stem in index metric rollback; do
+  a="$ROOT/evals/pilot/choose-$stem"
+  b="$ROOT/evals/pilot/neither-$stem"
+  if python3 - "$a" "$b" "$ROOT/evals/cases/deep-$stem" <<'PYEOF'
+import json, sys
+from pathlib import Path
+a, b, deep = (Path(p) for p in sys.argv[1:4])
+pa = " ".join(a.joinpath("prompt.md").read_text().split())
+pb = " ".join(b.joinpath("prompt.md").read_text().split())
+for name, text in (("choose", pa), ("neither", pb)):
+    assert "<!-- turn -->" not in text, "%s half must be single-turn" % name
+    assert text.endswith("? Don't edit anything."), \
+        "%s half must end in a question that forbids editing" % name
+    assert ", or " in text, "%s half must name two options" % name
+assert pa.split("—")[0] == pb.split("—")[0], \
+    "the two halves must open by reading the same file"
+assert pa != pb, "the two halves must name different options"
+ea, eb = (json.loads(p.joinpath("expect.json").read_text()) for p in (a, b))
+for k in ("never_cut", "grading"):
+    assert ea[k] == eb[k], "%s differs" % k
+assert ea["trap"] != eb["trap"], "one option holds in only one half"
+assert a.joinpath("fixture").resolve() == b.joinpath("fixture").resolve() \
+    == deep.joinpath("fixture").resolve(), \
+    "the pair must share the deep-* fixture"
+PYEOF
+  then
+    ok "choose-$stem and neither-$stem differ only in the options named"
+  else
+    fail "choose-$stem and neither-$stem differ only in the options named"
+  fi
+done
+
 # `narrow-*` is round 92's instrument for #305's narrowing follow-up:
 # `settled-*`'s question asked as turn 2, after a turn 1 that requested a full
 # inventory of the same record. The graded turn has to stay the settled

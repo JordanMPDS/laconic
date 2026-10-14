@@ -189,11 +189,25 @@ a symlink to `settled-*`'s, so the only difference is the request. Scored by
 says the opposite, so the correct answer denies the premise; it is the bound
 `score_echo.py` holds a true-premise edit to.
 
+## `choose-*` and `neither-*`
+
+[#384]'s either/or shape, registered in
+[`../results/loop/round-105.md`](../results/loop/round-105.md). Each pair asks
+one question naming two options over a `deep-*` fixture, by symlink. In
+`choose-*` one option is the record's answer and the other is on its own
+ruled-out list, so naming the first is the complete answer. In `neither-*` both
+options are ruled out, so a complete answer says neither and gives the
+record's actual cause. `tests/test_evals_layout.sh` holds the pair to sharing
+the opening clause, the closing form and the fixture. Scored by
+`score_choice.py`.
+
+[#384]: https://github.com/JordanMPDS/laconic/issues/384
+
 ## Borrowed by symlink
 
-`deep-*`, `drift-service` and `conditional` are symlinks to the scored cases of
-the same name in `evals/cases/`, so a pilot pass can generate them beside a
-pilot family without copying them.
+`deep-*`, `confirm-*`, `drift-service` and `conditional` are symlinks to the
+scored cases of the same name in `evals/cases/`, so a pilot pass can generate
+them beside a pilot family without copying them.
 
 ## Scripts
 
@@ -223,6 +237,7 @@ issue it was written for.
 | `score_settled.py` | Round 71: whether a worked true-premise closed question stops haiku re-deriving grounds. |
 | `score_echo.py` | Round 72's target, and the `contra-*` bound. |
 | `score_cited.py` | Whether a `settled-*` answer's grounds citation responds to being asked for. |
+| `score_choice.py` | Round 105: whether an either/or question is answered by naming one option ([#384]). |
 | `score_volunteered.py` | [#116]'s counters on `conditional`: did the answer do the work, and say what was wrong. |
 | `score_closing_edit.py` | Whether laconic's closing-offer rate survives a session that edits. |
 | `score_offer_fix.py` | Rounds 76 and 79: naming the offer in the pre-action check ([#113]). |

@@ -203,6 +203,19 @@ the opening clause, the closing form and the fixture. Scored by
 
 [#384]: https://github.com/JordanMPDS/laconic/issues/384
 
+## `carry-*`
+
+[#384]'s earlier-turn paragraph, registered in
+[`../results/loop/round-107.md`](../results/loop/round-107.md). Turn 1 asks for
+the fix over a `deep-*` fixture; turn 2 is `choose-*`'s either/or about the
+cause, byte for byte without its opening clause, and only turn 2 is graded. An
+answer that brings back the fix has carried turn 1's topic into a question
+that did not ask for it. `tests/test_evals_layout.sh` holds turn 2 to
+`choose-*`, so the single-turn case is the comparison that isolates the
+earlier turn. `depend-*` is its bound: the same turn 1, then an either/or
+that refers back to it ("that index", "the first action item"), so an answer
+has to use the earlier turn. Scored by `score_carry.py`.
+
 ## Borrowed by symlink
 
 `deep-*`, `confirm-*`, `drift-service` and `conditional` are symlinks to the
@@ -238,6 +251,7 @@ issue it was written for.
 | `score_echo.py` | Round 72's target, and the `contra-*` bound. |
 | `score_cited.py` | Whether a `settled-*` answer's grounds citation responds to being asked for. |
 | `score_choice.py` | Round 105: whether an either/or question is answered by naming one option ([#384]). |
+| `score_carry.py` | Round 107: whether an answer carries an earlier turn's topic it was not asked ([#384]). |
 | `score_volunteered.py` | [#116]'s counters on `conditional`: did the answer do the work, and say what was wrong. |
 | `score_closing_edit.py` | Whether laconic's closing-offer rate survives a session that edits. |
 | `score_offer_fix.py` | Rounds 76 and 79: naming the offer in the pre-action check ([#113]). |

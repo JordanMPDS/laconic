@@ -208,7 +208,59 @@ the bounds, and `depend-*` is that bound. DeepSeek did not answer within the
 timeout.
 
 [#384]: https://github.com/JordanMPDS/laconic/issues/384
+[#388]: https://github.com/JordanMPDS/laconic/issues/388
 
 ## Results
 
 <!-- Nothing above this line has been computed. -->
+
+### Stage 1: it does not fire
+
+60 runs, 0 failed, at master rules (`rules_cksum` 3105749900, v0.3.6), every
+run on CLI 2.1.300, `cases_cksum` 3741594717 over the six cells.
+
+| stem | `carry-*` carries turn 1's topic | median turn-2 words | `choose-*` carries it | median words |
+|---|--:|--:|--:|--:|
+| `index` | 0/10 | 3.0 | 0/10 | 41.0 |
+| `metric` | 0/10 | 6.0 | 1/10 | 16.5 |
+| `rollback` | 0/10 | 54.5 | 0/10 | 33.0 |
+
+**0 of 30 against a fire line of 10.** The edit is not committed, stage 2 is
+not bought, and the round is recorded as measuring.
+
+On `index` and `metric`, turn 2 is the option and nothing else in all 20 runs:
+"In the query itself." and "Because control had only four purchases." After
+an earlier turn, the either/or answer is shorter than the single-turn one, not
+longer.
+
+**Disclosed, deciding nothing: on `rollback`, opus carries a different
+earlier topic, its own.** Every turn-1 answer volunteers that the fixture's
+migration cannot have run as written: `ALTER TABLE ... ADD COLUMN
+settlement_currency char(3) NOT NULL` with no default fails on a table that
+already has rows. In 9 of 10 `carry-rollback` turn-2 answers that objection
+comes back, four of them flagged as such ("As I noted earlier, ..."), against
+0 of 10 single-turn `choose-rollback` answers (one-sided Fisher p = 0.00006).
+Nine of the ten attribute the `NOT NULL` column to the write-up ("according to
+the report") rather than stating it, and one declines both options ("Neither
+fits the evidence"). The objection is correct Postgres behaviour, so these turns carry
+an earlier claim that bears on the answer's premise, which the never-cut
+uncertainty item protects. It is not [#384]'s shape, a topic on which the
+current question does not depend, and the registered detector does not count
+it.
+
+## Result: the precheck does not fire, and stage 2 was not bought
+
+**Withdrawn unrun, `unscored`.** On opus at v0.3.6, an either/or asked after a
+turn about the fix does not bring the fix back: 0 of 30. [#384]'s second
+direction has no defect to move on this instrument, so no further edit on it
+should be registered until a case shows a carried topic the current question
+does not depend on. The instrument stays in `evals/pilot`.
+
+The pre-mortem's first guess was right, and for the reason it gave: v0.3.6's
+either/or answers are three to six words on two stems.
+
+The `rollback` turns found something else. `deep-rollback`'s fixture states
+an impossible migration, and opus says so whenever it is asked about the
+remedy. Every case built on that fixture, including the scored `deep-rollback`,
+`recall-rollback` and `wide-rollback`, grades against a record that a careful
+reader disputes. That is [#388].

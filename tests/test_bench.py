@@ -5607,6 +5607,9 @@ _expected_concurrent = {
     # its own two.
     "round-106-control.json", "round-106-edit.json",
     "round-106-rep-control.json", "round-106-rep-edit.json",
+    # Round 107's precheck: four simultaneous shards split by cells and
+    # --rep-offset, each declaring --concurrency 4, merged into one snapshot.
+    "round-107-precheck.json",
 }
 _found = set()
 for _p in sorted((ROOT / "evals" / "snapshots").rglob("*.json")):

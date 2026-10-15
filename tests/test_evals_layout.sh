@@ -525,6 +525,58 @@ PYEOF
   fi
 done
 
+# `carry-*` is round 107's: `choose-*`'s question asked as turn 2, after a turn
+# 1 about the fix. If turn 2 drifts from `choose-*`, the precheck's comparison
+# between the two stops isolating the earlier turn.
+for stem in index metric rollback; do
+  if python3 - "$ROOT/evals/pilot/carry-$stem" "$ROOT/evals/pilot/choose-$stem" <<'PYEOF'
+import json, sys
+from pathlib import Path
+c, s = (Path(p) for p in sys.argv[1:3])
+turns = [" ".join(x.split()) for x in
+         c.joinpath("prompt.md").read_text().split("<!-- turn -->")]
+single = " ".join(s.joinpath("prompt.md").read_text().split())
+assert len(turns) == 2, "carry must be two turns"
+assert turns[0].split("—")[0] == single.split("—")[0], \
+    "turn 1 must open by reading choose's file"
+assert turns[1] == single.split("— ", 1)[1], \
+    "turn 2 must be choose's question without its opening clause"
+ec, es = (json.loads(p.joinpath("expect.json").read_text()) for p in (c, s))
+for k in ("never_cut", "grading", "trap"):
+    assert ec[k] == es[k], "%s differs" % k
+assert c.joinpath("fixture").resolve() == s.joinpath("fixture").resolve(), \
+    "carry must share choose's fixture"
+PYEOF
+  then
+    ok "carry-$stem asks choose-$stem's question as turn 2"
+  else
+    fail "carry-$stem asks choose-$stem's question as turn 2"
+  fi
+done
+
+# `depend-*` is `carry-*`'s bound: the same turn 1, then an either/or that
+# refers back to it. A different turn 1 would make it a different session.
+for stem in index metric rollback; do
+  if python3 - "$ROOT/evals/pilot/depend-$stem" "$ROOT/evals/pilot/carry-$stem" <<'PYEOF'
+import sys
+from pathlib import Path
+d, c = (Path(p) for p in sys.argv[1:3])
+td, tc = ([" ".join(x.split()) for x in p.joinpath("prompt.md").read_text()
+           .split("<!-- turn -->")] for p in (d, c))
+assert len(td) == 2, "depend must be two turns"
+assert td[0] == tc[0], "depend must share carry's turn 1"
+assert td[1] != tc[1] and ", or " in td[1], "turn 2 must be its own either/or"
+assert td[1].endswith("? Don't edit anything."), "turn 2 must forbid editing"
+assert d.joinpath("fixture").resolve() == c.joinpath("fixture").resolve(), \
+    "depend must share carry's fixture"
+PYEOF
+  then
+    ok "depend-$stem shares carry-$stem's turn 1 and fixture"
+  else
+    fail "depend-$stem shares carry-$stem's turn 1 and fixture"
+  fi
+done
+
 # `narrow-*` is round 92's instrument for #305's narrowing follow-up:
 # `settled-*`'s question asked as turn 2, after a turn 1 that requested a full
 # inventory of the same record. The graded turn has to stay the settled

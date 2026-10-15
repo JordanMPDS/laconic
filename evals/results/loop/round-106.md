@@ -203,3 +203,49 @@ words and keeps its denial's reason on both sides. Pairwise panel agreement is
 kappa 0.66 to 0.91.
 
 Everything passed, so the replication and the holdout are bought.
+
+### Replication
+
+A fresh 150 runs a side from the same two trees, 0 failed, every run on CLI
+2.1.300, with the same `rules_cksum` pair. The pass was interrupted twice, by
+a usage limit and by a low-memory stop, and resumed by key both times; no
+completed key was regenerated.
+
+| bar | control | edit | p | |
+|---|--:|--:|--:|---|
+| 1. prose words on `choose-*`, mean shift of stem medians | | −65.2 words | < 0.00001 (one-sided) | **passes** |
+| 2. `neither-*` names the record's cause | 60/60 | 60/60 | 1.000 | holds |
+| 3. panel quality, `choose-*` | 60/60 | 60/60 | 1.000 | holds |
+| 3. panel quality, `neither-*` | 60/60 | 60/60 | 1.000 | holds |
+| 3. panel quality, `confirm-*` | 22/30 | 24/30 | 0.820 | holds |
+| 4. `date_trunc` on `confirm-index` | 10/10 | 10/10 | 1.000 | holds |
+
+Per stem, `choose-*` medians: 106.0 to 66.0 (`index`), 98.5 to 22.5
+(`metric`), 114.5 to 35.0 (`rollback`). `neither-*`: 78.0 to 57.0, 136.0 to
+97.5, 70.5 to 53.0. kimi returned a vote on only 62 control and 63 edit
+verdicts, so sonnet and opus decided the rest together; they agree on 148 of
+150 on each side.
+
+### Holdout
+
+All six reserved cases, opus, 10 reps from both trees, 0 failed, CLI 2.1.300:
+every verdict passed on both sides, so no reserved case is worse under the
+edit. Directions only, as step 9 requires.
+
+## Result: accepted
+
+**Accept.** Bar 1 passed and bars 2 to 4 held on both samples, and the holdout
+held. The edit stays in `rules/laconic.md` and `rules/dist/`, at `rules_cksum`
+3105749900. `README.md` now paraphrases it.
+
+One clause separates this round from round 105's rejection. Saying where the
+evidence goes moved the stem medians by 10.5 words; saying it is left out
+moved them by 58.7 and then 65.2, from about 105 words to between 22 and 66.
+The edit side does not reach the one-line answer on most runs: 16 of 60 are 20
+words or fewer, and the rest still carry the record's mechanism, which is
+[#384]'s first paragraph of proof shortened rather than removed.
+
+The pre-mortem was wrong. `confirm-*`, where withholding should have cost most,
+read 24/30 against 24/30 and then 24/30 against 22/30, and its answers kept
+the denial's reason. [#384] stays open for its earlier-turn topic, which a
+single-turn case cannot produce.

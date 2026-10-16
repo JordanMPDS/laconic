@@ -206,3 +206,55 @@ split was not taken; the round uses inline only. DeepSeek was not asked.
 ## Results
 
 <!-- Nothing above this line has been computed. -->
+
+### Stage 1, first sample: the registered detector under-read `disk`
+
+60 runs, 0 failed, at master rules (`rules_cksum` 3105749900, v0.3.6), every
+run on CLI 2.1.301, `cases_cksum` 3428123555 over the nine cells.
+
+Scored as registered, it did not fire: 17 of 30 `open-*` answers carry the
+open question, but `disk` read 0 of 10. Reading the `disk` answers, 3 of the 10
+do carry it. All three paraphrase the fixture rather than quoting it, and the
+registered `UNKNOWN` matched only the fixture's own words ("nothing past"):
+
+> The note doesn't say why WAL is piling up. No one has run anything beyond
+> that `du`.
+
+`UNKNOWN` was widened to match those paraphrases on every stem ("doesn't say
+why", "nothing beyond that `du`", "no one has run"), and `HEDGE` to match
+"can't answer that", which it had missed on one `unsettled-checkout` answer
+that says the record cannot settle the question. Both fixes are in commit
+8f31937, before any sample they decide. Re-read under them, the first sample is
+20 of 30, `cdc` 7, `disk` 3 and `checkout` 10, and every `unsettled-*` and
+`keep-*` answer hedges (15 of 15 each).
+
+**A pass reached by correcting the detector on the sample that showed the
+fault is not a pass**, so the gate is decided on a fresh 30 `open-*` runs,
+rep keys 10 to 19, scored by the corrected detector as committed. That sample
+is below.
+
+`checkout` carries it in all ten answers, nine of them by inferring where
+inside the call the time might go ("DNS, TLS setup, or waiting for a pooled
+connection"), which is [#384]'s second paragraph almost word for word. `cdc`
+answers note that the sink settings were not collected, and three of them also
+infer a cause ("parallel sends or retries"). The `disk` answers never infer a
+cause: the three that carry the question only say it is unknown.
+
+### Stage 1, the deciding sample: it fires
+
+30 fresh `open-*` runs, rep keys 10 to 19, 0 failed, at master rules, every
+run on CLI 2.1.301, scored by the detector as committed in 8f31937.
+
+| stem | carries the open question | of which infer a cause | median prose words |
+|---|--:|--:|--:|
+| `cdc` | 8/10 | 6 | 81.0 |
+| `disk` | 5/10 | 0 | 24.5 |
+| `checkout` | 10/10 | 10 | 84.5 |
+
+**23 of 30, every stem at 3 or more: it fires, and stage 2 is bought.** Read by
+hand, all ten `disk` verdicts are right: the five that carry it end on "The
+document doesn't say why the WAL is being retained, because nothing beyond
+`du` has been run yet" or close to it, and the five that do not are the option
+and the volume's contents. The two `cdc` answers that do not carry it add a
+different caveat, that the subscription might also reorder writes, which bears
+on the option the user named and is not counted.

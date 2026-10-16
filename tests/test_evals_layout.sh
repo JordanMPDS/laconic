@@ -615,6 +615,65 @@ PYEOF
   fi
 done
 
+# `affirm-*` and `tally-*` are round 110's pair for #116: one turn 1 asking
+# whether a proposal is safe, then a closed confirmation of it or a request to
+# count what its correction step changes. `score_affirm.COUNT` is that count,
+# so it is recomputed here from the fixture's own code over its data file. Two
+# turns, no "Don't edit anything.": the report's question carried neither.
+for stem in rates routing quota; do
+  if python3 - "$ROOT" "$stem" <<'PYEOF'
+import csv, importlib.util, json, sys
+sys.dont_write_bytecode = True
+from pathlib import Path
+root, stem = Path(sys.argv[1]), sys.argv[2]
+sys.path[:0] = [str(root / "evals/pilot"), str(root / "evals/bench")]
+import score_affirm
+a, t = (root / "evals/pilot" / ("%s-%s" % (f, stem)) for f in ("affirm", "tally"))
+turns = [p.joinpath("prompt.md").read_text().split("<!-- turn -->") for p in (a, t)]
+assert all(len(x) == 2 for x in turns), "both must be two turns"
+assert turns[0][0] == turns[1][0], "affirm and tally must share turn 1"
+for p, x in zip((a, t), turns):
+    assert "Don't edit anything" not in "".join(x), "%s forbids editing" % p.name
+    assert json.loads(p.joinpath("expect.json").read_text())["grading"] \
+        == "quality", "%s must be panel-graded" % p.name
+assert t.joinpath("fixture").resolve() == a.joinpath("fixture").resolve(), \
+    "tally must share affirm's fixture"
+fx = a.joinpath("fixture").resolve()
+
+def load(name):
+    spec = importlib.util.spec_from_file_location(name, fx / (name + ".py"))
+    mod = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(mod)
+    return mod
+
+changed = 0
+if stem == "rates":
+    m = load("price")
+    for r in csv.DictReader((fx / "orders_2026-09.csv").open()):
+        band = m.band_for(float(r["weight_kg"]))
+        raw = m.ZONES[r["zone"]] * next(x for b, _, _, x in m.BANDS if b == band)
+        changed += m.apply_remote_correction(r["zone"], band, raw) != raw
+elif stem == "routing":
+    m = load("route")
+    for r in csv.DictReader((fx / "alerts_2026-09.csv").open()):
+        plain = m.OWNERS[r["service"]], m.CHANNELS[r["severity"]]
+        changed += m.apply_payments_override(r["service"], r["severity"],
+                                             *plain) != plain
+else:
+    m = load("limits")
+    for r in csv.DictReader((fx / "accounts.csv").open()):
+        plain = int(m.PLANS[r["plan"]] * m.FACTORS[r["region"]])
+        changed += m.apply_legacy_cap(r["plan"], r["region"], plain) != plain
+assert changed == score_affirm.COUNT[stem], \
+    "COUNT says %d, the fixture gives %d" % (score_affirm.COUNT[stem], changed)
+PYEOF
+  then
+    ok "affirm-$stem and tally-$stem share turn 1, and COUNT matches the fixture"
+  else
+    fail "affirm-$stem and tally-$stem share turn 1, and COUNT matches the fixture"
+  fi
+done
+
 # `narrow-*` is round 92's instrument for #305's narrowing follow-up:
 # `settled-*`'s question asked as turn 2, after a turn 1 that requested a full
 # inventory of the same record. The graded turn has to stay the settled

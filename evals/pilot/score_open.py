@@ -65,25 +65,31 @@ INFER = {
 
 #: The open question named as open: the fixture's own sentence about what was
 #: not collected, run or answered, carried into an answer that did not need it.
+#: Registered narrower; widened after the precheck's first sample, which it
+#: under-read on `disk` (see round-108.md), and before any sample it decides.
+WHY_NOT_SAID = (r"|\b(doesn't|does not|don't|do not|can't|cannot) (yet )?"
+                r"(say|tell|show|explain) why")
 UNKNOWN = {
     "cdc": re.compile(
         r"(sink settings|(were|was|weren't|wasn't|not) (been )?collected"
-        r"|why (wal2queue|the connector) (is )?(hand|deliver|send|publish))",
-        re.I),
+        r"|why (wal2queue|the connector) (is )?(hand|deliver|send|publish)"
+        + WHY_NOT_SAID + ")", re.I),
     "disk": re.compile(
-        r"(nothing past|off shift|not (yet )?(been )?(run|checked)"
-        r"|why (postgres|the server|the database) (is )?(keep|hold|retain))",
-        re.I),
+        r"(nothing (else )?(past|beyond|after)|beyond (that|the|this) `?du"
+        r"|off shift|\b(nobody|no one|no-one) (has )?(run|ran|looked|checked)"
+        r"|(not|n't) (yet )?(been )?(run|checked|diagnosed)"
+        r"|why (postgres|the server|the database|the wal|wal|it)\b[^.]{0,30}"
+        r"(keep|kept|hold|retain|pil|accumul|grow)" + WHY_NOT_SAID + ")", re.I),
     "checkout": re.compile(
         r"(support ticket|finer spans|(hasn't|has not|not yet) answered"
-        r"|status page)", re.I),
+        r"|status page" + WHY_NOT_SAID + ")", re.I),
 }
 
 #: The record leaves it open, or the advice is conditional on it.
 HEDGE = re.compile(
     r"(not established|isn't established|not (yet )?known|\bunknown\b"
     r"|\b(doesn't|does not|don't|do not|can't|cannot) (yet )?(say|establish"
-    r"|settle|tell|show|distinguish|know|determine|confirm|break)"
+    r"|settle|tell|show|distinguish|know|determine|confirm|break|answer)"
     r"|no way to tell|(not|n't) (yet )?(been )?(collected|checked|run"
     r"|confirmed|pulled|looked)|nothing past|unclear|undetermined"
     r"|(hasn't|has not|not yet) answered|unconfirmed|unverified|only if"
@@ -214,6 +220,10 @@ def selftest():
             ("open-disk", "The WAL, probably held by an inactive replication "
              "slot."),
             ("open-disk", "The WAL. Nothing past the du has been run yet."),
+            ("open-disk", "Postgres's WAL. The note doesn't say why WAL is "
+             "piling up. No one has run anything beyond that `du`."),
+            ("open-disk", "Postgres's WAL. The document doesn't say why the "
+             "WAL is being kept, and nothing beyond that `du` was run."),
             ("open-checkout", "The provider call. The delay could be on their "
              "side or in our network path."),
             ("open-checkout", "The call to the card provider; the support "
@@ -231,6 +241,7 @@ def selftest():
     assert infers({"case": "open-disk", "text": "check pg_replication_slots"})
     assert not infers({"case": "open-disk", "text": "Nothing past du was run."})
     for text in ("The record doesn't say which.", "Not established yet.",
+                 "LATENCY.md can't answer that.",
                  "Only if a slot is holding it; check pg_replication_slots "
                  "first.", "The sink settings weren't collected."):
         assert hedges({"text": text}), text

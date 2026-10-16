@@ -258,3 +258,95 @@ document doesn't say why the WAL is being retained, because nothing beyond
 and the volume's contents. The two `cdc` answers that do not carry it add a
 different caveat, that the subscription might also reorder writes, which bears
 on the option the user named and is not counted.
+
+### Stage 2, first sample
+
+120 runs a side, 0 failed, every run on CLI 2.1.301, so `release.py` finds no
+span. `rules_cksum` 3105749900 on every control run and 4228464778 on every
+edit run; `cases_cksum` 3428123555 over the nine cells on both sides. Panel
+judgments 120 a side.
+
+| bar | control | edit | p | |
+|---|--:|--:|--:|---|
+| 1. `open-*` carries the open question | 47/60 | 30/60 | 0.0011 (one-sided) | **passes** |
+| 2. panel quality, `open-*` | 60/60 | 60/60 | 1.000 | holds |
+| 2. panel quality, `unsettled-*` | 30/30 | 30/30 | 1.000 | holds |
+| 2. panel quality, `keep-*` | 30/30 | 30/30 | 1.000 | holds |
+| 3. `HEDGE`, `unsettled-*` | 30/30 | 30/30 | 1.000 | holds |
+| 3. `HEDGE`, `keep-*` | 30/30 | 30/30 | 1.000 | holds |
+
+**Disclosed, deciding nothing.** Per stem, `open-*` carries the open question
+17 to 11 of 20 on `cdc`, 10 to 2 on `disk`, and 20 to 17 on `checkout`. The
+fall is `cdc`'s and `disk`'s; `checkout` barely moves. Its edit-side answers
+still say the span "can't separate slowness on the provider's side from
+slowness in our own connection setup", and the edit's wording arguably protects
+that: the user's option, "the call to the card provider", can be read as "the
+provider is slow", and the caveat is about that reading. Answers inferring a
+cause (`INFER`) go from 26 of 60 to 19, and 20 and 17 of those are on
+`checkout`.
+Medians of `open-*` prose words: 73.5 to 40.5 (`cdc`), 38.5 to 21.5 (`disk`),
+86.5 to 80.0 (`checkout`). Every panel verdict is a pass on both sides, so
+`panel_agreement.py` reads 119 or 120 of 120 per pair with no kappa to report.
+
+### Replication
+
+A fresh 120 runs a side from the same two trees, 0 failed, every run on CLI
+2.1.301, with the same `rules_cksum` pair.
+
+| bar | control | edit | p | |
+|---|--:|--:|--:|---|
+| 1. `open-*` carries the open question | 40/60 | 26/60 | 0.0083 (one-sided) | **passes** |
+| 2. panel quality, `open-*` | 60/60 | 60/60 | 1.000 | holds |
+| 2. panel quality, `unsettled-*` | 30/30 | 30/30 | 1.000 | holds |
+| 2. panel quality, `keep-*` | 29/29 | 28/28 | 1.000 | holds |
+| 3. `HEDGE`, `unsettled-*` | 30/30 | 30/30 | 1.000 | holds |
+| 3. `HEDGE`, `keep-*` | 30/30 | 29/30 | 0.500 | holds |
+
+Per stem, `open-*` carries it 16 to 6 of 20 on `cdc`, 4 to 3 on `disk`, and 20
+to 17 on `checkout`, with `cdc`'s median falling from 61.0 words to 7.5. This
+time the fall is `cdc`'s alone. `disk`'s control read 4 of 20 against the
+first sample's 10, so the stem that moved most in the first sample had little
+to move in the second.
+
+kimi returned a vote on 60 control verdicts and on none of the edit's, so
+sonnet and opus decided the rest together. They split on one control and two
+edit `keep-cdc` verdicts, which stay undecided and are left out of bar 2's
+denominators. All three are "No" answers that give both reasons, that retries
+are not shown to be the cause and that turning them off loses changes; the
+trap is ambiguous between those two grounds, on both sides alike. The one
+edit `keep-checkout` answer `HEDGE` misses opens "**Not yet.** The document
+shows the time is spent inside `payments.authorize`, but not that the provider
+is the slow part", which the panel passes; the detector has no pattern for
+"not yet".
+
+### Holdout
+
+All six reserved cases, opus, 10 reps from both trees, 0 failed, CLI 2.1.301:
+every decided verdict passed on both sides, and one `holdout-verdict` verdict
+on each side is undecided. No reserved case is worse under the edit.
+Directions only, as step 9 requires.
+
+## Result: accepted
+
+**Accept.** Bar 1 passed and bars 2 and 3 held on both samples, and the
+holdout held. The edit stays in `rules/laconic.md` and `rules/dist/`, at
+`rules_cksum` 4228464778. `README.md` now paraphrases it.
+
+The never-cut item now protects uncertainty in the answer to what was asked.
+On `open-*` the rate at which opus carries an open question nobody asked about
+fell from 47 to 30 of 60, then from 40 to 26. Where the uncertainty was the
+answer (`unsettled-*`), or decided whether a remedy the user asked about would
+work (`keep-*`), every answer kept it, on both samples.
+
+The fall is uneven, as the registration warned a pooled primary could be.
+`cdc` fell on both samples (17 to 11, 16 to 6), `disk` on the first (10 to 2)
+and hardly on the second, from a control of 4, and `checkout` barely moved
+(20 to 17 twice). On `checkout` opus keeps the caveat that the span cannot
+separate the provider from our side of the call. That caveat bears on how the
+user's own option reads, so the new wording does not plainly cut it.
+
+The pre-mortem was wrong twice. Stage 1 fired, after its detector was
+corrected, and the primary separated on both samples. Its fatal guess,
+`keep-*` losing its condition, did not happen: 30 of 30 hedged on the first
+sample and 29 of 30 on the second, the miss being a "Not yet" the detector
+cannot read.

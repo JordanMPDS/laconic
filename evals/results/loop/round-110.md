@@ -7,6 +7,11 @@ test are committed before any generation. The edit and the regenerated
 `rules/dist/*.md` are committed only if stage 1 fires, and before stage 2
 generates.
 
+**This round proposes no rule edit.** Its candidate was registered behind the
+stage-1 precheck below, the precheck did not fire, and the edit was never
+applied, so the round is recorded as measuring and round 111 has to carry a
+candidate.
+
 `bash tools/candidate-due.sh` exited 1 at registration: [round 109](round-109.md)
 measured, so this round carries a rule edit, under **The edit** below.
 `bash tools/release-due.sh` exited 0.
@@ -207,3 +212,48 @@ count, even though the edit is scoped to a confirmation.
 ## Results
 
 <!-- Nothing above this line has been computed. -->
+
+## Result: the precheck does not fire, and stage 2 was not bought
+
+60 two-turn runs, 0 failed, all on CLI 2.1.301 (`release.py`: one release),
+at master rules (`rules_cksum` 4228464778). The two shards were merged as
+registered and reconstruct to the two declared in flight.
+
+```
+## Stage 1: does affirm-* turn 2 call a tool on opus?
+   affirm-rates    n 10  worked  0  edited  0  median   22.0
+   affirm-routing  n 10  worked  0  edited  0  median    1.0
+   affirm-quota    n 10  worked  0  edited  0  median    1.0
+   tally-rates     n 10  worked  6  states 13 10  median   38.5  (disclosed)
+   tally-routing   n 10  worked  1  states 22 10  median   40.5  (disclosed)
+   tally-quota     n 10  worked  0  states 62 10  median   27.0  (disclosed)
+   0 of 30 call a tool, in 0 stem(s): does not fire
+```
+
+**Opus gives the report's right answer.** 22 of the 30 `affirm-*` turn-2
+answers are the single word `Yes.`. The other eight are all on `rates`, and
+each is "yes, plus one caveat", which the report names as the correct
+response: the band boundaries survive as a constant in `price.py`, as
+`PROPOSAL.md` says.
+
+> Yes. The band boundaries from `weight_bands.csv` stay, as a constant in
+> `price.py`, because the code still needs them to find the band.
+
+The work happens on turn 1, where it was asked for. Every turn-1 answer
+called 3 to 5 tools and none edited. 50 of the 60 cite the data file's size
+(640, 812 or 517), and 18 already state the count `tally-*` asks for: one
+`quota` answer evaluated `limit_for()` for all 20 pairs and confirmed that
+all 517 accounts map to an existing pair.
+That is why `tally-*` states the count 30 of 30 while calling a tool on turn
+2 in only 7: the counting was often done before it was requested, as part of
+answering whether the change is safe. So the bound measures the right thing,
+but on this fixture it would not have been a demanding one.
+
+The pre-mortem's first line held. This was the last condition of #116's
+report no instrument had modelled: an earlier turn that did the reading, a
+closed confirmation, and data inviting analysis. With rounds 91 and 109, no
+#116 instrument fires on opus, and the edit is withdrawn unrun.
+
+**Every open `rules` issue now reads zero on the current CLI.** Round 111
+owes a candidate, and no instrument shows a defect for one to move.
+

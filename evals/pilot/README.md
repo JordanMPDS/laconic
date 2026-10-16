@@ -230,6 +230,19 @@ depends on the mechanism the record leaves open. The three share one fixture,
 and `tests/test_evals_layout.sh` holds the fixture free of every word
 `score_open.INFER` counts. Scored by `score_open.py`.
 
+## `affirm-*` and `tally-*`
+
+[#116]'s closed confirmation, registered in
+[`../results/loop/round-110.md`](../results/loop/round-110.md). Each stem's
+fixture is a small project: two lookup tables, a correction step in code, a
+`PROPOSAL.md` replacing all three with one combined table, and a data file the
+code does not read. Turn 1 asks whether the proposal is safe to make.
+`affirm-*`'s turn 2 is the report's confirmation, true by the proposal's text,
+so an answer that calls a tool does work nobody asked for. `tally-*`'s turn 2
+asks for the numbers, so there the work is requested. `tally-*` reaches the
+fixture by symlink, and `tests/test_evals_layout.sh` recomputes
+`score_affirm.COUNT` from the fixture's own code. Scored by `score_affirm.py`.
+
 ## Borrowed by symlink
 
 `deep-*`, `confirm-*`, `drift-service` and `conditional` are symlinks to the
@@ -267,6 +280,7 @@ issue it was written for.
 | `score_choice.py` | Round 105: whether an either/or question is answered by naming one option ([#384]). |
 | `score_carry.py` | Round 107: whether an answer carries an earlier turn's topic it was not asked ([#384]). |
 | `score_open.py` | Round 108: whether an answer carries an open question inside the option it named ([#384]). |
+| `score_affirm.py` | Round 110: whether a closed confirmation's turn calls a tool nobody asked for ([#116]). |
 | `score_volunteered.py` | [#116]'s counters on `conditional`: did the answer do the work, and say what was wrong. |
 | `score_closing_edit.py` | Whether laconic's closing-offer rate survives a session that edits. |
 | `score_offer_fix.py` | Rounds 76 and 79: naming the offer in the pre-action check ([#113]). |

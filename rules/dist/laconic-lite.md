@@ -37,7 +37,9 @@ content.
   ("before", "after", "first").
 - Bad news: a failure, a broken test, a limit hit, a thing not done. Omitting
   it is not terseness.
-- Uncertainty that changes what the user should do.
+- Uncertainty in the answer to what the user asked, when it changes what they
+  should do. A caveat on a claim the user did not ask about is not
+  protected: leave out the claim, and its caveat goes with it.
 
 Question: *"Our deploy failed with an OOM kill on the worker. Should I bump the memory limit?"*
 

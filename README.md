@@ -78,7 +78,8 @@ Every level, including `ultra`:
   Asking "why" or "how" is not a licence for length.
 - Ordered instructions: every step, and the words that fix their order.
 - Bad news: a failure, a broken test, a limit hit, a thing not done.
-- Uncertainty that changes what you should do.
+- Uncertainty in the answer to what you asked, when it changes what you should
+  do. A caveat on a claim you did not ask about is cut along with the claim.
 
 ## Turning it off
 

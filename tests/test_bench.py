@@ -5610,6 +5610,14 @@ _expected_concurrent = {
     # Round 107's precheck: four simultaneous shards split by cells and
     # --rep-offset, each declaring --concurrency 4, merged into one snapshot.
     "round-107-precheck.json",
+    # Round 108's precheck: four simultaneous shards declaring --concurrency 4,
+    # then a fresh open-* sample from two declaring --concurrency 2.
+    "round-108-precheck.json", "round-108-precheck2.json",
+    # Round 108's stage 2, replication and holdout: two simultaneous shards a
+    # side, from two trees, each declaring --concurrency 4.
+    "round-108-control.json", "round-108-edit.json",
+    "round-108-rep-control.json", "round-108-rep-edit.json",
+    "round-108-holdout-control.json", "round-108-holdout-edit.json",
 }
 _found = set()
 for _p in sorted((ROOT / "evals" / "snapshots").rglob("*.json")):

@@ -216,6 +216,20 @@ earlier turn. `depend-*` is its bound: the same turn 1, then an either/or
 that refers back to it ("that index", "the first action item"), so an answer
 has to use the earlier turn. Scored by `score_carry.py`.
 
+## `open-*`, `unsettled-*` and `keep-*`
+
+[#384]'s caveated inference, registered in
+[`../results/loop/round-108.md`](../results/loop/round-108.md). Each stem's
+fixture settles an either/or and leaves the mechanism inside the winning
+option unestablished, saying in passing what was not collected, run or
+answered. `open-*` asks the settled either/or, so an answer that infers a
+cause inside the option, or notes that it is unknown, carries a question
+nobody asked. `unsettled-*` asks an either/or about that mechanism, so the
+uncertainty is the answer. `keep-*` asks whether a remedy would work, which
+depends on the mechanism the record leaves open. The three share one fixture,
+and `tests/test_evals_layout.sh` holds the fixture free of every word
+`score_open.INFER` counts. Scored by `score_open.py`.
+
 ## Borrowed by symlink
 
 `deep-*`, `confirm-*`, `drift-service` and `conditional` are symlinks to the
@@ -252,6 +266,7 @@ issue it was written for.
 | `score_cited.py` | Whether a `settled-*` answer's grounds citation responds to being asked for. |
 | `score_choice.py` | Round 105: whether an either/or question is answered by naming one option ([#384]). |
 | `score_carry.py` | Round 107: whether an answer carries an earlier turn's topic it was not asked ([#384]). |
+| `score_open.py` | Round 108: whether an answer carries an open question inside the option it named ([#384]). |
 | `score_volunteered.py` | [#116]'s counters on `conditional`: did the answer do the work, and say what was wrong. |
 | `score_closing_edit.py` | Whether laconic's closing-offer rate survives a session that edits. |
 | `score_offer_fix.py` | Rounds 76 and 79: naming the offer in the pre-action check ([#113]). |

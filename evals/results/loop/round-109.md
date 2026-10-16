@@ -6,6 +6,11 @@ committed before any generation. No harness or scorer changes: stage 1 is
 [round 99](round-99.md)'s precheck and [round 91](round-91.md)'s screen,
 command for command, at today's master.
 
+**This round proposes no rule edit.** Its candidate was registered behind the
+stage-1 precheck below, the precheck did not fire, and the edit was never
+applied, so the round is recorded as measuring and round 110 has to carry a
+candidate.
+
 `bash tools/candidate-due.sh` exited 0 at registration ([round 108](round-108.md)
 carried a candidate), and `bash tools/release-due.sh` exited 0. This round
 carries round 99's registered candidate for [#353] under **The edit** below,
@@ -121,3 +126,52 @@ habit a release changes without anyone meaning to.
 ## Results
 
 <!-- Nothing above this line has been computed. -->
+
+## Result: nothing fires on CLI 2.1.301, and stage 2 was not bought
+
+160 runs, 0 failed, every one on CLI 2.1.301 (`release.py`: one release, no
+imbalanced arm), at the registered `rules_cksum` 4228464778 and
+`reminder_cksum` 1027894636.
+
+```
+recall-index   0/20
+wide-index     1/20
+deep-index     0/20
+sonnet index   1/60  fires at >= 12: does not fire
+recall-metric  0/20  (disclosed)
+sonnet index graded-turn median words 35.0
+opus index     0/15  (opus, disclosed)
+
+issue  counted                                     k/n   need margin median fires
+#116   conditional runs that edited a file        0/20      5   0.00  103.5 no
+#113   edit-service turn 3 closing offers         0/20      3   0.00  149.5 no
+#46    design-alerting over 600 prose words       0/20      2   0.00  238.5 no
+```
+
+The panel decided all 80 sonnet verdicts with no three-way split; sonnet
+agreed with the majority on 80, opus and kimi on 79 each.
+
+**The one failure is not #353's.** #353 is a bare "No" with no working fix.
+The failing `wide-index` answer names the fix and fails the criterion's other
+clause, that the reason the btree goes unused is the `date_trunc` wrapper:
+
+> No. By itself, an index on `created_at` changes nothing: the document built
+> it on a restored copy of production and got a byte-identical plan. It only
+> helps if the predicate is also rewritten to `created_at >= $1 AND created_at
+> < $1 + interval '1 day'`. The document recommends pairing that rewrite with a
+> composite `(tenant_id, created_at)` index, which brought the query to 29ms.
+
+With rounds 88 and 99, sonnet's shipped-reminder index verdicts on CLI 2.1.285
+to 2.1.301 read 1 of 165, against 45 of 105 on 2.1.282. Round 99's arm F stays
+the registered candidate for #353, and its stage 2 can still be bought as
+written if a later screen fires.
+
+The three phase-2 screens read zero, as they did in rounds 91 and 103.
+`edit-service` turn 3 carried no offer and `conditional` wrote no file in 20
+runs each, and the longest `design-alerting` answer is 287 prose words
+(median 238.5). The pre-mortem's first line held.
+
+**Every open `rules` issue now reads zero on the current CLI**, or, for #298
+and #264, waits on a condition this round did not test. Round 110 owes a
+candidate. Since no instrument shows a defect, the next move is a case built
+from a new report, not another edit on a screen that reads zero.

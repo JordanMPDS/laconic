@@ -577,6 +577,44 @@ PYEOF
   fi
 done
 
+# `open-*`, `unsettled-*` and `keep-*` are round 108's trio: three questions
+# over one fixture that settles an either/or and leaves the mechanism inside
+# it open. `score_open.INFER` counts a cause the answer inferred there, so the
+# fixture may not contain one of its words, or a quoted sentence would count.
+for stem in cdc disk checkout; do
+  if python3 - "$ROOT" "$stem" <<'PYEOF'
+import json, sys
+from pathlib import Path
+root, stem = Path(sys.argv[1]), sys.argv[2]
+sys.path[:0] = [str(root / "evals/pilot"), str(root / "evals/bench")]
+import score_open
+o, u, k = (root / "evals/pilot" / ("%s-%s" % (f, stem))
+           for f in ("open", "unsettled", "keep"))
+texts = [" ".join(p.joinpath("prompt.md").read_text().split())
+         for p in (o, u, k)]
+for p, text in zip((o, u, k), texts):
+    assert "<!-- turn -->" not in text, "%s must be single-turn" % p.name
+    assert text.endswith("? Don't edit anything."), \
+        "%s must end in a question that forbids editing" % p.name
+    assert json.loads(p.joinpath("expect.json").read_text())["grading"] \
+        == "quality", "%s must be panel-graded" % p.name
+    assert p.joinpath("fixture").resolve() == o.joinpath("fixture").resolve(), \
+        "%s must share open's fixture" % p.name
+assert len({t.split("—")[0] for t in texts}) == 1, \
+    "the three must open by reading the same file"
+assert ", or " in texts[0] and ", or " in texts[1], \
+    "open and unsettled must name two options"
+fixture = "".join(f.read_text() for f in o.joinpath("fixture").resolve().iterdir())
+assert not score_open.INFER[stem].search(fixture), \
+    "the fixture contains a word INFER counts"
+PYEOF
+  then
+    ok "open-$stem, unsettled-$stem and keep-$stem share a fixture INFER cannot quote"
+  else
+    fail "open-$stem, unsettled-$stem and keep-$stem share a fixture INFER cannot quote"
+  fi
+done
+
 # `narrow-*` is round 92's instrument for #305's narrowing follow-up:
 # `settled-*`'s question asked as turn 2, after a turn 1 that requested a full
 # inventory of the same record. The graded turn has to stay the settled

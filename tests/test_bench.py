@@ -5627,6 +5627,7 @@ _expected_concurrent = {
     # Round 111's stage 2: two shards a side declaring --concurrency 4, the
     # control and the edit generating at once from two trees.
     "round-111-control.json", "round-111-edit.json",
+    "round-111-rep-control.json", "round-111-rep-edit.json",
 }
 _found = set()
 for _p in sorted((ROOT / "evals" / "snapshots").rglob("*.json")):

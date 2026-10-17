@@ -343,3 +343,29 @@ but the answer now says so before the list, as in *"The deciding problem is
 that money is stored as `DOUBLE PRECISION`."*, and the other defects follow
 under a heading that ranks them below it. The median length on the target
 cell fell from 409.5 to 362 words; the other cells moved by less than 30.
+
+### Replication
+
+A fresh 70 runs a side from the same two trees, 0 failed, CLI 2.1.302,
+`release.py` clean:
+
+```
+## Primary: verdict-schema/sonnet fails less, one-sided
+   verdict-schema/sonnet fails  control  23/27   edit   0/29   one-sided p = 0.0000  FIRES
+## Bounds (fatal): the pass rate may not fall
+   verdict-experiment+rollout   control  11/11   edit  11/11   one-sided p = 1.0000  holds
+   verdict-schema/opus          control  10/10   edit  10/10   one-sided p = 1.0000  holds
+   destructive/sonnet           control  10/10   edit  10/10   one-sided p = 1.0000  holds
+## accept basis met
+```
+
+**Bar 1 passes again, and the target fell further: 0 of 29.** Kimi still
+had no vote, and 9 `verdict-experiment`/sonnet verdicts a side are undecided.
+Unlike stage 2, the worst case here would fire the sibling bound, so these
+verdicts are retried once kimi's window resets and this section is updated
+then. The splits run the same way on both sides and in every sample: sonnet
+votes pass and opus votes fail on all 9 a side here, and on 4 control and 6
+edit in stage 2. Opus's reasons fail answers that reopen points
+`EXPERIMENT.md` has already settled. That is a disagreement between judges
+about the criterion, present at master rules, rather than anything the edit
+did, so the holdout was generated while the splits wait.

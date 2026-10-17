@@ -338,6 +338,19 @@ outcome of the undecided ones changes a bar: if every control one passed and
 every edit one failed, the sibling bound would read 17/20 against 13/20,
 p = 0.137.
 
+**Final, after kimi's cap reset at 10:34 UTC.** The same `judge.py` commands
+retried every undecided verdict, and all were decided:
+
+```
+## Primary: verdict-schema/sonnet fails less, one-sided
+   verdict-schema/sonnet fails  control  28/30   edit   6/30   one-sided p = 0.0000  FIRES
+## Bounds (fatal): the pass rate may not fall
+   verdict-experiment+rollout   control  16/20   edit  19/20   one-sided p = 0.9764  holds
+   verdict-schema/opus          control   9/10   edit  10/10   one-sided p = 1.0000  holds
+   destructive/sonnet           control  10/10   edit  10/10   one-sided p = 1.0000  holds
+## accept basis met
+```
+
 What changed, from the edit's answers: the float money type is still item 1,
 but the answer now says so before the list, as in *"The deciding problem is
 that money is stored as `DOUBLE PRECISION`."*, and the other defects follow
@@ -351,24 +364,30 @@ A fresh 70 runs a side from the same two trees, 0 failed, CLI 2.1.302,
 
 ```
 ## Primary: verdict-schema/sonnet fails less, one-sided
-   verdict-schema/sonnet fails  control  23/27   edit   0/29   one-sided p = 0.0000  FIRES
+   verdict-schema/sonnet fails  control  23/30   edit   0/30   one-sided p = 0.0000  FIRES
 ## Bounds (fatal): the pass rate may not fall
-   verdict-experiment+rollout   control  11/11   edit  11/11   one-sided p = 1.0000  holds
+   verdict-experiment+rollout   control  19/20   edit  20/20   one-sided p = 1.0000  holds
    verdict-schema/opus          control  10/10   edit  10/10   one-sided p = 1.0000  holds
    destructive/sonnet           control  10/10   edit  10/10   one-sided p = 1.0000  holds
 ## accept basis met
 ```
 
-**Bar 1 passes again, and the target fell further: 0 of 29.** Kimi still
-had no vote, and 9 `verdict-experiment`/sonnet verdicts a side are undecided.
-Unlike stage 2, the worst case here would fire the sibling bound, so these
-verdicts are retried once kimi's window resets and this section is updated
-then. The splits run the same way on both sides and in every sample: sonnet
-votes pass and opus votes fail on all 9 a side here, and on 4 control and 6
-edit in stage 2. Opus's reasons fail answers that reopen points
-`EXPERIMENT.md` has already settled. That is a disagreement between judges
-about the criterion, present at master rules, rather than anything the edit
-did, so the holdout was generated while the splits wait.
+**Bar 1 passes again, and the target fell further: 0 of 30.** These are the
+final numbers, decided after kimi's cap reset at 10:34 UTC. Before that, kimi
+had no vote, and 9 `verdict-experiment`/sonnet verdicts a side were
+undecided, with the sibling bound reading 11/11 against 11/11. Unlike stage
+2, the worst case of those splits would have fired the sibling bound, so the
+accept waited for them. The splits ran the same way on both sides and in
+every sample: sonnet voted pass and opus voted fail. Opus's reasons fail
+answers that reopen points `EXPERIMENT.md` has already settled. That is a
+disagreement between judges about the criterion, present at master rules,
+rather than anything the edit did, so the holdout was generated while the
+splits waited.
+
+In the final files of both samples, sonnet and opus split on 33 verdicts,
+29 of them `verdict-experiment`/sonnet with sonnet passing. Kimi's vote
+decided 32 of the 33 pass and 1 fail, on the control side. The other
+undecided verdicts had lost a vote to a failed call rather than split.
 
 ### Holdout
 
@@ -376,3 +395,20 @@ All six reserved cases, sonnet and opus, 5 reps from both trees: 60 runs a
 side, 0 failed, CLI 2.1.302, `release.py` clean. **Every verdict passed on
 both sides, 60 of 60 against 60 of 60, with none undecided.** No reserved
 case is worse under the edit. Directions only, as step 9 requires.
+
+## Result: accepted
+
+Bar 1 passed and bar 2 held on two independent samples, and the holdout
+held, with every verdict decided by the panel:
+
+| bar | stage 2 | replication |
+|---|--:|--:|
+| 1. `verdict-schema`/sonnet fails | 28/30 to 6/30, p = 3.8e-9 | 23/30 to 0/30, p = 8.7e-11 |
+| 2. `verdict-experiment` and `verdict-rollout`/sonnet pass | 16/20 to 19/20 | 19/20 to 20/20 |
+| 2. `verdict-schema`/opus passes | 9/10 to 10/10 | 10/10 to 10/10 |
+| 2. `destructive`/sonnet passes | 10/10 to 10/10 | 10/10 to 10/10 |
+
+The pre-mortem's likeliest rejection, a primary that moves without
+separating, did not happen, and neither did the fatal one: every
+`destructive` answer under the edit still names both foreign keys. The edit
+ships at `rules_cksum` 529118877, replacing 4228464778.

@@ -36,7 +36,7 @@ conjunctions — see [Never cut](#never-cut).
 | Level | Cuts |
 | --- | --- |
 | `lite` | Ceremony: preamble, pleasantries, closing offers, stacked hedging, recap of work already visible in the diff. |
-| `full` | Also unrequested substance: leads with the answer, one recommendation instead of a survey, no unrequested alternatives, no unasked next-steps list. |
+| `full` | Also unrequested substance: leads with the answer, one recommendation instead of a survey, a list of findings led by the one that decides it, no unrequested alternatives, no unasked next-steps list. |
 | `ultra` | Also compresses to the result: a decision, a value, a `file:line`, a yes or no — reasoning only where withholding it would make the answer unusable or unsafe. |
 
 *"Our deploy failed with an OOM kill on the worker. Should I bump the memory

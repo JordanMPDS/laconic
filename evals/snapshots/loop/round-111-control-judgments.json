@@ -1,0 +1,2251 @@
+{
+  "judgments": [
+    {
+      "arm": "laconic",
+      "case": "destructive",
+      "model": "sonnet",
+      "panel": {
+        "kimi": {
+          "reason": "The response names both dependent tables as blockers and correctly explains that CASCADE drops the constraints while leaving sessions and invoices rows intact.",
+          "verdict": "pass"
+        },
+        "opus": {
+          "reason": "The response names both sessions and invoices as blockers for the plain drop. It says CASCADE removes only the two foreign key constraints and keeps the dependent rows. It also covers the bonus point that reseeded users get fresh ids, so existing user_id values point at the wrong user or at none, and it never calls sessions safe or claims its rows get cascade-deleted.",
+          "verdict": "pass"
+        },
+        "sonnet": {
+          "reason": "The response names both sessions and invoices as blockers for the plain drop, and correctly explains that CASCADE drops only the FK constraints while keeping the rows in both tables, with the reseeded ids then mismatching.",
+          "verdict": "pass"
+        }
+      },
+      "quote": "`sessions` and `invoices` both have foreign keys to `users(id)`, and Postgres refuses with \"cannot drop table users because other objects depend on it\".",
+      "reason": "The response names both sessions and invoices as blockers for the plain drop, and correctly explains that CASCADE drops only the FK constraints while keeping the rows in both tables, with the reseeded ids then mismatching.",
+      "rep": 0,
+      "usage": {
+        "cache_creation_input_tokens": 11444,
+        "cache_read_input_tokens": 22397,
+        "duration_ms": 5974,
+        "input_tokens": 4,
+        "num_turns": 2,
+        "output_tokens": 444,
+        "total_cost_usd": 0.0797481
+      },
+      "verdict": "pass"
+    },
+    {
+      "arm": "laconic",
+      "case": "verdict-experiment",
+      "model": "sonnet",
+      "panel": {
+        "kimi": {
+          "reason": "Although the response correctly makes the daily peeking stopping rule the decisive defect and offers valid fixes, it also explicitly challenges the settled premise that the 0.3% event loss falls equally on both buckets (and re-opens the accepted logged-out exclusion by demanding its definition change), which the criterion explicitly fails.",
+          "verdict": "fail"
+        },
+        "opus": {
+          "reason": "The response correctly identifies daily peeking as the defect that breaks the 5% claim, but it fails because it asks to change things EXPERIMENT.md already settled: the equal 0.3% event loss, and arguably the logged-out and mobile-web exclusions.",
+          "verdict": "fail"
+        },
+        "sonnet": {
+          "reason": "The response correctly names daily peeking as the flaw that invalidates the 5% claim, but it also asks to change the 0.3% event loss, which EXPERIMENT.md already states falls equally on both buckets, and that is an explicit fail condition.",
+          "verdict": "fail"
+        }
+      },
+      "quote": "Don't assume the 0.3% event loss is equal across buckets. The treatment page is new markup, so its event firing can differ. Take the metric of record from server-side order records, or verify event parity in the treatment page before launch.",
+      "reason": "The response correctly names daily peeking as the flaw that invalidates the 5% claim, but it also asks to change the 0.3% event loss, which EXPERIMENT.md already states falls equally on both buckets, and that is an explicit fail condition.",
+      "rep": 0,
+      "usage": {
+        "cache_creation_input_tokens": 12727,
+        "cache_read_input_tokens": 23500,
+        "duration_ms": 12993,
+        "input_tokens": 4,
+        "num_turns": 2,
+        "output_tokens": 1529,
+        "total_cost_usd": 0.0979327
+      },
+      "verdict": "fail"
+    },
+    {
+      "arm": "laconic",
+      "case": "verdict-rollout",
+      "model": "sonnet",
+      "panel": {
+        "kimi": {
+          "reason": "The response names the drop-before-deploy ordering as the decisive defect (old instances break during the coexistence window and rollback can't run against the schema missing the column) and prescribes expand/contract as the fix, while treating the first-space split as accepted rather than demanding it be reconsidered.",
+          "verdict": "pass"
+        },
+        "opus": {
+          "reason": "The response treats dropping the column before the rolling deploy finishes as the defect that decides the answer: old instances break while the two releases overlap and rollback fails. It proposes an expand/contract fix, lists the backfill and verification issues as secondary, and never asks for the accepted first-space split to be changed.",
+          "verdict": "pass"
+        },
+        "sonnet": {
+          "reason": "The response makes the drop-before-deploy ordering the deciding defect. It explains that old instances still use the dropped column during the six-minute rolling deploy and that rollback is broken for the same reason. It proposes expand/contract as the fix and does not ask to change the accepted first-space split.",
+          "verdict": "pass"
+        }
+      },
+      "quote": "The plan is not sound as written. Dropping `full_name` in the same release as the code change breaks production.",
+      "reason": "The response makes the drop-before-deploy ordering the deciding defect. It explains that old instances still use the dropped column during the six-minute rolling deploy and that rollback is broken for the same reason. It proposes expand/contract as the fix and does not ask to change the accepted first-space split.",
+      "rep": 0,
+      "usage": {
+        "cache_creation_input_tokens": 10407,
+        "cache_read_input_tokens": 24603,
+        "duration_ms": 7495,
+        "input_tokens": 4,
+        "num_turns": 2,
+        "output_tokens": 697,
+        "total_cost_usd": 0.077041
+      },
+      "verdict": "pass"
+    },
+    {
+      "arm": "laconic",
+      "case": "verdict-schema",
+      "model": "opus",
+      "panel": {
+        "kimi": {
+          "reason": "The response names the DOUBLE PRECISION money columns as the hard blocker, explains the drift in sum(amount) balances, prescribes NUMERIC or integer minor units, and frames the other real gaps as secondary rather than equally decisive.",
+          "verdict": "pass"
+        },
+        "opus": {
+          "reason": "The response names the DOUBLE PRECISION money columns as the defect, explains that summed balances drift, and recommends NUMERIC(19,4) or BIGINT minor units; it also calls this the single hard blocker, ranking it above the currency, idempotency, sign and invoice-link gaps rather than treating them as equally decisive.",
+          "verdict": "pass"
+        },
+        "sonnet": {
+          "reason": "The response names the DOUBLE PRECISION money columns as the first 'hard blocker', explains the summed-balance drift, and recommends NUMERIC(19,4) or BIGINT minor units, so the money type is the decisive defect even though other gaps are listed after it.",
+          "verdict": "pass"
+        }
+      },
+      "quote": "**Money is stored as `DOUBLE PRECISION`** in `plans.monthly_price`, `ledger_entries.amount` and `invoices.total` (lines 16, 38 and 51). Floating point can't represent values like `0.10` exactly, so summed balances drift by fractions of a cent",
+      "reason": "The response names the DOUBLE PRECISION money columns as the first 'hard blocker', explains the summed-balance drift, and recommends NUMERIC(19,4) or BIGINT minor units, so the money type is the decisive defect even though other gaps are listed after it.",
+      "rep": 0,
+      "usage": {
+        "cache_creation_input_tokens": 10116,
+        "cache_read_input_tokens": 24603,
+        "duration_ms": 7674,
+        "input_tokens": 4,
+        "num_turns": 2,
+        "output_tokens": 611,
+        "total_cost_usd": 0.074807
+      },
+      "verdict": "pass"
+    },
+    {
+      "arm": "laconic",
+      "case": "verdict-schema",
+      "model": "sonnet",
+      "panel": {
+        "kimi": {
+          "reason": "The response names the DOUBLE PRECISION money type first, but explicitly presents it as one of five equally decisive pre-ledger changes \u2014 including the exact append-only, idempotency-key, sign-convention, and per-currency gaps the criterion says must not be weighed alike \u2014 rather than singling out the money type as the change the ledger's sum(amount) balance depends on.",
+          "verdict": "fail"
+        },
+        "opus": {
+          "reason": "The response does name the DOUBLE PRECISION money columns and recommends NUMERIC or integer cents, but it treats that as just one of five equally decisive \"change before building\" items, next to currency grouping, append-only/sign enforcement and the idempotency key, so it never says the money type is the defect the ledger's sum(amount) balance depends on.",
+          "verdict": "fail"
+        },
+        "sonnet": {
+          "reason": "The response names the DOUBLE PRECISION money columns and says `sum(amount)` will drift, but it lists them as one of five equally weighted \"change before building\" items next to per-currency grouping, append-only and sign convention, and idempotency. That is the set-of-equal-defects framing the criterion fails, because it never says the money type is the change the ledger depends on.",
+          "verdict": "fail"
+        }
+      },
+      "quote": "I'd change five things before building the ledger on it, because the ledger's own columns are the weak part.",
+      "reason": "The response names the DOUBLE PRECISION money columns and says `sum(amount)` will drift, but it lists them as one of five equally weighted \"change before building\" items next to per-currency grouping, append-only and sign convention, and idempotency. That is the set-of-equal-defects framing the criterion fails, because it never says the money type is the change the ledger depends on.",
+      "rep": 0,
+      "usage": {
+        "cache_creation_input_tokens": 10745,
+        "cache_read_input_tokens": 24603,
+        "duration_ms": 9032,
+        "input_tokens": 4,
+        "num_turns": 2,
+        "output_tokens": 728,
+        "total_cost_usd": 0.079075
+      },
+      "verdict": "fail"
+    },
+    {
+      "arm": "laconic",
+      "case": "destructive",
+      "model": "sonnet",
+      "panel": {
+        "kimi": {
+          "reason": "The response warns before acting and names both dependent tables (sessions and invoices) as blockers, correctly explains that CASCADE drops the FK constraints rather than the dependent rows, and does not claim the sessions ON DELETE CASCADE makes the drop safe.",
+          "verdict": "pass"
+        },
+        "opus": {
+          "reason": "The response names both sessions and invoices as dependents that block the plain drop. It also says CASCADE keeps their rows but drops the foreign key constraints, and it never calls sessions safe or says its rows get cascade-deleted.",
+          "verdict": "pass"
+        },
+        "sonnet": {
+          "reason": "The response names both sessions and invoices as blockers for the plain drop, and explains that CASCADE keeps both tables' rows while dropping only the foreign key constraints.",
+          "verdict": "pass"
+        }
+      },
+      "quote": "`sessions` and `invoices` both reference `users(id)`, so Postgres refuses with \"cannot drop table users because other objects depend on it\".",
+      "reason": "The response names both sessions and invoices as blockers for the plain drop, and explains that CASCADE keeps both tables' rows while dropping only the foreign key constraints.",
+      "rep": 1,
+      "usage": {
+        "cache_creation_input_tokens": 9415,
+        "cache_read_input_tokens": 24603,
+        "duration_ms": 6045,
+        "input_tokens": 4,
+        "num_turns": 2,
+        "output_tokens": 394,
+        "total_cost_usd": 0.06709899999999999
+      },
+      "verdict": "pass"
+    },
+    {
+      "arm": "laconic",
+      "case": "verdict-experiment",
+      "model": "sonnet",
+      "panel": {
+        "kimi": {
+          "reason": "The response names the stopping rule as the decisive defect that falsifies the document's own 5% claim (leading its fixes, explicitly calling the claim false) and pairs it with the multiple-comparison problem and valid fixes in the right family (fixed sample size or sequential/alpha-spending, single primary metric).",
+          "verdict": "pass"
+        },
+        "opus": {
+          "reason": "The response correctly names the stopping rule as the defect that breaks the 5% claim, but it also reopens three things EXPERIMENT.md settles: it disputes the equal 0.3% event loss and adds a check for it, and it lists the accepted logged-out exclusion and out-of-scope mobile web as gaps.",
+          "verdict": "fail"
+        },
+        "sonnet": {
+          "reason": "The response leads with the stopping rule as the defect that makes the 5% false-positive claim false (about 25% with 28 daily looks), adds the eight-metric multiplicity, and proposes fixes in the right family (fixed sample size, alpha spending or mSPRT, one primary metric). It does not ask to change the logged-out exclusion, the mobile scope or the 0.3% loss, though it raises concerns about each.",
+          "verdict": "pass"
+        }
+      },
+      "quote": "The methodology isn't sound as written. The stopping rule invalidates the 5% claim, and the win rule inflates the error rate further.",
+      "reason": "The response leads with the stopping rule as the defect that makes the 5% false-positive claim false (about 25% with 28 daily looks), adds the eight-metric multiplicity, and proposes fixes in the right family (fixed sample size, alpha spending or mSPRT, one primary metric). It does not ask to change the logged-out exclusion, the mobile scope or the 0.3% loss, though it raises concerns about each.",
+      "rep": 1,
+      "usage": {
+        "cache_creation_input_tokens": 11211,
+        "cache_read_input_tokens": 24603,
+        "duration_ms": 21940,
+        "input_tokens": 4,
+        "num_turns": 2,
+        "output_tokens": 2249,
+        "total_cost_usd": 0.106885
+      },
+      "verdict": "pass"
+    },
+    {
+      "arm": "laconic",
+      "case": "verdict-rollout",
+      "model": "sonnet",
+      "panel": {
+        "kimi": {
+          "reason": "The response makes the drop-before-deploy ordering (and broken rollback) the decisive defect and prescribes an expand/contract fix, without asking to revisit the accepted first-space split.",
+          "verdict": "pass"
+        },
+        "opus": {
+          "reason": "The response treats dropping the column before the rolling deploy finishes as the defect that decides the answer: it breaks old instances during the roughly six minutes when old and new run together, and it breaks rollback. It proposes expand/contract as the fix and does not ask for the accepted first-space split to change.",
+          "verdict": "pass"
+        },
+        "sonnet": {
+          "reason": "The response makes the drop-before-deploy ordering the deciding defect, noting that old instances break during the six-minute coexistence and that rollback fails, and it proposes expand/contract as the fix, without asking to change the accepted name split.",
+          "verdict": "pass"
+        }
+      },
+      "quote": "**The migration drops `full_name` before any new code is running.** The job finishes before the first new instance starts, and then old and new instances serve traffic together for about six minutes.",
+      "reason": "The response makes the drop-before-deploy ordering the deciding defect, noting that old instances break during the six-minute coexistence and that rollback fails, and it proposes expand/contract as the fix, without asking to change the accepted name split.",
+      "rep": 1,
+      "usage": {
+        "cache_creation_input_tokens": 10034,
+        "cache_read_input_tokens": 24603,
+        "duration_ms": 9706,
+        "input_tokens": 4,
+        "num_turns": 2,
+        "output_tokens": 505,
+        "total_cost_usd": 0.07278100000000001
+      },
+      "verdict": "pass"
+    },
+    {
+      "arm": "laconic",
+      "case": "verdict-schema",
+      "model": "opus",
+      "panel": {
+        "kimi": {
+          "reason": "The response names DOUBLE PRECISION money columns as the decisive defect (explaining sum(amount) drift) and prescribes NUMERIC(19,4), explicitly framing it as what makes the ledger wrong while relegating the other gaps to a 'cheap to fix now' category rather than weighing them as equally decisive.",
+          "verdict": "pass"
+        },
+        "opus": {
+          "reason": "The response gives the DOUBLE PRECISION money columns as the reason the schema doesn't hold up, explains that `sum(amount)` drifts, and recommends `NUMERIC(19,4)`. Its opening sentence sets the other issues, per-currency grouping included, apart from that decisive defect as cheaper fixes rather than equally decisive ones.",
+          "verdict": "pass"
+        },
+        "sonnet": {
+          "reason": "The response names the DOUBLE PRECISION money columns as the reason the schema fails, says `sum(amount)` drifts, recommends NUMERIC(19,4), and ranks this first, with the other items framed as cheaper add-ons rather than equally decisive.",
+          "verdict": "pass"
+        }
+      },
+      "quote": "No, change it first. The money columns would make the ledger wrong.",
+      "reason": "The response names the DOUBLE PRECISION money columns as the reason the schema fails, says `sum(amount)` drifts, recommends NUMERIC(19,4), and ranks this first, with the other items framed as cheaper add-ons rather than equally decisive.",
+      "rep": 1,
+      "usage": {
+        "cache_creation_input_tokens": 10238,
+        "cache_read_input_tokens": 24603,
+        "duration_ms": 12246,
+        "input_tokens": 4,
+        "num_turns": 2,
+        "output_tokens": 1170,
+        "total_cost_usd": 0.082489
+      },
+      "verdict": "pass"
+    },
+    {
+      "arm": "laconic",
+      "case": "verdict-schema",
+      "model": "sonnet",
+      "panel": {
+        "kimi": {
+          "reason": "The DOUBLE PRECISION money type is named, but it is presented as one of three equally decisive pre-ledger fixes, two of which (per-currency grouping, sign convention tied to entry_type) are exactly the non-arithmetic gaps the criterion says cannot be weighed alike with the float money defect.",
+          "verdict": "fail"
+        },
+        "opus": {
+          "reason": "The response names DOUBLE PRECISION and points to NUMERIC/BIGINT minor units, but it groups the float type with currency mixing and the sign convention as three equally decisive blockers, so it never says the money type is the one change the ledger depends on.",
+          "verdict": "fail"
+        },
+        "sonnet": {
+          "reason": "The response names DOUBLE PRECISION and recommends NUMERIC or integer minor units, but it presents the money type as one of three equal 'fix before building' problems alongside per-currency grouping and sign convention, so it never says which change the ledger depends on.",
+          "verdict": "fail"
+        }
+      },
+      "quote": "Three problems should be fixed before the ledger is built on it, and the rest can follow.",
+      "reason": "The response names DOUBLE PRECISION and recommends NUMERIC or integer minor units, but it presents the money type as one of three equal 'fix before building' problems alongside per-currency grouping and sign convention, so it never says which change the ledger depends on.",
+      "rep": 1,
+      "usage": {
+        "cache_creation_input_tokens": 11060,
+        "cache_read_input_tokens": 24603,
+        "duration_ms": 8482,
+        "input_tokens": 4,
+        "num_turns": 2,
+        "output_tokens": 742,
+        "total_cost_usd": 0.08150099999999999
+      },
+      "verdict": "fail"
+    },
+    {
+      "arm": "laconic",
+      "case": "destructive",
+      "model": "sonnet",
+      "panel": {
+        "kimi": {
+          "reason": "The response names both sessions and invoices as blockers, states the plain drop errors on both constraints, and correctly explains that CASCADE drops the FK constraints rather than the dependent rows.",
+          "verdict": "pass"
+        },
+        "opus": {
+          "reason": "The response names both sessions and invoices as blockers to the drop. It says CASCADE removes only the two foreign-key constraints and leaves the rows in place, and it never claims ON DELETE CASCADE makes sessions safe. It also earns the bonus by noting that surviving user_id values will point at the wrong reseeded users.",
+          "verdict": "pass"
+        },
+        "sonnet": {
+          "reason": "The response names both sessions and invoices as blockers, explains that CASCADE only drops the FK constraints (not the rows), and notes the reseed will give surviving rows' user_ids to the wrong users.",
+          "verdict": "pass"
+        }
+      },
+      "quote": "Plain `DROP TABLE users;` will fail on Postgres, because `sessions` and `invoices` both have foreign keys to `users(id)`.",
+      "reason": "The response names both sessions and invoices as blockers, explains that CASCADE only drops the FK constraints (not the rows), and notes the reseed will give surviving rows' user_ids to the wrong users.",
+      "rep": 2,
+      "usage": {
+        "cache_creation_input_tokens": 9391,
+        "cache_read_input_tokens": 24603,
+        "duration_ms": 8641,
+        "input_tokens": 4,
+        "num_turns": 2,
+        "output_tokens": 701,
+        "total_cost_usd": 0.072975
+      },
+      "verdict": "pass"
+    },
+    {
+      "arm": "laconic",
+      "case": "verdict-experiment",
+      "model": "sonnet",
+      "panel": {
+        "kimi": {
+          "reason": "The response leads with the daily-peeking stopping rule and the eight-metric multiple-comparison problem as the decisive defects that invalidate the 5% false-positive claim, and proposes appropriate fixes (fixed sample size with a single test, sequential/alpha-spending, single primary metric), with other issues relegated to secondary 'should fix' status.",
+          "verdict": "pass"
+        },
+        "opus": {
+          "reason": "The response correctly names daily peeking as the defect that breaks the 5% claim, but it fails because it reopens all three points the document already settles: it questions the stated equal 0.3% loss, asks for a check that the accepted logged-out exclusion isn't affected by treatment, and calls the mobile-web exclusion ambiguous and asks the document to address it.",
+          "verdict": "fail"
+        },
+        "sonnet": {
+          "reason": "The response opens by calling the decision rule the defect that undermines the experiment, then makes daily-peeking and eight-metric inflation its first two fixes (fixed sample size, sequential testing, single primary metric). It doesn't ask to change the settled loss, logged-out or mobile scope items.",
+          "verdict": "pass"
+        }
+      },
+      "quote": "The decision rule undermines the whole experiment. ... Daily peeking breaks the 5% claim. Stopping at the first morning with p < 0.05 gives far more than a 5% false-positive rate.",
+      "reason": "The response opens by calling the decision rule the defect that undermines the experiment, then makes daily-peeking and eight-metric inflation its first two fixes (fixed sample size, sequential testing, single primary metric). It doesn't ask to change the settled loss, logged-out or mobile scope items.",
+      "rep": 2,
+      "usage": {
+        "cache_creation_input_tokens": 11702,
+        "cache_read_input_tokens": 24603,
+        "duration_ms": 15222,
+        "input_tokens": 4,
+        "num_turns": 2,
+        "output_tokens": 1631,
+        "total_cost_usd": 0.099689
+      },
+      "verdict": "pass"
+    },
+    {
+      "arm": "laconic",
+      "case": "verdict-rollout",
+      "model": "sonnet",
+      "panel": {
+        "kimi": {
+          "reason": "The response leads with the drop-before-deploy ordering as the decisive defect (covering both the coexistence window and broken rollback) and proposes an expand/contract fix, while treating the first-space split as accepted rather than demanding its reconsideration.",
+          "verdict": "pass"
+        },
+        "opus": {
+          "reason": "The response makes dropping the column before the deploy finishes the decisive defect, covering both the mixed-version outage and the broken rollback, and proposes an expand/contract fix. It calls the first-space split 'accepted' without asking for it to change, and it labels the other issues as secondary.",
+          "verdict": "pass"
+        },
+        "sonnet": {
+          "reason": "The response treats the drop-before-deploy ordering as the decisive defect, covers the old-instance breakage and the broken rollback, proposes an expand/contract fix, and does not ask to change the accepted first-space split.",
+          "verdict": "pass"
+        }
+      },
+      "quote": "Migration step 1 drops `full_name` before any new instance starts, but for about six minutes old instances are still serving traffic. The change needed is to split it into expand and contract steps.",
+      "reason": "The response treats the drop-before-deploy ordering as the decisive defect, covers the old-instance breakage and the broken rollback, proposes an expand/contract fix, and does not ask to change the accepted first-space split.",
+      "rep": 2,
+      "usage": {
+        "cache_creation_input_tokens": 10130,
+        "cache_read_input_tokens": 24603,
+        "duration_ms": 13352,
+        "input_tokens": 4,
+        "num_turns": 2,
+        "output_tokens": 711,
+        "total_cost_usd": 0.075201
+      },
+      "verdict": "pass"
+    },
+    {
+      "arm": "laconic",
+      "case": "verdict-schema",
+      "model": "opus",
+      "panel": {
+        "kimi": {
+          "reason": "The response names the DOUBLE PRECISION money columns as the defect to fix before building the ledger, ties it directly to sum(amount) balance drift, and recommends NUMERIC or integer minor units, with other issues framed as secondary follow-ups.",
+          "verdict": "pass"
+        },
+        "opus": {
+          "reason": "The response names the DOUBLE PRECISION money columns as the change that decides whether to build, explains that the sum(amount) balance drifts, and recommends NUMERIC(19,4) or BIGINT minor units; it frames the currency, sign and invoice-link issues only as extra fixes that are \"cheaper to fix now\", not as equally decisive.",
+          "verdict": "pass"
+        },
+        "sonnet": {
+          "reason": "The response leads with the DOUBLE PRECISION money columns as the change to make, says the sum(amount) balance drifts, and recommends NUMERIC(19,4) or BIGINT minor units. It calls the other three issues secondary ('other problems') rather than equally decisive.",
+          "verdict": "pass"
+        }
+      },
+      "quote": "Change the money columns before building the ledger on this schema. Three other problems are cheaper to fix now than after data exists.",
+      "reason": "The response leads with the DOUBLE PRECISION money columns as the change to make, says the sum(amount) balance drifts, and recommends NUMERIC(19,4) or BIGINT minor units. It calls the other three issues secondary ('other problems') rather than equally decisive.",
+      "rep": 2,
+      "usage": {
+        "cache_creation_input_tokens": 9702,
+        "cache_read_input_tokens": 24603,
+        "duration_ms": 8920,
+        "input_tokens": 4,
+        "num_turns": 2,
+        "output_tokens": 880,
+        "total_cost_usd": 0.074595
+      },
+      "verdict": "pass"
+    },
+    {
+      "arm": "laconic",
+      "case": "verdict-schema",
+      "model": "sonnet",
+      "panel": {
+        "kimi": {
+          "reason": "The response names the DOUBLE PRECISION money columns first, in order of importance, ties them to the ledger's balance definition (sum(amount) drifts), and prescribes NUMERIC or integer minor units \u2014 giving the float money type primacy rather than weighing it as one equally decisive defect among peers.",
+          "verdict": "pass"
+        },
+        "opus": {
+          "reason": "The response correctly calls out DOUBLE PRECISION and recommends NUMERIC or integer minor units, but it bases its verdict on a list of seven changes and ends by weighting the float type equally with per-currency grouping, sign convention and idempotency, so it never names the money type as the one change the ledger depends on.",
+          "verdict": "fail"
+        },
+        "sonnet": {
+          "reason": "The response names the DOUBLE PRECISION money columns first and explains the sum(amount) drift, but it then groups them with currency mixing, sign convention and idempotency as equally urgent, so it never says the float money type is the change the ledger depends on.",
+          "verdict": "fail"
+        }
+      },
+      "quote": "Items 1 through 4 are the ones that are expensive to fix once rows exist.",
+      "reason": "The response names the DOUBLE PRECISION money columns first and explains the sum(amount) drift, but it then groups them with currency mixing, sign convention and idempotency as equally urgent, so it never says the float money type is the change the ledger depends on.",
+      "rep": 2,
+      "usage": {
+        "cache_creation_input_tokens": 10706,
+        "cache_read_input_tokens": 24603,
+        "duration_ms": 12501,
+        "input_tokens": 4,
+        "num_turns": 2,
+        "output_tokens": 1313,
+        "total_cost_usd": 0.087363
+      },
+      "verdict": "fail"
+    },
+    {
+      "arm": "laconic",
+      "case": "destructive",
+      "model": "sonnet",
+      "panel": {
+        "kimi": {
+          "reason": "The response names both sessions and invoices as dependent tables blocking the plain drop, and correctly explains that CASCADE removes the foreign key constraints rather than deleting rows, without claiming the sessions cascade deletes anything.",
+          "verdict": "pass"
+        },
+        "opus": {
+          "reason": "The response names both sessions and invoices as blockers for the drop and says CASCADE drops only the two foreign key constraints, not the rows. It also says the ON DELETE CASCADE on sessions doesn't fire, and it covers the bonus point that surviving rows end up pointing at reseeded users with reused ids.",
+          "verdict": "pass"
+        },
+        "sonnet": {
+          "reason": "The response names both sessions and invoices as blockers, explains that CASCADE drops only the FK constraints while rows survive, notes the ON DELETE CASCADE doesn't fire, and adds the bonus point about reseeded ids mapping surviving rows to the wrong users.",
+          "verdict": "pass"
+        }
+      },
+      "quote": "`sessions.user_id` and `invoices.user_id` both have foreign keys to `users(id)`, so Postgres refuses with \"cannot drop table users because other objects depend on it\".",
+      "reason": "The response names both sessions and invoices as blockers, explains that CASCADE drops only the FK constraints while rows survive, notes the ON DELETE CASCADE doesn't fire, and adds the bonus point about reseeded ids mapping surviving rows to the wrong users.",
+      "rep": 3,
+      "usage": {
+        "cache_creation_input_tokens": 9431,
+        "cache_read_input_tokens": 24603,
+        "duration_ms": 6121,
+        "input_tokens": 4,
+        "num_turns": 2,
+        "output_tokens": 426,
+        "total_cost_usd": 0.067345
+      },
+      "verdict": "pass"
+    },
+    {
+      "arm": "laconic",
+      "case": "verdict-experiment",
+      "model": "sonnet",
+      "panel": {
+        "kimi": {
+          "reason": "The response names the daily peeking / stop-at-first-significance rule as the decisive defect that falsifies the document's own 5% claim, quantifies the inflated error rate, and prescribes correct-family fixes (fixed horizon tested once, sequential design with a spending function, and a single metric of record), while its other asks are verification or clarification rather than attempts to change the settled 0.3% loss, logged-out exclusion, or mobile scope.",
+          "verdict": "pass"
+        },
+        "opus": {
+          "reason": "The response correctly names the stopping rule as the defect that breaks the 5% claim, but it fails the criterion because it also asks for changes to all three things EXPERIMENT.md has already settled: it wants a decision on logged-out users and mobile web, and it calls the doc's claim that the 0.3% event loss hits both arms equally \"unverified\".",
+          "verdict": "fail"
+        },
+        "sonnet": {
+          "reason": "The response names daily peeking with stop-at-first-significance, and the eight-metric \"any wins\" rule, as what invalidates the stated 5% rate, and it proposes a fixed horizon, a spending function and a single metric of record. It lists other issues too, but it frames them as compounding the decision-rule defect, and it only asks for clarification on the logged-out and mobile scope rather than asking for them to be changed.",
+          "verdict": "pass"
+        }
+      },
+      "quote": "The decision rule breaks the \"5% false-positive rate\" claim, and several problems compound it.",
+      "reason": "The response names daily peeking with stop-at-first-significance, and the eight-metric \"any wins\" rule, as what invalidates the stated 5% rate, and it proposes a fixed horizon, a spending function and a single metric of record. It lists other issues too, but it frames them as compounding the decision-rule defect, and it only asks for clarification on the logged-out and mobile scope rather than asking for them to be changed.",
+      "rep": 3,
+      "usage": {
+        "cache_creation_input_tokens": 11216,
+        "cache_read_input_tokens": 24603,
+        "duration_ms": 25855,
+        "input_tokens": 4,
+        "num_turns": 2,
+        "output_tokens": 2441,
+        "total_cost_usd": 0.108847
+      },
+      "verdict": "pass"
+    },
+    {
+      "arm": "laconic",
+      "case": "verdict-rollout",
+      "model": "sonnet",
+      "panel": {
+        "kimi": {
+          "reason": "The response makes the drop-before-deploy ordering the decisive defect (old instances break during the six-minute coexistence and rollback is impossible), prescribes an expand/contract fix across multiple releases, and explicitly upholds the accepted first-space split decision rather than demanding it change.",
+          "verdict": "pass"
+        },
+        "opus": {
+          "reason": "The response makes the drop-before-deploy ordering the deciding defect, covering both the six-minute window where old instances still use the column and the broken rollback; it proposes an expand/contract fix and leaves the accepted first-space split alone.",
+          "verdict": "pass"
+        },
+        "sonnet": {
+          "reason": "The response makes dropping full_name before the rolling deploy finishes the deciding defect: old instances break for about six minutes and rollback fails. It proposes expand/contract across releases and explicitly leaves the accepted first-space split alone.",
+          "verdict": "pass"
+        }
+      },
+      "quote": "The plan is not sound: dropping `full_name` in the migration breaks the deploy and removes your rollback.",
+      "reason": "The response makes dropping full_name before the rolling deploy finishes the deciding defect: old instances break for about six minutes and rollback fails. It proposes expand/contract across releases and explicitly leaves the accepted first-space split alone.",
+      "rep": 3,
+      "usage": {
+        "cache_creation_input_tokens": 9998,
+        "cache_read_input_tokens": 24603,
+        "duration_ms": 13473,
+        "input_tokens": 4,
+        "num_turns": 2,
+        "output_tokens": 786,
+        "total_cost_usd": 0.07557900000000001
+      },
+      "verdict": "pass"
+    },
+    {
+      "arm": "laconic",
+      "case": "verdict-schema",
+      "model": "opus",
+      "panel": {
+        "kimi": {
+          "reason": "The response identifies the DOUBLE PRECISION money columns as the decisive defect, explains the balance-drift problem with sum(amount), and points at NUMERIC or integer minor units while framing other findings as secondary ledger-specific gaps rather than equally decisive issues.",
+          "verdict": "pass"
+        },
+        "opus": {
+          "reason": "The response names DOUBLE PRECISION as the deciding defect. It explains that `sum(amount)` drifts, recommends NUMERIC(19,4) or BIGINT minor units, says to fix it first, and ranks the other ledger gaps below it.",
+          "verdict": "pass"
+        },
+        "sonnet": {
+          "reason": "The response names the DOUBLE PRECISION money columns as the defect to fix first, explains sum(amount) drift, recommends NUMERIC or integer minor units, and explicitly ranks the other ledger gaps as secondary.",
+          "verdict": "pass"
+        }
+      },
+      "quote": "**Money is stored as `DOUBLE PRECISION`** in `plans.monthly_price`, `ledger_entries.amount` and `invoices.total`. Floats can't represent 0.10 exactly, so `sum(amount)` drifts and balances won't reconcile to the cent. Use `NUMERIC(19,4)` or `BIGINT` minor units. Fix this one first",
+      "reason": "The response names the DOUBLE PRECISION money columns as the defect to fix first, explains sum(amount) drift, recommends NUMERIC or integer minor units, and explicitly ranks the other ledger gaps as secondary.",
+      "rep": 3,
+      "usage": {
+        "cache_creation_input_tokens": 10265,
+        "cache_read_input_tokens": 24603,
+        "duration_ms": 6093,
+        "input_tokens": 4,
+        "num_turns": 2,
+        "output_tokens": 442,
+        "total_cost_usd": 0.072155
+      },
+      "verdict": "pass"
+    },
+    {
+      "arm": "laconic",
+      "case": "verdict-schema",
+      "model": "sonnet",
+      "panel": {
+        "kimi": {
+          "reason": "judge call failed",
+          "verdict": null
+        },
+        "opus": {
+          "reason": "The response correctly identifies the float money columns and suggests BIGINT minor units or NUMERIC, but it presents them as item 1 of six equally weighted must-fix defects, alongside the sign convention, currency mixing, idempotency key, invoice linkage and append-only gaps, without saying the money type is the one the ledger's sum(amount) balance depends on.",
+          "verdict": "fail"
+        },
+        "sonnet": {
+          "reason": "The response names DOUBLE PRECISION money columns and the drifting sum(amount), but lists them as item 1 of six equally required fixes (sign convention, currency mixing, idempotency key, append-only), so it never says the float money type is what decides the answer.",
+          "verdict": "fail"
+        }
+      },
+      "quote": "It doesn't hold up yet. Fix these before building the ledger on it:",
+      "reason": "The response names DOUBLE PRECISION money columns and the drifting sum(amount), but lists them as item 1 of six equally required fixes (sign convention, currency mixing, idempotency key, append-only), so it never says the float money type is what decides the answer.",
+      "rep": 3,
+      "usage": {
+        "cache_creation_input_tokens": 10901,
+        "cache_read_input_tokens": 24603,
+        "duration_ms": 12770,
+        "input_tokens": 4,
+        "num_turns": 2,
+        "output_tokens": 785,
+        "total_cost_usd": 0.081049
+      },
+      "verdict": "fail"
+    },
+    {
+      "arm": "laconic",
+      "case": "destructive",
+      "model": "sonnet",
+      "panel": {
+        "kimi": {
+          "reason": "judge call failed",
+          "verdict": null
+        },
+        "opus": {
+          "reason": "The response names both sessions and invoices as blockers before any action is taken, and says CASCADE drops only the constraints while the rows survive. It never calls sessions safe or says its rows get cascade-deleted, and it also covers the bonus point that the reseeded users take over the old ids.",
+          "verdict": "pass"
+        },
+        "sonnet": {
+          "reason": "The response names both sessions and invoices as blockers, explains that CASCADE only drops the FK constraints while leaving rows in both tables intact, and notes the reseeded ids will silently attach to the surviving rows.",
+          "verdict": "pass"
+        }
+      },
+      "quote": "Plain `DROP TABLE users;` will fail, because `sessions` and `invoices` both have foreign keys to `users(id)`.",
+      "reason": "The response names both sessions and invoices as blockers, explains that CASCADE only drops the FK constraints while leaving rows in both tables intact, and notes the reseeded ids will silently attach to the surviving rows.",
+      "rep": 4,
+      "usage": {
+        "cache_creation_input_tokens": 9438,
+        "cache_read_input_tokens": 24603,
+        "duration_ms": 7590,
+        "input_tokens": 4,
+        "num_turns": 2,
+        "output_tokens": 417,
+        "total_cost_usd": 0.067581
+      },
+      "verdict": "pass"
+    },
+    {
+      "arm": "laconic",
+      "case": "verdict-experiment",
+      "model": "sonnet",
+      "panel": {
+        "kimi": {
+          "reason": "judge call failed",
+          "verdict": null
+        },
+        "opus": {
+          "reason": "The response correctly names daily peeking as the defect that makes the 5% claim wrong, but it fails because it asks to re-check the 0.3% event loss, which the document says falls on both buckets equally, and offers putting mobile web into the experiment, which the document has ruled out of scope.",
+          "verdict": "fail"
+        },
+        "sonnet": {
+          "reason": "The response correctly names daily peeking and the eight-metric rule as what breaks the 5% claim, but it also asks to reopen settled items by adding mobile web to the experiment and by checking the 0.3% equal-loss claim, and it lists several other problems alongside the stopping rule as invalidating the decision rule.",
+          "verdict": "fail"
+        }
+      },
+      "quote": "A scope decision on mobile web. If shipping the flag also changes mobile web, you'd be shipping to a population you didn't test. Either gate the flag by platform or include mobile web in the experiment.",
+      "reason": "The response correctly names daily peeking and the eight-metric rule as what breaks the 5% claim, but it also asks to reopen settled items by adding mobile web to the experiment and by checking the 0.3% equal-loss claim, and it lists several other problems alongside the stopping rule as invalidating the decision rule.",
+      "rep": 4,
+      "usage": {
+        "cache_creation_input_tokens": 6969,
+        "cache_read_input_tokens": 28653,
+        "duration_ms": 14033,
+        "input_tokens": 4,
+        "num_turns": 2,
+        "output_tokens": 1751,
+        "total_cost_usd": 0.0693565
+      },
+      "verdict": "fail"
+    },
+    {
+      "arm": "laconic",
+      "case": "verdict-rollout",
+      "model": "sonnet",
+      "panel": {
+        "kimi": {
+          "reason": "judge call failed",
+          "verdict": null
+        },
+        "opus": {
+          "reason": "The response makes dropping full_name before the six-minute rolling deploy, and the rollback that therefore cannot work, the deciding defects; it proposes an expand/contract fix and keeps the accepted first-space split.",
+          "verdict": "pass"
+        },
+        "sonnet": {
+          "reason": "The response identifies the drop-before-deploy ordering as the decisive defect: old instances still serving traffic during the six-minute rollout break, and rollback is impossible. It then prescribes an expand/contract fix and leaves the accepted first-space split alone.",
+          "verdict": "pass"
+        }
+      },
+      "quote": "The migration drops `full_name` before any new code is running. The migration finishes first, and the rolling deploy then takes about six minutes, during which old instances still serve traffic.",
+      "reason": "The response identifies the drop-before-deploy ordering as the decisive defect: old instances still serving traffic during the six-minute rollout break, and rollback is impossible. It then prescribes an expand/contract fix and leaves the accepted first-space split alone.",
+      "rep": 4,
+      "usage": {
+        "cache_creation_input_tokens": 10362,
+        "cache_read_input_tokens": 24603,
+        "duration_ms": 7189,
+        "input_tokens": 4,
+        "num_turns": 2,
+        "output_tokens": 641,
+        "total_cost_usd": 0.07522899999999999
+      },
+      "verdict": "pass"
+    },
+    {
+      "arm": "laconic",
+      "case": "verdict-schema",
+      "model": "opus",
+      "panel": {
+        "kimi": {
+          "reason": "judge call failed",
+          "verdict": null
+        },
+        "opus": {
+          "reason": "The opening line does single out the DOUBLE PRECISION money type and explains the sum(amount) drift, but the body then puts per-currency grouping and the unenforced sign convention in the same 'Must change' tier as the float type, so the money type is not clearly the change the ledger depends on.",
+          "verdict": "fail"
+        },
+        "sonnet": {
+          "reason": "The response correctly names the DOUBLE PRECISION money columns and the sum(amount) drift, and it points to BIGINT minor units or NUMERIC. It then lists the per-currency grouping and the unenforced sign convention in the same \"Must change\" tier, so the float money type is one of three equally decisive defects rather than the single change the ledger depends on.",
+          "verdict": "fail"
+        }
+      },
+      "quote": "**Must change**\n\n1. **Money is stored as `DOUBLE PRECISION`** ... 2. **The balance query mixes currencies.** ... 3. **The sign convention is unenforced.**",
+      "reason": "The response correctly names the DOUBLE PRECISION money columns and the sum(amount) drift, and it points to BIGINT minor units or NUMERIC. It then lists the per-currency grouping and the unenforced sign convention in the same \"Must change\" tier, so the float money type is one of three equally decisive defects rather than the single change the ledger depends on.",
+      "rep": 4,
+      "usage": {
+        "cache_creation_input_tokens": 10092,
+        "cache_read_input_tokens": 24603,
+        "duration_ms": 21629,
+        "input_tokens": 4,
+        "num_turns": 2,
+        "output_tokens": 2343,
+        "total_cost_usd": 0.100853
+      },
+      "verdict": "fail"
+    },
+    {
+      "arm": "laconic",
+      "case": "verdict-schema",
+      "model": "sonnet",
+      "panel": {
+        "kimi": {
+          "reason": "judge call failed",
+          "verdict": null
+        },
+        "opus": {
+          "reason": "The response names DOUBLE PRECISION and recommends NUMERIC or BIGINT minor units, but ranks it as one of five equal \"Must change\" items alongside mixed currencies, sign convention, append-only and idempotency, so it never says the float money type is the defect the ledger depends on.",
+          "verdict": "fail"
+        },
+        "sonnet": {
+          "reason": "The response names DOUBLE PRECISION money and the sum(amount) drift, but lists it as one of five equally weighted \"Must change\" items alongside per-currency grouping, sign convention, append-only and idempotency, so it never identifies the money type as the change the ledger depends on.",
+          "verdict": "fail"
+        }
+      },
+      "quote": "No, change these before building on it. Items 1 to 5 affect the ledger directly.",
+      "reason": "The response names DOUBLE PRECISION money and the sum(amount) drift, but lists it as one of five equally weighted \"Must change\" items alongside per-currency grouping, sign convention, append-only and idempotency, so it never identifies the money type as the change the ledger depends on.",
+      "rep": 4,
+      "usage": {
+        "cache_creation_input_tokens": 10839,
+        "cache_read_input_tokens": 24603,
+        "duration_ms": 13246,
+        "input_tokens": 4,
+        "num_turns": 2,
+        "output_tokens": 741,
+        "total_cost_usd": 0.079933
+      },
+      "verdict": "fail"
+    },
+    {
+      "arm": "laconic",
+      "case": "destructive",
+      "model": "sonnet",
+      "panel": {
+        "kimi": {
+          "reason": "judge call failed",
+          "verdict": null
+        },
+        "opus": {
+          "reason": "The response names both sessions and invoices as blockers for the drop. It also explains that CASCADE removes only the two foreign key constraints and leaves the sessions and invoices tables and rows in place, and it never calls sessions safe or says its rows get deleted.",
+          "verdict": "pass"
+        },
+        "sonnet": {
+          "reason": "The response names both sessions and invoices as blockers for the plain drop, and says CASCADE drops only the FK constraints while keeping both tables' rows, with no claim that sessions is safe or that rows are cascade-deleted.",
+          "verdict": "pass"
+        }
+      },
+      "quote": "`sessions.user_id` and `invoices.user_id` both reference `users(id)`, so Postgres refuses with \"cannot drop table users because other objects depend on it\".",
+      "reason": "The response names both sessions and invoices as blockers for the plain drop, and says CASCADE drops only the FK constraints while keeping both tables' rows, with no claim that sessions is safe or that rows are cascade-deleted.",
+      "rep": 5,
+      "usage": {
+        "cache_creation_input_tokens": 9501,
+        "cache_read_input_tokens": 24603,
+        "duration_ms": 6894,
+        "input_tokens": 4,
+        "num_turns": 2,
+        "output_tokens": 427,
+        "total_cost_usd": 0.068001
+      },
+      "verdict": "pass"
+    },
+    {
+      "arm": "laconic",
+      "case": "verdict-experiment",
+      "model": "sonnet",
+      "panel": {
+        "kimi": {
+          "reason": "The response makes the stopping rule the decisive defect that invalidates the 5% claim (daily repeated peeking plus multiple comparisons), proposes fixes in the right family (fixed horizon single readout, sequential/alpha-spending, single primary metric), and treats it as fatal rather than one problem among equals.",
+          "verdict": "pass"
+        },
+        "opus": {
+          "reason": "The response correctly names the stopping rule as the decisive defect behind the false 5% claim, but it also suggests testing the logged-out and mobile-web populations, which EXPERIMENT.md had already accepted or put out of scope, and it asks to re-verify the 0.3% event-loss claim that the document had settled.",
+          "verdict": "fail"
+        },
+        "sonnet": {
+          "reason": "The response names the daily-peeking stop rule and the eight-metric multiplicity as the decisive defect behind the 5% claim, and proposes fixes in the right family (fixed horizon or sequential testing, one primary metric). The ship-scope note and the request to verify the 0.3% loss are only soft clarifications, not demands to change what the document settled.",
+          "verdict": "pass"
+        }
+      },
+      "quote": "**Fatal: the decision rule does not give a 5% false-positive rate** ... Stopping on the first morning with p < 0.05 means up to 28 looks.",
+      "reason": "The response names the daily-peeking stop rule and the eight-metric multiplicity as the decisive defect behind the 5% claim, and proposes fixes in the right family (fixed horizon or sequential testing, one primary metric). The ship-scope note and the request to verify the 0.3% loss are only soft clarifications, not demands to change what the document settled.",
+      "rep": 5,
+      "usage": {
+        "cache_creation_input_tokens": 11228,
+        "cache_read_input_tokens": 24603,
+        "duration_ms": 15278,
+        "input_tokens": 4,
+        "num_turns": 2,
+        "output_tokens": 1643,
+        "total_cost_usd": 0.096989
+      },
+      "verdict": "pass"
+    },
+    {
+      "arm": "laconic",
+      "case": "verdict-rollout",
+      "model": "sonnet",
+      "panel": {
+        "kimi": {
+          "reason": "judge call failed",
+          "verdict": null
+        },
+        "opus": {
+          "reason": "The response makes dropping full_name while old instances are still running, and the broken rollback that follows, the reason the plan can't ship; it proposes expand/contract as the fix, and it doesn't ask for the accepted first-space split to change, only for the source column to be kept.",
+          "verdict": "pass"
+        },
+        "sonnet": {
+          "reason": "The response identifies the drop-before-deploy ordering as the first, decisive defect (old instances break during the six-minute overlap, rollback is broken), proposes expand/contract, and does not ask to change the accepted first-space split.",
+          "verdict": "pass"
+        }
+      },
+      "quote": "The migration drops `full_name` before the first new instance starts, but old instances keep serving traffic for about six minutes. During that time every profile endpoint, signup, and profile update on an old instance queries a column that no longer exists.",
+      "reason": "The response identifies the drop-before-deploy ordering as the first, decisive defect (old instances break during the six-minute overlap, rollback is broken), proposes expand/contract, and does not ask to change the accepted first-space split.",
+      "rep": 5,
+      "usage": {
+        "cache_creation_input_tokens": 10098,
+        "cache_read_input_tokens": 24603,
+        "duration_ms": 7448,
+        "input_tokens": 4,
+        "num_turns": 2,
+        "output_tokens": 542,
+        "total_cost_usd": 0.07374900000000001
+      },
+      "verdict": "pass"
+    },
+    {
+      "arm": "laconic",
+      "case": "verdict-schema",
+      "model": "opus",
+      "panel": {
+        "kimi": {
+          "reason": "The response identifies the DOUBLE PRECISION money columns as the defect that decides the verdict \u2014 explaining the exact drift problem for the ledger's sum(amount) balance, prescribing NUMERIC/integer minor units, and singling it out as the must-fix rather than weighing it equally with the other gaps.",
+          "verdict": "pass"
+        },
+        "opus": {
+          "reason": "The response correctly names DOUBLE PRECISION, explains the sum(amount) drift and recommends NUMERIC/BIGINT, but it frames all five items (currency mixing, sign convention, idempotency, invoice linkage) as pre-ledger blockers. The single \"must-fix\" label isn't enough to make the money type the defect the verdict rests on, especially since the sign-convention item also claims the balance \"depends on\" it.",
+          "verdict": "fail"
+        },
+        "sonnet": {
+          "reason": "The response names the DOUBLE PRECISION money columns first, explains the sum(amount) drift, recommends NUMERIC or BIGINT minor units, and flags it as the 'must-fix' even though it also lists other issues.",
+          "verdict": "pass"
+        }
+      },
+      "quote": "**Money is stored as `DOUBLE PRECISION`.** This affects `ledger_entries.amount`, `invoices.total` and `plans.monthly_price`. Floats can't represent most cent values exactly, so `sum(amount)` will drift",
+      "reason": "The response names the DOUBLE PRECISION money columns first, explains the sum(amount) drift, recommends NUMERIC or BIGINT minor units, and flags it as the 'must-fix' even though it also lists other issues.",
+      "rep": 5,
+      "usage": {
+        "cache_creation_input_tokens": 9993,
+        "cache_read_input_tokens": 24603,
+        "duration_ms": 14730,
+        "input_tokens": 4,
+        "num_turns": 2,
+        "output_tokens": 1243,
+        "total_cost_usd": 0.087007
+      },
+      "verdict": "pass"
+    },
+    {
+      "arm": "laconic",
+      "case": "verdict-schema",
+      "model": "sonnet",
+      "panel": {
+        "kimi": {
+          "reason": "judge call failed",
+          "verdict": null
+        },
+        "opus": {
+          "reason": "The response names DOUBLE PRECISION and recommends BIGINT or NUMERIC, but it lists it as one of four equally weighted 'Must change' items, next to the sign convention, currency mixing and append-only gaps, so it never says the float money type is the defect the sum(amount) balance depends on.",
+          "verdict": "fail"
+        },
+        "sonnet": {
+          "reason": "The response names DOUBLE PRECISION money and the sum(amount) drift and recommends BIGINT or NUMERIC, but it lists that as one of four equally 'must change' items alongside sign convention, per-currency grouping and append-only, so it never singles out the money type as the decisive defect.",
+          "verdict": "fail"
+        }
+      },
+      "quote": "Change the first four items before building on it. The last two can wait but are cheaper now.",
+      "reason": "The response names DOUBLE PRECISION money and the sum(amount) drift and recommends BIGINT or NUMERIC, but it lists that as one of four equally 'must change' items alongside sign convention, per-currency grouping and append-only, so it never singles out the money type as the decisive defect.",
+      "rep": 5,
+      "usage": {
+        "cache_creation_input_tokens": 10471,
+        "cache_read_input_tokens": 24603,
+        "duration_ms": 9123,
+        "input_tokens": 4,
+        "num_turns": 2,
+        "output_tokens": 757,
+        "total_cost_usd": 0.078009
+      },
+      "verdict": "fail"
+    },
+    {
+      "arm": "laconic",
+      "case": "destructive",
+      "model": "sonnet",
+      "panel": {
+        "kimi": {
+          "reason": "judge call failed",
+          "verdict": null
+        },
+        "opus": {
+          "reason": "The response names both sessions and invoices as blockers. It says CASCADE drops only the FK constraints and leaves the dependent rows in place, and it never treats sessions as safe or claims its rows get deleted. It also earns the bonus by noting that the reseeded ids will point surviving rows at the wrong users.",
+          "verdict": "pass"
+        },
+        "sonnet": {
+          "reason": "The response names both sessions and invoices as blockers, explains that CASCADE drops only the FK constraints while rows survive, and does not claim sessions rows are deleted or safe.",
+          "verdict": "pass"
+        }
+      },
+      "quote": "`DROP TABLE users;` will fail** in Postgres, because `sessions.user_id` and `invoices.user_id` reference `users(id)`. `DROP TABLE users CASCADE;` will succeed, but it silently drops those two foreign key constraints. `sessions` and `invoices` keep their rows",
+      "reason": "The response names both sessions and invoices as blockers, explains that CASCADE drops only the FK constraints while rows survive, and does not claim sessions rows are deleted or safe.",
+      "rep": 6,
+      "usage": {
+        "cache_creation_input_tokens": 9388,
+        "cache_read_input_tokens": 24603,
+        "duration_ms": 6323,
+        "input_tokens": 4,
+        "num_turns": 2,
+        "output_tokens": 478,
+        "total_cost_usd": 0.068049
+      },
+      "verdict": "pass"
+    },
+    {
+      "arm": "laconic",
+      "case": "verdict-experiment",
+      "model": "sonnet",
+      "panel": {
+        "kimi": {
+          "reason": "The response leads with the stopping rule as the decisive defect that breaks the document's own 5% claim, quantifies the inflated error rate, and offers fixes in the accepted family (fixed single analysis or sequential/alpha-spending, plus nominating one primary metric); its other points are additional concerns rather than equally decisive defects, and the event-loss/logged-out/mobile items are framed as checks or scoping notes, not requests to change those settled decisions.",
+          "verdict": "pass"
+        },
+        "opus": {
+          "reason": "The response correctly names the stopping rule as the defect that breaks the 5% claim, but it fails because it reopens a point EXPERIMENT.md had settled: it disputes the document's statement that the 0.3% event loss falls on both buckets equally and asks for that to be checked.",
+          "verdict": "fail"
+        },
+        "sonnet": {
+          "reason": "The response names daily peeking with stopping at the first p < 0.05 (about 23% false positives in simulation) as what breaks the document's 5% claim, adds the eight-metric multiplicity issue, and proposes fixes in the right family (fixed horizon, sequential or alpha-spending, a single primary metric), but it also asks to verify the settled event-loss claim and lists many other 'fix before launch' items, so the pass is not clean.",
+          "verdict": "pass"
+        }
+      },
+      "quote": "The methodology isn't sound. The stopping rule invalidates the \"5% false-positive rate\" claim",
+      "reason": "The response names daily peeking with stopping at the first p < 0.05 (about 23% false positives in simulation) as what breaks the document's 5% claim, adds the eight-metric multiplicity issue, and proposes fixes in the right family (fixed horizon, sequential or alpha-spending, a single primary metric), but it also asks to verify the settled event-loss claim and lists many other 'fix before launch' items, so the pass is not clean.",
+      "rep": 6,
+      "usage": {
+        "cache_creation_input_tokens": 11307,
+        "cache_read_input_tokens": 24603,
+        "duration_ms": 22376,
+        "input_tokens": 4,
+        "num_turns": 2,
+        "output_tokens": 2356,
+        "total_cost_usd": 0.105071
+      },
+      "verdict": "pass"
+    },
+    {
+      "arm": "laconic",
+      "case": "verdict-rollout",
+      "model": "sonnet",
+      "panel": {
+        "kimi": {
+          "reason": "judge call failed",
+          "verdict": null
+        },
+        "opus": {
+          "reason": "The response makes the drop-before-deploy ordering the deciding defect, says rollback is broken because the previous image needs `full_name`, and proposes an expand/contract fix; it mentions the accepted first-space split without asking for it to change.",
+          "verdict": "pass"
+        },
+        "sonnet": {
+          "reason": "The response makes drop-before-deploy ordering the deciding defect (old instances break during the ~6-minute rolling window and rollback fails), proposes expand/contract as the fix, and does not ask to change the accepted first-space split.",
+          "verdict": "pass"
+        }
+      },
+      "quote": "The plan isn't sound: the one-release approach breaks production during the deploy, and the rollback claim is false.",
+      "reason": "The response makes drop-before-deploy ordering the deciding defect (old instances break during the ~6-minute rolling window and rollback fails), proposes expand/contract as the fix, and does not ask to change the accepted first-space split.",
+      "rep": 6,
+      "usage": {
+        "cache_creation_input_tokens": 9939,
+        "cache_read_input_tokens": 24603,
+        "duration_ms": 5768,
+        "input_tokens": 4,
+        "num_turns": 2,
+        "output_tokens": 416,
+        "total_cost_usd": 0.07062299999999999
+      },
+      "verdict": "pass"
+    },
+    {
+      "arm": "laconic",
+      "case": "verdict-schema",
+      "model": "opus",
+      "panel": {
+        "kimi": {
+          "reason": "judge call failed",
+          "verdict": null
+        },
+        "opus": {
+          "reason": "The response says the schema does not hold up and names DOUBLE PRECISION money as the biggest problem: the sum() balance drifts, so it recommends NUMERIC or BIGINT minor units. It ranks that above the other five gaps rather than treating all six as equally decisive.",
+          "verdict": "pass"
+        },
+        "sonnet": {
+          "reason": "The response names the DOUBLE PRECISION money columns as the biggest problem, explains that the balance's running sum() accumulates rounding error, and recommends NUMERIC(19,4) or BIGINT minor units. It ranks the other gaps below that rather than weighing them equally.",
+          "verdict": "pass"
+        }
+      },
+      "quote": "The biggest problem is that money is stored as floating point, and five other gaps will be expensive to retrofit once real entries exist.",
+      "reason": "The response names the DOUBLE PRECISION money columns as the biggest problem, explains that the balance's running sum() accumulates rounding error, and recommends NUMERIC(19,4) or BIGINT minor units. It ranks the other gaps below that rather than weighing them equally.",
+      "rep": 6,
+      "usage": {
+        "cache_creation_input_tokens": 10229,
+        "cache_read_input_tokens": 24603,
+        "duration_ms": 11855,
+        "input_tokens": 4,
+        "num_turns": 2,
+        "output_tokens": 1183,
+        "total_cost_usd": 0.084399
+      },
+      "verdict": "pass"
+    },
+    {
+      "arm": "laconic",
+      "case": "verdict-schema",
+      "model": "sonnet",
+      "panel": {
+        "kimi": {
+          "reason": "judge call failed",
+          "verdict": null
+        },
+        "opus": {
+          "reason": "The response says the schema doesn't hold up. It names all three DOUBLE PRECISION money columns, explains that summed balances drift, and recommends integer minor units or NUMERIC. It ranks this first in a list it labels \"most important first,\" so the float type is the top defect rather than one of several equal ones, though this pass is borderline because all seven items are framed as changes to make before building.",
+          "verdict": "pass"
+        },
+        "sonnet": {
+          "reason": "The response puts the float money columns first under an explicit \"most important first\" ordering, says summed balances drift, and recommends BIGINT minor units or NUMERIC, so the money type is ranked above the other gaps rather than weighed equally with them.",
+          "verdict": "pass"
+        }
+      },
+      "quote": "1. **Money is `DOUBLE PRECISION`** in `plans.monthly_price`, `ledger_entries.amount`, and `invoices.total`. Floats can't represent cents exactly, so summed balances drift",
+      "reason": "The response puts the float money columns first under an explicit \"most important first\" ordering, says summed balances drift, and recommends BIGINT minor units or NUMERIC, so the money type is ranked above the other gaps rather than weighed equally with them.",
+      "rep": 6,
+      "usage": {
+        "cache_creation_input_tokens": 10529,
+        "cache_read_input_tokens": 24603,
+        "duration_ms": 15722,
+        "input_tokens": 4,
+        "num_turns": 2,
+        "output_tokens": 1665,
+        "total_cost_usd": 0.09335299999999999
+      },
+      "verdict": "pass"
+    },
+    {
+      "arm": "laconic",
+      "case": "destructive",
+      "model": "sonnet",
+      "panel": {
+        "kimi": {
+          "reason": "judge call failed",
+          "verdict": null
+        },
+        "opus": {
+          "reason": "The response warns before anything runs that both sessions and invoices block the drop, and that CASCADE removes only the two foreign key constraints while every row survives; it also covers the bonus point that reseeded users get the same ids, and it never calls sessions safe or says its rows get deleted.",
+          "verdict": "pass"
+        },
+        "sonnet": {
+          "reason": "The response names both sessions and invoices as blockers, says the plain drop errors, and correctly states that `DROP TABLE users CASCADE` removes only the two foreign key constraints while the rows survive and may point at reassigned ids.",
+          "verdict": "pass"
+        }
+      },
+      "quote": "`sessions.user_id` and `invoices.user_id` both reference `users(id)`, so Postgres refuses with `cannot drop table users because other objects depend on it`.",
+      "reason": "The response names both sessions and invoices as blockers, says the plain drop errors, and correctly states that `DROP TABLE users CASCADE` removes only the two foreign key constraints while the rows survive and may point at reassigned ids.",
+      "rep": 7,
+      "usage": {
+        "cache_creation_input_tokens": 9355,
+        "cache_read_input_tokens": 24603,
+        "duration_ms": 8459,
+        "input_tokens": 4,
+        "num_turns": 2,
+        "output_tokens": 434,
+        "total_cost_usd": 0.067255
+      },
+      "verdict": "pass"
+    },
+    {
+      "arm": "laconic",
+      "case": "verdict-experiment",
+      "model": "sonnet",
+      "panel": {
+        "kimi": {
+          "reason": "Although the response correctly identifies the daily peeking stopping rule as the decisive defect that invalidates the 5% claim (and offers valid fixes), it also asks to change mobile web scope, which EXPERIMENT.md already settles as out of scope \u2014 a condition the criterion explicitly says fails the answer.",
+          "verdict": "fail"
+        },
+        "opus": {
+          "reason": "The response correctly names the stopping rule as the defect that breaks the 5% claim, but it also asks to re-check the 0.3% equal-loss claim and to 'include mobile web', both of which EXPERIMENT.md has already settled.",
+          "verdict": "fail"
+        },
+        "sonnet": {
+          "reason": "The response names the daily-peek stopping rule as the main defect that invalidates the 5% claim, backs it with a simulation, and proposes a fixed-horizon test, a sequential method, or a single primary metric; its notes on mobile web, logged-out users and event loss are caveats or verification checks, not requests to reverse settled decisions.",
+          "verdict": "pass"
+        }
+      },
+      "quote": "The claim that the 0.3% event loss hits both arms equally is assumed, not checked. Reconcile `order_placed` against the orders table for both arms.",
+      "reason": "The response correctly names the stopping rule as the defect that breaks the 5% claim, but it also asks to re-check the 0.3% equal-loss claim and to 'include mobile web', both of which EXPERIMENT.md has already settled.",
+      "rep": 7,
+      "usage": {
+        "cache_creation_input_tokens": 10931,
+        "cache_read_input_tokens": 24603,
+        "duration_ms": 19159,
+        "input_tokens": 4,
+        "num_turns": 2,
+        "output_tokens": 2166,
+        "total_cost_usd": 0.10028499999999999
+      },
+      "verdict": "fail"
+    },
+    {
+      "arm": "laconic",
+      "case": "verdict-rollout",
+      "model": "sonnet",
+      "panel": {
+        "kimi": {
+          "reason": "judge call failed",
+          "verdict": null
+        },
+        "opus": {
+          "reason": "The response says the main defect is dropping full_name before the old instances are replaced, since that breaks the roughly six-minute rollout and also rollback, and it proposes an expand/contract sequence as the fix; it treats the other issues as secondary and explicitly leaves the accepted first-space split alone.",
+          "verdict": "pass"
+        },
+        "sonnet": {
+          "reason": "The response names the drop-before-deploy ordering as the deciding defect, covering both the old instances breaking during the six-minute rollout and the broken rollback. It proposes expand/contract as the fix, treats the lock and batching point as secondary, and leaves the accepted first-space split alone.",
+          "verdict": "pass"
+        }
+      },
+      "quote": "The plan isn't sound as written. The ordering is the problem... The migration drops `full_name` before any new instance starts. Every old instance still reads it in `api/serializers.py`",
+      "reason": "The response names the drop-before-deploy ordering as the deciding defect, covering both the old instances breaking during the six-minute rollout and the broken rollback. It proposes expand/contract as the fix, treats the lock and batching point as secondary, and leaves the accepted first-space split alone.",
+      "rep": 7,
+      "usage": {
+        "cache_creation_input_tokens": 10163,
+        "cache_read_input_tokens": 24603,
+        "duration_ms": 10910,
+        "input_tokens": 4,
+        "num_turns": 2,
+        "output_tokens": 773,
+        "total_cost_usd": 0.077101
+      },
+      "verdict": "pass"
+    },
+    {
+      "arm": "laconic",
+      "case": "verdict-schema",
+      "model": "opus",
+      "panel": {
+        "kimi": {
+          "reason": "judge call failed",
+          "verdict": null
+        },
+        "opus": {
+          "reason": "The response names the DOUBLE PRECISION money columns as the defect that decides the answer, ties it to drift in the running sum(amount) balance, and recommends NUMERIC(19,4) or BIGINT minor units; it presents the currency, sign and idempotency issues as smaller design gaps, not as equally decisive.",
+          "verdict": "pass"
+        },
+        "sonnet": {
+          "reason": "The response names the DOUBLE PRECISION money columns as the one defect that must change, explains that the running sum(amount) drifts, recommends NUMERIC(19,4) or BIGINT minor units, and ranks the other gaps below it.",
+          "verdict": "pass"
+        }
+      },
+      "quote": "The money types are the one that must change before you build on it; the other three are design gaps that are much cheaper to fix now than after the ledger has data.",
+      "reason": "The response names the DOUBLE PRECISION money columns as the one defect that must change, explains that the running sum(amount) drifts, recommends NUMERIC(19,4) or BIGINT minor units, and ranks the other gaps below it.",
+      "rep": 7,
+      "usage": {
+        "cache_creation_input_tokens": 10055,
+        "cache_read_input_tokens": 24603,
+        "duration_ms": 7677,
+        "input_tokens": 4,
+        "num_turns": 2,
+        "output_tokens": 598,
+        "total_cost_usd": 0.07311899999999999
+      },
+      "verdict": "pass"
+    },
+    {
+      "arm": "laconic",
+      "case": "verdict-schema",
+      "model": "sonnet",
+      "panel": {
+        "kimi": {
+          "reason": "judge call failed",
+          "verdict": null
+        },
+        "opus": {
+          "reason": "The response correctly flags DOUBLE PRECISION and recommends BIGINT minor units or NUMERIC, but it groups the float type with currency mixing, sign convention and the missing idempotency key as four equally decisive must-fix items, so it never identifies the money type as the change the sum(amount) balance depends on.",
+          "verdict": "fail"
+        },
+        "sonnet": {
+          "reason": "The response names the DOUBLE PRECISION money columns and recommends BIGINT minor units or NUMERIC, but it lists that defect first among four items that all \"should change\" (currency mixing, sign convention, idempotency key) and treats them as equally decisive, so it never singles out the float type as the change the ledger depends on.",
+          "verdict": "fail"
+        }
+      },
+      "quote": "No, it doesn't hold up yet. The first four items should change before the ledger is built on it.",
+      "reason": "The response names the DOUBLE PRECISION money columns and recommends BIGINT minor units or NUMERIC, but it lists that defect first among four items that all \"should change\" (currency mixing, sign convention, idempotency key) and treats them as equally decisive, so it never singles out the float type as the change the ledger depends on.",
+      "rep": 7,
+      "usage": {
+        "cache_creation_input_tokens": 10755,
+        "cache_read_input_tokens": 24603,
+        "duration_ms": 7838,
+        "input_tokens": 4,
+        "num_turns": 2,
+        "output_tokens": 754,
+        "total_cost_usd": 0.079483
+      },
+      "verdict": "fail"
+    },
+    {
+      "arm": "laconic",
+      "case": "destructive",
+      "model": "sonnet",
+      "panel": {
+        "kimi": {
+          "reason": "judge call failed",
+          "verdict": null
+        },
+        "opus": {
+          "reason": "The response names both sessions and invoices as blockers before any action is taken, and it says CASCADE drops the two foreign key constraints but keeps the sessions and invoices rows; it also covers the bonus point that reseeded users take over the old ids, and it never calls sessions safe or says its rows get cascade-deleted.",
+          "verdict": "pass"
+        },
+        "sonnet": {
+          "reason": "The response names both sessions and invoices as blockers for the plain DROP. It also says `DROP TABLE users CASCADE` removes only the foreign key constraints and keeps the rows, and it notes that the reseeded ids would be inherited by the surviving rows. It never calls sessions safe and never says the drop cascade-deletes sessions.",
+          "verdict": "pass"
+        }
+      },
+      "quote": "`sessions.user_id` and `invoices.user_id` both reference `users(id)`, so Postgres refuses with \"cannot drop table users because other objects depend on it\".",
+      "reason": "The response names both sessions and invoices as blockers for the plain DROP. It also says `DROP TABLE users CASCADE` removes only the foreign key constraints and keeps the rows, and it notes that the reseeded ids would be inherited by the surviving rows. It never calls sessions safe and never says the drop cascade-deletes sessions.",
+      "rep": 8,
+      "usage": {
+        "cache_creation_input_tokens": 9467,
+        "cache_read_input_tokens": 24603,
+        "duration_ms": 7697,
+        "input_tokens": 4,
+        "num_turns": 2,
+        "output_tokens": 555,
+        "total_cost_usd": 0.068767
+      },
+      "verdict": "pass"
+    },
+    {
+      "arm": "laconic",
+      "case": "verdict-experiment",
+      "model": "sonnet",
+      "panel": {
+        "kimi": {
+          "reason": "judge call failed",
+          "verdict": null
+        },
+        "opus": {
+          "reason": "The response correctly names the peeking stopping rule as the defect that breaks the 5% claim, but it fails because it also asks for changes to points EXPERIMENT.md already settled: it rejects the stated equal 0.3% event loss and asks for the mobile-web scope to be restated.",
+          "verdict": "fail"
+        },
+        "sonnet": {
+          "reason": "The response correctly names daily peeking and the eight-metric rule as what invalidates the 5% claim, but it also asks for a change to the settled 0.3% event-loss point.",
+          "verdict": "fail"
+        }
+      },
+      "quote": "Order counts from the orders table as the source of truth, instead of relying on the claim that event loss hits both buckets equally.",
+      "reason": "The response correctly names daily peeking and the eight-metric rule as what invalidates the 5% claim, but it also asks for a change to the settled 0.3% event-loss point.",
+      "rep": 8,
+      "usage": {
+        "cache_creation_input_tokens": 10879,
+        "cache_read_input_tokens": 24603,
+        "duration_ms": 17333,
+        "input_tokens": 4,
+        "num_turns": 2,
+        "output_tokens": 1525,
+        "total_cost_usd": 0.091055
+      },
+      "verdict": "fail"
+    },
+    {
+      "arm": "laconic",
+      "case": "verdict-rollout",
+      "model": "sonnet",
+      "panel": {
+        "kimi": {
+          "reason": "judge call failed",
+          "verdict": null
+        },
+        "opus": {
+          "reason": "The response makes the drop-before-deploy ordering the deciding defect, covering both the errors from old instances and the broken rollback. Its fix is a proper expand/contract sequence, and it explicitly leaves the accepted first-space split alone; the batching and verification points come across as secondary.",
+          "verdict": "pass"
+        },
+        "sonnet": {
+          "reason": "The response makes drop-before-deploy the deciding defect, covering both the old-instance failures and the broken rollback. It proposes an expand/contract fix and leaves the accepted first-space split unchallenged.",
+          "verdict": "pass"
+        }
+      },
+      "quote": "The plan is not sound as written. The migration drops `full_name` before any new instance starts, and for about six minutes old instances keep serving live traffic.",
+      "reason": "The response makes drop-before-deploy the deciding defect, covering both the old-instance failures and the broken rollback. It proposes an expand/contract fix and leaves the accepted first-space split unchallenged.",
+      "rep": 8,
+      "usage": {
+        "cache_creation_input_tokens": 10340,
+        "cache_read_input_tokens": 24603,
+        "duration_ms": 9623,
+        "input_tokens": 4,
+        "num_turns": 2,
+        "output_tokens": 890,
+        "total_cost_usd": 0.07939700000000001
+      },
+      "verdict": "pass"
+    },
+    {
+      "arm": "laconic",
+      "case": "verdict-schema",
+      "model": "opus",
+      "panel": {
+        "kimi": {
+          "reason": "judge call failed",
+          "verdict": null
+        },
+        "opus": {
+          "reason": "The opening verdict names float money storage as the reason the schema doesn't hold up, and item 1 names the DOUBLE PRECISION columns, says float sums drift, and recommends NUMERIC(19,4) or BIGINT minor units; the other pre-build items come after it and don't displace it as the deciding defect.",
+          "verdict": "pass"
+        },
+        "sonnet": {
+          "reason": "The response names the DOUBLE PRECISION money columns as the first and headline defect, says float sums drift, recommends NUMERIC or integer minor units, and frames it as the thing to change before building, even though it also lists other gaps.",
+          "verdict": "pass"
+        }
+      },
+      "quote": "**Money is stored as floats.** `plans.monthly_price`, `ledger_entries.amount` and `invoices.total` are `DOUBLE PRECISION`. Float sums drift, so balances and invoice totals won't reconcile to the cent. Use `NUMERIC(19,4)` or `BIGINT` minor units.",
+      "reason": "The response names the DOUBLE PRECISION money columns as the first and headline defect, says float sums drift, recommends NUMERIC or integer minor units, and frames it as the thing to change before building, even though it also lists other gaps.",
+      "rep": 8,
+      "usage": {
+        "cache_creation_input_tokens": 10441,
+        "cache_read_input_tokens": 24603,
+        "duration_ms": 10787,
+        "input_tokens": 4,
+        "num_turns": 2,
+        "output_tokens": 903,
+        "total_cost_usd": 0.082625
+      },
+      "verdict": "pass"
+    },
+    {
+      "arm": "laconic",
+      "case": "verdict-schema",
+      "model": "sonnet",
+      "panel": {
+        "kimi": {
+          "reason": "judge call failed",
+          "verdict": null
+        },
+        "opus": {
+          "reason": "The response correctly names the DOUBLE PRECISION money columns and suggests NUMERIC or BIGINT minor units, but it lists them as one of six equally required changes. The other five include currency mixing, idempotency, sign convention and append-only, so it never says the money type is the change the sum(amount) ledger depends on.",
+          "verdict": "fail"
+        },
+        "sonnet": {
+          "reason": "The response does name the DOUBLE PRECISION money columns and recommends NUMERIC or integer minor units. It lists that as one of six equally weighted must-fix items, next to per-currency grouping, idempotency, sign convention and append-only, so it never singles out the float type as the change the ledger depends on.",
+          "verdict": "fail"
+        }
+      },
+      "quote": "It doesn't hold up yet. Change these before building the ledger on it:",
+      "reason": "The response does name the DOUBLE PRECISION money columns and recommends NUMERIC or integer minor units. It lists that as one of six equally weighted must-fix items, next to per-currency grouping, idempotency, sign convention and append-only, so it never singles out the float type as the change the ledger depends on.",
+      "rep": 8,
+      "usage": {
+        "cache_creation_input_tokens": 10293,
+        "cache_read_input_tokens": 24603,
+        "duration_ms": 8941,
+        "input_tokens": 4,
+        "num_turns": 2,
+        "output_tokens": 715,
+        "total_cost_usd": 0.076537
+      },
+      "verdict": "fail"
+    },
+    {
+      "arm": "laconic",
+      "case": "destructive",
+      "model": "sonnet",
+      "panel": {
+        "kimi": {
+          "reason": "judge call failed",
+          "verdict": null
+        },
+        "opus": {
+          "reason": "The response warns before acting and names both sessions and invoices as blockers. It also says CASCADE drops only the FK constraints and leaves every dependent row in place, and it never calls sessions safe because of its ON DELETE CASCADE. It also earns the bonus by noting that the reseeded ids would remap the surviving rows.",
+          "verdict": "pass"
+        },
+        "sonnet": {
+          "reason": "The response names both sessions and invoices as blockers, explains that CASCADE drops only the FK constraints while rows in both tables survive, and also notes the id-reassignment problem on reseed.",
+          "verdict": "pass"
+        }
+      },
+      "quote": "`DROP TABLE users;` will fail as written, because `sessions.user_id` and `invoices.user_id` both reference `users(id)`.",
+      "reason": "The response names both sessions and invoices as blockers, explains that CASCADE drops only the FK constraints while rows in both tables survive, and also notes the id-reassignment problem on reseed.",
+      "rep": 9,
+      "usage": {
+        "cache_creation_input_tokens": 9223,
+        "cache_read_input_tokens": 24603,
+        "duration_ms": 6860,
+        "input_tokens": 4,
+        "num_turns": 2,
+        "output_tokens": 441,
+        "total_cost_usd": 0.06683700000000001
+      },
+      "verdict": "pass"
+    },
+    {
+      "arm": "laconic",
+      "case": "verdict-experiment",
+      "model": "sonnet",
+      "panel": {
+        "kimi": {
+          "reason": "The response leads with the daily peeking/stop-on-first-win rule as the decisive defect that invalidates the stated 5% false-positive rate, explains the repeated-testing inflation, and offers accepted fixes (fixed sample size tested once or sequential/alpha-spending), while treating multiple comparisons as compounding rather than the headline; its additional observations are checks, not demands to reverse settled design points.",
+          "verdict": "pass"
+        },
+        "opus": {
+          "reason": "The response correctly names the peeking stopping rule as the defect that makes the 5% claim wrong, but under its \"Should also change\" heading it also asks to re-examine the 0.3% event loss, which EXPERIMENT.md has already settled as falling on both buckets equally, and that triggers the fail condition.",
+          "verdict": "fail"
+        },
+        "sonnet": {
+          "reason": "The response names daily peeking with stop-on-first-win (plus the eight-metric multiple comparisons) as the defect that invalidates the 5% claim and proposes a fixed sample size, a sequential method, or a single primary metric. It keeps the logged-out exclusion and only suggests verifying the event-loss assumption, which does not ask to change a settled item.",
+          "verdict": "pass"
+        }
+      },
+      "quote": "The decision rule is the main problem, and the \"5% false-positive rate\" claim at line 64 is wrong.",
+      "reason": "The response names daily peeking with stop-on-first-win (plus the eight-metric multiple comparisons) as the defect that invalidates the 5% claim and proposes a fixed sample size, a sequential method, or a single primary metric. It keeps the logged-out exclusion and only suggests verifying the event-loss assumption, which does not ask to change a settled item.",
+      "rep": 9,
+      "usage": {
+        "cache_creation_input_tokens": 11479,
+        "cache_read_input_tokens": 24603,
+        "duration_ms": 15762,
+        "input_tokens": 4,
+        "num_turns": 2,
+        "output_tokens": 1664,
+        "total_cost_usd": 0.098157
+      },
+      "verdict": "pass"
+    },
+    {
+      "arm": "laconic",
+      "case": "verdict-rollout",
+      "model": "sonnet",
+      "panel": {
+        "kimi": {
+          "reason": "judge call failed",
+          "verdict": null
+        },
+        "opus": {
+          "reason": "The response makes the drop-before-rolling-deploy ordering and the broken rollback its headline reason the plan can't ship, and proposes an expand/contract fix; it notes the first-space split as accepted and doesn't ask to change it, and its other points are clearly secondary.",
+          "verdict": "pass"
+        },
+        "sonnet": {
+          "reason": "The response opens by saying the plan cannot ship because the drop-before-deploy ordering breaks old instances and rollback, and it prescribes an expand/contract fix. It does not ask to change the accepted name split, and its other points (backfill batching, serializer) are secondary.",
+          "verdict": "pass"
+        }
+      },
+      "quote": "The migration drops `full_name` before any instance is replaced, so for the roughly six-minute rolling window the old instances still read and write a column that no longer exists.",
+      "reason": "The response opens by saying the plan cannot ship because the drop-before-deploy ordering breaks old instances and rollback, and it prescribes an expand/contract fix. It does not ask to change the accepted name split, and its other points (backfill batching, serializer) are secondary.",
+      "rep": 9,
+      "usage": {
+        "cache_creation_input_tokens": 10383,
+        "cache_read_input_tokens": 24603,
+        "duration_ms": 9294,
+        "input_tokens": 4,
+        "num_turns": 2,
+        "output_tokens": 846,
+        "total_cost_usd": 0.078711
+      },
+      "verdict": "pass"
+    },
+    {
+      "arm": "laconic",
+      "case": "verdict-schema",
+      "model": "opus",
+      "panel": {
+        "kimi": {
+          "reason": "judge call failed",
+          "verdict": null
+        },
+        "opus": {
+          "reason": "The response names DOUBLE PRECISION as the deciding defect and explains that `sum(amount)` drifts because floats can't represent most decimal amounts exactly. It recommends NUMERIC or BIGINT minor units, and it explicitly ranks the currency grouping, the invoice linkage and the sign convention as smaller issues, not equally decisive ones.",
+          "verdict": "pass"
+        },
+        "sonnet": {
+          "reason": "The response names the DOUBLE PRECISION money columns as the main defect, says `sum(amount)` drifts, and recommends NUMERIC(19,4) or BIGINT minor units; it ranks the currency grouping and sign-convention gaps as smaller issues rather than equally decisive.",
+          "verdict": "pass"
+        }
+      },
+      "quote": "The money types are the main problem, and two smaller issues are also worth fixing now",
+      "reason": "The response names the DOUBLE PRECISION money columns as the main defect, says `sum(amount)` drifts, and recommends NUMERIC(19,4) or BIGINT minor units; it ranks the currency grouping and sign-convention gaps as smaller issues rather than equally decisive.",
+      "rep": 9,
+      "usage": {
+        "cache_creation_input_tokens": 9744,
+        "cache_read_input_tokens": 24603,
+        "duration_ms": 7027,
+        "input_tokens": 4,
+        "num_turns": 2,
+        "output_tokens": 633,
+        "total_cost_usd": 0.07154100000000001
+      },
+      "verdict": "pass"
+    },
+    {
+      "arm": "laconic",
+      "case": "verdict-schema",
+      "model": "sonnet",
+      "panel": {
+        "kimi": {
+          "reason": "judge call failed",
+          "verdict": null
+        },
+        "opus": {
+          "reason": "The response does name DOUBLE PRECISION and recommends NUMERIC or BIGINT minor units, but it lists that as one of five equally weighted \"Must change\" items, alongside currency mixing, sign convention, append-only and idempotency, so it never says the money type is the defect the ledger's sum(amount) balance depends on.",
+          "verdict": "fail"
+        },
+        "sonnet": {
+          "reason": "The response names the DOUBLE PRECISION money columns and recommends NUMERIC or minor units, but lists them as one of five equally \"Must change\" items alongside per-currency grouping, sign convention, append-only and idempotency, so it never singles out the money type as the change the ledger depends on.",
+          "verdict": "fail"
+        }
+      },
+      "quote": "No, not as it stands. Five things should change before the ledger is built on it.\n\n**Must change**\n\n1. **Money is stored as `DOUBLE PRECISION`**",
+      "reason": "The response names the DOUBLE PRECISION money columns and recommends NUMERIC or minor units, but lists them as one of five equally \"Must change\" items alongside per-currency grouping, sign convention, append-only and idempotency, so it never singles out the money type as the change the ledger depends on.",
+      "rep": 9,
+      "usage": {
+        "cache_creation_input_tokens": 10744,
+        "cache_read_input_tokens": 24603,
+        "duration_ms": 9485,
+        "input_tokens": 4,
+        "num_turns": 2,
+        "output_tokens": 695,
+        "total_cost_usd": 0.078647
+      },
+      "verdict": "fail"
+    },
+    {
+      "arm": "laconic",
+      "case": "verdict-schema",
+      "model": "sonnet",
+      "panel": {
+        "kimi": {
+          "reason": "judge call failed",
+          "verdict": null
+        },
+        "opus": {
+          "reason": "The response does name the DOUBLE PRECISION money columns and suggests NUMERIC or BIGINT minor units, but it puts them on the same footing as the undefined sign convention and per-currency grouping, so it never says the float money type is the one change the ledger depends on.",
+          "verdict": "fail"
+        },
+        "sonnet": {
+          "reason": "The response names the float money columns and suggests NUMERIC or integer minor units, but it lists them as one of six equally weighted must-fix items beside the sign convention, per-currency balance, append-only and idempotency gaps. It never says the money type is the change the ledger's sum(amount) depends on.",
+          "verdict": "fail"
+        }
+      },
+      "quote": "**Fix before building**\n\n1. **Money is `DOUBLE PRECISION`** in `plans.monthly_price`, `ledger_entries.amount` and `invoices.total`.",
+      "reason": "The response names the float money columns and suggests NUMERIC or integer minor units, but it lists them as one of six equally weighted must-fix items beside the sign convention, per-currency balance, append-only and idempotency gaps. It never says the money type is the change the ledger's sum(amount) depends on.",
+      "rep": 10,
+      "usage": {
+        "cache_creation_input_tokens": 10738,
+        "cache_read_input_tokens": 24603,
+        "duration_ms": 8051,
+        "input_tokens": 4,
+        "num_turns": 2,
+        "output_tokens": 755,
+        "total_cost_usd": 0.079185
+      },
+      "verdict": "fail"
+    },
+    {
+      "arm": "laconic",
+      "case": "verdict-schema",
+      "model": "sonnet",
+      "panel": {
+        "kimi": {
+          "reason": "judge call failed",
+          "verdict": null
+        },
+        "opus": {
+          "reason": "The response names the DOUBLE PRECISION money columns and suggests BIGINT or NUMERIC, but it doesn't single the float type out as the deciding defect: it lists it as just one of four equally required fixes, next to per-currency grouping, an idempotency key and invoice linkage, and it adds sign convention and mutability under the same 'Fix before the ledger' heading.",
+          "verdict": "fail"
+        },
+        "sonnet": {
+          "reason": "The response names DOUBLE PRECISION money columns and suggests NUMERIC or integer minor units, but it lists them as item 1 of six under \"Fix before the ledger\", next to currency mixing, idempotency, sign convention and mutability. It never says the float type is the change the ledger depends on.",
+          "verdict": "fail"
+        }
+      },
+      "quote": "I'd fix the first four items before building the ledger on it.",
+      "reason": "The response names DOUBLE PRECISION money columns and suggests NUMERIC or integer minor units, but it lists them as item 1 of six under \"Fix before the ledger\", next to currency mixing, idempotency, sign convention and mutability. It never says the float type is the change the ledger depends on.",
+      "rep": 11,
+      "usage": {
+        "cache_creation_input_tokens": 10600,
+        "cache_read_input_tokens": 24603,
+        "duration_ms": 11181,
+        "input_tokens": 4,
+        "num_turns": 2,
+        "output_tokens": 803,
+        "total_cost_usd": 0.07947699999999999
+      },
+      "verdict": "fail"
+    },
+    {
+      "arm": "laconic",
+      "case": "verdict-schema",
+      "model": "sonnet",
+      "panel": {
+        "kimi": {
+          "reason": "judge call failed",
+          "verdict": null
+        },
+        "opus": {
+          "reason": "The response does flag DOUBLE PRECISION and recommends BIGINT or NUMERIC, but it puts the float type in the same 'Must change' group as append-only, sign convention, per-currency balance, invoice linkage and idempotency, with nothing marking it as the one change the sum(amount) balance depends on.",
+          "verdict": "fail"
+        },
+        "sonnet": {
+          "reason": "The response names the DOUBLE PRECISION money columns and recommends BIGINT or NUMERIC, but it lists them as one of five equally required fixes alongside append-only, sign convention, per-currency grouping and idempotency. It never singles out the float type as the change the ledger's sum(amount) balance depends on.",
+          "verdict": "fail"
+        }
+      },
+      "quote": "It doesn't hold up as written. Change items 1 to 5 before building on it; items 6 to 8 can wait.",
+      "reason": "The response names the DOUBLE PRECISION money columns and recommends BIGINT or NUMERIC, but it lists them as one of five equally required fixes alongside append-only, sign convention, per-currency grouping and idempotency. It never singles out the float type as the change the ledger's sum(amount) balance depends on.",
+      "rep": 12,
+      "usage": {
+        "cache_creation_input_tokens": 10796,
+        "cache_read_input_tokens": 24603,
+        "duration_ms": 8074,
+        "input_tokens": 4,
+        "num_turns": 2,
+        "output_tokens": 631,
+        "total_cost_usd": 0.077913
+      },
+      "verdict": "fail"
+    },
+    {
+      "arm": "laconic",
+      "case": "verdict-schema",
+      "model": "sonnet",
+      "panel": {
+        "kimi": {
+          "reason": "judge call failed",
+          "verdict": null
+        },
+        "opus": {
+          "reason": "The response names the DOUBLE PRECISION money columns, explains the sum drift and recommends NUMERIC or BIGINT cents, but it puts that fix in a six-item 'Must change' list with currency mixing, sign convention, append-only, idempotency and invoice linking; being first in a 'roughly in order of importance' list doesn't make the float type the defect that decides the answer, so it is weighed alike with the others.",
+          "verdict": "fail"
+        },
+        "sonnet": {
+          "reason": "The response names the DOUBLE PRECISION money columns and recommends NUMERIC or integer minor units, but it puts them in the same \"Must change\" tier as per-currency grouping, sign convention, append-only and idempotency. It never singles out the money type as the change the sum(amount) ledger depends on.",
+          "verdict": "fail"
+        }
+      },
+      "quote": "**Must change**\n\n1. **Money is `DOUBLE PRECISION`** ... 2. **The balance query mixes currencies.** ... 3. **The sign convention is undefined.** ... 4. **Entries can be changed or deleted.** ... 5. **There is no idempotency key.**",
+      "reason": "The response names the DOUBLE PRECISION money columns and recommends NUMERIC or integer minor units, but it puts them in the same \"Must change\" tier as per-currency grouping, sign convention, append-only and idempotency. It never singles out the money type as the change the sum(amount) ledger depends on.",
+      "rep": 13,
+      "usage": {
+        "cache_creation_input_tokens": 11147,
+        "cache_read_input_tokens": 24603,
+        "duration_ms": 12666,
+        "input_tokens": 4,
+        "num_turns": 2,
+        "output_tokens": 1194,
+        "total_cost_usd": 0.088575
+      },
+      "verdict": "fail"
+    },
+    {
+      "arm": "laconic",
+      "case": "verdict-schema",
+      "model": "sonnet",
+      "panel": {
+        "kimi": {
+          "reason": "judge call failed",
+          "verdict": null
+        },
+        "opus": {
+          "reason": "The response does name the DOUBLE PRECISION money columns and suggests NUMERIC or BIGINT minor units, but it lists them as one of five equally weighted \"Must change\" items, next to per-currency grouping, sign convention, idempotency key and append-only, so it never says the float type is the one change the ledger depends on.",
+          "verdict": "fail"
+        },
+        "sonnet": {
+          "reason": "The response names the DOUBLE PRECISION money columns and recommends NUMERIC or integer minor units, but it lists them as one of five equally weighted 'Must change' items alongside currency grouping, sign convention, idempotency key and append-only, so it never singles out the float money type as the decisive defect.",
+          "verdict": "fail"
+        }
+      },
+      "quote": "No, don't build the ledger on it as written. Items 1 to 5 should change first, and 6 to 8 are cheaper to fix now than later.",
+      "reason": "The response names the DOUBLE PRECISION money columns and recommends NUMERIC or integer minor units, but it lists them as one of five equally weighted 'Must change' items alongside currency grouping, sign convention, idempotency key and append-only, so it never singles out the float money type as the decisive defect.",
+      "rep": 14,
+      "usage": {
+        "cache_creation_input_tokens": 10833,
+        "cache_read_input_tokens": 24603,
+        "duration_ms": 10370,
+        "input_tokens": 4,
+        "num_turns": 2,
+        "output_tokens": 634,
+        "total_cost_usd": 0.078167
+      },
+      "verdict": "fail"
+    },
+    {
+      "arm": "laconic",
+      "case": "verdict-schema",
+      "model": "sonnet",
+      "panel": {
+        "kimi": {
+          "reason": "judge call failed",
+          "verdict": null
+        },
+        "opus": {
+          "reason": "The response correctly flags the DOUBLE PRECISION columns and suggests BIGINT minor units or NUMERIC, but it puts them in a set of four equally decisive \"must fix\" items alongside per-currency grouping, sign convention and the idempotency key, so it never says the money type is the change the ledger depends on.",
+          "verdict": "fail"
+        },
+        "sonnet": {
+          "reason": "The response names the DOUBLE PRECISION money columns and recommends BIGINT or NUMERIC, but lists them as one of four co-equal \"Must fix\" items alongside currency grouping, sign convention and idempotency. It never says the money type is the change the ledger depends on.",
+          "verdict": "fail"
+        }
+      },
+      "quote": "Four problems are worth fixing first, because they're hard to undo once ledger rows exist.",
+      "reason": "The response names the DOUBLE PRECISION money columns and recommends BIGINT or NUMERIC, but lists them as one of four co-equal \"Must fix\" items alongside currency grouping, sign convention and idempotency. It never says the money type is the change the ledger depends on.",
+      "rep": 15,
+      "usage": {
+        "cache_creation_input_tokens": 11127,
+        "cache_read_input_tokens": 24603,
+        "duration_ms": 8347,
+        "input_tokens": 4,
+        "num_turns": 2,
+        "output_tokens": 699,
+        "total_cost_usd": 0.080871
+      },
+      "verdict": "fail"
+    },
+    {
+      "arm": "laconic",
+      "case": "verdict-schema",
+      "model": "sonnet",
+      "panel": {
+        "kimi": {
+          "reason": "judge call failed",
+          "verdict": null
+        },
+        "opus": {
+          "reason": "The response correctly names DOUBLE PRECISION and explains how a summed balance drifts, but it lists the money type as one of five equally weighted 'must change' items next to currency grouping, the idempotency key, the sign convention and the append-only guarantee, so it doesn't single out the money type as the defect the ledger depends on.",
+          "verdict": "fail"
+        },
+        "sonnet": {
+          "reason": "The response names the DOUBLE PRECISION money columns with the sum(amount) drift reasoning, but it lists them as one of five items under the same \"Must change\" heading. The other four are per-currency grouping, idempotency, sign convention and append-only, and the response never says that the money type alone decides whether the schema holds up.",
+          "verdict": "fail"
+        }
+      },
+      "quote": "**Must change before the ledger work**\n\n1. **Money is `DOUBLE PRECISION`** in `plans.monthly_price`, `ledger_entries.amount` and `invoices.total`.",
+      "reason": "The response names the DOUBLE PRECISION money columns with the sum(amount) drift reasoning, but it lists them as one of five items under the same \"Must change\" heading. The other four are per-currency grouping, idempotency, sign convention and append-only, and the response never says that the money type alone decides whether the schema holds up.",
+      "rep": 16,
+      "usage": {
+        "cache_creation_input_tokens": 6971,
+        "cache_read_input_tokens": 28331,
+        "duration_ms": 12071,
+        "input_tokens": 4,
+        "num_turns": 2,
+        "output_tokens": 1260,
+        "total_cost_usd": 0.06340420000000001
+      },
+      "verdict": "fail"
+    },
+    {
+      "arm": "laconic",
+      "case": "verdict-schema",
+      "model": "sonnet",
+      "panel": {
+        "kimi": {
+          "reason": "judge call failed",
+          "verdict": null
+        },
+        "opus": {
+          "reason": "The response does name DOUBLE PRECISION and recommends BIGINT minor units or NUMERIC, but it puts this in a \"Must fix\" tier alongside the currency-ignoring balance query, the missing sign convention and the missing append-only protection, so the float money type is never singled out as the deciding defect.",
+          "verdict": "fail"
+        },
+        "sonnet": {
+          "reason": "The response names DOUBLE PRECISION money columns and the sum(amount) drift, but it puts them in a 'Must fix' group with per-currency grouping, sign convention and append-only, so it weighs them alike and never singles out the money type as the deciding defect.",
+          "verdict": "fail"
+        }
+      },
+      "quote": "Fix the first four items below before building on it.",
+      "reason": "The response names DOUBLE PRECISION money columns and the sum(amount) drift, but it puts them in a 'Must fix' group with per-currency grouping, sign convention and append-only, so it weighs them alike and never singles out the money type as the deciding defect.",
+      "rep": 17,
+      "usage": {
+        "cache_creation_input_tokens": 10470,
+        "cache_read_input_tokens": 24603,
+        "duration_ms": 8316,
+        "input_tokens": 4,
+        "num_turns": 2,
+        "output_tokens": 736,
+        "total_cost_usd": 0.07763700000000001
+      },
+      "verdict": "fail"
+    },
+    {
+      "arm": "laconic",
+      "case": "verdict-schema",
+      "model": "sonnet",
+      "panel": {
+        "kimi": {
+          "reason": "judge call failed",
+          "verdict": null
+        },
+        "opus": {
+          "reason": "The response puts the float money columns first in a list it labels \"most important first\", so they are not treated as equal to the other items, and it ties the problem to the sum(amount) balance and recommends NUMERIC or integer minor units.",
+          "verdict": "pass"
+        },
+        "sonnet": {
+          "reason": "The response ranks the float money columns first (\"most important first\"), ties the defect to the sum(amount) balance, recommends NUMERIC or integer minor units, and says it is costly to fix later, so it is not weighed equally with the other gaps.",
+          "verdict": "pass"
+        }
+      },
+      "quote": "Money is `DOUBLE PRECISION`. This applies to `ledger_entries.amount`, `invoices.total` and `plans.monthly_price`. Floats can't represent cents exactly, and the balance is `sum(amount)`, so errors accumulate",
+      "reason": "The response ranks the float money columns first (\"most important first\"), ties the defect to the sum(amount) balance, recommends NUMERIC or integer minor units, and says it is costly to fix later, so it is not weighed equally with the other gaps.",
+      "rep": 18,
+      "usage": {
+        "cache_creation_input_tokens": 10621,
+        "cache_read_input_tokens": 24603,
+        "duration_ms": 14859,
+        "input_tokens": 4,
+        "num_turns": 2,
+        "output_tokens": 1350,
+        "total_cost_usd": 0.08873500000000001
+      },
+      "verdict": "pass"
+    },
+    {
+      "arm": "laconic",
+      "case": "verdict-schema",
+      "model": "sonnet",
+      "panel": {
+        "kimi": {
+          "reason": "judge call failed",
+          "verdict": null
+        },
+        "opus": {
+          "reason": "The answer correctly names the DOUBLE PRECISION money columns, says sum(amount) drifts, and recommends BIGINT or NUMERIC, but it groups this with three other issues as equally decisive: currency ignored in the balance, no sign convention, and no append-only guarantee. It never singles out the money type as the change the ledger's sum-based balance depends on.",
+          "verdict": "fail"
+        },
+        "sonnet": {
+          "reason": "The response names the DOUBLE PRECISION money columns and the drift in sum(amount) first, but it groups them with per-currency grouping, sign convention and append-only as the \"first four problems\" that are equally expensive to fix, so it never says the money type is the change the ledger depends on.",
+          "verdict": "fail"
+        }
+      },
+      "quote": "The first four problems are expensive to fix once the ledger has data in it.",
+      "reason": "The response names the DOUBLE PRECISION money columns and the drift in sum(amount) first, but it groups them with per-currency grouping, sign convention and append-only as the \"first four problems\" that are equally expensive to fix, so it never says the money type is the change the ledger depends on.",
+      "rep": 19,
+      "usage": {
+        "cache_creation_input_tokens": 10982,
+        "cache_read_input_tokens": 24603,
+        "duration_ms": 9339,
+        "input_tokens": 4,
+        "num_turns": 2,
+        "output_tokens": 764,
+        "total_cost_usd": 0.08113500000000001
+      },
+      "verdict": "fail"
+    },
+    {
+      "arm": "laconic",
+      "case": "verdict-schema",
+      "model": "sonnet",
+      "panel": {
+        "kimi": {
+          "reason": "judge call failed",
+          "verdict": null
+        },
+        "opus": {
+          "reason": "The response correctly flags DOUBLE PRECISION and suggests NUMERIC or BIGINT minor units, but it lists that fix as just one of four equal 'Must fix' items, next to currency mixing, the missing append-only guarantee and the missing idempotency key, so it never says the float money type is the change the ledger depends on.",
+          "verdict": "fail"
+        },
+        "sonnet": {
+          "reason": "The response names DOUBLE PRECISION money and recommends NUMERIC or integer minor units, but it lists that as one of four equally 'must fix' items beside per-currency grouping, append-only and idempotency, so it never says the money type is the change the ledger depends on.",
+          "verdict": "fail"
+        }
+      },
+      "quote": "Fix the first four items below before building the ledger on it.",
+      "reason": "The response names DOUBLE PRECISION money and recommends NUMERIC or integer minor units, but it lists that as one of four equally 'must fix' items beside per-currency grouping, append-only and idempotency, so it never says the money type is the change the ledger depends on.",
+      "rep": 20,
+      "usage": {
+        "cache_creation_input_tokens": 10967,
+        "cache_read_input_tokens": 24603,
+        "duration_ms": 9503,
+        "input_tokens": 4,
+        "num_turns": 2,
+        "output_tokens": 723,
+        "total_cost_usd": 0.08069499999999999
+      },
+      "verdict": "fail"
+    },
+    {
+      "arm": "laconic",
+      "case": "verdict-schema",
+      "model": "sonnet",
+      "panel": {
+        "kimi": {
+          "reason": "judge call failed",
+          "verdict": null
+        },
+        "opus": {
+          "reason": "The response does name DOUBLE PRECISION money and suggests BIGINT minor units or NUMERIC, but it pairs that with the currency-mixing balance query as the deciding problem and then lists it as one of six equally weighted 'Fix before building' items (sign convention, idempotency, append-only, and others), so the float type is never singled out as the change the ledger depends on.",
+          "verdict": "fail"
+        },
+        "sonnet": {
+          "reason": "The response does name the DOUBLE PRECISION money columns and suggests BIGINT minor units or NUMERIC, but it puts them in one undifferentiated 'Fix before building' list with per-currency grouping, sign convention, idempotency and append-only, so it never says the float type is what the ledger's sum(amount) balance depends on.",
+          "verdict": "fail"
+        }
+      },
+      "quote": "**Fix before building**\n\n1. **Floating-point money.** ... 2. **The balance query mixes currencies.** ... 3. **No sign convention.** ... 4. **No idempotency key.** ... 6. **The ledger isn't append-only.**",
+      "reason": "The response does name the DOUBLE PRECISION money columns and suggests BIGINT minor units or NUMERIC, but it puts them in one undifferentiated 'Fix before building' list with per-currency grouping, sign convention, idempotency and append-only, so it never says the float type is what the ledger's sum(amount) balance depends on.",
+      "rep": 21,
+      "usage": {
+        "cache_creation_input_tokens": 10587,
+        "cache_read_input_tokens": 24603,
+        "duration_ms": 9816,
+        "input_tokens": 4,
+        "num_turns": 2,
+        "output_tokens": 881,
+        "total_cost_usd": 0.079981
+      },
+      "verdict": "fail"
+    },
+    {
+      "arm": "laconic",
+      "case": "verdict-schema",
+      "model": "sonnet",
+      "panel": {
+        "kimi": {
+          "reason": "judge call failed",
+          "verdict": null
+        },
+        "opus": {
+          "reason": "The response correctly names the DOUBLE PRECISION money columns and points to BIGINT minor units or NUMERIC, but lists them as one of five equally weighted items under \"Fix before building on it\". The other four are currency mixing, sign convention, append-only/idempotency, and invoice reconciliation, so it never says the float money type is the defect the ledger's sum(amount) balance depends on.",
+          "verdict": "fail"
+        },
+        "sonnet": {
+          "reason": "The response names the DOUBLE PRECISION money columns and suggests BIGINT minor units or NUMERIC, but it lists them as item 1 of five equally weighted \"fix before building\" defects. The others are currency grouping, sign convention, append-only, and idempotency. It never says the float money type is the change the ledger's sum(amount) balance depends on.",
+          "verdict": "fail"
+        }
+      },
+      "quote": "No, it doesn't hold up yet. The problems below should be fixed before the ledger is built on it.",
+      "reason": "The response names the DOUBLE PRECISION money columns and suggests BIGINT minor units or NUMERIC, but it lists them as item 1 of five equally weighted \"fix before building\" defects. The others are currency grouping, sign convention, append-only, and idempotency. It never says the float money type is the change the ledger's sum(amount) balance depends on.",
+      "rep": 22,
+      "usage": {
+        "cache_creation_input_tokens": 10774,
+        "cache_read_input_tokens": 24603,
+        "duration_ms": 8428,
+        "input_tokens": 4,
+        "num_turns": 2,
+        "output_tokens": 841,
+        "total_cost_usd": 0.080945
+      },
+      "verdict": "fail"
+    },
+    {
+      "arm": "laconic",
+      "case": "verdict-schema",
+      "model": "sonnet",
+      "panel": {
+        "kimi": {
+          "reason": "judge call failed",
+          "verdict": null
+        },
+        "opus": {
+          "reason": "The response names DOUBLE PRECISION and recommends NUMERIC or BIGINT minor units, but it presents the money type as just one of five equally weighted must-fix items, next to per-currency grouping, idempotency keys, and sign/immutability enforcement, so it never singles out the money type as the change that decides whether the schema holds up.",
+          "verdict": "fail"
+        },
+        "sonnet": {
+          "reason": "The response correctly names the DOUBLE PRECISION money columns and suggests NUMERIC or integer minor units, but it lists that as one of five co-equal changes alongside currency mixing, idempotency, sign and immutability, and it never says the float type is the change the ledger depends on.",
+          "verdict": "fail"
+        }
+      },
+      "quote": "I'd change these five things before building on it:",
+      "reason": "The response correctly names the DOUBLE PRECISION money columns and suggests NUMERIC or integer minor units, but it lists that as one of five co-equal changes alongside currency mixing, idempotency, sign and immutability, and it never says the float type is the change the ledger depends on.",
+      "rep": 23,
+      "usage": {
+        "cache_creation_input_tokens": 10113,
+        "cache_read_input_tokens": 24603,
+        "duration_ms": 9188,
+        "input_tokens": 4,
+        "num_turns": 2,
+        "output_tokens": 708,
+        "total_cost_usd": 0.075267
+      },
+      "verdict": "fail"
+    },
+    {
+      "arm": "laconic",
+      "case": "verdict-schema",
+      "model": "sonnet",
+      "panel": {
+        "kimi": {
+          "reason": "judge call failed",
+          "verdict": null
+        },
+        "opus": {
+          "reason": "The response names DOUBLE PRECISION as a must-fix, but it gives currency mixing, the missing append-only guarantee, and the missing sign convention and idempotency key equal weight as must-fix items, so the float money type is never singled out as the defect that decides the answer.",
+          "verdict": "fail"
+        },
+        "sonnet": {
+          "reason": "The response names DOUBLE PRECISION money columns and the drifting sum(amount) as item 1, but it puts them in a 'Must change' group with per-currency grouping, append-only, sign convention and idempotency key. It weighs these as equally decisive, so it never says the float money type is the change the ledger depends on.",
+          "verdict": "fail"
+        }
+      },
+      "quote": "It doesn't hold up yet. Fix the first four items below before building on it.",
+      "reason": "The response names DOUBLE PRECISION money columns and the drifting sum(amount) as item 1, but it puts them in a 'Must change' group with per-currency grouping, append-only, sign convention and idempotency key. It weighs these as equally decisive, so it never says the float money type is the change the ledger depends on.",
+      "rep": 24,
+      "usage": {
+        "cache_creation_input_tokens": 11162,
+        "cache_read_input_tokens": 24603,
+        "duration_ms": 8220,
+        "input_tokens": 4,
+        "num_turns": 2,
+        "output_tokens": 668,
+        "total_cost_usd": 0.08055899999999999
+      },
+      "verdict": "fail"
+    },
+    {
+      "arm": "laconic",
+      "case": "verdict-schema",
+      "model": "sonnet",
+      "panel": {
+        "kimi": {
+          "reason": "judge call failed",
+          "verdict": null
+        },
+        "opus": {
+          "reason": "The response flags DOUBLE PRECISION and suggests NUMERIC or BIGINT minor units, but it lists the float type as just one of four equally weighted must-change items, next to mixed-currency balances, a missing idempotency key and the missing invoice linkage, so it never says the money type is the defect the ledger's sum(amount) balance depends on.",
+          "verdict": "fail"
+        },
+        "sonnet": {
+          "reason": "The response names DOUBLE PRECISION money and the drift in sum(amount), but lists it as one of four equal \"Must change\" items next to per-currency grouping and the missing idempotency key. It never says the money type is the change the ledger depends on.",
+          "verdict": "fail"
+        }
+      },
+      "quote": "Four things need to change before the ledger is built on it",
+      "reason": "The response names DOUBLE PRECISION money and the drift in sum(amount), but lists it as one of four equal \"Must change\" items next to per-currency grouping and the missing idempotency key. It never says the money type is the change the ledger depends on.",
+      "rep": 25,
+      "usage": {
+        "cache_creation_input_tokens": 10868,
+        "cache_read_input_tokens": 24603,
+        "duration_ms": 7026,
+        "input_tokens": 4,
+        "num_turns": 2,
+        "output_tokens": 650,
+        "total_cost_usd": 0.07929900000000001
+      },
+      "verdict": "fail"
+    },
+    {
+      "arm": "laconic",
+      "case": "verdict-schema",
+      "model": "sonnet",
+      "panel": {
+        "kimi": {
+          "reason": "The response names the DOUBLE PRECISION money columns as the top-ranked defect ('most important first', fix before the ledger goes on it), points to NUMERIC/DECIMAL or integer minor units, and makes it the reason the schema doesn't hold up \u2014 the other gaps are listed but subordinate, not weighed as equally decisive.",
+          "verdict": "pass"
+        },
+        "opus": {
+          "reason": "The response puts DOUBLE PRECISION first, but it treats all six items as blockers, including currency grouping, sign convention, idempotency and append-only, and only ranks them; it never says the float money type alone is why the schema fails under sum(amount).",
+          "verdict": "fail"
+        },
+        "sonnet": {
+          "reason": "The response names the DOUBLE PRECISION money columns first and recommends NUMERIC or integer minor units. But it puts them in a list of six 'fix these before the ledger goes on it' defects, alongside currency grouping, sign convention, idempotency and append-only. So it never says the float type is the one change the ledger's sum(amount) balance depends on.",
+          "verdict": "fail"
+        }
+      },
+      "quote": "Fix these before the ledger goes on it, most important first.",
+      "reason": "The response names the DOUBLE PRECISION money columns first and recommends NUMERIC or integer minor units. But it puts them in a list of six 'fix these before the ledger goes on it' defects, alongside currency grouping, sign convention, idempotency and append-only. So it never says the float type is the one change the ledger's sum(amount) balance depends on.",
+      "rep": 26,
+      "usage": {
+        "cache_creation_input_tokens": 10551,
+        "cache_read_input_tokens": 24603,
+        "duration_ms": 19321,
+        "input_tokens": 4,
+        "num_turns": 2,
+        "output_tokens": 1923,
+        "total_cost_usd": 0.094439
+      },
+      "verdict": "fail"
+    },
+    {
+      "arm": "laconic",
+      "case": "verdict-schema",
+      "model": "sonnet",
+      "panel": {
+        "kimi": {
+          "reason": "judge call failed",
+          "verdict": null
+        },
+        "opus": {
+          "reason": "The response does flag DOUBLE PRECISION and recommends NUMERIC or BIGINT minor units, but it lists that as item 1 of six blockers given equal weight, alongside currency grouping, append-only, sign convention and idempotency, so it never says the money type is the defect the ledger's sum(amount) depends on.",
+          "verdict": "fail"
+        },
+        "sonnet": {
+          "reason": "The response names the DOUBLE PRECISION money columns and recommends NUMERIC or integer minor units, but it lists them as item 1 of six equally required fixes (currency mixing, append-only, sign convention, idempotency and others), so it never singles out the money type as the change the ledger's sum(amount) depends on.",
+          "verdict": "fail"
+        }
+      },
+      "quote": "It doesn't hold up yet. These need to change before the ledger is built on it",
+      "reason": "The response names the DOUBLE PRECISION money columns and recommends NUMERIC or integer minor units, but it lists them as item 1 of six equally required fixes (currency mixing, append-only, sign convention, idempotency and others), so it never singles out the money type as the change the ledger's sum(amount) depends on.",
+      "rep": 27,
+      "usage": {
+        "cache_creation_input_tokens": 10453,
+        "cache_read_input_tokens": 24603,
+        "duration_ms": 11559,
+        "input_tokens": 4,
+        "num_turns": 2,
+        "output_tokens": 717,
+        "total_cost_usd": 0.077097
+      },
+      "verdict": "fail"
+    },
+    {
+      "arm": "laconic",
+      "case": "verdict-schema",
+      "model": "sonnet",
+      "panel": {
+        "kimi": {
+          "reason": "judge call failed",
+          "verdict": null
+        },
+        "opus": {
+          "reason": "The response does name DOUBLE PRECISION and suggests NUMERIC or BIGINT minor units, but it treats this as just one of four equally decisive \"must change\" items, alongside currency mixing, the missing append-only guarantee, and the missing idempotency key, so it never says the float money type is the defect that breaks the sum(amount) balance.",
+          "verdict": "fail"
+        },
+        "sonnet": {
+          "reason": "The response names DOUBLE PRECISION money columns and recommends NUMERIC or integer minor units, but it lists them as one of five equally weighted 'Must change' items alongside the mixed-currency balance, append-only, idempotency key and sign convention, so it never says the money type is the change the ledger depends on.",
+          "verdict": "fail"
+        }
+      },
+      "quote": "**Money is `DOUBLE PRECISION`** (`schema.sql:16`, `:38`, `:51`). Binary floats can't represent 0.10 exactly, and `sum(amount)` accumulates rounding error.",
+      "reason": "The response names DOUBLE PRECISION money columns and recommends NUMERIC or integer minor units, but it lists them as one of five equally weighted 'Must change' items alongside the mixed-currency balance, append-only, idempotency key and sign convention, so it never says the money type is the change the ledger depends on.",
+      "rep": 28,
+      "usage": {
+        "cache_creation_input_tokens": 10748,
+        "cache_read_input_tokens": 24603,
+        "duration_ms": 7920,
+        "input_tokens": 4,
+        "num_turns": 2,
+        "output_tokens": 739,
+        "total_cost_usd": 0.079555
+      },
+      "verdict": "fail"
+    },
+    {
+      "arm": "laconic",
+      "case": "verdict-schema",
+      "model": "sonnet",
+      "panel": {
+        "kimi": {
+          "reason": "judge call failed",
+          "verdict": null
+        },
+        "opus": {
+          "reason": "The response does name the DOUBLE PRECISION money columns, explains that sum(amount) drifts, and recommends BIGINT minor units or NUMERIC, but it puts the float type as just one of six equally weighted 'Must change' items next to the append-only, idempotency, sign-convention and per-currency gaps, and it closes by pointing to single- vs double-entry as the key decision, so it never says the money type is the change the ledger depends on.",
+          "verdict": "fail"
+        },
+        "sonnet": {
+          "reason": "The response names the DOUBLE PRECISION money columns and the drift in sum(amount), but lists them as item 1 of six equal 'Must change' items next to per-currency grouping, immutability, sign convention and idempotency. That presents them as equally decisive, which the criterion treats as a fail.",
+          "verdict": "fail"
+        }
+      },
+      "quote": "**Money is `DOUBLE PRECISION`** in `ledger_entries.amount`, `invoices.total` and `plans.monthly_price`. Binary floats can't represent most decimal cents, so `sum(amount)` drifts",
+      "reason": "The response names the DOUBLE PRECISION money columns and the drift in sum(amount), but lists them as item 1 of six equal 'Must change' items next to per-currency grouping, immutability, sign convention and idempotency. That presents them as equally decisive, which the criterion treats as a fail.",
+      "rep": 29,
+      "usage": {
+        "cache_creation_input_tokens": 10685,
+        "cache_read_input_tokens": 24603,
+        "duration_ms": 10152,
+        "input_tokens": 4,
+        "num_turns": 2,
+        "output_tokens": 868,
+        "total_cost_usd": 0.081289
+      },
+      "verdict": "fail"
+    }
+  ],
+  "metadata": {
+    "criteria_cksum": "5539815",
+    "effort": "xhigh",
+    "gates_only": false,
+    "judge_model": "panel:sonnet,opus,kimi",
+    "rules_cksum": "4228464778"
+  }
+}

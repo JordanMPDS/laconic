@@ -369,3 +369,10 @@ edit in stage 2. Opus's reasons fail answers that reopen points
 `EXPERIMENT.md` has already settled. That is a disagreement between judges
 about the criterion, present at master rules, rather than anything the edit
 did, so the holdout was generated while the splits wait.
+
+### Holdout
+
+All six reserved cases, sonnet and opus, 5 reps from both trees: 60 runs a
+side, 0 failed, CLI 2.1.302, `release.py` clean. **Every verdict passed on
+both sides, 60 of 60 against 60 of 60, with none undecided.** No reserved
+case is worse under the edit. Directions only, as step 9 requires.

@@ -281,6 +281,7 @@ issue it was written for.
 | `score_carry.py` | Round 107: whether an answer carries an earlier turn's topic it was not asked ([#384]). |
 | `score_open.py` | Round 108: whether an answer carries an open question inside the option it named ([#384]). |
 | `score_affirm.py` | Round 110: whether a closed confirmation's turn calls a tool nobody asked for ([#116]). |
+| `score_findings.py` | Round 111: whether a list of findings names the one that decides `verdict-schema`. |
 | `score_volunteered.py` | [#116]'s counters on `conditional`: did the answer do the work, and say what was wrong. |
 | `score_closing_edit.py` | Whether laconic's closing-offer rate survives a session that edits. |
 | `score_offer_fix.py` | Rounds 76 and 79: naming the offer in the pre-action check ([#113]). |

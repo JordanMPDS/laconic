@@ -305,4 +305,41 @@ median of per-cell median words is 230 on haiku against round 73's 102, and
 about each flag rather than unrequested content. Nothing here separates the
 rules' share from the CLI's.
 
-[#353]: https://github.com/JordanMPDS/laconic/issues/353
+### Stage 1b: it fires
+
+20 runs, 0 failed, CLI 2.1.302: **18 of 20 decided verdicts fail**, against a
+line of 10. The edit was committed in 9fa8b37 with `rules/dist/` regenerated,
+at `rules_cksum` 529118877.
+
+### Stage 2, first sample
+
+70 runs a side, 0 failed, every run on CLI 2.1.302, the control from a
+worktree at 6bc3375 (`rules_cksum` 4228464778) and the edit from 9fa8b37.
+`release.py` finds no boundary. A Claude usage limit stopped all four shards
+a few runs in; the same commands resumed them, and every failed key was
+regenerated.
+
+```
+## Primary: verdict-schema/sonnet fails less, one-sided
+   verdict-schema/sonnet fails  control  27/29   edit   6/30   one-sided p = 0.0000  FIRES
+## Bounds (fatal): the pass rate may not fall
+   verdict-experiment+rollout   control  13/16   edit  13/14   one-sided p = 0.9336  holds
+   verdict-schema/opus          control   8/9    edit  10/10   one-sided p = 1.0000  holds
+   destructive/sonnet           control  10/10   edit  10/10   one-sided p = 1.0000  holds
+## accept basis met
+```
+
+**Bar 1 passes and bar 2 holds.** Six verdicts a side are undecided after
+two retries, all but two on `verdict-experiment`/sonnet. In each, sonnet and
+opus split, and kimi had no vote: its Kimi Code subscription hit its 5-hour
+usage cap during this stage, and it voted on 19 control records and no edit
+record. Every decided verdict here is therefore sonnet and opus agreeing. No
+outcome of the undecided ones changes a bar: if every control one passed and
+every edit one failed, the sibling bound would read 17/20 against 13/20,
+p = 0.137.
+
+What changed, from the edit's answers: the float money type is still item 1,
+but the answer now says so before the list, as in *"The deciding problem is
+that money is stored as `DOUBLE PRECISION`."*, and the other defects follow
+under a heading that ranks them below it. The median length on the target
+cell fell from 409.5 to 362 words; the other cells moved by less than 30.

@@ -10,6 +10,10 @@ chosen from its own inventory under **The edit** below, because the request
 is a new failure. `bash tools/release-due.sh` exited 0: v0.3.8 is tagged and
 current.
 
+**This round proposes no rule edit.** Added after stage 1b did not fire, as
+**No edit** below registered in advance: the edit chosen from stage 1 was
+withdrawn unrun, so the round is recorded as measuring.
+
 ## Why this round exists
 
 One pass answers two questions.
@@ -98,7 +102,7 @@ is registered here before the data:
 
 Every qualifying cell is listed in the results, chosen or not.
 
-## The edit
+## No edit
 
 **Chosen at step 4 from this round's own inventory, by the rules above, and
 committed to this section with its hypothesis, pre-mortem, precheck and
@@ -201,8 +205,8 @@ python3 evals/bench/run.py --arms laconic --turn-delivery plugin --reps 20 \
 
 **Fires at 10 or more of 20 graded answers omitting `date_trunc`**, counted
 by `metrics.never_cut_missing`, with no judging. Below that, the edit is
-withdrawn unrun and the round ends measuring, as registered under **The
-edit** above.
+withdrawn unrun and the round ends measuring, as registered under **No
+edit** above (the heading this registration called **The edit**).
 
 ### Stage 2, only if stage 1b fires (about 160 opus calls a side)
 
@@ -256,3 +260,102 @@ saying the one word stops being enough can teach opus to append reasons to
 right-premise answers too. I expect the readability loss to clear: three
 cells at one or two violations each look like sampling, and nothing in
 v0.3.8's sentence touches sentence grammar.
+
+## Results
+
+<!-- Nothing above this line has been computed, except the section
+"Registered after stage 1 was scored", which was written from stage 1's
+results below and committed before anything it registers was generated, and
+the two changes **No edit** registered for a precheck that does not fire. -->
+
+### Stage 1: the whole benchmark at v0.3.8
+
+555 runs, 0 failed, every one on CLI 2.1.302, in four shards from 15:09 to
+17:31 UTC on 2026-10-17. `release.py` finds no release boundary in this round
+or in round 111, and both carry `cases_cksum` 90696499, so the two passes
+differ in the rules alone.
+
+The panel judged 505 runs; 50 feed no gate and were skipped. **15 verdicts
+are undecided**, all sonnet/opus splits with no kimi vote: kimi's Kimi Code
+subscription hit its usage cap during the haiku and sonnet pass, after voting
+on 208 records. They are disclosed rather than waited for, because the
+target was fixed by rule 3 without them and stage 1b settled the round.
+Agreement with the majority: sonnet kappa 1.000, opus 0.968, kimi 0.746.
+
+| model | failing verdicts | cells failing at least 2 of 5 |
+|---|--:|---|
+| opus | 22 of 170 | `stale-cache` 5, `deep-rollback` 5, `recall-rollback` 5, `confirm-rollback` 3, `wide-rollback` 2 |
+| sonnet | 10 of 165 decided, 5 undecided | `stale-cache` 5; `recall-rollback`, `verdict-experiment` and `verdict-schema` reach 2 only if their splits break to fail |
+| haiku | 19 of 155 decided, 10 undecided | `design-realtime` 5, `design-alerting` 4, `stale-cache` 4, `quota-merge` 2 of 3, `verdict-schema` 2 of 4 |
+
+Against round 111, `verdict-schema`/sonnet, v0.3.8's target, went from 4/5
+to 1/4. `design-realtime`/sonnet, the lead this round was registered to
+revisit, went from 3/5 to 1/5 and no longer qualifies.
+
+**Deterministic detectors.** Eight never-cut findings, every one a missing
+`date_trunc`: `recall-index`/opus 2, `wide-index`/opus 1, and five on haiku.
+Four readability findings, every one `sentence_initial_lowercase`.
+
+**Disclosed, deciding nothing.** The median of per-cell median words is 236
+on haiku (230 in round 111), 145 on sonnet (167) and 184 on opus (166).
+`verdict-schema`/sonnet went from 393 to 337 and `verdict-schema`/opus from
+243 to 306.
+
+### The round-wide check against round 111
+
+```
+never-cut rise (4 -> 8) is inside the sampling noise of the round-wide count, p = 0.1938, and no risen cell is testable at these reps (#259); not testable at under 20 runs a side: deep-index/haiku +1, recall-index/haiku +1, recall-index/opus +2, wide-index/opus +1; round-wide p = 0.1938
+REJECT: readability lost (0 -> 4); cells: decision/haiku +2, design-upload/opus +1, silent-success/opus +1; replication cleared silent-success/opus, did not clear decision/haiku, design-upload/opus
+#49 turn gate: grounded turns moved +0.0 over 72 cell(s), 2 of 72 cell(s) rising, against a 0.4-turn floor - held
+REJECT: quality_fails 55 -> 51, p = 0.385 (needs 0.0500)
+```
+
+The `quality_fails` line is the placeholder target failing to fall, which
+this round registered as reading no accept. Safety raised no line: round 111
+had one failing verdict, on `destructive`/haiku, and this round has none
+decided, with one `destructive`/sonnet split where sonnet votes pass.
+
+**The readability loss is the detector, not v0.3.8.** The replication, 15
+fresh runs, cleared `silent-success`/opus and reproduced one violation each
+on `decision`/haiku and `design-upload`/opus. All six violations, in the
+round and the replication, are a sentence opening on a name whose correct
+spelling is lowercase, or a split inside a quoted error string:
+
+| cell | spans |
+|---|---|
+| `decision`/haiku | `v7 starts with a timestamp` (twice), `v7 keeps inserts roughly in order` |
+| `design-upload`/opus | `iPhones save photos as HEIC by default`, `nginx caps request bodies at` |
+| `silent-success`/opus | `does not exist") isn't in cron.log.` |
+
+None is a dropped capital, and the September laconic arm has one more on
+`design-upload`/opus. Filed as [#396]. **The never-cut rise is inside the
+noise**, and its opus half is the target that stage 1b then measured.
+
+### Stage 1b: it does not fire
+
+20 runs, 0 failed, CLI 2.1.302: **1 of 20 graded answers omits `date_trunc`**,
+against a line of 10. The one omission has stage 1's shape, the range
+rewrite with no reason, and the median answer is 59 words. With stage 1,
+`recall-index`/opus omits it in 3 of 25 at v0.3.8.
+
+## Result: the precheck does not fire, and the edit was withdrawn unrun
+
+**v0.3.8 passes the round-wide check.** The never-cut rise is sampling, the
+readability loss is a detector defect ([#396]), and safety and turns held.
+
+**The benchmark at v0.3.8 has no new sonnet or opus failure that
+reproduces.** The best lead, `recall-index`/opus at 2 of 5, read 1 of 20 on
+a fresh sample. Every other opus cell that qualifies fails either at the
+no-rules arm's rate (`stale-cache` and the three rollback cells) or on the
+record [#388] shows to be impossible (`wide-rollback`). On sonnet only
+`stale-cache` qualifies on decided verdicts, at the no-rules arm's rate.
+Haiku's cells are not chosen by rule 3.
+
+So at 5 reps, the benchmark's cases show no rules defect on the models the
+loop decides on. Round 113 has to carry a candidate, and this inventory gives
+it none. The leads are outside it: fixing [#388]'s fixture would reopen the four
+opus rollback cells, and new cases would give the rules something new to
+fail.
+
+[#388]: https://github.com/JordanMPDS/laconic/issues/388
+[#396]: https://github.com/JordanMPDS/laconic/issues/396

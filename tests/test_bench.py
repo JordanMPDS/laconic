@@ -5634,6 +5634,9 @@ _expected_concurrent = {
     # Round 113's stage 1: four simultaneous shards declaring --concurrency 4,
     # by model and rep, each holding both arms, merged into one.
     "round-113.json",
+    # Round 114's precheck: three simultaneous shards declaring --concurrency 3,
+    # one per stem, merged into one.
+    "round-114-precheck.json",
 }
 _found = set()
 for _p in sorted((ROOT / "evals" / "snapshots").rglob("*.json")):

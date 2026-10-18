@@ -15,6 +15,16 @@ content is already in the transcript, and nothing else.
 
     python3 evals/pilot/score_reexplain.py <control.json> <edit.json> [seed]
     python3 evals/pilot/score_reexplain.py --told fullexplain <control.json> <edit.json> [seed]
+    python3 evals/pilot/score_reexplain.py --precheck <master.json>
+    python3 evals/pilot/score_reexplain.py --selftest
+
+`--precheck` is round 115's stage 1, over the `trial` stem: `built-trial`,
+whose three earlier turns are the model's own plan, code and results, against
+`explain-trial`, the same question cold. Per arm it prints both medians, their
+ratio, and the share of the told answer's word trigrams already present in its
+own earlier turns. It fires when the told median exceeds the cold one on any
+arm, the bar [#298] was parked behind. `--told built` scores that stem's
+stage 2.
 
 `--told` names the already-told family. Round 100 reads `fullexplain-*`, whose
 three middle turns were written at length on request, in place of
@@ -37,6 +47,7 @@ out of the count on both families. [#298] is about prose.
 import json
 import math
 import random
+import re
 import sys
 from collections import defaultdict
 from pathlib import Path
@@ -49,10 +60,58 @@ STEMS = ("index", "metric", "rollback")
 TOLD = "reexplain"
 FAMILIES = ("explain", TOLD)
 SEED = 68
+PRECHECK_TOLD, PRECHECK_STEM = "built", "trial"
 
 #: Two-sided permutation on two independent samples. Shared with the other
 #: pilots rather than copied, so the test cannot drift between them.
 permutation = metrics.permutation
+
+
+def trigrams(text):
+    toks = re.findall(r"[a-z0-9_]+", (text or "").lower())
+    return {tuple(toks[i:i + 3]) for i in range(len(toks) - 2)}
+
+
+def restated(run):
+    """Share of the graded answer's word trigrams already in its earlier turns."""
+    answer = trigrams(run.get("text"))
+    earlier = set().union(*(trigrams(t.get("text")) for t in (run.get("turns") or [])[:-1]))
+    return len(answer & earlier) / len(answer) if answer else 0.0
+
+
+def precheck(path):
+    runs = bench_run.usable(json.loads(Path(path).read_text())["runs"])
+    told, cold = PRECHECK_TOLD + "-" + PRECHECK_STEM, "explain-" + PRECHECK_STEM
+    print("## Stage 1: is the told answer longer than the cold one?")
+    fires = False
+    for arm in sorted({r["arm"] for r in runs}):
+        t = [r for r in runs if r["arm"] == arm and r["case"] == told]
+        c = [r for r in runs if r["arm"] == arm and r["case"] == cold]
+        tw = [metrics.score(r.get("text", ""))["words"] for r in t]
+        cw = [metrics.score(r.get("text", ""))["words"] for r in c]
+        if not tw or not cw:
+            print("   %-17s told n=%d  cold n=%d  (a side is empty)" % (arm, len(tw), len(cw)))
+            continue
+        ratio = metrics.median(tw) / metrics.median(cw) if metrics.median(cw) else float("inf")
+        fires |= ratio > 1
+        print("   %-17s told n=%2d median %6.1f   cold n=%2d median %6.1f   ratio %.3f"
+              "   told restated %.2f (median)"
+              % (arm, len(tw), metrics.median(tw), len(cw), metrics.median(cw), ratio,
+                 metrics.median([restated(r) for r in t])))
+    print("   %s" % ("fires, stage 2 is bought" if fires else "does not fire"))
+    return fires
+
+
+def selftest():
+    run = {"text": "conv_in_trial counts a charge inside the trial.",
+           "turns": [{"text": "I'd say conv_in_trial counts a charge inside the trial window."},
+                     {"text": "ignored, this is the graded turn"}]}
+    assert restated(run) == 1.0, restated(run)
+    half = {"text": "x y z w", "turns": [{"text": "x y z"}, {"text": "graded"}]}
+    assert restated(half) == 0.5, restated(half)
+    assert restated({"text": "a b c", "turns": [{"text": "x"}]}) == 0.0
+    assert restated({"text": "", "turns": []}) == 0.0
+    print("selftest ok")
 
 
 def cells():
@@ -174,10 +233,16 @@ def load(path, side, graded, cell, kept, counts, raw):
 
 
 def main():
-    global TOLD, FAMILIES
+    global TOLD, FAMILIES, STEMS
+    if sys.argv[1:2] == ["--selftest"]:
+        return selftest()
+    if sys.argv[1:2] == ["--precheck"] and len(sys.argv) == 3:
+        sys.exit(0 if precheck(sys.argv[2]) else 1)
     if sys.argv[1:2] == ["--told"]:
         TOLD = sys.argv[2]
         FAMILIES = ("explain", TOLD)
+        if TOLD == PRECHECK_TOLD:
+            STEMS = (PRECHECK_STEM,)
         del sys.argv[1:3]
     if len(sys.argv) < 3:
         sys.exit(__doc__)

@@ -160,7 +160,7 @@ and drop the reason: why the proposed index cannot serve the query. The
 panel passed both, so the cell qualifies on the detector alone.
 `wide-index`/opus rep 3 is the same answer, and the panel failed it.
 
-**Disclosed and not chosen.** `wide-index`/opus reads 2/5 on the panel
+**Disclosed and not chosen.** `wide-rollback`/opus reads 2/5 on the panel
 against the no-rules arm's 0/5, so it passes rules 2 to 5. Both failures
 dispute the record #388 shows to be impossible, so the defect is the
 fixture's, and this departs from rule 3 in the open. The other opus cells

@@ -15,6 +15,10 @@ renamed `## No edit`, and the line **This round proposes no rule edit.** is
 added to this preamble, so round 116 owes a candidate. Both changes are
 registered here.
 
+**This round proposes no rule edit.** Added after stage 1 did not fire, as
+**No edit** below registered in advance: the edit was withdrawn unrun, so the
+round is recorded as measuring and round 116 owes a candidate.
+
 **This is the last lead I set for this run.** The other open `rules` issues
 either moved with the CLI (#353, #264) or read null on five instruments
 (#46, #113), and #116 now reads null on four. If this precheck does not
@@ -111,7 +115,7 @@ python3 evals/bench/release.py $OUT/round-115-precheck.json
 the bar the issue was parked behind. Stage 2 then runs on the arm that
 fired, or on `laconic` if both did.
 
-## The edit
+## No edit
 
 #298's first proposal, on the never-cut bullet that covers it:
 
@@ -157,6 +161,65 @@ back can point back to the definitions themselves and leave them unstated.
 
 ## Results
 
-<!-- Nothing above this line has been computed. -->
+<!-- Nothing above this line has been computed, except the two changes the
+preamble registered for an edit withdrawn unrun: the line added to the
+preamble, and the heading renamed **No edit**. -->
+
+### Stage 1: the told answer is shorter than the cold one on both arms
+
+40 runs, 0 failed, every one on CLI 2.1.302, in three shards from 17:00 to
+17:21 UTC on 2026-10-18. `release.py` finds no release boundary.
+
+```
+## Stage 1: is the told answer longer than the cold one?
+   laconic           told n=10 median   86.0   cold n=10 median  140.5   ratio 0.612   told restated 0.18 (median)
+   laconic-ponytail  told n=10 median   89.5   cold n=10 median  136.0   ratio 0.658   told restated 0.23 (median)
+   does not fire
+```
+
+| arm | told prose words, sorted | cold prose words, sorted |
+|---|---|---|
+| `laconic` | 74 75 79 81 84 88 88 91 101 104 | 129 129 135 138 140 141 143 147 152 179 |
+| `laconic-ponytail` | 70 72 74 79 85 94 100 102 105 124 | 123 124 125 126 134 138 150 150 152 164 |
+
+**The two distributions barely overlap.** On `laconic` every told answer is
+shorter than every cold one, 104 words at most against 129 at least. On
+`laconic-ponytail` all but one are: the longest told answer, 124 words, is
+one word over the shortest cold one. `restated` runs from 0.06 to 0.35.
+
+The told answers have the shape the report names as right: the two
+definitions and a clause of why each one errs. The report's own minimal
+answer was 66 words; these run 70 to 124. The median `laconic` one, whole:
+
+> Both are the share of a channel's trials that end up paying. They differ
+> only in the deadline for the first charge:
+>
+> - **`conv_in_trial`** counts trials charged on or before `trial_end` + 1
+>   day. The extra day is needed because billing runs at 02:00 UTC, so an
+>   upgrade on the trial's last day is charged the next morning. It measures
+>   upgrades made during the trial.
+> - **`conv_30d`** counts trials charged within 30 days of `trial_start`,
+>   which is 17 days past the end of the trial. It also includes post-trial
+>   conversions, all of which came after the lifecycle emails started.
+
+The told/cold ratio, 0.61 to 0.66, is above every earlier opus reading on
+`fullexplain-*` and its siblings (0.377 to 0.500). That instrument's fixture
+and question differ, so the comparison says only that the model's own work
+does not shrink the told answer as much. It says nothing about its making the
+answer long.
+
+## Result: the precheck does not fire, and the edit was withdrawn unrun
+
+**Neither condition this round added reproduces #298.** Asked to define two
+measures it had planned, built and reported itself, opus answers in about
+two-thirds of the cold answer's words, with ponytail and without, against a
+bar of more than the cold answer.
+
+With rounds 68, 69, 89, 100 and 104, every #298 instrument reads under its
+bar on the current models. Round 116 owes a candidate, and as registered,
+this run builds no further case. #116 and #298 have each now been tried on a
+case built for the condition their reports had and earlier cases lacked.
+#353 and #264 moved with the CLI, and #46 and #113 read null on every
+instrument built for them.
 
 [#298]: https://github.com/JordanMPDS/laconic/issues/298

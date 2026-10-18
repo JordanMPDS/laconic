@@ -28,7 +28,7 @@ twelve minutes.
 
 ## 2. Impact
 
-45 minutes of degraded checkout, peaking at 61% error rate.
+45 minutes of degraded checkout, peaking at 100% error rate.
 
 | Measure | Value |
 | --- | --- |
@@ -46,30 +46,31 @@ inconsistent state; the failures were clean rejections before the charge call.
 
 | Time (UTC) | Event |
 | --- | --- |
-| 13:58 | Release `v412` starts rolling out. Four instances, one at a time. |
-| 14:02 | First 500s on `POST /checkout`. Error rate 0% to 34% in ninety seconds. |
-| 14:05 | Migration `0042_add_settlement_currency` runs, triggered by the `v412` release job as designed. |
-| 14:09 | Paged. Error rate 61% — three of four instances now on `v412`. |
+| 14:02 | Release `v412` starts by publishing its config bundle, while all four instances still run `v411`. 500s on `POST /checkout` begin at once. Error rate 100%. |
+| 14:05 | Migration `0042_add_settlement_currency` runs, the `v412` release job's second step, as designed. |
+| 14:06 | The release job starts replacing instances with `v412`, one at a time. |
+| 14:09 | Paged. Two of four instances now on `v412`; error rate down to 50%. On-call pauses the release. |
 | 14:14 | On-call identifies the config value `PAYMENTS_SETTLEMENT_MODE` changed from `legacy` to `split` in the `v412` config bundle. |
-| 14:21 | Config reverted to `legacy` in the running instances. **Error rate does not recover.** Holds at 58%. |
+| 14:21 | Config reverted to `legacy` in the running instances. **Error rate does not recover.** Holds at 50%. |
 | 14:26 | Second responder joins. Log search narrows the post-14:21 failures to a different exception than the pre-14:21 ones. |
-| 14:33 | Attempt to roll back the release to `v411`. Instances that come up on `v411` also 500. |
+| 14:33 | Attempt to roll back the release to `v411`. Instances that come up on `v411` also 500. Error rate back to 100%. |
 | 14:37 | Migration log checked; `0042` identified as having run at 14:05. |
-| 14:41 | Root cause understood. Forward fix written. |
-| 14:47 | Forward fix `v413` deployed. Error rate to 0% within two minutes. |
-| 15:10 | Backfill completes; `NOT NULL` re-applied. |
+| 14:41 | Root cause understood. Release resumed forward to `v412`, config left at `legacy`. |
+| 14:47 | All four instances on `v412`. Error rate 0%. |
 
 ## 4. What broke
 
 `v412` changed `PAYMENTS_SETTLEMENT_MODE` from `legacy` to `split`. Under
-`split`, `chargeOrder()` writes two ledger rows per order instead of one and
-requires each to carry a settlement currency. The handler was shipped correct
-for `split`.
+`split`, `chargeOrder()` writes two ledger rows per order instead of one. In
+either mode, `v412` writes `settlement_currency` on every ledger row. The
+handler was shipped correct for `split`.
 
-The 500s at 14:02 are the config change: three instances were still running
+The 500s at 14:02 are the config change: all four instances were still running
 `v411` code, which does not know the `split` value, and its
 `assertSettlementMode()` throws on any value it does not recognise. That is the
-trigger, and it is what on-call correctly identified at 14:14.
+trigger, and it is what on-call correctly identified at 14:14. Each instance
+the release replaced with `v412` stopped failing, which is why the error rate
+had fallen to 50% by 14:09.
 
 The relevant lines, from `src/payments/charge.js` at `v411`:
 
@@ -89,11 +90,13 @@ configuration scoping.
 ## 5. Why reverting the config did not fix it
 
 Migration `0042` ran at 14:05, three minutes after the errors started and
-sixteen minutes before the config was reverted. It adds:
+sixteen minutes before the config was reverted. In one transaction it adds the
+column, fills it on the rows already in the table, and then requires it:
 
 ```sql
-ALTER TABLE ledger_entries
-  ADD COLUMN settlement_currency char(3) NOT NULL;
+ALTER TABLE ledger_entries ADD COLUMN settlement_currency char(3);
+UPDATE ledger_entries SET settlement_currency = 'USD';
+ALTER TABLE ledger_entries ALTER COLUMN settlement_currency SET NOT NULL;
 ```
 
 No default, and `NOT NULL`. Every insert into `ledger_entries` from that moment
@@ -101,8 +104,9 @@ must supply the column.
 
 `v411`'s `chargeOrder()` does not write `settlement_currency` — the column did
 not exist when it was built. So from 14:05 onward, reverting to `legacy` mode
-put the old insert path back in service against a schema that rejects it, and
-every checkout failed on a not-null violation instead of on the mode assertion.
+put the old insert path back in service on the two `v411` instances, against a
+schema that rejects it, and their checkouts failed on a not-null violation
+instead of on the mode assertion.
 The error changed; the error rate did not.
 
 This is visible in the logs and is what the second responder found at 14:26.
@@ -120,44 +124,37 @@ the same migrated schema. It could not work, and for the same reason.
 
 **The config change is the trigger. The migration is what made it
 unrecoverable by rollback.** Either alone would have been a short incident: the
-config change alone is fixed by the 14:21 revert, and the migration alone is
-harmless because `v412` populates the column.
+config change alone is fixed by the 14:21 revert, and the migration alone fails
+only the instances still on `v411`, until the release replaces them.
 
 ## 7. The forward fix
 
-`v413` kept `split` mode and the new column, and added the backfill the
-migration should have carried:
+Rolling forward. `v412` writes `settlement_currency` in either mode, so at
+14:41 the release was resumed instead of reversed, with the config left at
+`legacy`. Once all four instances were on `v412`, no insert omitted the column.
 
-```sql
-ALTER TABLE ledger_entries ALTER COLUMN settlement_currency DROP NOT NULL;
-UPDATE ledger_entries SET settlement_currency = 'USD' WHERE settlement_currency IS NULL;
-```
-
-then re-applied `NOT NULL` once all instances were on `v413`.
-
-The `'USD'` default is correct for every row written before `0042`, because
-`legacy` mode settles in the account currency and every account on this ledger
-is USD. That will not remain true once the first non-USD account is onboarded,
-which is tracked separately.
+`'USD'`, the value `0042` filled into the existing rows, is correct for them,
+because `legacy` mode settles in the account currency and every account on this
+ledger is USD. That will not remain true once the first
+non-USD account is onboarded, which is tracked separately.
 
 ## 8. What the release job does, and why it matters here
 
 The release job's order of operations is:
 
 1. Publish the configuration bundle.
-2. Replace the first instance and wait for its health check.
-3. Run pending migrations.
-4. Replace the remaining instances one at a time.
+2. Run pending migrations.
+3. Replace the instances one at a time.
 
-Step 1 before step 2 is what exposed `v411` instances to `v412` configuration.
-Step 3 sitting between the first instance and the rest is what put a schema
-change inside the window where a rollback is still the obvious response, and it
-is the reason both of on-call's recovery paths were already closed by the time
-they were tried.
+Step 1 before step 3 is what exposed `v411` instances to `v412` configuration.
+Step 2 before step 3 is what put a schema change in place while every instance
+still ran code that cannot write to it, and it is the reason both of on-call's
+recovery paths were already closed by the time they were tried.
 
-Neither ordering is unreasonable on its own. Together they mean that for roughly
-three minutes of every release, the system is in a state that neither a config
-revert nor a version rollback can leave.
+Neither ordering is unreasonable on its own: migrations usually run before the
+code that needs them. Together they mean that from the moment `0042` ran until
+the last instance was on `v412`, the system was in a state that neither a config
+revert nor a version rollback could leave.
 
 ## 9. Ruled out
 
@@ -166,7 +163,7 @@ revert nor a version rollback can leave.
   latency did not move.
 - **The 14:05 spike in `pg_stat_activity`.** That is the migration itself taking
   the ACCESS EXCLUSIVE lock for 1.2 seconds.
-- **Load.** Traffic was within a normal Thursday band throughout.
+- **Load.** Traffic was within a normal Friday band throughout.
 - **The 14:11 cache eviction.** Coincidental; the cache repopulated in 40
   seconds and checkout does not read from it.
 - **A bad instance.** All four failed identically; the two that came up on
@@ -174,20 +171,21 @@ revert nor a version rollback can leave.
 
 ## 10. What went well
 
-- The trigger was correctly identified in twelve minutes from a cold page.
+- The trigger was correctly identified five minutes after a cold page.
 - The second responder's log search at 14:26 is what made the root cause
   findable; without noticing the exception had changed, the next step would
   likely have been another rollback attempt.
 - No duplicate charges and no inconsistent ledger state, because the failures
   occur before the provider call rather than between the charge and the write.
-- The forward fix was written, reviewed and deployed in six minutes.
+- The roll-forward was decided and completed in six minutes.
 
 ## 11. Action items
 
 1. A migration that adds a `NOT NULL` column without a default must not run in
    the same release as the code that first populates it. Expand and contract.
-2. The release job runs migrations after the first instance is healthy, which
-   is what put the schema change inside the rollback window. Move it.
+2. The release job publishes the config bundle before any instance runs the
+   new code, which is what exposed `v411` to `split`. Publish it after the last
+   instance is replaced.
 3. `assertSettlementMode()` should treat an unknown mode as `legacy` and warn,
    not throw.
 4. Scope configuration bundles per version, so a running instance does not pick

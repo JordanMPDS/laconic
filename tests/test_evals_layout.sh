@@ -704,6 +704,33 @@ PYEOF
   fi
 done
 
+# `built-trial` and `explain-trial` are round 115's pair for #298: a definition
+# request after the model planned, built and reported the two measures itself,
+# and the same request cold. They have to share the data and the README, the
+# cold question has to be the told one behind a read instruction, and only the
+# cold fixture may hold conversion.py, which the told case's model writes.
+if python3 - "$ROOT/evals/pilot" <<'PYEOF'
+import sys
+from pathlib import Path
+pilot = Path(sys.argv[1])
+b, e = pilot / "built-trial", pilot / "explain-trial"
+told = b.joinpath("prompt.md").read_text().split("<!-- turn -->")
+cold = e.joinpath("prompt.md").read_text().split("<!-- turn -->")
+assert len(told) == 4 and len(cold) == 1, "built is four turns, explain one"
+assert cold[0].strip() == "read README.md and conversion.py — " + told[-1].strip(), \
+    "explain-trial must ask built-trial's graded question cold"
+for f in ("events.csv", "README.md"):
+    assert b.joinpath("fixture", f).read_bytes() == e.joinpath("fixture", f).read_bytes(), f
+assert not b.joinpath("fixture", "conversion.py").exists(), "built-trial writes its own"
+code = e.joinpath("fixture", "conversion.py").read_text()
+assert "def conv_in_trial" in code and "def conv_30d" in code
+PYEOF
+then
+  ok "built-trial and explain-trial ask one definition question, told and cold"
+else
+  fail "built-trial and explain-trial ask one definition question, told and cold"
+fi
+
 # `narrow-*` is round 92's instrument for #305's narrowing follow-up:
 # `settled-*`'s question asked as turn 2, after a turn 1 that requested a full
 # inventory of the same record. The graded turn has to stay the settled

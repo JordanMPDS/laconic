@@ -257,6 +257,17 @@ where the data file is without saying what it is for.
 `tests/test_evals_layout.sh` holds everything else equal to `affirm-*`.
 Scored by `score_affirm.py --family propose`.
 
+## `built-trial` and `explain-trial`
+
+[#298]'s definition request, registered in
+[`../results/loop/round-115.md`](../results/loop/round-115.md), with the
+earlier turns the model's own work. `built-trial` has the model propose two
+conversion measures, write the code computing both, and report the results,
+then asks what the two measures are. `explain-trial` asks that question cold,
+over the same `events.csv` and README (by symlink) plus a reference
+`conversion.py`. Scored by `score_reexplain.py --precheck`, and at stage 2 by
+`--told built`.
+
 ## Borrowed by symlink
 
 `deep-*`, `confirm-*`, `drift-service` and `conditional` are symlinks to the

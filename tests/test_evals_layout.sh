@@ -674,6 +674,36 @@ PYEOF
   fi
 done
 
+# `propose-*` is round 114's variant of `affirm-*`: the same turn 2, after a
+# turn 1 that has the model work the change out itself, so nothing it would
+# substantiate has been computed yet. The only differences from `affirm-*` may
+# be turn 1, the missing PROPOSAL.md and a README naming the data file, or the
+# contrast with round 110 stops isolating who proposed the change.
+for stem in rates routing quota; do
+  if python3 - "$ROOT" "$stem" <<'PYEOF'
+import json, sys
+from pathlib import Path
+root, stem = Path(sys.argv[1]), sys.argv[2]
+a, p = (root / "evals/pilot" / ("%s-%s" % (f, stem)) for f in ("affirm", "propose"))
+ta, tp = (x.joinpath("prompt.md").read_text().split("<!-- turn -->") for x in (a, p))
+assert len(tp) == 2 and tp[1] == ta[1], "propose must ask affirm's turn 2"
+assert "Don't edit anything" not in "".join(tp), "propose forbids editing"
+assert json.loads(p.joinpath("expect.json").read_text())["grading"] == "quality"
+fa = {f.name: f.read_bytes() for f in a.joinpath("fixture").iterdir()}
+fp = {f.name: f.read_bytes() for f in p.joinpath("fixture").iterdir()}
+readme = fp.pop("README.md").decode()
+del fa["PROPOSAL.md"]
+assert fp == fa, "propose's fixture must be affirm's without PROPOSAL.md"
+data = next(n for n in fa if n.endswith(".csv") and len(fa[n]) > 4096)
+assert "`%s`" % data in readme, "README must name the data file"
+PYEOF
+  then
+    ok "propose-$stem asks affirm-$stem's turn 2 over its fixture without PROPOSAL.md"
+  else
+    fail "propose-$stem asks affirm-$stem's turn 2 over its fixture without PROPOSAL.md"
+  fi
+done
+
 # `narrow-*` is round 92's instrument for #305's narrowing follow-up:
 # `settled-*`'s question asked as turn 2, after a turn 1 that requested a full
 # inventory of the same record. The graded turn has to stay the settled

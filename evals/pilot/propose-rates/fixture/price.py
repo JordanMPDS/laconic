@@ -1,0 +1,1 @@
+../../affirm-rates/fixture/price.py

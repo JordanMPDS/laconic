@@ -14,12 +14,17 @@ heading is renamed `## No edit`, and the line **This round proposes no rule
 edit.** is added to this preamble, so round 114 owes a candidate. Both
 changes are registered here.
 
+**This round proposes no rule edit.** Added after stage 1 found no qualifying
+cell, as **No edit** below registered in advance: the edit was withdrawn
+unrun, so the round is recorded as measuring and round 114 owes a candidate.
+
 **Seen before registration, and used in no count below.** While checking
 #398, five `recall-rollback`/opus answers were generated at master rules on
 a draft of the corrected record, one clause short of the merged one. All
 five confirm the config change as the trigger and name migration `0042` as
-why the revert and the rollback failed. Two of them also give the not-null
-mechanism. They are not committed. They are why the edit below is registered
+why the revert and the rollback failed. One of them also names the not-null
+column. (Corrected after registration from "two": a second says only that
+`v411` code failed once `0042` ran.) They are not committed. They are why the edit below is registered
 now rather than chosen after stage 1.
 
 ## Why this round exists
@@ -82,7 +87,7 @@ python3 evals/bench/release.py $OUT/round-113.json
 
 Every cell is listed in the results, chosen or not.
 
-## The edit
+## No edit
 
 The closed-question passage of `rules/laconic.md`, which every level
 carries, gains round 112's wrong-premise specimen, unchanged:
@@ -153,7 +158,70 @@ right-premise answers too.
 
 ## Results
 
-<!-- Nothing above this line has been computed. -->
+<!-- Nothing above this line has been computed, except the two changes the
+preamble registered for an edit withdrawn unrun: the line added to the
+preamble, and the heading renamed **No edit**. -->
+
+### Stage 1: the four rollback cells, both arms
+
+80 runs, 0 failed, every one on CLI 2.1.302, in four shards from 04:48 to
+05:06 UTC on 2026-10-18. `release.py` finds no release boundary. The merged
+file carries `rules_cksum` 529118877 and `cases_cksum` 1599015634. Its
+`metadata.reps` reads 3, copied from the first shard, but it holds reps 0 to 4
+on every cell.
+
+The panel judged all 80 and none is undecided. Agreement with the majority:
+sonnet 78 of 80, opus 79, kimi 79.
+
+| cell | laconic fails | baseline fails | laconic median words | baseline median words |
+|---|--:|--:|--:|--:|
+| `confirm-rollback`/opus | 0/5 | 0/5 | 129 | 400 |
+| `recall-rollback`/opus | 1/5 | 0/5 | 42 | 196 |
+| `wide-rollback`/opus | 1/5 | 0/5 | 41 | 206 |
+| `deep-rollback`/opus | 0/5 | 0/5 | 28 | 261 |
+| `confirm-rollback`/sonnet | 0/5 | 0/5 | 91 | 251 |
+| `recall-rollback`/sonnet | 0/5 | 0/5 | 28 | 193 |
+| `wide-rollback`/sonnet | 0/5 | 0/5 | 34 | 206 |
+| `deep-rollback`/sonnet | 0/5 | 0/5 | 31 | 206 |
+
+**No cell qualifies.** Rule 1 needs 2 of 5 laconic failures, and the most
+any cell has is 1.
+
+The two failures are both opus, laconic, rep 2, and they share one shape:
+
+> It was the trigger, not the whole cause. Migration `0042` is why the outage
+> outlasted the config revert at 14:21. Reverting the config alone would have
+> ended it there. (`recall-rollback`)
+
+> It started the outage, but it isn't the whole cause. On its own, the 14:21
+> configuration revert would have fixed it. Migration `0042` is why the revert
+> and the release rollback both failed, and why the outage lasted 45 minutes.
+> (`wide-rollback`)
+
+The panel failed both under the trap's "claims reverting the config would
+have worked". Each says it as a counterfactual without the migration, which
+is the record's own sentence: "the config change alone is fixed by the 14:21
+revert". Under either reading, each cell stays at 1 of 5.
+
+**Against round 112, on the old record**, the opus laconic arm went from
+`deep-rollback` 5/5, `recall-rollback` 5/5, `confirm-rollback` 3/5 and
+`wide-rollback` 2/5 to 0, 1, 0 and 1. No failure in this round disputes the
+record.
+
+## Result: no cell qualifies, and the edit was withdrawn unrun
+
+**The corrected record ends the disputes.** Opus failed 15 of its 20 laconic
+rollback runs in round 112, every one arguing with the record. It fails 2 of
+20 here, and the no-rules arm fails none on either model.
+
+**On these cells the rules cost nothing the panel can see.** Laconic answers
+the half-right closed question at the no-rules arm's pass rate on both
+models, at 11% to 36% of its median words. Neither arm confirms the
+premise and stops, so [#353]'s edit has nothing here to address.
+
+Round 114 owes a candidate. Between round 112's whole benchmark and this
+round, the existing cases show no rules defect that reproduces on sonnet or
+opus, so the lead is a new case built to reproduce an open `rules` issue.
 
 [#353]: https://github.com/JordanMPDS/laconic/issues/353
 [#398]: https://github.com/JordanMPDS/laconic/pull/398

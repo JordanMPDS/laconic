@@ -57,7 +57,6 @@ inconsistent state; the failures were clean rejections before the charge call.
 | 14:37 | Migration log checked; `0042` identified as having run at 14:05. |
 | 14:41 | Root cause understood. Forward fix written. |
 | 14:47 | Forward fix `v413` deployed. Error rate to 0% within two minutes. |
-| 15:10 | Backfill completes; `NOT NULL` re-applied. |
 
 ## 4. What broke
 
@@ -89,11 +88,13 @@ configuration scoping.
 ## 5. Why reverting the config did not fix it
 
 Migration `0042` ran at 14:05, three minutes after the errors started and
-sixteen minutes before the config was reverted. It adds:
+sixteen minutes before the config was reverted. In one transaction it adds the
+column, fills it on the rows already in the table, and then requires it:
 
 ```sql
-ALTER TABLE ledger_entries
-  ADD COLUMN settlement_currency char(3) NOT NULL;
+ALTER TABLE ledger_entries ADD COLUMN settlement_currency char(3);
+UPDATE ledger_entries SET settlement_currency = 'USD';
+ALTER TABLE ledger_entries ALTER COLUMN settlement_currency SET NOT NULL;
 ```
 
 No default, and `NOT NULL`. Every insert into `ledger_entries` from that moment
@@ -125,20 +126,15 @@ harmless because `v412` populates the column.
 
 ## 7. The forward fix
 
-`v413` kept `split` mode and the new column, and added the backfill the
-migration should have carried:
+`v413` kept `split` mode and the new column, and made the `legacy` insert path
+write `settlement_currency = 'USD'` too, so an insert under either mode supplies
+the column. With every instance on `v413`, the config value can no longer
+produce an insert the schema rejects.
 
-```sql
-ALTER TABLE ledger_entries ALTER COLUMN settlement_currency DROP NOT NULL;
-UPDATE ledger_entries SET settlement_currency = 'USD' WHERE settlement_currency IS NULL;
-```
-
-then re-applied `NOT NULL` once all instances were on `v413`.
-
-The `'USD'` default is correct for every row written before `0042`, because
-`legacy` mode settles in the account currency and every account on this ledger
-is USD. That will not remain true once the first non-USD account is onboarded,
-which is tracked separately.
+`'USD'` is correct both for the rows `0042` filled and for what the `legacy`
+path now writes, because `legacy` mode settles in the account currency and
+every account on this ledger is USD. That will not remain true once the first
+non-USD account is onboarded, which is tracked separately.
 
 ## 8. What the release job does, and why it matters here
 
@@ -166,7 +162,7 @@ revert nor a version rollback can leave.
   latency did not move.
 - **The 14:05 spike in `pg_stat_activity`.** That is the migration itself taking
   the ACCESS EXCLUSIVE lock for 1.2 seconds.
-- **Load.** Traffic was within a normal Thursday band throughout.
+- **Load.** Traffic was within a normal Friday band throughout.
 - **The 14:11 cache eviction.** Coincidental; the cache repopulated in 40
   seconds and checkout does not read from it.
 - **A bad instance.** All four failed identically; the two that came up on

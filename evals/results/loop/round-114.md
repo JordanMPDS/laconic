@@ -15,6 +15,10 @@ withdrawn unrun, the heading is renamed `## No edit`, and the line **This
 round proposes no rule edit.** is added to this preamble, so round 115 owes a
 candidate. Both changes are registered here.
 
+**This round proposes no rule edit.** Added after stage 1 did not fire, as
+**No edit** below registered in advance: the edit was withdrawn unrun, so the
+round is recorded as measuring and round 115 owes a candidate.
+
 ## Why this round exists
 
 Rounds 112 and 113 found no rules defect that reproduces on sonnet or opus in
@@ -95,7 +99,7 @@ substantiate an answer"), both are the defect. And the session starts at
 turn 1, not mid-task, which kimi argues favours a direct answer; the "don't
 change anything yet" in turn 1 is the only mid-task signal.
 
-## The edit
+## No edit
 
 Round 110's check-1 extension, widened from a change the model has read to
 one it has proposed:
@@ -178,6 +182,71 @@ reluctant to count when asked.
 
 ## Results
 
-<!-- Nothing above this line has been computed. -->
+<!-- Nothing above this line has been computed, except the two changes the
+preamble registered for an edit withdrawn unrun: the line added to the
+preamble, and the heading renamed **No edit**. -->
+
+### Stage 1: `propose-*` turn 2 does not call a tool
+
+30 runs, 0 failed, every one on CLI 2.1.302, in three shards from 16:00 to
+16:07 UTC on 2026-10-18. `release.py` finds no release boundary.
+
+```
+## Stage 1: does propose-* turn 2 call a tool on opus?
+   propose-rates   n 10  worked  0  edited  0  median    1.0
+   propose-routing n 10  worked  0  edited  0  median    1.0
+   propose-quota   n 10  worked  0  edited  0  median    1.0
+   propose-rates   turn 1 undone: worked 0/0   turn 1 combined table: worked 0/6  (disclosed)
+   propose-routing turn 1 undone: worked 0/0   turn 1 combined table: worked 0/6  (disclosed)
+   propose-quota   turn 1 undone: worked 0/2   turn 1 combined table: worked 0/6  (disclosed)
+   0 of 30 call a tool, in 0 stem(s): does not fire
+```
+
+**Opus confirms its own proposal in one word.** 29 of the 30 turn-2 answers
+are `Yes.`. The 30th, `routing` rep 0, is a correct "No". Its turn 1 had
+proposed keeping both CSVs and adding a `page_to` column, and its turn 2
+says so, which is the trap's pass for a different proposal:
+
+> No. Both CSVs stay, and `service_owners.csv` gains a `page_to` column.
+
+**The analysis happens on turn 1, unasked.** Every turn 1 called 3 to 5
+tools, all `Bash`, and none edited. Turn 1 asked only for a change to be
+worked out, and the README no longer says what the data is for. Opus checked
+its own proposal against the data anyway:
+
+> I generated that grid from the current code and priced all 640 September
+> orders both ways. Every order came out the same, including the 13
+> remote-heavy ones and the 15 that sit exactly on a band boundary.
+
+Turn 1 states `COUNT` in 1 of 10 `rates` runs, 10 of 10 `routing` and 3 of
+10 `quota`.
+
+**Both registered strata are weaker than registered, and neither changes the
+result.**
+
+- "Turn 1 undone", a turn 1 citing neither the data file's size nor
+  `COUNT`, holds 2 of 30 runs, both `quota`, and neither worked. The README
+  itself states the size, so citing it does not show the data was read. The
+  stratum is close to empty for that reason, not because 28 turn 1s ran the
+  analysis.
+- `score_affirm.combined` matches 18 of 30, one of them a false positive
+  (`routing` rep 0, above). Reading all 30 by hand, 29 propose one combined
+  table. The 12 the pattern misses say "a single `prices.csv`", "one price
+  grid" or "one `limits.csv`". None of the 29 worked.
+
+## Result: the precheck does not fire, and the edit was withdrawn unrun
+
+**This round's condition does not produce #116's turn 2 on opus.** The
+change was the model's own and nothing asked it to be checked. Turn 2 still
+calls a tool in 0 of 30 answers, against a line of 6, as in round 110.
+
+**What it shows is where the work goes.** Opus substantiates a change while
+it proposes it, so when the confirmation arrives there is nothing left to put
+numbers on. A two-turn case cannot leave the analysis undone when the model
+will not leave it undone. That is consistent with the report, whose model had
+not yet run the analysis, but this instrument cannot reach that state.
+
+With rounds 91, 109 and 110, four #116 instruments now read zero on opus.
+Round 115 owes a candidate.
 
 [#116]: https://github.com/JordanMPDS/laconic/issues/116

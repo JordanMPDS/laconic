@@ -185,6 +185,37 @@ check("a sentence opening with a bare dotted identifier (filename) is not "
       "flagged as a lowercase sentence start",
       filename_sentence_start["sentence_initial_lowercase"] == 0)
 
+# #396: a name whose correct spelling is lowercase is not a dropped capital.
+# Every span below fired in round 112 or the September benchmark, and each
+# alone failed a cell whose control drew 0.
+for text in (
+    "Choose v7 rather than v4. v7 starts with a timestamp, so new rows land last.",
+    "Photo uploads can't go through the proxy. nginx caps request bodies at 1 MB.",
+    "The fork is where the bytes go. nginx's limit is global.",
+    "One decision is yours. iPhones save photos as HEIC by default.",
+    "The pattern fits. p50 is unchanged and only the tail moved.",
+    "**4. request_hash guards against key reuse.",
+    "Nothing was lost. fixtures/users.json itself is fine.",
+):
+    check(f"a sentence opening with a lowercase-spelled name is not a "
+          f"violation: {text[:40]!r}",
+          metrics.score(text)["sentence_initial_lowercase"] == 0)
+
+# #396: an ellipsis marks an elision, so the text after it is the same
+# sentence. The round 112 span was a quoted error string split at one.
+ellipsis_in_quote = metrics.score(
+    'The error (probably "user-provided path ... does not exist") isn\'t in '
+    "cron.log."
+)
+check("an ellipsis inside a quoted error string does not start a sentence",
+      ellipsis_in_quote["sentence_initial_lowercase"] == 0)
+
+# The name check reads one sentence's first word, so a dropped capital beside
+# a name is still caught.
+name_then_violation = metrics.score("Choose v7. then index it by time.")
+check("a dropped capital after a sentence about a name is still caught",
+      name_then_violation["sentence_initial_lowercase"] == 1)
+
 # A genuine lowercase-start violation must still be caught even though it
 # isn't a dotted identifier.
 genuine_lowercase_start = metrics.score(

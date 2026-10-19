@@ -4443,9 +4443,11 @@ _b_v4 = ROOT / "evals" / "snapshots" / "loop" / "round-01-n10-v4.json"
 if _r17.exists() and _b_v4.exists():
     _ps = bench_report.round_summary(json.loads(_b_v4.read_text()), [])
     _qs = bench_report.round_summary(json.loads(_r17.read_text()), [])
-    check("round 17's readability drop is 158 -> 121",
-          (_ps["violations_total"], _qs["violations_total"]) == (158, 121))
-    _pb = bench_report._count_p(158, 121, _ps["n_runs"], _qs["n_runs"])
+    # round-17.md records 158 -> 121. #396 stopped counting lowercase-spelled
+    # names and text after an ellipsis, which removed four and one.
+    check("round 17's readability drop is 154 -> 120",
+          (_ps["violations_total"], _qs["violations_total"]) == (154, 120))
+    _pb = bench_report._count_p(154, 120, _ps["n_runs"], _qs["n_runs"])
     _pc = bench_report._cluster_count_p(_ps["violation_runs"], _qs["violation_runs"])
     check("the binomial calls it significant (p = %.4f)" % _pb, _pb < 0.05)
     check("the clustered test does not (p = %.4f)" % _pc, _pc > 0.05)

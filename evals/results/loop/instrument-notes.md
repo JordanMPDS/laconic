@@ -511,3 +511,31 @@ The snapshots of rounds 16 to 24 each lose four or five findings over all
 their arms.
 
 [#396]: https://github.com/JordanMPDS/laconic/issues/396
+
+## The words after a list's etc. were two-thirds of the rest
+
+[#403]: after #396, 207 of the 323 lowercase starts left in the committed
+snapshots followed `etc.`, 152 of them on `design-retry`, and each continued a
+list in mid-sentence ("Stripe/Adyen/Braintree etc. all honor this").
+`ABBREV_DOT` left `etc` out on purpose so that a dropped capital after a
+closing `etc.` would still count. No stored response has one: a capital
+follows every one of the 27 sentences that end at `etc.`. The detector now
+masks `etc.` as it masks `e.g.`, and 323 findings become 116, with none added.
+
+Re-scored on every control and edit pair whose snapshots lost a finding, 36
+pairs from rounds 15 to 73:
+
+| round | what moves | verdict |
+| --- | --- | --- |
+| [17](round-17.md) | 154 to 120 becomes 152 to 115. The binomial p moves from 0.023 to 0.014 and the clustered p from 0.067 to 0.0496, which is alpha within the bootstrap's own error. Which side of alpha the round sits on is no longer a claim it can carry, while the 3.6x gap between the two tests still holds, and `tests/test_bench.py` now pins the gap | unchanged; readability was not its target |
+| [18](round-18.md) | the scoped target 117 to 74 at p = 0.015 becomes 115 to 72 at p = 0.016; round-wide 154 to 127 becomes 152 to 124 | unchanged |
+| [28](round-28.md) | readability 34 to 50 at p = 0.065 becomes 27 to 44 at p = 0.042, and the rise is no longer inside the noise. The risen cells are `design-cache`/sonnet 0 to 6, all arrows, and `design-rate-limit`/sonnet 0 to 5, three arrows and two `req/s`. The step 8 replication, at 25 reps rather than 56, has the first at 0 and the second at 3, all three `req/s` ([#404]) | **accept becomes reject, arbitrable**; the edit shipped in 0.2.3 |
+
+Every other rise stays inside the noise and every fall stays a fall, round
+11's included. Rounds 57, 63, 77 and 78 lose findings too, but they compared
+arms inside one snapshot and none of them read readability. Round 28
+read 37 to 50 at p = 0.115 when it was scored; #396 and #403 each removed only
+false findings, and the control lost more of them than the edit did.
+
+[#403]: https://github.com/JordanMPDS/laconic/issues/403
+[#404]: https://github.com/JordanMPDS/laconic/issues/404

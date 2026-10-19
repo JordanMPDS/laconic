@@ -264,10 +264,12 @@ check("contracted auxiliaries are counted", contraction_test["aux_verb_rate"] > 
 abbrev_test = metrics.score("We tested it, e.g. running the code.")
 check("abbreviation periods don't trip lowercase-start", abbrev_test["sentence_initial_lowercase"] == 0)
 
-# Test sentence-ending abbreviations still catch lowercase starts
-etc_test = metrics.score("That is impossible, etc. it makes no sense.")
-check("sentence-ending abbrevs catch real violations (etc)", etc_test["sentence_initial_lowercase"] >= 1)
+# A lowercase word after etc. continues the list's sentence: all 207 in the
+# committed snapshots did, and none was a dropped capital (#403).
+etc_test = metrics.score("Stripe, Adyen, etc. all honor this header.")
+check("a lowercase word after etc. is not a sentence start (#403)", etc_test["sentence_initial_lowercase"] == 0)
 
+# Test sentence-ending abbreviations still catch lowercase starts
 st_test = metrics.score("We turned onto Main St. it was getting dark.")
 check("sentence-ending abbrevs catch real violations (St)", st_test["sentence_initial_lowercase"] >= 1)
 

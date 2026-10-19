@@ -4436,23 +4436,26 @@ check("and discloses what the binomial would have said",
       any("the binomial reads" in x for x in _r3))
 
 # The guard that keeps the history where it is. Rounds 16 and 17 ran
-# byte-identical rules; the gate read 0.029 and 0.016, and the honest test puts
-# a single round of that effect on the other side of alpha.
+# byte-identical rules; the gate read 0.029 and 0.016, and the honest test put
+# a single round of that effect on the other side of alpha as they were scored.
 _r17 = ROOT / "evals" / "snapshots" / "loop" / "round-17.json"
 _b_v4 = ROOT / "evals" / "snapshots" / "loop" / "round-01-n10-v4.json"
 if _r17.exists() and _b_v4.exists():
     _ps = bench_report.round_summary(json.loads(_b_v4.read_text()), [])
     _qs = bench_report.round_summary(json.loads(_r17.read_text()), [])
     # round-17.md records 158 -> 121. #396 stopped counting lowercase-spelled
-    # names and text after an ellipsis, which removed four and one.
-    check("round 17's readability drop is 154 -> 120",
-          (_ps["violations_total"], _qs["violations_total"]) == (154, 120))
-    _pb = bench_report._count_p(154, 120, _ps["n_runs"], _qs["n_runs"])
+    # names and text after an ellipsis, which removed four and one, and #403
+    # stopped counting the words after a mid-sentence etc., which removed two
+    # and five. The clustered p went 0.052, 0.067, then 0.0496: alpha, inside
+    # the bootstrap's own error, so which side of it round 17 sits on is no
+    # longer something this guard can hold. The gap is.
+    check("round 17's readability drop is 152 -> 115",
+          (_ps["violations_total"], _qs["violations_total"]) == (152, 115))
+    _pb = bench_report._count_p(152, 115, _ps["n_runs"], _qs["n_runs"])
     _pc = bench_report._cluster_count_p(_ps["violation_runs"], _qs["violation_runs"])
     check("the binomial calls it significant (p = %.4f)" % _pb, _pb < 0.05)
-    check("the clustered test does not (p = %.4f)" % _pc, _pc > 0.05)
-    check("and the gap is about the 3x over-dispersion, not a rounding change",
-          _pc / _pb > 2.0)
+    check("the gap is about the 3x over-dispersion, not a rounding change "
+          "(p = %.4f against %.4f)" % (_pc, _pb), _pc / _pb > 2.0)
 
 
 # --- #34: violations_total is one number over two forms that never move together

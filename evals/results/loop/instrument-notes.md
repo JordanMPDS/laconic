@@ -574,3 +574,31 @@ findings are the `subset-*` fixtures' work-item IDs, `IMPL-2` and the like
 
 [#404]: https://github.com/JordanMPDS/laconic/issues/404
 [#406]: https://github.com/JordanMPDS/laconic/issues/406
+
+## Every readability finding on the subset cases was a work-item ID
+
+[#406]: `abbreviated_prose` matched its terms in any case, so `IMPL-2`, a
+work-item ID the `subset-*` fixtures define, counted as the shortened word
+`impl`. All 197 stored `impl` findings were these IDs, and the 3 `b/c`
+findings were the capital-letter option names "A and B/C". A listed term now
+counts only in lowercase or capitalised to open a sentence. That removes those
+200 findings and touches nothing else; 62 `abbreviated_prose` findings remain
+in the archive.
+
+Rounds 93 to 97 hold every snapshot that moves, apart from four that lose one
+`B/C` each, and every readability finding they had was an ID:
+
+| pair | before | after |
+| --- | --- | --- |
+| 93 control, edit | 9 to 22, rise p = 0.068 | 0 to 0 |
+| 93 control, precheck | 9 to 10, rise p = 0.481 | 0 to 0 |
+| 95 control, edit | 12 to 12 | 0 to 0 |
+| 96 control, edit | 19 to 14 | 0 to 0 |
+| 97 control, edit | 29 to 12 | 0 to 0 |
+| 97 replication | 24 to 16 | 0 to 0 |
+
+No verdict moves, because none of those rounds read readability. Round 93's
+edit came within 0.018 of a readability loss made entirely of the fixture's
+own names.
+
+[#406]: https://github.com/JordanMPDS/laconic/issues/406

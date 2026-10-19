@@ -40,10 +40,12 @@ SYMBOLS = re.compile(r"(->|=>|→)")
 # English; including them would fire on correct prose in every arm. So is a
 # rate written as a unit ("200 req/s", "12,000 req/min"), which is notation like
 # ms, not a shortened word, and a term followed by .name is an identifier
-# ("req.user.id"), which the rules forbid rewriting (#404).
+# ("req.user.id"), which the rules forbid rewriting (#404). A shortened word is
+# lowercase, or capitalised to open a sentence; in capitals it is a name, such
+# as the work-item IDs "IMPL-2" and "IMPL-5" or the options "A and B/C" (#406).
 ABBREV = re.compile(
-    r"\b(?!req\s*/)(impl|req|resp|func|val|obj|arg|msg|err)\b(?!\.\w)|\bw/|\bb/c\b",
-    re.I,
+    r"\b(?![Rr]eq\s*/)([Ii]mpl|[Rr]eq|[Rr]esp|[Ff]unc|[Vv]al|[Oo]bj|[Aa]rg|[Mm]sg|[Ee]rr)"
+    r"\b(?!\.\w)|\b[Ww]/|\b[Bb]/c\b"
 )
 # Mask only abbreviations that never end sentences. e.g., i.e., vs. mid-sentence
 # should not be treated as sentence boundaries. Deliberately excludes al, Inc, Ltd,

@@ -100,6 +100,13 @@ check("req/s, req / 10s and req.user.id are not abbreviated prose (#404)",
       ["abbreviated_prose"] == 0)
 check("a shortened req in running prose still counts (#404)",
       metrics.score("The req handler retries.")["abbreviated_prose"] == 1)
+# A listed term in capitals is a name (#406); capitalised to open a sentence it
+# is still the shortened word.
+check("IMPL-2 and B/C are names, not abbreviated prose (#406)",
+      metrics.score("OQ-13 needs IMPL-2, and both A and B/C refresh.")
+      ["abbreviated_prose"] == 0)
+check("a sentence-initial Impl still counts (#406)",
+      metrics.score("Impl details aside, it works.")["abbreviated_prose"] == 1)
 
 # The three checks above all survive deleting FENCE entirely: CODE's fenced
 # block has an even number of backticks (3 to open + 3 to close), so INLINE's

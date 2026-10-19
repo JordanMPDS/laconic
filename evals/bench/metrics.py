@@ -47,12 +47,28 @@ ABBREV = re.compile(
 # lowercase-start violations. This list must stay small; adding "helpful" abbreviations
 # costs recall without gaining precision on the false-positive side.
 ABBREV_DOT = re.compile(r"\b(e\.g|i\.e|cf|vs|approx|Fig|Dr|Mr|Mrs|Ms|Prof)\.", re.I)
-SENTENCE_SPLIT = re.compile(r"(?<=[.!?])\s+")
+# An ellipsis marks an elision, not an ending: in `"user-provided path ...
+# does not exist"` the words after it belong to the same quoted sentence (#396).
+SENTENCE_SPLIT = re.compile(r"(?<=[.!?])(?<!\.\.\.)\s+")
 # A sentence legitimately opening with a bare filename or dotted identifier
-# ("auth.js is self-contained", "pool.max controls...") is correct usage, not
-# a broken sentence start. _lowercase_starts already skips a sentence opening
-# with a backtick-wrapped identifier; this catches the same thing bare.
-DOTTED_IDENTIFIER = re.compile(r"^[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+")
+# ("auth.js is self-contained", "pool.max controls...", or a path such as
+# "fixtures/users.json") is correct usage, not a broken sentence start.
+# _lowercase_starts already skips a sentence opening with a backtick-wrapped
+# identifier; this catches the same thing bare.
+DOTTED_IDENTIFIER = re.compile(r"^[A-Za-z0-9_/-]+\.[A-Za-z0-9_-]+")
+# A name whose correct spelling is lowercase is not a dropped capital either,
+# and the rules forbid rewriting identifiers (#396). A digit, an underscore or
+# an internal capital marks one ("v7", "p50", "request_hash", "iPhones"); no
+# English word carries any of them. LOWERCASE_NAMES holds the plain lowercase
+# words that are names. Keep it to names a stored response has opened with.
+NAME_MARK = re.compile(r"[0-9_]|[a-z][A-Z]")
+LOWERCASE_NAMES = {"nginx"}
+
+
+def _opens_with_name(sentence):
+    first = sentence.split()[0]
+    word = re.match(r"[a-z]*", first).group()
+    return bool(NAME_MARK.search(first)) or word in LOWERCASE_NAMES
 # Lines that are structural markdown, not paragraph flow. Bullets legitimately
 # start lowercase, so checking them would fire on correct writing.
 # -, *, +, # and an ordered-list digit only count as structural when followed
@@ -106,7 +122,8 @@ def _lowercase_starts(sentences_src):
         for sentence in SENTENCE_SPLIT.split(masked):
             # Restore masked periods
             s = sentence.replace("\x00", ".").strip()
-            if not s or s.startswith("`") or DOTTED_IDENTIFIER.match(s):
+            if (not s or s.startswith("`") or DOTTED_IDENTIFIER.match(s)
+                    or _opens_with_name(s)):
                 continue
             if s[0].islower():
                 hits.append(s[:40])

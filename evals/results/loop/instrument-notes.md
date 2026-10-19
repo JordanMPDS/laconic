@@ -481,3 +481,32 @@ loss.
 
 [#142]: https://github.com/JordanMPDS/laconic/issues/142
 [#49]: https://github.com/JordanMPDS/laconic/issues/49
+
+## Two-fifths of the lowercase-start findings were names and elisions
+
+[#396]: round 112 lost readability 0 to 4, and every one of the four was
+`sentence_initial_lowercase` firing on a word that is correct lowercase:
+`v7`, `iPhones`, `nginx`, and a quoted error string split at its `...`. The
+detector now skips a sentence opening with a name (a token carrying a digit,
+an underscore or an internal capital, a path, or `nginx`), and it no longer
+splits a sentence after an ellipsis.
+
+Over the 58,374 distinct responses in the committed snapshots, the old detector
+found 540 lowercase starts and the fixed one finds 323. It finds no new ones.
+I read all 217 removed spans, and none is a dropped capital. Two-thirds of
+those that remain follow `etc.`, which the detector counts on purpose and a
+test holds. The bare metric name `idle` on `conditional` accounts for 70, and
+question lists inside parentheses ("Postgres? something else?") for 34.
+
+Re-scored against their stored baselines:
+
+| round | what moves | verdict |
+| --- | --- | --- |
+| [04](round-04.md) | nothing: readability 26 to 33 under either detector | unchanged |
+| [18](round-18.md) | round-wide 158 to 129 becomes 154 to 127; the scoped target, 117 to 74 at p = 0.015, does not move | unchanged |
+| [112](round-112.md) | readability 0 to 4 becomes 0 to 0, and the reason "readability lost" is gone | unchanged; it was a measuring round |
+
+The snapshots of rounds 16 to 24 each lose four or five findings over all
+their arms.
+
+[#396]: https://github.com/JordanMPDS/laconic/issues/396

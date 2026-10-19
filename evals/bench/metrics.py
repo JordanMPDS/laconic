@@ -37,9 +37,13 @@ AUX = {
 
 SYMBOLS = re.compile(r"(->|=>|→)")
 # Deliberately tight. config, repo, auth, env and db are normal developer
-# English; including them would fire on correct prose in every arm.
+# English; including them would fire on correct prose in every arm. So is a
+# rate written as a unit ("200 req/s", "12,000 req/min"), which is notation like
+# ms, not a shortened word, and a term followed by .name is an identifier
+# ("req.user.id"), which the rules forbid rewriting (#404).
 ABBREV = re.compile(
-    r"\b(impl|req|resp|func|val|obj|arg|msg|err)\b|\bw/|\bb/c\b", re.I
+    r"\b(?!req\s*/)(impl|req|resp|func|val|obj|arg|msg|err)\b(?!\.\w)|\bw/|\bb/c\b",
+    re.I,
 )
 # Mask only abbreviations that never end sentences. e.g., i.e., vs. mid-sentence
 # should not be treated as sentence boundaries. Deliberately excludes al, Inc, Ltd,

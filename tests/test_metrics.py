@@ -93,6 +93,13 @@ check("code blocks do not trip detectors", c["violations"] == 0)
 check("inline code does not trip detectors", c["symbol_connectors"] == 0)
 check("code-block identifiers are not counted as abbreviations",
       c["abbreviated_prose"] == 0)
+# A rate unit and a bare identifier are spelled correctly (#404); the same
+# word as a shortened noun still counts.
+check("req/s, req / 10s and req.user.id are not abbreviated prose (#404)",
+      metrics.score("Cap it at 200 req/s or 20 req / 10s, keyed on req.user.id.")
+      ["abbreviated_prose"] == 0)
+check("a shortened req in running prose still counts (#404)",
+      metrics.score("The req handler retries.")["abbreviated_prose"] == 1)
 
 # The three checks above all survive deleting FENCE entirely: CODE's fenced
 # block has an even number of backticks (3 to open + 3 to close), so INLINE's

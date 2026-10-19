@@ -41,12 +41,16 @@ SYMBOLS = re.compile(r"(->|=>|→)")
 ABBREV = re.compile(
     r"\b(impl|req|resp|func|val|obj|arg|msg|err)\b|\bw/|\bb/c\b", re.I
 )
-# Mask only abbreviations that never end sentences. e.g., i.e., vs., etc. mid-sentence
-# should not be treated as sentence boundaries. Deliberately excludes etc, al, Inc, Ltd,
+# Mask only abbreviations that never end sentences. e.g., i.e., vs. mid-sentence
+# should not be treated as sentence boundaries. Deliberately excludes al, Inc, Ltd,
 # St, Ave because these commonly *do* end sentences, and masking them would hide real
 # lowercase-start violations. This list must stay small; adding "helpful" abbreviations
 # costs recall without gaining precision on the false-positive side.
-ABBREV_DOT = re.compile(r"\b(e\.g|i\.e|cf|vs|approx|Fig|Dr|Mr|Mrs|Ms|Prof)\.", re.I)
+# etc was excluded on the same grounds until #403. In the committed snapshots a
+# capital follows it 27 times, and each of the 207 lowercase words after it
+# continues a list in mid-sentence ("Stripe, Adyen, etc. all honor this"). Masking
+# it hides only a dropped capital after a closing etc., which no stored response has.
+ABBREV_DOT = re.compile(r"\b(e\.g|i\.e|cf|vs|approx|etc|Fig|Dr|Mr|Mrs|Ms|Prof)\.", re.I)
 # An ellipsis marks an elision, not an ending: in `"user-provided path ...
 # does not exist"` the words after it belong to the same quoted sentence (#396).
 SENTENCE_SPLIT = re.compile(r"(?<=[.!?])(?<!\.\.\.)\s+")

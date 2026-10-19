@@ -539,3 +539,38 @@ false findings, and the control lost more of them than the edit did.
 
 [#403]: https://github.com/JordanMPDS/laconic/issues/403
 [#404]: https://github.com/JordanMPDS/laconic/issues/404
+
+## A rate unit is notation, and round 28's accept holds
+
+[#404]: `abbreviated_prose` counted `req` wherever it appeared, so a rate written
+as "200 req/s" or "12,000 req/min" was a shortened word. Of the 233 `req`
+findings in the committed snapshots, 220 are rate units, 162 of them on
+`design-rate-limit`, and 7 are the identifier `req.user`. The detector now
+skips `req` before a slash and any listed term followed by `.name`. That
+removes 227 findings and adds none, and the 6 left are `req` as a noun ("100
+req at 0:59").
+
+The rule is about shortened words in running prose, and this file already
+treats `config`, `repo` and `db` as normal developer English. A unit in a rate
+is notation in the same way `ms` is, which is why this is a detector fix and
+not a rule change.
+
+Re-scored on 70 control and edit pairs from rounds 02 to 81, which cover
+every round that lost a finding and read readability. Rounds 53, 57, 63, 77,
+78 and 102 lose findings too, but none of them read readability.
+
+| round | what moves | verdict |
+| --- | --- | --- |
+| [28](round-28.md) | 27 to 44 at p = 0.042 under #403 becomes 27 to 42 at p = 0.063, back inside the noise. `report.py` accepts and exits 0. The two `req/s` in `design-rate-limit`/sonnet are gone, and the step 8 replication's three were all `req/s` | **accept, as recorded**; #403's reject is withdrawn |
+| [17](round-17.md) | 152 to 115 becomes 141 to 111. The binomial p is 0.034 and the clustered p 0.089, so the round's point, significant by one test and not the other, holds again, and `tests/test_bench.py` checks it again | unchanged |
+| [18](round-18.md) | the scoped target 115 to 72 at p = 0.016 becomes 114 to 72 at p = 0.018; round-wide 152 to 124 becomes 141 to 112 | unchanged |
+
+Every other rise stays inside the noise. Round 10's 26 to 58 at p = 0.049
+does not move.
+
+`abbreviated_prose` has one more class of this kind: all 197 of its `impl`
+findings are the `subset-*` fixtures' work-item IDs, `IMPL-2` and the like
+([#406]).
+
+[#404]: https://github.com/JordanMPDS/laconic/issues/404
+[#406]: https://github.com/JordanMPDS/laconic/issues/406

@@ -503,6 +503,7 @@ Re-scored against their stored baselines:
 | round | what moves | verdict |
 | --- | --- | --- |
 | [04](round-04.md) | nothing: readability 26 to 33 under either detector | unchanged |
+| [17](round-17.md) | readability 158 to 121 becomes 154 to 120; the binomial p moves from 0.016 to 0.023 and the clustered p from 0.052 to 0.067, so the round's point, significant by one test and not the other, holds. `tests/test_bench.py` pins the new figures | unchanged |
 | [18](round-18.md) | round-wide 158 to 129 becomes 154 to 127; the scoped target, 117 to 74 at p = 0.015, does not move | unchanged |
 | [112](round-112.md) | readability 0 to 4 becomes 0 to 0, and the reason "readability lost" is gone | unchanged; it was a measuring round |
 

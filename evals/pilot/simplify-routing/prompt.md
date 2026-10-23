@@ -1,0 +1,1 @@
+routing is spread over `service_owners.csv`, `severity_channels.csv` and `apply_payments_override`, and people keep changing one without noticing the others. Is there a simpler way to hold it? Work out what you'd change and tell me — don't change anything yet.

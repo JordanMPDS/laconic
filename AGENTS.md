@@ -121,7 +121,9 @@ one that catches stale generated files, and it is the easiest to skip by acciden
   with `--tools ""` and kimi through `evals/bench/kimi-judge.md`, and a
   session whose stream shows a tool is refused. A judge sees the question, the
   criterion and the response, so a criterion that grades a fixture fact has to
-  state that fact.
+  state that fact. Files are stamped `judge_tools: "none"`, and one without
+  the stamp was graded with tools: `judge.py` will not extend or carry from
+  it, and `report.py` will not compare it with one that has the stamp.
 - **A multi-turn round has to name its delivery mode.** `run.py` can send the
   rules to a later turn two ways, and they are different treatments: `repeat`
   re-appends the whole rule slice every turn, while `plugin` reproduces the

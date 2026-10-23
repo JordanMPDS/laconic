@@ -2894,6 +2894,13 @@ def main():
             sys.exit("the two judgments files were graded by different judge "
                      "setups (%s). Re-judge one side so both carry the same"
                      % " and ".join(sorted(setups)))
+        # The same reasoning across #411: judges with tools could check a
+        # response against the fixture, and judges without them cannot (#414).
+        if len({(d.get("metadata") or {}).get("judge_tools")
+                for d in (judg, prev_file)}) > 1:
+            sys.exit("one judgments file was graded before #411, by judges that "
+                     "had tools, and the other without them. Re-judge the older "
+                     "side so both carry the same")
         prev_judg = prev_file["judgments"]
         # Arbitration needs both halves: a replication snapshot without its
         # judgments would read every judge-verdict metric as 0 in the

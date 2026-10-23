@@ -948,7 +948,9 @@ def tree_state(root):
     """{relative path: crc32} for every file under `root`.
 
     Same shape and same checksum as cases_cksum's fixture block, deliberately:
-    the two are comparing the same tree at two different moments.
+    the two are comparing the same tree at two different moments. Except that
+    this keeps `__pycache__`, which in a workspace is something the response
+    did (#411).
     """
     out = {}
     base = Path(root)
@@ -1163,7 +1165,7 @@ def call(claude_bin, model, prompt, system_prompt, cwd, output_style=None,
             print("refused a judge session that was not tool-less (started "
                   "with %r, called %r) (#411)" % (started, res["tools"]),
                   file=sys.stderr)
-            return {"ok": False}
+            return dict(res, ok=False)
     return res
 
 

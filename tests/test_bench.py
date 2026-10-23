@@ -1773,6 +1773,26 @@ with tempfile.TemporaryDirectory() as td_blind:
     check("judge call did not run with cwd at the repo root "
           "(blind to results.json's arm labels and rules/laconic.md)",
           logged_cwds and logged_cwds[0] != str(ROOT))
+    check("a judgments file records that its judges had no tools (#411)",
+          json.loads(out_path.read_text())["metadata"].get("judge_tools")
+          == "none")
+
+    # #411: a file graded by judges with tools is a different instrument on the
+    # fixture-graded cases (#414), and a resume would mix the two in one file.
+    _old = json.loads(out_path.read_text())
+    del _old["metadata"]["judge_tools"]
+    _old["judgments"][0]["reason"] = "graded with tools"
+    _old_path = Path(td_blind) / "old-judgments.json"
+    _old_path.write_text(json.dumps(_old))
+    proc_old = subprocess.run(
+        [sys.executable, str(ROOT / "evals" / "bench" / "judge.py"), "--model", "sonnet",
+         "--claude-bin", str(cwd_stub), "--results", str(snap_path),
+         "--out", str(_old_path), "--judge-all"],
+        capture_output=True, text=True, env=env)
+    check("judge.py will not extend a file graded before #411",
+          proc_old.returncode != 0 and "#411" in proc_old.stdout + proc_old.stderr
+          and json.loads(_old_path.read_text())["judgments"][0]["reason"]
+          == "graded with tools")
 
 # --- #411: a judge has no tools, and that is confirmed rather than assumed ---
 # The scratch cwd above was the whole of the judge's blindness, and it was not
@@ -1815,6 +1835,13 @@ with tempfile.TemporaryDirectory() as td_tl:
     _deaf.chmod(0o755)
     check("a session whose init event still lists tools is refused",
           bench_run.call(str(_deaf), "haiku", "q", None, td_tl,
+                         no_tools=True)["ok"] is False)
+    _mute = Path(td_tl) / "no-init-claude.sh"
+    _mute.write_text("#!/usr/bin/env bash\ncat >/dev/null\n"
+                     "echo '{\"type\":\"result\",\"is_error\":false,\"result\":\"x\"}'\n")
+    _mute.chmod(0o755)
+    check("a session whose stream has no init event is refused, not trusted",
+          bench_run.call(str(_mute), "haiku", "q", None, td_tl,
                          no_tools=True)["ok"] is False)
     check("an init event with no tool list is not read as tool-less",
           bench_run.session_tools('{"type":"system","subtype":"init"}') is None
@@ -2766,7 +2793,8 @@ shutil.copytree(_cd / "c1" / "fixture", _ws411, dirs_exist_ok=True,
 check("the fixture copy leaves every __pycache__ behind and keeps the rest",
       not list(_ws411.rglob("__pycache__")) and (_ws411 / "app.py").is_file())
 check("run.py's workspace copy is the one that ignores it",
-      "ignore=FIXTURE_IGNORE" in (ROOT / "evals" / "bench" / "run.py").read_text())
+      re.search(r"shutil\.copytree\(fixture, scratch,[^)]*ignore=FIXTURE_IGNORE\)",
+                (ROOT / "evals" / "bench" / "run.py").read_text()) is not None)
 shutil.rmtree(_ws411, ignore_errors=True)
 shutil.rmtree(_cd / "c1" / "fixture")
 check("removing the fixture again restores the original checksum",
@@ -4119,7 +4147,8 @@ with tempfile.TemporaryDirectory() as td_cj:
     # The source grades every carried key but one, so the uncovered key must
     # still be judged rather than silently left without a verdict.
     src_path = Path(td_cj) / "src-judgments.json"
-    src = {"metadata": {"judge_model": "sonnet", "rules_cksum": "1"},
+    src = {"metadata": {"judge_model": "sonnet", "rules_cksum": "1",
+                        "judge_tools": "none"},
            "judgments": []}
     for arm in ("baseline", "terse-control"):
         for rep in range(3):
@@ -4130,6 +4159,18 @@ with tempfile.TemporaryDirectory() as td_cj:
                  "verdict": "fail", "quote": "", "reason": "from the source",
                  "usage": {"total_cost_usd": 0.05, "output_tokens": 9}})
     bench_run.save_snapshot(src_path, src)
+
+    _pre = dict(src, metadata={"judge_model": "sonnet", "rules_cksum": "1"})
+    _pre_path = Path(td_cj) / "pre-411-judgments.json"
+    bench_run.save_snapshot(_pre_path, _pre)
+    proc_pre = subprocess.run(
+        [sys.executable, str(ROOT / "evals" / "bench" / "judge.py"), "--model", "sonnet",
+         "--claude-bin", str(stub), "--judge-all", "--results", str(snap_path),
+         "--out", str(Path(td_cj) / "never.json"),
+         "--carry-judgments-from", str(_pre_path)],
+        capture_output=True, text=True)
+    check("judge: verdicts graded before #411 are not carried into a tool-less file",
+          proc_pre.returncode != 0 and "#411" in proc_pre.stdout + proc_pre.stderr)
 
     out_path = Path(td_cj) / "judgments.json"
     proc = subprocess.run(
@@ -4407,7 +4448,8 @@ with tempfile.TemporaryDirectory() as td_86:
     bench_run.save_snapshot(_sp86, _s86)
 
     _srcp86 = Path(td_86) / "source-judgments.json"
-    _srcp86.write_text(json.dumps({"metadata": {"criteria_cksum": "C"},
+    _srcp86.write_text(json.dumps({"metadata": {"criteria_cksum": "C",
+                                                "judge_tools": "none"},
                                    "judgments": [{"case": "floor", "arm": "baseline",
                                                   "model": "haiku", "rep": 0,
                                                   "verdict": "pass"}]}))
@@ -5997,6 +6039,22 @@ with tempfile.TemporaryDirectory() as td_models:
     proc_second = _scoped("haiku,hiaku")
     check("--target-models validates every name, not just the first",
           "hiaku" in (proc_second.stdout + proc_second.stderr))
+
+    # #411: the same refusal report.py makes for two judge setups.
+    _jnew = Path(td_models) / "new-judgments.json"
+    _jold = Path(td_models) / "old-judgments.json"
+    _jnew.write_text(json.dumps({"metadata": {"judge_model": "sonnet",
+                                              "judge_tools": "none"},
+                                 "judgments": []}))
+    _jold.write_text(json.dumps({"metadata": {"judge_model": "sonnet"},
+                                 "judgments": []}))
+    _across = subprocess.run(
+        [sys.executable, str(ROOT / "evals" / "bench" / "report.py"),
+         "--results", str(cur_snap), "--judgments", str(_jnew), "--no-gate",
+         "--against", str(prev_snap), "--against-judgments", str(_jold)],
+        capture_output=True, text=True)
+    check("report.py will not compare judgments graded either side of #411",
+          _across.returncode != 0 and "#411" in _across.stdout + _across.stderr)
 
     proc_present = _scoped("haiku")
     check("--target-models accepts a model the snapshot does hold",

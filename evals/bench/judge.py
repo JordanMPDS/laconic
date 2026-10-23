@@ -58,6 +58,11 @@ KIMI_TIMEOUT = 300
 # has a shell, and it used it to search the filesystem for the files a
 # response names; the scratch dir it runs in was never a boundary.
 KIMI_AGENT = Path(__file__).resolve().parent / "kimi-judge.md"
+# Stamped on every judgments file since #411. A file without it was graded by
+# judges that had tools, which on the fixture-graded pilots is a different
+# instrument (#414), so judge.py will not extend or carry from one and
+# report.py will not compare one against a file that has it.
+JUDGE_TOOLS = "none"
 # Three decided votes with no two alike. It is a grading, not a failure - the
 # panel reached it and a resume would only re-roll it - so it is not an infra
 # reason, and it is recorded as not_exercised, which no counter reads as a pass
@@ -116,6 +121,7 @@ def usage_of(res):
     A failed call carries no usage - bench_run.call returns a bare
     {"ok": False} - so the zeros are the truth about it rather than a
     placeholder, and a retry that succeeds overwrites the record with its own.
+    A session refused for having tools (#411) did run, and keeps its usage.
     """
     return {k: res.get(k, 0) for k in USAGE_FIELDS}
 
@@ -536,6 +542,10 @@ def main():
                  "file holds one judge setup: write to a new --out, or pass "
                  "--model %s to resume it as it was graded"
                  % (args.out, had, setup, had))
+    if prior["judgments"] and prior_meta.get("judge_tools") != JUDGE_TOOLS:
+        sys.exit("%s was graded before #411, by judges that had tools, and no "
+                 "judge has them now. One file holds one instrument: write to "
+                 "a new --out and judge it again" % args.out)
 
     # Same glob semantics as run.py --cases, so the two flags select alike.
     # Resolved here rather than beside `todo` because the #69 guard below reads
@@ -576,7 +586,8 @@ def main():
 
     criteria = criteria_cksum(CASES)
     meta = {"judge_model": setup, "rules_cksum": rules_cksum,
-            "criteria_cksum": criteria, "effort": bench_run.EFFORT}
+            "criteria_cksum": criteria, "effort": bench_run.EFFORT,
+            "judge_tools": JUDGE_TOOLS}
 
     # `prior["metadata"] = meta` below replaces the block wholesale, so a resume
     # that omits --carry-judgments-from would delete a stamp describing verdicts
@@ -601,6 +612,11 @@ def main():
             sys.exit("%s was graded by %s, not %s, so its verdicts cannot be "
                      "carried into this file. Re-judge the carried arms instead"
                      % (args.carry_judgments_from, src_setup, setup))
+        if (source.get("metadata") or {}).get("judge_tools") != JUDGE_TOOLS:
+            sys.exit("%s was graded before #411, by judges that had tools, so "
+                     "its verdicts cannot be carried into a file graded without "
+                     "them. Re-judge the carried arms instead"
+                     % args.carry_judgments_from)
         prov = carry_judgments(prior, at, done, source, snap, arms,
                                args.carry_judgments_from, criteria)
         meta["carried_judgments_from"] = prov
@@ -737,6 +753,17 @@ def main():
 
     bench_run.save_snapshot(args.out, prior)
     print("\nwrote %s (%d judgments)" % (args.out, len(prior["judgments"])))
+    # A kimi vote that never arrived - an outage, or a transcript kimi_reply
+    # refused (#411) - leaves a two-member panel deciding, and no progress line
+    # shows it.
+    absent = sum(1 for j in prior["judgments"]
+                 if "panel" in j
+                 and (j["panel"].get("kimi") or {}).get("verdict") is None
+                 and not _is_infra_failure(j))
+    if absent:
+        print("warning: kimi cast no vote on %d of the %d judgments in this "
+              "file, so sonnet and opus decided those alone"
+              % (absent, len(prior["judgments"])))
     if stop["aborted"]:
         sys.exit(
             "\nstopped after %d consecutive failed judge call(s). That is what "

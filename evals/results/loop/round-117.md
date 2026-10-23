@@ -7,6 +7,11 @@ and bought no generation. This file, the `build-*` pilot cases, the widened
 before any generation. The edit under **The edit** is registered here and is
 applied only if stage 1 fires, in a commit before stage 2.
 
+**This round proposes no rule edit.** Added after stage 1 did not fire, as
+the registration below said it would be: the edit under **The edit** was
+withdrawn unrun, so the round is recorded as measuring and round 118 owes a
+candidate.
+
 `bash tools/candidate-due.sh` exited 0 at registration: round 116 tested a
 candidate, so this round may measure. It carries an edit anyway, behind a
 stage-1 precheck. If the precheck does not fire, the edit is withdrawn unrun
@@ -72,8 +77,9 @@ describing one does. Each request has a lazy version and a full one, which is
 where ponytail's invitation would go. `tests/test_evals_layout.sh` holds the
 family to that.
 
-`score_invite.py` reads, per run, an offer (`closing_offers`); a file write
-(`Edit`, `Write`, `MultiEdit`, `NotebookEdit`); and a statement of what the
+`score_invite.py` reads, per run, an offer (`closing_offers`); a change to
+the workspace (the recorded artifacts, or an `Edit`, `Write`, `MultiEdit` or
+`NotebookEdit` call, amended as **Results** says); and a statement of what the
 answer left out (`OMIT`, first person or sentence-initial: "Skipped Redis, add
 it when...", "I didn't add backoff", "Out of scope:"). On the 200 stored opus
 `edit-service` turns, `OMIT` finds one, and it is genuine. Every offer and
@@ -253,6 +259,60 @@ a ban on mentioning what was skipped.
 
 <!-- Nothing above this line has been computed, except the archive passes
 quoted under The detector, as the preamble says. -->
+
+### Stage 1: it does not fire
+
+70 runs, 0 failed, every one on CLI 2.1.309, in four shards from 06:48 to
+07:20 UTC on 2026-10-23, at master rules (`rules_cksum` 529118877).
+`release.py` finds no release boundary.
+
+```
+## Stage 1: does #113 fire on opus with ponytail co-active?
+   build-cache      laconic-ponytail n 10  offers  0  writes 10  says what it left out  7  median words  217.0  $1.54
+   build-cache      laconic          n 10  offers  0  writes 10  says what it left out  1  median words  249.0  $1.68
+   build-retry      laconic-ponytail n 10  offers  0  writes 10  says what it left out  0  median words  250.5  $3.15
+   build-retry      laconic          n 10  offers  0  writes 10  says what it left out  2  median words  286.5  $3.16
+   build-rate-limit laconic-ponytail n 10  offers  0  writes 10  says what it left out  4  median words  224.5  $2.23
+   build-rate-limit laconic          n 10  offers  0  writes 10  says what it left out  0  median words  251.0  $1.73
+   laconic-ponytail 0 of 30 (fires at 9), laconic 0 of 30 (needs no ponytail at 9)
+## Disclosed: edit-service, every turn, laconic-ponytail (decides nothing)
+   runs 10  with an offer on any turn 0  on turn 3 0
+## does not fire
+```
+
+**No answer on either arm offers more work, under the widened detector.**
+Every one of the 60 build answers changed the fixture, and none of the 50
+`edit-service` turn-responses under `laconic-ponytail` carries an offer, on
+turn 3 or any other. `edit-service` on opus now reads 0 of 50 runs with an
+offer on any turn: 40 under laconic alone in rounds 91 and 109, read again
+here with the widened detector, and 10 with ponytail beside it.
+
+**Ponytail's text does reach the answer, on the half that does not conflict
+with laconic.** Its *"what was skipped, when to add it"* shows up in 11 of 30
+`laconic-ponytail` answers against 3 of 30 `laconic` ones (two-sided Fisher
+p = 0.030): *"Skipped: different limits for each plan, using the `plan`
+column."*, *"I skipped an in-app cache such as Redis or an in-memory LRU. Add
+one only if..."*. The *"Need full X? Say so."* that would follow it never
+does. Where the two plugins agree the answer carries both, and where they
+conflict laconic's ban wins.
+
+Disclosed, deciding nothing: `laconic-ponytail` build answers are shorter, a
+mean stem-median shift of -31.5 prose words (217.0 against 249.0, 250.5 against
+286.5, 224.5 against 251.0; stem-stratified permutation, two-sided,
+p = 0.0005, seed 117). `edit-service` cost $20.24 for its 50 turns.
+
+**`OMIT` was read by hand: all 14 hits say what the answer left out.** One
+amendment to the scorer, made before any bar read it: opus changed files
+through `Bash` heredocs in three of the first 20 runs, with no `Edit` or
+`Write` call, so a write is now read from the recorded artifacts as well as
+the tool names. No stage-1 decision reads writes.
+
+## Result: the precheck does not fire, and the edit was withdrawn unrun
+
+The pre-mortem's expectation held. `rules/laconic.md` and `rules/dist/` are
+unchanged. The widened detector, the `build-*` cases and `score_invite.py`
+merge. This is [#113]'s third null on opus, after rounds 91 and 109, and the
+first with the second plugin its reporter ran.
 
 [#46]: https://github.com/JordanMPDS/laconic/issues/46
 [#113]: https://github.com/JordanMPDS/laconic/issues/113

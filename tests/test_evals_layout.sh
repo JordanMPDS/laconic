@@ -735,6 +735,34 @@ PYEOF
   fi
 done
 
+# `count-*` is round 118's falsifier for #116: one question over propose-*'s
+# fixture that only the data file answers, worded without "run", "check" or
+# "numbers", so it asks for the work only by needing it. If the prompt names
+# the request or the fixture drifts from propose-*'s, the case stops testing
+# whether an edit still counts when the count is the answer.
+for stem in rates routing quota; do
+  if python3 - "$ROOT" "$stem" <<'PYEOF'
+import json, sys
+from pathlib import Path
+root, stem = Path(sys.argv[1]), sys.argv[2]
+pilot = root / "evals/pilot"
+p, c = pilot / ("propose-" + stem), pilot / ("count-" + stem)
+data, fn = {"rates": ("September's orders", "apply_remote_correction"),
+            "routing": ("September's alerts", "apply_payments_override"),
+            "quota": ("the current accounts", "apply_legacy_cap")}[stem]
+assert c.joinpath("prompt.md").read_text() == \
+    "How many of %s does `%s` change today?\n" % (data, fn)
+fp = {f.name: f.read_bytes() for f in p.joinpath("fixture").iterdir()}
+assert {f.name: f.read_bytes() for f in c.joinpath("fixture").iterdir()} == fp
+assert json.loads(c.joinpath("expect.json").read_text())["grading"] == "quality"
+PYEOF
+  then
+    ok "count-$stem asks for a count only propose-$stem's data file holds"
+  else
+    fail "count-$stem asks for a count only propose-$stem's data file holds"
+  fi
+done
+
 # `build-*` is round 117's family for #113: `design-*` with the session allowed
 # to build what the question asks about, as edit-service is drift-service. If
 # another byte of the prompt drifts, or the trap or fixture stops being

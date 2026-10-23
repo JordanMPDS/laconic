@@ -269,6 +269,12 @@ one clause added, asking for the check against the data, so the check the
 target leaves unasked is asked. Both share `propose-*`'s fixture by symlink.
 Scored by `score_proof.py`, from the recorded tool inputs rather than the prose.
 
+`count-*`, from [`../results/loop/round-118.md`](../results/loop/round-118.md),
+asks over the same fixture how many rows of the data file the correction step
+changes today (13, 22 and 62), without asking for a run, a check or numbers. It
+is the falsifier for an edit that leaves running the data to the user: the
+count is a fact only the data holds, so asking for it asks for the run.
+
 ## `built-trial` and `explain-trial`
 
 [#298]'s definition request, registered in

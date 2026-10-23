@@ -259,4 +259,101 @@ one.
 <!-- Nothing above this line has been computed, except the calibration
 section, as the preamble says. -->
 
+### Stage 2
+
+220 runs, 0 failed, every one on CLI 2.1.309, in four shards from 04:39 to
+05:18 UTC on 2026-10-23. `release.py` finds no release boundary. The control
+generated from a worktree at the registration commit, 931f026 (`rules_cksum`
+529118877), and the edit from 0cf319a (`rules_cksum` 873945189). The edit
+side's `verify-*` and scored-cell shards record `git_dirty`: they started
+while `tests/test_bench.py` held an uncommitted change pinning the new check
+1 text, which no generation reads.
+
+```
+## Primary: simplify-* analyses the data, opus, pooled, one-sided
+   simplify-rates   control n 20  runs code 20  on the data 20  tooled 20  claims 10 (0 unrun)  median words  215.5  output  2859.0  $2.78
+   simplify-rates   edit    n 20  runs code 20  on the data  5  tooled 20  claims  0 (0 unrun)  median words  216.0  output  2782.0  $2.87
+   simplify-routing control n 20  runs code 20  on the data 20  tooled 20  claims  9 (0 unrun)  median words  246.0  output  3539.5  $2.93
+   simplify-routing edit    n 20  runs code 20  on the data 20  tooled 20  claims  0 (0 unrun)  median words  245.0  output  3803.0  $2.80
+   simplify-quota   control n 20  runs code 20  on the data 20  tooled 20  claims  4 (0 unrun)  median words  214.5  output  2393.0  $3.83
+   simplify-quota   edit    n 20  runs code 19  on the data 17  tooled 20  claims  2 (0 unrun)  median words  203.0  output  2622.0  $3.84
+   pooled                       control  60/60   edit  42/60   one-sided p = 0.0000  FIRES
+   edit rate 0.700 against 0.50 x control 1.000: outside the margin
+## Bound (fatal): verify-* still analyses the data when asked to
+   verify-rates     control n 10  runs code 10  on the data 10  tooled 10  claims  7 (0 unrun)  median words  225.0  output  3492.5  $1.50
+   verify-rates     edit    n 10  runs code 10  on the data 10  tooled 10  claims  7 (0 unrun)  median words  223.5  output  3518.0  $1.49
+   verify-routing   control n 10  runs code 10  on the data 10  tooled 10  claims  3 (0 unrun)  median words  225.5  output  3686.5  $1.78
+   verify-routing   edit    n 10  runs code 10  on the data 10  tooled 10  claims  3 (0 unrun)  median words  222.5  output  4444.0  $1.85
+   verify-quota     control n 10  runs code 10  on the data 10  tooled 10  claims  5 (0 unrun)  median words  204.0  output  3047.0  $1.54
+   verify-quota     edit    n 10  runs code 10  on the data 10  tooled 10  claims  4 (0 unrun)  median words  216.0  output  2834.0  $1.42
+   pooled                       control  30/30   edit  30/30   one-sided p = 1.0000  holds
+## Bound (fatal): simplify-* still calls a tool
+   pooled                       control  60/60   edit  60/60   one-sided p = 1.0000  holds
+## reject
+```
+
+**Bar 1 fails on the margin.** The fall is real, 60/60 to 42/60 at
+one-sided p = 8.5e-7, and the edit's rate is 0.70 of the control's against a
+registered ceiling of 0.50. Every bound that needs no judge held.
+
+**The registered `judge.py` commands were not run.** With bar 1 failed, no
+bound can turn the round into an accept, and the skill's buying order stops
+at the first step that fails. So the panel's pass rate on `simplify-*`,
+`quota-merge` and `verdict-experiment` is unmeasured. The two scored cells'
+runs are committed unjudged; disclosed only, `quota-merge` reads a median of
+2 tool calls on both sides and `verdict-experiment` 2.5 against 1.0.
+
+### Where the fall is, and where it is not
+
+**`rates` carries all of it, 20/20 to 5/20 (p = 3.9e-7).** Fifteen edit
+answers compute the 42-cell table from the code, with a script that imports
+`price.py` and loops over zones and bands, and never open the orders. Then
+they name the check instead of running it:
+
+> To confirm, price all 640 September orders the old way and the new way and
+> diff the results.
+
+That is the edit's sentence followed exactly: the table is the proposal, and
+pricing every order is the proof.
+
+**`routing` does not move, 20/20 to 20/20,** and the reason is in the
+answers. On both sides opus uses the alerts to find something the proposal
+has to decide: the override's docstring says finance on-call is paged "as
+well as the owner", the code replaces the owner, and *"in September, 22
+sev1/sev2 alerts went only to `finance-oncall`, and billing never got
+them."* That is investigation, not proof of an answer already reached, so
+the edit does not reach it, by its own wording.
+
+**`quota` moves 20/20 to 17/20 (p = 0.12).** The data run there establishes
+that all 20 plan and region pairs have accounts, so every row of the
+proposed table is in use, which the answers state as part of the proposal.
+
+### Disclosed
+
+- **`runs_code` does not move: 60/60 to 59/60.** Computing the table from
+  the code replaced pricing the orders. Tool calls on `simplify-*` went from
+  185 to 176, and the cost from $9.53 to $9.52 a side. **The edit removed
+  the proof and none of the spend**, which is what [#116]'s user objected
+  to.
+- Median prose words do not move on any stem (215.5 to 216.0, 246.0 to
+  245.0, 214.5 to 203.0).
+- `claims` falls from 23 to 2 on `simplify-*`, but the pattern also matches
+  the control's "I'd check it against all 812 alerts", so it is not a count
+  of reported results. Read by hand, the edit's `rates` answers report no
+  check result and name the check instead.
+
+## Result: rejected, and the edit was reverted
+
+Bar 1's fall is significant and misses the registered margin, because two
+of the three stems use the data to say something the proposal needs rather
+than to prove it. `rules/laconic.md`, `rules/dist/` and the paired
+`tests/test_bench.py` change are reverted. The harness change, the
+`simplify-*` and `verify-*` cases and `score_proof.py` merge.
+
+The pre-mortem's likeliest rejection happened, a fall that does not clear
+the margin, but not for the reason it gave. Opus did apply the sentence to a
+request that is not about something broken; it applied it narrowly, to runs
+whose only purpose was proof. What it leaves for [#116] is that on these
+fixtures the spend comes from computing the answer, not from proving it.
+
 [#116]: https://github.com/JordanMPDS/laconic/issues/116

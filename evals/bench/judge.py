@@ -54,6 +54,10 @@ INFRA_REASONS = (REASON_JUDGE_CALL_FAILED, REASON_UNPARSEABLE)
 PANEL = ("sonnet", "opus", "kimi")
 KIMI_MODEL = "kimi-code/kimi-for-coding"
 KIMI_TIMEOUT = 300
+# kimi's own system prompt with every tool removed (#411). Its default profile
+# has a shell, and it used it to search the filesystem for the files a
+# response names; the scratch dir it runs in was never a boundary.
+KIMI_AGENT = Path(__file__).resolve().parent / "kimi-judge.md"
 # Three decided votes with no two alike. It is a grading, not a failure - the
 # panel reached it and a resume would only re-roll it - so it is not an infra
 # reason, and it is recorded as not_exercised, which no counter reads as a pass
@@ -284,12 +288,19 @@ def _call_blind(claude_bin, model, prompt):
     rules/laconic.md is the treatment's own system prompt. Grading from
     ROOT would let the judge see both (see evals/run.sh for why that
     matters), breaking the blindness this module's docstring promises.
+
+    The temp dir is not what keeps it blind, though: a judge with tools can
+    read any path it likes, and 715 of the 22,077 judge transcripts on the
+    loop's machine at round 118 ran a tool, some inside the repository's
+    fixtures (#411). So it gets none, and call() refuses a session that does
+    not confirm it.
     """
     res = {"ok": False}
     for _ in range(2):
         scratch = tempfile.mkdtemp()
         try:
-            res = bench_run.call(claude_bin, model, prompt, None, scratch)
+            res = bench_run.call(claude_bin, model, prompt, None, scratch,
+                                 no_tools=True)
         finally:
             shutil.rmtree(scratch, ignore_errors=True)
         if res.get("ok"):
@@ -297,24 +308,60 @@ def _call_blind(claude_bin, model, prompt):
     return res
 
 
+def kimi_reply(raw):
+    """The reply in a kimi stream-json transcript, or None if it is not one.
+
+    An allowlist, not a search for tool events: a line is either kimi's own
+    bookkeeping (`role: meta`) or an assistant message that is nothing but
+    text. A tool call, a tool result, or a shape this harness has never seen
+    all return None, so a CLI release that renames its tool events fails the
+    judgment instead of passing it as blind (#411).
+    """
+    parts = []
+    for line in raw.splitlines():
+        if not line.strip():
+            continue
+        try:
+            d = json.loads(line)
+        except ValueError:
+            return None
+        if not isinstance(d, dict):
+            return None
+        if d.get("role") == "meta":
+            continue
+        if (d.get("role") == "assistant" and set(d) <= {"role", "content"}
+                and isinstance(d.get("content"), str)):
+            parts.append(d["content"])
+            continue
+        return None
+    return "\n".join(parts)
+
+
 def _call_kimi(prompt):
     """One kimi judgment, retried once, blind in a fresh temp dir.
 
-    kimi has no --cd flag, so the working directory is the only way to keep it
-    out of the repository, where rules/laconic.md and the arm-labelled
-    snapshots would unblind it - the reason _call_blind uses a scratch dir too.
-    Its reasoning goes to stderr; stdout carries the reply, which
-    parse_verdict reads the same way it reads a claude reply.
+    kimi has no --cd flag, so the working directory keeps its session out of
+    the repository - the reason _call_blind uses a scratch dir too. That is
+    not blindness on its own: KIMI_AGENT removes its tools, and kimi_reply
+    refuses a transcript that shows one in use anyway. The reply is the
+    assistant text, which parse_verdict reads the same way it reads a claude
+    reply.
     """
     res = {"ok": False}
     for _ in range(2):
         scratch = tempfile.mkdtemp()
         try:
-            p = subprocess.run(["kimi", "-p", prompt, "-m", KIMI_MODEL],
+            p = subprocess.run(["kimi", "-p", prompt, "-m", KIMI_MODEL,
+                                "--agent-file", str(KIMI_AGENT),
+                                "--output-format", "stream-json"],
                                cwd=scratch, capture_output=True, text=True,
                                timeout=KIMI_TIMEOUT, stdin=subprocess.DEVNULL)
-            res = {"ok": p.returncode == 0 and bool(p.stdout.strip()),
-                   "text": p.stdout}
+            text = kimi_reply(p.stdout) if p.returncode == 0 else ""
+            if text is None:
+                print("refused a kimi judgment whose transcript is not plain "
+                      "text: a tool call, or a stream format this harness does "
+                      "not know (#411)", file=sys.stderr)
+            res = {"ok": bool(text and text.strip()), "text": text or ""}
         except (OSError, subprocess.TimeoutExpired):
             res = {"ok": False}
         finally:

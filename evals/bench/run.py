@@ -908,6 +908,10 @@ def cases_cksum(cases_dir, names):
     in this round only, so an unrelated case being added or edited does not
     invalidate a resume. Directory names are included, so deleting a fixture
     file is caught as well as editing one.
+
+    Except `__pycache__`, which is not case material: anything that imports a
+    fixture module in place writes one, and in round 118 that moved the
+    checksum of three cases mid-round (#411). run.py's copy skips it too.
     """
     out = {}
     for name in sorted(names):
@@ -921,10 +925,17 @@ def cases_cksum(cases_dir, names):
         if fixture.is_dir():
             entry["fixture"] = {
                 str(f.relative_to(fixture)): zlib.crc32(f.read_bytes())
-                for f in sorted(fixture.rglob("*")) if f.is_file()}
+                for f in sorted(fixture.rglob("*"))
+                if f.is_file()
+                and "__pycache__" not in f.relative_to(fixture).parts}
         out[name] = entry
     return str(zlib.crc32(json.dumps(out, sort_keys=True).encode()))
 
+
+# A cache someone else's import left in a fixture is not part of the case, and
+# copied into a workspace it is a `.pyc` the response appears to have produced
+# (#411). cases_cksum skips the same directory.
+FIXTURE_IGNORE = shutil.ignore_patterns("__pycache__")
 
 # One response's authored files. Both caps are size guards on the snapshot,
 # not judgements about what a deliverable may be: a run that trips either says
@@ -1094,7 +1105,7 @@ EFFORT = "xhigh"
 
 
 def call(claude_bin, model, prompt, system_prompt, cwd, output_style=None,
-         resume=None, stop_hook=None, safe_mode=True):
+         resume=None, stop_hook=None, safe_mode=True, no_tools=False):
     # stream-json rather than json because only the stream carries the
     # tool_use blocks (#142); --verbose is not optional, the CLI refuses the
     # combination under --print without it. The terminal result event is the
@@ -1110,6 +1121,12 @@ def call(claude_bin, model, prompt, system_prompt, cwd, output_style=None,
         cmd += ["--resume", resume]
     if system_prompt:
         cmd += ["--append-system-prompt", system_prompt]
+    # #411: a judge is shown the question, the criterion and the response, and
+    # nothing else. A scratch cwd does not make that so - the operator's own
+    # settings allow Read, auto mode approves Bash, and judges used both, some
+    # to cd into the repository's fixtures and import them in place.
+    if no_tools:
+        cmd += ["--tools", ""]
     # One --settings, whatever it has to carry: the CLI takes the flag once and
     # a second copy replaces the first rather than merging with it.
     settings = {}
@@ -1135,7 +1152,37 @@ def call(claude_bin, model, prompt, system_prompt, cwd, output_style=None,
         return {"ok": False}
     if out.returncode != 0:
         return {"ok": False}
-    return parse_cli_stream(out.stdout)
+    res = parse_cli_stream(out.stdout)
+    if no_tools:
+        # Confirmed from the stream, not assumed from the flag: a session whose
+        # init event does not say it started with no tools, or that called one
+        # anyway, is not a blind judgment, and failing it is what keeps a CLI
+        # change from quietly handing the judges their tools back.
+        started = session_tools(out.stdout)
+        if started != [] or res["tools"]:
+            print("refused a judge session that was not tool-less (started "
+                  "with %r, called %r) (#411)" % (started, res["tools"]),
+                  file=sys.stderr)
+            return {"ok": False}
+    return res
+
+
+def session_tools(raw):
+    """The tool list a stream's init event says the session started with.
+
+    None when there is no init event or it carries no list, which call() reads
+    as "not known to be tool-less" rather than as "no tools".
+    """
+    for line in raw.splitlines():
+        try:
+            d = json.loads(line)
+        except ValueError:
+            continue
+        if (isinstance(d, dict) and d.get("type") == "system"
+                and d.get("subtype") == "init"):
+            tools = d.get("tools")
+            return tools if isinstance(tools, list) else None
+    return None
 
 
 STYLE_PROBE = (
@@ -1657,7 +1704,8 @@ def main():
                         try:
                             if fixture.is_dir():
                                 shutil.copytree(fixture, scratch,
-                                                dirs_exist_ok=True)
+                                                dirs_exist_ok=True,
+                                                ignore=FIXTURE_IGNORE)
                             before = tree_state(scratch)
                             out = call_turns(claude_bin, model, turns, arms[arm],
                                              scratch, ARM_OUTPUT_STYLES.get(arm),

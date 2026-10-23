@@ -1665,6 +1665,7 @@ with tempfile.TemporaryDirectory() as td_retry:
         'printf \'%%s\' "$n" > "%s"\n'
         '[ "$n" -eq 1 ] && exit 3\n'
         "cat <<'JSON'\n"
+        '{"type":"system","subtype":"init","tools":[]}\n'
         '{"type":"result","is_error":false,"result":"stub answer","num_turns":1,'
         '"total_cost_usd":0.001,"duration_ms":1,'
         '"usage":{"input_tokens":1,"output_tokens":1,'
@@ -1742,6 +1743,7 @@ with tempfile.TemporaryDirectory() as td_blind:
         "#!/usr/bin/env bash\n"
         'printf \'%s\\n\' "$PWD" >> "$JUDGE_CWD_LOG"\n'
         "cat <<'JSON'\n"
+        '{"type":"system","subtype":"init","tools":[]}\n'
         '{"type":"result","is_error":false,"result":"stub answer","num_turns":1,'
         '"total_cost_usd":0.001,"duration_ms":1,'
         '"usage":{"input_tokens":1,"output_tokens":1,'
@@ -1771,6 +1773,102 @@ with tempfile.TemporaryDirectory() as td_blind:
     check("judge call did not run with cwd at the repo root "
           "(blind to results.json's arm labels and rules/laconic.md)",
           logged_cwds and logged_cwds[0] != str(ROOT))
+
+# --- #411: a judge has no tools, and that is confirmed rather than assumed ---
+# The scratch cwd above was the whole of the judge's blindness, and it was not
+# a boundary: the operator's settings allow Read, auto mode approves Bash, and
+# judges used both to search the filesystem for the files a response named.
+with tempfile.TemporaryDirectory() as td_tl:
+    _argv = Path(td_tl) / "argv.txt"
+    _env_keep = os.environ.get("STUB_ARGV_OUT")
+    os.environ["STUB_ARGV_OUT"] = str(_argv)
+    try:
+        _tl = bench_run.call(resolved_rel, "haiku", "q", None, td_tl,
+                             no_tools=True)
+        _tail = _argv.read_text().split("\n")[3:]
+        check("a no_tools call passes --tools with an empty list",
+              "--tools" in _tail and _tail[_tail.index("--tools") + 1] == "")
+        check("a no_tools call the stream confirms as tool-less is ok",
+              _tl["ok"] is True and _tl["text"] == "stub answer")
+        bench_run.call(resolved_rel, "haiku", "q", None, td_tl)
+        check("a generation call keeps its tools: no --tools flag by default",
+              "--tools" not in _argv.read_text().split("\n")[3:])
+    finally:
+        if _env_keep is None:
+            os.environ.pop("STUB_ARGV_OUT", None)
+        else:
+            os.environ["STUB_ARGV_OUT"] = _env_keep
+
+    os.environ["STUB_TOOLS"] = "Read"
+    try:
+        check("a no_tools session that calls a tool anyway is refused",
+              bench_run.call(resolved_rel, "haiku", "q", None, td_tl,
+                             no_tools=True)["ok"] is False)
+    finally:
+        os.environ.pop("STUB_TOOLS", None)
+
+    # A CLI that ignored the flag: its init event still lists the tools.
+    _deaf = Path(td_tl) / "deaf-claude.sh"
+    _deaf.write_text("#!/usr/bin/env bash\ncat >/dev/null\n"
+                     "echo '{\"type\":\"system\",\"subtype\":\"init\",\"tools\":[\"Bash\"]}'\n"
+                     "echo '{\"type\":\"result\",\"is_error\":false,\"result\":\"x\"}'\n")
+    _deaf.chmod(0o755)
+    check("a session whose init event still lists tools is refused",
+          bench_run.call(str(_deaf), "haiku", "q", None, td_tl,
+                         no_tools=True)["ok"] is False)
+    check("an init event with no tool list is not read as tool-less",
+          bench_run.session_tools('{"type":"system","subtype":"init"}') is None
+          and bench_run.session_tools("") is None)
+
+# kimi's half. The transcript shape is the one kimi 0.38.0 prints for a
+# tool-less judgment, and the tool-call lines are what it prints with a shell.
+_KM = '{"role":"meta","type":"system.version","version":"0.38.0"}'
+_KA = '{"role":"assistant","content":"{\\"verdict\\": \\"pass\\"}"}'
+_KH = '{"role":"meta","type":"session.resume_hint","session_id":"s"}'
+_KT = ('{"role":"assistant","tool_calls":[{"type":"function","id":"t",'
+       '"function":{"name":"Bash","arguments":"{}"}}]}')
+_KR = '{"role":"tool","tool_call_id":"t","content":"/tmp/x\\n"}'
+check("kimi_reply reads the assistant text out of a plain transcript",
+      bench_judge.kimi_reply("\n".join([_KM, _KA, _KH])) == '{"verdict": "pass"}')
+check("kimi_reply refuses a transcript with a tool call in it",
+      bench_judge.kimi_reply("\n".join([_KM, _KT, _KR, _KA, _KH])) is None)
+check("kimi_reply refuses a tool result even without the call",
+      bench_judge.kimi_reply("\n".join([_KM, _KR, _KA])) is None)
+check("kimi_reply refuses a line it does not recognise rather than skipping it",
+      bench_judge.kimi_reply("\n".join([_KM, "not json", _KA])) is None
+      and bench_judge.kimi_reply(
+          '{"role":"assistant","content":[{"type":"text","text":"x"}]}') is None)
+_agent = bench_judge.KIMI_AGENT.read_text()
+check("the kimi judge profile removes every tool and keeps kimi's own prompt",
+      re.search(r"^tools: \[\]$", _agent, re.M) is not None
+      and _agent.rstrip().endswith("${base_prompt}"))
+
+with tempfile.TemporaryDirectory() as td_km:
+    _kstub = Path(td_km) / "kimi"
+    _kstub.write_text('#!/usr/bin/env bash\n'
+                      'printf "%%s\\n" "$@" > "%s"\n'
+                      'printf "%%s\\n" "$KIMI_STREAM"\n' % (Path(td_km) / "argv"))
+    _kstub.chmod(0o755)
+    _path_keep = os.environ["PATH"]
+    os.environ["PATH"] = td_km + os.pathsep + _path_keep
+    try:
+        os.environ["KIMI_STREAM"] = "\n".join([_KM, _KA, _KH])
+        _kres = bench_judge._call_kimi("grade this")
+        _kargv = (Path(td_km) / "argv").read_text().splitlines()
+        check("_call_kimi runs kimi with the tool-less judge profile",
+              _kargv[_kargv.index("--agent-file") + 1]
+              == str(bench_judge.KIMI_AGENT))
+        check("_call_kimi asks for the transcript it can check",
+              _kargv[_kargv.index("--output-format") + 1] == "stream-json")
+        check("_call_kimi returns the reply of a tool-less transcript",
+              _kres["ok"] is True
+              and bench_judge.parse_verdict(_kres["text"])["verdict"] == "pass")
+        os.environ["KIMI_STREAM"] = "\n".join([_KM, _KT, _KR, _KA, _KH])
+        check("_call_kimi fails a judgment whose transcript shows a tool",
+              bench_judge._call_kimi("grade this")["ok"] is False)
+    finally:
+        os.environ["PATH"] = _path_keep
+        os.environ.pop("KIMI_STREAM", None)
 
 # --- G: run.py._cli_version must use the resolved --claude-bin, with a timeout ---
 with tempfile.TemporaryDirectory() as td_ver:
@@ -2649,6 +2747,29 @@ check("editing a fixture file changes it again",
 (_cd / "c1" / "fixture" / "app.js").unlink()
 (_cd / "c1" / "fixture").rmdir()
 check("deleting the fixture restores the original checksum",
+      bench_run.cases_cksum(_cd, ["c1"]) == _base)
+
+# #411: a `__pycache__` is what an in-place import of a fixture module leaves,
+# and in round 118 one moved three cases' checksums mid-round and was copied
+# into every later workspace of those cases.
+(_cd / "c1" / "fixture" / "pkg" / "__pycache__").mkdir(parents=True)
+(_cd / "c1" / "fixture" / "app.py").write_text("x = 1\n")
+_with_py = bench_run.cases_cksum(_cd, ["c1"])
+(_cd / "c1" / "fixture" / "pkg" / "__pycache__" / "app.cpython-314.pyc").write_bytes(b"\0")
+(_cd / "c1" / "fixture" / "__pycache__").mkdir()
+(_cd / "c1" / "fixture" / "__pycache__" / "app.cpython-314.pyc").write_bytes(b"\1")
+check("a __pycache__ in a fixture does not move the case checksum",
+      bench_run.cases_cksum(_cd, ["c1"]) == _with_py)
+_ws411 = Path(_tf.mkdtemp())
+shutil.copytree(_cd / "c1" / "fixture", _ws411, dirs_exist_ok=True,
+                ignore=bench_run.FIXTURE_IGNORE)
+check("the fixture copy leaves every __pycache__ behind and keeps the rest",
+      not list(_ws411.rglob("__pycache__")) and (_ws411 / "app.py").is_file())
+check("run.py's workspace copy is the one that ignores it",
+      "ignore=FIXTURE_IGNORE" in (ROOT / "evals" / "bench" / "run.py").read_text())
+shutil.rmtree(_ws411, ignore_errors=True)
+shutil.rmtree(_cd / "c1" / "fixture")
+check("removing the fixture again restores the original checksum",
       bench_run.cases_cksum(_cd, ["c1"]) == _base)
 
 # Scoped to the round's own cases: adding a case must not invalidate a resume
@@ -3858,6 +3979,7 @@ with tempfile.TemporaryDirectory() as td_jobs:
         'ls "%s" | wc -l >> "%s"\n'
         'rm -f "%s/$$"\n'
         "cat <<'JSON'\n"
+        '{"type":"system","subtype":"init","tools":[]}\n'
         '{"type":"result","is_error":false,"result":"{\\"verdict\\":\\"pass\\",\\"quote\\":\\"q\\",'
         '\\"reason\\":\\"r\\"}","num_turns":1,'
         '"total_cost_usd":0.001,"duration_ms":1,'
@@ -3972,6 +4094,7 @@ with tempfile.TemporaryDirectory() as td_cj:
         'n=$(cat "%s" 2>/dev/null || echo 0); n=$((n+1)); printf \'%%s\' "$n" > "%s"\n'
         'rmdir "$L"\n'
         "cat <<'JSON'\n"
+        '{"type":"system","subtype":"init","tools":[]}\n'
         '{"type":"result","is_error":false,"result":"{\\"verdict\\":\\"pass\\",\\"quote\\":\\"\\",'
         '\\"reason\\":\\"fresh\\"}","num_turns":1,"total_cost_usd":0.01,'
         '"duration_ms":1,'
@@ -4269,6 +4392,7 @@ with tempfile.TemporaryDirectory() as td_86:
     _stub86 = Path(td_86) / "claude"
     _stub86.write_text(
         '#!/usr/bin/env bash\ncat >/dev/null\n'
+        'printf \'{"type":"system","subtype":"init","tools":[]}\\n\'\n'
         'printf \'{"type":"result","subtype":"success","result":'
         '"VERDICT: pass\\\\nQUOTE: q","usage":{"input_tokens":1,"output_tokens":1}}\\n\'\n')
     _stub86.chmod(0o755)
@@ -4990,6 +5114,7 @@ n=$(( $(cat "$CFILE" 2>/dev/null || echo 0) + 1 ))
 echo "$n" > "$CFILE"
 rmdir "$CFILE.lock"
 if [ "$n" = "$OK_CALL" ]; then
+  echo '{"type":"system","subtype":"init","tools":[]}'
   echo '{"type":"result","is_error":false,"result":"{\\"verdict\\":\\"pass\\",\\"quote\\":\\"\\",\\"reason\\":\\"r\\"}","num_turns":1,"usage":{"output_tokens":1}}'
   exit 0
 fi

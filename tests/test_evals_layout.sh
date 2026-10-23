@@ -735,6 +735,31 @@ PYEOF
   fi
 done
 
+# `build-*` is round 117's family for #113: `design-*` with the session allowed
+# to build what the question asks about, as edit-service is drift-service. If
+# another byte of the prompt drifts, or the trap or fixture stops being
+# design-*'s, the family measures a different question rather than the build.
+for stem in cache retry rate-limit; do
+  if python3 - "$ROOT" "$stem" <<'PYEOF'
+import json, sys
+from pathlib import Path
+root, stem = Path(sys.argv[1]), sys.argv[2]
+d, b = root / "evals/cases" / ("design-" + stem), root / "evals/pilot" / ("build-" + stem)
+pd, pb = (x.joinpath("prompt.md").read_text() for x in (d, b))
+assert "Don't edit anything." in pd
+assert pb == pd.replace("Don't edit anything.", "Go ahead and make the change.")
+ed, eb = (json.loads(x.joinpath("expect.json").read_text()) for x in (d, b))
+for k in ("trap", "never_cut", "grading"):
+    assert ed[k] == eb[k], "%s differs" % k
+assert d.joinpath("fixture").resolve() == b.joinpath("fixture").resolve()
+PYEOF
+  then
+    ok "build-$stem is design-$stem with only the edit clause changed"
+  else
+    fail "build-$stem is design-$stem with only the edit clause changed"
+  fi
+done
+
 # `built-trial` and `explain-trial` are round 115's pair for #298: a definition
 # request after the model planned, built and reported the two measures itself,
 # and the same request cold. They have to share the data and the README, the

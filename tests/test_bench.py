@@ -113,10 +113,26 @@ check("stream: the result event's usage is read the way the flat format's is",
       streamed["output_tokens"] == 33 and streamed["num_turns"] == 3)
 check("stream: every other field is exactly what parse_cli_json makes of the "
       "same result object",
-      {k: v for k, v in streamed.items() if k != "tools"}
+      {k: v for k, v in streamed.items() if k not in ("tools", "tool_inputs")}
       == bench_run.parse_cli_json(json.dumps(SJ_RESULT)))
 check("stream: tool names are recorded in the order they were invoked",
       streamed["tools"] == ["Write", "Bash"])
+# Round 116 scores what a command did, not what the answer says it did, so the
+# input travels with the name and a long one is cut rather than dropped.
+_cmd = {"type": "tool_use", "name": "Bash",
+        "input": {"command": "python3 check.py orders.csv"}}
+_big = {"type": "tool_use", "name": "Write",
+        "input": {"file_path": "/tmp/x.py",
+                  "content": "x" * (bench_run.TOOL_INPUT_CHARS + 50)}}
+_ins = bench_run.parse_cli_stream(
+    _sj(_sj_assistant(_cmd), _sj_assistant(_big), SJ_RESULT))["tool_inputs"]
+check("stream: each tool's input is recorded beside its name, in order",
+      _ins[0] == {"command": "python3 check.py orders.csv"}
+      and _ins[1]["file_path"] == "/tmp/x.py")
+check("stream: a long input string is cut at TOOL_INPUT_CHARS",
+      len(_ins[1]["content"]) == bench_run.TOOL_INPUT_CHARS)
+check("stream: a failed parse carries an empty input list too",
+      bench_run.parse_cli_stream("")["tool_inputs"] == [])
 check("stream: an answer that invoked nothing records an empty tool list",
       bench_run.parse_cli_stream(_sj(SJ_RESULT))["tools"] == [])
 check("stream: two tool_use blocks in one assistant message both count",
@@ -5645,6 +5661,11 @@ _expected_concurrent = {
     # Round 115's precheck: three simultaneous shards declaring --concurrency 3,
     # the told case split by rep and the cold case alone, merged into one.
     "round-115-precheck.json",
+    # Round 116's stage 2: four simultaneous shards declaring --concurrency 4,
+    # two a side; each side's two simplify-* shards and its verify-* shard are
+    # merged into one.
+    "round-116-control.json",
+    "round-116-edit.json",
 }
 _found = set()
 for _p in sorted((ROOT / "evals" / "snapshots").rglob("*.json")):

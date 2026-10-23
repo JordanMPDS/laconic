@@ -523,8 +523,14 @@ def parse_cli_stream(raw):
     Tools are reported even for a failed run. usable() filters those out of
     every statistic so this cannot reach a score, and it is what separates a
     cell that died after four tool calls from one that never started.
+
+    `tool_inputs` is each call's input, in the same order as `tools` (round
+    116). A tool name cannot tell `cat orders.csv` from a script that prices
+    every order in it, and the prose is the wrong place to look: an edit can
+    teach a model to stop reporting a check while still running it. Long
+    strings are cut at TOOL_INPUT_CHARS, since a Write can carry a whole file.
     """
-    tools, result = [], ""
+    tools, inputs, result = [], [], ""
     for line in raw.splitlines():
         line = line.strip()
         if not line:
@@ -544,7 +550,21 @@ def parse_cli_stream(raw):
                 if (isinstance(b, dict) and b.get("type") == "tool_use"
                         and isinstance(b.get("name"), str)):
                     tools.append(b["name"])
-    return dict(parse_cli_json(result), tools=tools)
+                    inputs.append(_clip_input(b.get("input")))
+    return dict(parse_cli_json(result), tools=tools, tool_inputs=inputs)
+
+
+TOOL_INPUT_CHARS = 4000
+
+
+def _clip_input(value):
+    if isinstance(value, str):
+        return value[:TOOL_INPUT_CHARS]
+    if isinstance(value, dict):
+        return {k: _clip_input(v) for k, v in value.items()}
+    if isinstance(value, list):
+        return [_clip_input(v) for v in value]
+    return value
 
 
 # What the shipped plugin actually sends on a later turn. hooks/hooks.json wires

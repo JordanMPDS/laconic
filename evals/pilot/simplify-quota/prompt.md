@@ -1,0 +1,1 @@
+the request limits are spread over `plan_limits.csv`, `region_factors.csv` and `apply_legacy_cap`, and people keep changing one without noticing the others. Is there a simpler way to hold them? Work out what you'd change and tell me — don't change anything yet.

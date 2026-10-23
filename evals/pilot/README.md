@@ -257,6 +257,18 @@ where the data file is without saying what it is for.
 `tests/test_evals_layout.sh` holds everything else equal to `affirm-*`.
 Scored by `score_affirm.py --family propose`.
 
+## `simplify-*` and `verify-*`
+
+[#116]'s volunteered work, registered in
+[`../results/loop/round-116.md`](../results/loop/round-116.md). `simplify-*` is
+`propose-*`'s turn 1 alone: a simpler way to hold logic spread over two tables
+and a correction step, worked out and described, with a data file the README
+names without saying what it is for. Round 114 found opus running its own
+proposal over that data on turn 1, unasked. `verify-*` is the same prompt with
+one clause added, asking for the check against the data, so the check the
+target leaves unasked is asked. Both share `propose-*`'s fixture by symlink.
+Scored by `score_proof.py`, from the recorded tool inputs rather than the prose.
+
 ## `built-trial` and `explain-trial`
 
 [#298]'s definition request, registered in

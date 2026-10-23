@@ -1,0 +1,1 @@
+pricing is spread over `zone_rates.csv`, `weight_bands.csv` and `apply_remote_correction`, and people keep changing one without noticing the others. Is there a simpler way to hold it? Work out what you'd change, check it against September's orders, and tell me — don't change anything yet.

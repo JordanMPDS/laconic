@@ -704,6 +704,37 @@ PYEOF
   fi
 done
 
+# `simplify-*` and `verify-*` are round 116's pair for #116: propose-*'s turn 1
+# alone, and the same prompt with one clause asking for the check against the
+# data. Everything else has to be propose-*'s, or the falsifier stops isolating
+# the request and the target stops being round 114's observed condition.
+for stem in rates routing quota; do
+  if python3 - "$ROOT" "$stem" <<'PYEOF'
+import json, sys
+from pathlib import Path
+root, stem = Path(sys.argv[1]), sys.argv[2]
+pilot = root / "evals/pilot"
+p, s, v = (pilot / ("%s-%s" % (f, stem)) for f in ("propose", "simplify", "verify"))
+turn1 = p.joinpath("prompt.md").read_text().split("<!-- turn -->")[0].strip()
+ts, tv = (x.joinpath("prompt.md").read_text().strip() for x in (s, v))
+assert ts == turn1, "simplify must be propose's turn 1, alone"
+data = {"rates": "September's orders", "routing": "September's alerts",
+        "quota": "the current accounts"}[stem]
+assert tv == ts.replace("Work out what you'd change and tell me",
+                        "Work out what you'd change, check it against %s, and tell me" % data)
+assert tv != ts, "verify must ask for the check"
+fp = {f.name: f.read_bytes() for f in p.joinpath("fixture").iterdir()}
+for x in (s, v):
+    assert {f.name: f.read_bytes() for f in x.joinpath("fixture").iterdir()} == fp
+    assert json.loads(x.joinpath("expect.json").read_text())["grading"] == "quality"
+PYEOF
+  then
+    ok "simplify-$stem is propose-$stem's turn 1 and verify-$stem asks it to be checked"
+  else
+    fail "simplify-$stem is propose-$stem's turn 1 and verify-$stem asks it to be checked"
+  fi
+done
+
 # `built-trial` and `explain-trial` are round 115's pair for #298: a definition
 # request after the model planned, built and reported the two measures itself,
 # and the same request cold. They have to share the data and the README, the

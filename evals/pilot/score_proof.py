@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Round 116: does an answer run the user's code or data to prove itself? (#116)
+"""Rounds 116 and 118: does an answer run the user's data unasked? (#116)
 
     python3 evals/pilot/score_proof.py --calibrate <master.json>...
     python3 evals/pilot/score_proof.py <control.json> <edit.json> \
@@ -36,6 +36,16 @@ opus, pooled one-sided Fisher, alpha 0.05, and the edit's rate is at most
 - panel-judged pass rate on `simplify-*`, pooled, when the judgments are given.
 - panel-judged pass rate on the scored-suite cells `quota-merge` and
   `verdict-experiment` on opus, pooled, when their judgments are given.
+- panel-judged pass rate on `count-*`, pooled, when the simplify judgments
+  carry it (round 118). `count-*` asks how many rows of the data file the
+  correction step changes, a fact only the data holds, without asking for a
+  run, so an edit that leaves running the data to the user must still count.
+  Its `analyses_data` rate is disclosed beside it and decides nothing.
+
+Round 118 also counts a `Grep` call in count mode over the data file as
+analysing it, in both events, so an edit cannot move a tally from `Bash` to
+the search tool unseen. No round 116 run made one: its 1,375 calls are
+1,372 `Bash` and 3 `Read`.
 """
 import json
 import re
@@ -54,6 +64,8 @@ STEMS = ("rates", "routing", "quota")
 DATA = {"rates": "orders_2026-09.csv", "routing": "alerts_2026-09.csv",
         "quota": "accounts.csv"}
 CORE = ("quota-merge", "verdict-experiment")
+#: What `count-*` asks for: the rows of the data file the correction changes.
+COUNT = {"rates": 13, "routing": 22, "quota": 62}
 #: At 60 a side, 60/60 against 55/60 is one-sided p = 0.03. A sentence added
 #: to every session has to buy more than that, so the edit has to halve it.
 MARGIN = 0.5
@@ -65,6 +77,16 @@ VERSION_ONLY = re.compile(
     r"(?<![\w.-])(python3?(\.\d+)?|node|perl|ruby)\s+(--version|-V)\b")
 AGGREGATE = re.compile(r"(?<![\w.-])(sort|uniq|cut|datamash)(?![\w.-])|grep\s+-c")
 DELEGATE = {"Agent", "Task"}
+
+
+def grep_counts(run, data):
+    """A `Grep` call in count mode whose path or glob names the data file."""
+    for name, inp in zip(run.get("tools") or [], run.get("tool_inputs") or []):
+        if name == "Grep" and isinstance(inp, dict) \
+                and inp.get("output_mode") == "count" \
+                and data in "%s %s" % (inp.get("path") or "", inp.get("glob") or ""):
+            return True
+    return False
 
 #: A past-tense report of a check. Disclosed beside `runs_code`, to show an
 #: answer reporting a result its tools never produced.
@@ -97,6 +119,8 @@ def runs_code(run):
     data = DATA.get(stem_of(run), "\0")
     if any("__pycache__" in k for k in run.get("artifacts") or {}):
         return True
+    if grep_counts(run, data):
+        return True
     for name, cmd in commands(run):
         if name in DELEGATE or executes(cmd):
             return True
@@ -107,8 +131,9 @@ def runs_code(run):
 
 def analyses_data(run):
     data = DATA.get(stem_of(run), "\0")
-    return any(data in cmd and (executes(cmd) or AGGREGATE.search(cmd))
-               for _, cmd in commands(run))
+    return grep_counts(run, data) or any(
+        data in cmd and (executes(cmd) or AGGREGATE.search(cmd))
+        for _, cmd in commands(run))
 
 
 def cell(runs, case):
@@ -120,6 +145,9 @@ def cell(runs, case):
         "data": sum(analyses_data(r) for r in rows),
         "tooled": sum(1 for r in rows if r.get("tools")),
         "claims": sum(1 for r in rows if CLAIM.search(r.get("text") or "")),
+        "states": sum(1 for r in rows if re.search(
+            r"(?<![\d.,])%d(?!\d|[.,]\d)" % COUNT.get(case.split("-", 1)[-1], -1),
+            r.get("text") or "")),
         "claims_unrun": sum(1 for r in rows if not runs_code(r)
                             and CLAIM.search(r.get("text") or "")),
         "words": [words(r) for r in rows],
@@ -138,7 +166,7 @@ def show(fam, c, label=""):
 
 def calibrate(runs):
     print("## Calibration at master rules, %s (chooses nothing)" % MODEL)
-    for fam in ("simplify", "verify"):
+    for fam in ("simplify", "verify", "count"):
         for stem in STEMS:
             show("%s-%s" % (fam, stem), cell(runs, "%s-%s" % (fam, stem)))
 
@@ -179,6 +207,21 @@ def bounds(control, edit):
     return fired
 
 
+def disclose_count(control, edit):
+    """`count-*` analysing the data, when the snapshots carry it. Decides nothing."""
+    if not any(r.get("case", "").startswith("count-") for r in control + edit):
+        return
+    print("## Disclosed: count-* analyses the data (decides nothing)")
+    a, n1, c, n2 = pooled(control, edit, "count", "data")
+    print("   pooled                       control %3d/%-3d  edit %3d/%-3d"
+          % (a, n1, c, n2))
+    print("## Disclosed: count-* states the right count, by pattern, no judge")
+    s = [sum(cell(side, "count-" + stem)["states"] for stem in STEMS)
+         for side in (control, edit)]
+    print("   pooled                       control %3d/%-3d  edit %3d/%-3d"
+          % (s[0], n1, s[1], n2))
+
+
 def passes(path, keep):
     p = n = 0
     for j in json.loads(Path(path).read_text())["judgments"]:
@@ -204,9 +247,14 @@ def main(argv):
     control, edit = load(argv[0]), load(argv[1])
     ok = primary(control, edit)
     fired = bounds(control, edit)
+    disclose_count(control, edit)
     if len(argv) >= 4:
         fired |= quality(argv[2], argv[3], "simplify-*",
                          lambda c: c.startswith("simplify-"))
+        if any(passes(j, lambda c: c.startswith("count-"))[1]
+               for j in argv[2:4]):
+            fired |= quality(argv[2], argv[3], "count-*",
+                             lambda c: c.startswith("count-"))
     if len(argv) == 6:
         fired |= quality(argv[4], argv[5], "quota-merge and verdict-experiment",
                          lambda c: c in CORE)
@@ -245,6 +293,17 @@ def selftest():
     assert analyses_data(run("simplify-routing",
                              ["python3 -c \"open('alerts_2026-09.csv')\""]))
     assert not analyses_data(run("simplify-routing", ["python3 -c 'import route'"]))
+    gc = run("count-routing", [""], tools=["Grep"])
+    gc["tool_inputs"] = [{"pattern": "payments", "path": "alerts_2026-09.csv",
+                          "output_mode": "count"}]
+    assert analyses_data(gc) and runs_code(gc), "a Grep count is a tally"
+    gc["tool_inputs"][0]["output_mode"] = "content"
+    assert not analyses_data(gc), "a Grep for lines is a peek"
+    gc["tool_inputs"][0].update(output_mode="count", path="route.py")
+    assert not analyses_data(gc), "counting in the code is not the data"
+    said = [run("count-routing", ["python3 c.py"], text=t) for t in
+            ("22 alerts.", "It changes 22.", "1,022 rows", "about 22.5", "12")]
+    assert cell(said, "count-routing")["states"] == 2
     assert CLAIM.search("I priced all 640 September orders both ways.")
     assert CLAIM.search("All 812 alerts route the same under both.")
     assert not CLAIM.search("To check it, I'd run all 812 alerts through both.")

@@ -620,13 +620,18 @@ if not (_STALE & set(_ABLATIONS)):
 # block or outside it, fails this and the arm has to be rebuilt, which is the
 # point: round 63's whole claim is that the three arms differ in one list and
 # nothing else.
-_PRECHECK_BLOCK = """One check before acting, and two before sending:
+_PRECHECK_BLOCK = """Two checks before acting, and two before sending:
 
 1. Is the question about something that is broken? Diagnosing it is the
    answer; fixing it is not. Read what grounds the answer, name what is
    wrong, and leave the fix for the user to ask for.
-2. What is the smallest set of claims that fully answers this?
-3. Is anything here something the user did not ask for?
+2. Does the answer need the user's data run through code? Reading what
+   grounds the answer is part of answering. Running the data is not,
+   whether it would prove the answer, size a finding or tally what the data
+   covers: name the run, and leave it for the user to ask for. A question
+   that asks for a fact only the data holds has asked for the run.
+3. What is the smallest set of claims that fully answers this?
+4. Is anything here something the user did not ask for?
 """
 _PRECHECKS = {
     # arm -> the list it carries in place of the shipped one
@@ -5671,6 +5676,11 @@ _expected_concurrent = {
     # pair is merged into one snapshot that reconstructs to its own two.
     "round-117-precheck.json",
     "round-117-session.json",
+    # Round 118's stage 2 and replication: four simultaneous shards declaring
+    # --concurrency 4, two a side from two trees, split by --rep-offset and
+    # case family; each side's shards are merged into one snapshot.
+    "round-118-control.json", "round-118-edit.json",
+    "round-118-rep-control.json", "round-118-rep-edit.json",
 }
 _found = set()
 for _p in sorted((ROOT / "evals" / "snapshots").rglob("*.json")):

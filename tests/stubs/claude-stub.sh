@@ -5,6 +5,7 @@
 # STUB_TEXT overrides the answer; STUB_FAIL=1 exits non-zero.
 # STUB_TOOLS, a space-separated list of tool names, emits one assistant
 # tool_use event per name so a test can assert on the captured tool list.
+# The init event lists Bash and Read unless the call passed `--tools ""`.
 # STUB_ARGV_OUT, if set, records how this stub was invoked - the isolation
 # env vars call() is supposed to set, then the full argv - so tests can
 # assert on the invocation itself, not just its output.
@@ -40,7 +41,15 @@ fi
 text="${STUB_TEXT:-stub answer}"
 text="${text//\\/\\\\}"
 text="${text//\"/\\\"}"
-echo '{"type":"system","subtype":"init"}'
+# The real init event lists the session's tools, and `--tools ""` empties it;
+# call(no_tools=True) refuses a session whose list is anything else (#411).
+init_tools='["Bash","Read"]'
+prev=""
+for a in "$@"; do
+  [ "$prev" = "--tools" ] && [ -z "$a" ] && init_tools='[]'
+  prev="$a"
+done
+printf '%s\n' "{\"type\":\"system\",\"subtype\":\"init\",\"tools\":${init_tools}}"
 for tool in ${STUB_TOOLS:-}; do
   printf '%s\n' "{\"type\":\"assistant\",\"message\":{\"content\":[{\"type\":\"tool_use\",\"name\":\"${tool}\",\"input\":{}}]}}"
   echo '{"type":"user","message":{"content":[{"type":"tool_result"}]}}'

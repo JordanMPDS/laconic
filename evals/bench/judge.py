@@ -54,6 +54,15 @@ INFRA_REASONS = (REASON_JUDGE_CALL_FAILED, REASON_UNPARSEABLE)
 PANEL = ("sonnet", "opus", "kimi")
 KIMI_MODEL = "kimi-code/kimi-for-coding"
 KIMI_TIMEOUT = 300
+# kimi's own system prompt with every tool removed (#411). Its default profile
+# has a shell, and it used it to search the filesystem for the files a
+# response names; the scratch dir it runs in was never a boundary.
+KIMI_AGENT = Path(__file__).resolve().parent / "kimi-judge.md"
+# Stamped on every judgments file since #411. A file without it was graded by
+# judges that had tools, which on the fixture-graded pilots is a different
+# instrument (#414), so judge.py will not extend or carry from one and
+# report.py will not compare one against a file that has it.
+JUDGE_TOOLS = "none"
 # Three decided votes with no two alike. It is a grading, not a failure - the
 # panel reached it and a resume would only re-roll it - so it is not an infra
 # reason, and it is recorded as not_exercised, which no counter reads as a pass
@@ -112,6 +121,7 @@ def usage_of(res):
     A failed call carries no usage - bench_run.call returns a bare
     {"ok": False} - so the zeros are the truth about it rather than a
     placeholder, and a retry that succeeds overwrites the record with its own.
+    A session refused for having tools (#411) did run, and keeps its usage.
     """
     return {k: res.get(k, 0) for k in USAGE_FIELDS}
 
@@ -284,12 +294,19 @@ def _call_blind(claude_bin, model, prompt):
     rules/laconic.md is the treatment's own system prompt. Grading from
     ROOT would let the judge see both (see evals/run.sh for why that
     matters), breaking the blindness this module's docstring promises.
+
+    The temp dir is not what keeps it blind, though: a judge with tools can
+    read any path it likes, and 715 of the 22,077 judge transcripts on the
+    loop's machine at round 118 ran a tool, some inside the repository's
+    fixtures (#411). So it gets none, and call() refuses a session that does
+    not confirm it.
     """
     res = {"ok": False}
     for _ in range(2):
         scratch = tempfile.mkdtemp()
         try:
-            res = bench_run.call(claude_bin, model, prompt, None, scratch)
+            res = bench_run.call(claude_bin, model, prompt, None, scratch,
+                                 no_tools=True)
         finally:
             shutil.rmtree(scratch, ignore_errors=True)
         if res.get("ok"):
@@ -297,24 +314,60 @@ def _call_blind(claude_bin, model, prompt):
     return res
 
 
+def kimi_reply(raw):
+    """The reply in a kimi stream-json transcript, or None if it is not one.
+
+    An allowlist, not a search for tool events: a line is either kimi's own
+    bookkeeping (`role: meta`) or an assistant message that is nothing but
+    text. A tool call, a tool result, or a shape this harness has never seen
+    all return None, so a CLI release that renames its tool events fails the
+    judgment instead of passing it as blind (#411).
+    """
+    parts = []
+    for line in raw.splitlines():
+        if not line.strip():
+            continue
+        try:
+            d = json.loads(line)
+        except ValueError:
+            return None
+        if not isinstance(d, dict):
+            return None
+        if d.get("role") == "meta":
+            continue
+        if (d.get("role") == "assistant" and set(d) <= {"role", "content"}
+                and isinstance(d.get("content"), str)):
+            parts.append(d["content"])
+            continue
+        return None
+    return "\n".join(parts)
+
+
 def _call_kimi(prompt):
     """One kimi judgment, retried once, blind in a fresh temp dir.
 
-    kimi has no --cd flag, so the working directory is the only way to keep it
-    out of the repository, where rules/laconic.md and the arm-labelled
-    snapshots would unblind it - the reason _call_blind uses a scratch dir too.
-    Its reasoning goes to stderr; stdout carries the reply, which
-    parse_verdict reads the same way it reads a claude reply.
+    kimi has no --cd flag, so the working directory keeps its session out of
+    the repository - the reason _call_blind uses a scratch dir too. That is
+    not blindness on its own: KIMI_AGENT removes its tools, and kimi_reply
+    refuses a transcript that shows one in use anyway. The reply is the
+    assistant text, which parse_verdict reads the same way it reads a claude
+    reply.
     """
     res = {"ok": False}
     for _ in range(2):
         scratch = tempfile.mkdtemp()
         try:
-            p = subprocess.run(["kimi", "-p", prompt, "-m", KIMI_MODEL],
+            p = subprocess.run(["kimi", "-p", prompt, "-m", KIMI_MODEL,
+                                "--agent-file", str(KIMI_AGENT),
+                                "--output-format", "stream-json"],
                                cwd=scratch, capture_output=True, text=True,
                                timeout=KIMI_TIMEOUT, stdin=subprocess.DEVNULL)
-            res = {"ok": p.returncode == 0 and bool(p.stdout.strip()),
-                   "text": p.stdout}
+            text = kimi_reply(p.stdout) if p.returncode == 0 else ""
+            if text is None:
+                print("refused a kimi judgment whose transcript is not plain "
+                      "text: a tool call, or a stream format this harness does "
+                      "not know (#411)", file=sys.stderr)
+            res = {"ok": bool(text and text.strip()), "text": text or ""}
         except (OSError, subprocess.TimeoutExpired):
             res = {"ok": False}
         finally:
@@ -489,6 +542,10 @@ def main():
                  "file holds one judge setup: write to a new --out, or pass "
                  "--model %s to resume it as it was graded"
                  % (args.out, had, setup, had))
+    if prior["judgments"] and prior_meta.get("judge_tools") != JUDGE_TOOLS:
+        sys.exit("%s was graded before #411, by judges that had tools, and no "
+                 "judge has them now. One file holds one instrument: write to "
+                 "a new --out and judge it again" % args.out)
 
     # Same glob semantics as run.py --cases, so the two flags select alike.
     # Resolved here rather than beside `todo` because the #69 guard below reads
@@ -529,7 +586,8 @@ def main():
 
     criteria = criteria_cksum(CASES)
     meta = {"judge_model": setup, "rules_cksum": rules_cksum,
-            "criteria_cksum": criteria, "effort": bench_run.EFFORT}
+            "criteria_cksum": criteria, "effort": bench_run.EFFORT,
+            "judge_tools": JUDGE_TOOLS}
 
     # `prior["metadata"] = meta` below replaces the block wholesale, so a resume
     # that omits --carry-judgments-from would delete a stamp describing verdicts
@@ -554,6 +612,11 @@ def main():
             sys.exit("%s was graded by %s, not %s, so its verdicts cannot be "
                      "carried into this file. Re-judge the carried arms instead"
                      % (args.carry_judgments_from, src_setup, setup))
+        if (source.get("metadata") or {}).get("judge_tools") != JUDGE_TOOLS:
+            sys.exit("%s was graded before #411, by judges that had tools, so "
+                     "its verdicts cannot be carried into a file graded without "
+                     "them. Re-judge the carried arms instead"
+                     % args.carry_judgments_from)
         prov = carry_judgments(prior, at, done, source, snap, arms,
                                args.carry_judgments_from, criteria)
         meta["carried_judgments_from"] = prov
@@ -690,6 +753,17 @@ def main():
 
     bench_run.save_snapshot(args.out, prior)
     print("\nwrote %s (%d judgments)" % (args.out, len(prior["judgments"])))
+    # A kimi vote that never arrived - an outage, or a transcript kimi_reply
+    # refused (#411) - leaves a two-member panel deciding, and no progress line
+    # shows it.
+    absent = sum(1 for j in prior["judgments"]
+                 if "panel" in j
+                 and (j["panel"].get("kimi") or {}).get("verdict") is None
+                 and not _is_infra_failure(j))
+    if absent:
+        print("warning: kimi cast no vote on %d of the %d judgments in this "
+              "file, so sonnet and opus decided those alone"
+              % (absent, len(prior["judgments"])))
     if stop["aborted"]:
         sys.exit(
             "\nstopped after %d consecutive failed judge call(s). That is what "

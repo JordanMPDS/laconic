@@ -235,3 +235,181 @@ same thing about proof, held there at 30 of 30.
 ## Results
 
 <!-- Nothing above this line has been computed, as the preamble says. -->
+
+280 generations, 140 a side, two trees simultaneous, 0 failed, every run on
+CLI 2.1.309 (`release.py` clean on both pairs). Bar 1 passed and the two
+judge-free bounds held, so the judgments were bought: 220 verdicts, sonnet
+and opus agreeing on all 180 `simplify-*` and `count-*` verdicts.
+
+## Primary: simplify-* analyses the data, opus, pooled, one-sided
+
+| stem | control | edit |
+|---|--:|--:|
+| `simplify-rates` | 20/20 | 0/20 |
+| `simplify-routing` | 20/20 | 0/20 |
+| `simplify-quota` | 20/20 | 7/20 |
+| **pooled** | **60/60** | **7/60** |
+
+**One-sided Fisher p = 9e-27, and the edit's rate is 0.117 of the control's,
+inside the 0.50 margin.** Round 116's sentence left routing at 20/20; here no
+routing answer touched the alert data, and none states the 22 that every
+control answer counted. The seven quota answers left are one shape: the
+coverage tally, `cut -d, -f2- accounts.csv | sort | uniq -c`, appended to the
+same command that reads the code and tables, before any proposal was
+written. Nothing else in the edit arm ran the data.
+
+## Bounds (fatal)
+
+| bound | control | edit | one-sided p |
+|---|--:|--:|--:|
+| `verify-*` analyses the data | 30/30 | 30/30 | 1.0 |
+| `simplify-*` calls a tool | 60/60 | 60/60 | 1.0 |
+| panel passes `simplify-*` | 60/60 | 60/60 | 1.0 |
+| panel passes `count-*` | 30/30 | 30/30 | 1.0 |
+| panel passes `quota-merge` and `verdict-experiment`, opus | 20/20 | 20/20 | 1.0 |
+
+Every bound holds. Three `verdict-experiment` verdicts a side were first
+undecided: sonnet passed and opus failed them, and kimi had no vote because
+its 5-hour cap was reached during this pass ("429 You've reached your 5-hour
+usage limit"). The bound held whatever they became, since the worst case,
+20/20 against 17/20, is p = 0.115. Resumed after the cap reset, kimi passed
+all six. kimi voted on 41 of the control's 90 `simplify-*` and `count-*`
+verdicts and 34 of the edit's, and agreed with the majority every time.
+
+## Disclosed (decides nothing)
+
+| | control | edit |
+|---|--:|--:|
+| `simplify-*` runs any code | 60/60 | 17/60 |
+| `count-*` analyses the data | 30/30 | 30/30 |
+| `count-*` states the right count (pattern, no judge) | 30/30 | 30/30 |
+| `simplify-*` cost | $9.47 | $6.94 |
+| `simplify-*` median output tokens, rates / routing / quota | 2,782 / 3,180.5 / 2,354.5 | 2,373 / 2,835 / 2,572 |
+| `simplify-*` median prose words, rates / routing / quota | 224.5 / 230 / 215.5 | 213 / 229 / 215.5 |
+
+**The spend fell this time.** Round 116 cut the proof and left the cost where
+it was ($9.53 to $9.52 a side), because computing the proposed table replaced
+pricing the orders. Here the `simplify-*` cost fell 27%, and any execution
+fell from 60/60 to 17/60: ten of the seventeen compute the proposed table,
+eight by importing the module and two from its constants, which the edit
+does not reach and was not meant to, and the other seven are quota's tally.
+Prose length did not move.
+
+The edit names the run instead of making it: *"To confirm, run all 812
+September alerts through the old and new `route` and diff the results."*
+The `claims` pattern flags three edit answers as reporting a result their
+tools never produced; read by hand, all three name the check or say the
+table was "worked out by hand from the current formula", and none reports a
+result.
+
+**Hand audit**, ten edit-side `simplify-*` runs the classifier scores as not
+analysing the data, drawn at seed 118: none tallies or computes over the
+data file. Seven read the code and tables and peek at the data (`head -5`,
+`wc -l`); three import the module to compute the proposed table from the
+code. Three of the ten `cat` the whole data file into context while reading
+every CSV, which is reading rather than running and is not scored either way.
+
+## Replication
+
+Bar 1 passed and every bound held, so the replication was bought: a fresh 140
+runs a side from the same two trees, 0 failed, every run on CLI 2.1.309
+(`release.py` clean on both pairs). `simplify-*` is reps 20 to 39;
+`verify-*`, `count-*` and the two scored cells are reps 10 to 19. The
+process that started it ended partway through `verify-*` and `count-*`, and
+the same commands resumed it by key.
+
+| stem | control | edit |
+|---|--:|--:|
+| `simplify-rates` | 19/20 | 0/20 |
+| `simplify-routing` | 20/20 | 0/20 |
+| `simplify-quota` | 20/20 | 12/20 |
+| **pooled** | **59/60** | **12/60** |
+
+**Bar 1 passes again: one-sided Fisher p = 7e-21, and the edit's rate is
+0.20 of the control's, inside the 0.50 margin.** All twelve quota answers
+are the first sample's coverage tally, `cut -d, -f2- accounts.csv | sort |
+uniq -c`. Quota's 7 of 20 against 12 of 20 between the two samples is
+p = 0.10.
+
+| bound | control | edit | one-sided p |
+|---|--:|--:|--:|
+| `verify-*` analyses the data | 30/30 | 30/30 | 1.0 |
+| `simplify-*` calls a tool | 60/60 | 60/60 | 1.0 |
+| panel passes `simplify-*` | 60/60 | 59/60 | 0.5 |
+| panel passes `count-*` | 30/30 | 30/30 | 1.0 |
+| panel passes `quota-merge` and `verdict-experiment`, opus | 19/19 | 16/16 | 1.0 |
+
+Every bound holds. The one `simplify-*` fail, a `rates` answer, says the
+correction covers eight cells of the grid where it covers four; it read the
+code and did not run the data, like 59 of the edit's 60. `count-*` states the
+right count in 30 of 30 answers a side by pattern, and analyses the data in
+30 of 30. Five `verdict-experiment`
+verdicts are undecided, one control and four edit: sonnet passed them, opus
+failed them, and kimi had no vote because its 5-hour cap was reached again
+during this pass. The bound holds whatever they become: the worst case,
+20/20 against 16/20, is p = 0.053.
+
+**What opus fails on that case.** In both samples, every `verdict-experiment`
+answer opus fails names the stopping rule correctly and then asks for the
+settled 0.3% event loss to be checked, which the criterion fails. The edit
+tells an answer to name a run rather than make it, so a rise there would be
+its mechanism reaching a case where naming a check is the defect. Over both
+samples opus failed 4 of 40 control answers and 7 of 40 edit answers,
+one-sided p = 0.26 for a rise. Of those 11, the panel passed the first
+sample's six on kimi's vote, and the replication's five are undecided.
+Disclosed, deciding nothing.
+
+### Contaminated workspaces, disclosed
+
+The kimi panel member does not stay in the scratch directory `judge.py`
+gives it. It runs `find /` for the files a response names, and in this round
+it listed `evals/pilot/*/fixture` in both trees and read the control
+worktree's `AGENTS.md`. While each case was being judged, a fixture module
+was imported in place, leaving a `__pycache__/` in `simplify-quota`'s fixture
+on this branch at 10:25, in `simplify-routing`'s in the control worktree at
+10:49, and in `simplify-rates`' here at 13:51. `run.py` copies the whole fixture into each
+workspace, so the 20 edit `simplify-quota` and 20 control `simplify-routing`
+replication runs, generated from 11:00, had a stray `.pyc` beside the
+module. Their shards record it: `cases_cksum` 2247345365 and 75661607,
+against the clean 3514904380 of every first-sample `simplify-*` shard. None
+of their commands names `__pycache__`. No `verify-*`, `count-*`, scored-suite
+or holdout fixture ever had one, and the caches were removed before the
+replication was merged and its edit side judged. Filed as [#411].
+
+Bar 1 does not depend on those 40 runs. On `simplify-rates`, clean on both
+sides, it reads 19/20 against 0/20. Counting all 20 contaminated edit runs as
+analysing the data gives 59/60 against 20/60, a rate ratio of 0.34 and
+p = 1.1e-15.
+
+kimi cast 182 votes in this round and differed from the majority once. Six
+verdicts turn on it, the first sample's `verdict-experiment` splits above,
+and that bound holds with all six undecided.
+
+## Holdout
+
+All six reserved cases, sonnet and opus, 5 reps, from both trees: 60 runs a
+side, 0 failed, CLI 2.1.309, judged by the panel. Every verdict passed on
+both sides, 10 of 10 per case, none undecided. No reserved case is worse
+under the edit. Directions only, as step 9 requires. kimi voted on 44 control
+verdicts and none of the edit's.
+
+## Result: accepted
+
+**Accept.** Bar 1 passed and every bound held on both samples, and the
+holdout held. The edit stays in `rules/laconic.md` and `rules/dist/`, at
+`rules_cksum` 4060323501, and `README.md` now paraphrases the two checks.
+
+Round 116's sentence on check 1 cut the proof and missed the two other
+reasons opus runs the data. A check of its own, naming them, took
+`simplify-*` from 60/60 to 7/60 and from 59/60 to 12/60. What is left is
+one shape on one stem, `quota`'s coverage tally, appended to the command that
+reads the code. An explicit request to check is still honoured, 30/30 and
+30/30 on both samples, and so is a question whose answer only the data
+holds: `count-*` counted, and stated the right count, in all 120 answers.
+
+The pre-mortem's two failure modes did not happen. Routing, which it
+expected to keep counting the 22 alerts, fell to 0 of 40 on the edit. Nor did
+the `count-*` exception read as an invitation to offer the run instead.
+
+[#116]: https://github.com/JordanMPDS/laconic/issues/116
+[#411]: https://github.com/JordanMPDS/laconic/issues/411

@@ -5676,6 +5676,11 @@ _expected_concurrent = {
     # pair is merged into one snapshot that reconstructs to its own two.
     "round-117-precheck.json",
     "round-117-session.json",
+    # Round 118's stage 2 and replication: four simultaneous shards declaring
+    # --concurrency 4, two a side from two trees, split by --rep-offset and
+    # case family; each side's shards are merged into one snapshot.
+    "round-118-control.json", "round-118-edit.json",
+    "round-118-rep-control.json", "round-118-rep-edit.json",
 }
 _found = set()
 for _p in sorted((ROOT / "evals" / "snapshots").rglob("*.json")):

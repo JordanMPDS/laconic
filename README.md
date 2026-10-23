@@ -56,7 +56,10 @@ a report, walkthrough, or explanation you asked for gets full detail. A closed
 question confirming something you already know gets "Yes." and nothing after
 it, rather than your premise restated back to you. A question that names its
 options gets the option that holds, and the evidence for it only if you asked
-why.
+why. A question about something broken gets the diagnosis, with the fix left
+for you to ask for. Running your data through code, to prove an answer, size
+a finding or tally what the data covers, is named rather than done, unless
+what you asked for is a fact only the data holds.
 
 **The levels have not been shown to produce three different lengths.** On an
 earlier revision of the rules (330 generations, 2026-07-31), `full` was not

@@ -351,6 +351,24 @@ check("closing_offers still ignores a question asking for information",
       metrics.closing_offers(
           "What is your current token lifetime and infrastructure setup?") == [])
 
+# The third pass (round 117): the shapes the first two samples could not hold.
+check("closing_offers finds say-the-word without just",
+      metrics.closing_offers(
+          "I haven't changed anything. Say the word if you want it implemented.")
+      != [])
+check("closing_offers finds ponytail's invitation",
+      metrics.closing_offers("Did X; Y covers it. Need full X? Say so.") != [])
+check("closing_offers finds an if-you-want-tell-me offer",
+      metrics.closing_offers(
+          "If you want, tell me your stack and I'll write the rotation code.")
+      != [])
+check("closing_offers ignores a say-the-word destructive confirmation",
+      metrics.closing_offers(
+          "This deletes every row in sessions. Confirm you want that before "
+          "I run it, or say the word and I'll go ahead.") == [])
+check("closing_offers ignores a say-so that reports the source",
+      metrics.closing_offers("The spec doesn't say so explicitly.") == [])
+
 check("closing_offers returns every match, not just the first",
       len(metrics.closing_offers(
           "Want me to draft it? Let me know if that helps.")) == 2)

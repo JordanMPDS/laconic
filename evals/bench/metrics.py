@@ -417,7 +417,9 @@ CLOSING_OFFER = re.compile(
     r"|i can (write|add|draft|put together) .{0,40}\bif you"
     r"|i can (help|walk you through|look at|review|wire|sketch|show you)\b"
     r"|i could (write|add|sketch|draft|implement|wire)\b"
-    r"|just say the word"
+    r"|say the word(?! and i'?ll (run|go ahead|proceed|execute))"
+    r"|\?\s+(just\s+)?say so\b"
+    r"|\bif you(?:'d like| would like| want)\b[^.?!\n]{0,60}?,\s+(just\s+)?(tell me|let me know)\b"
     r"|if you'?d like,? i)",
     re.I,
 )
@@ -469,6 +471,19 @@ def closing_offers(text):
 
     Recall is still estimated from 40 responses and is not established precisely.
     The rates remain floors.
+
+    A third pass, for round 117, found the shape that sample could not contain.
+    "say the word" was only matched after "just", and "Say the word if you want
+    it implemented" is in 3 of round 21's 1,100 responses, too rare for a
+    40-response sample to hold. Ponytail's prescribed "Need
+    full X? Say so." and "If you want, tell me your stack" were not matched at
+    all. Over the archive's 80,030 distinct non-holdout responses the widened
+    pattern catches 79 more and loses none, and 30 of them drawn at seed 117
+    were **30 of 30 genuine** offers on a hand read. This time the misses were
+    laconic-skewed, 48 of 79: with "Want me to...?" quoted as banned, the arm
+    reached for a shape the rule does not quote. A "say the word" followed by
+    "and I'll run it" or "go ahead" is left out, because there it asks to
+    confirm the action the user requested, which the rules carve out.
 
     Returns the matched strings, so a caller can count them or show them.
     """

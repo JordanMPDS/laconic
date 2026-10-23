@@ -197,5 +197,34 @@ and above, at p < 1/20001 against the same hits reassigned across the same
 turn-responses. A closing offer is a property of the session, so it cannot proxy
 a per-turn quantity.
 
+## A third pass, for round 117
+
+[Round 117](round-117.md) needed the detector to see ponytail's prescribed
+invitation, *"Did X; Y covers it. Need full X? Say so."*, and it did not.
+Checking that turned up a larger miss: "say the word" was matched only after
+"just", and *"Say the word if you want it implemented"* is in 3 of round 21's
+1,100 responses, too rare for its 40-response recall sample to hold.
+
+Three shapes were added: "say the word" on its own, a question followed by
+"Say so", and "If you want ..., tell me" or "let me know". A "say the word"
+followed by "and I'll run it", "go ahead", "proceed" or "execute" is left out,
+because there it asks to confirm the action the user requested.
+
+| | |
+|---|--:|
+| distinct non-holdout responses in the archive | 80,030 |
+| newly caught | 79 |
+| no longer caught | 0 |
+| newly caught on the `laconic` arm | 48 |
+| hand-read at seed 117 | **30 of 30 genuine offers** |
+
+**Unlike the first widening, the misses were laconic-skewed.** With
+"Want me to...?" quoted as banned, the arm reached for a closer the rule does
+not quote. The `#113` families barely move: `laconic` `drift-service` stays
+0 of 1,529 distinct turn-responses, `edit-service` 10 of 3,499, and
+`cold-service` goes from 3 to 5 of 150. The arm table above was computed under
+the first two passes and is not recomputed here; its laconic rate is a floor by
+more than the recall sample suggested.
+
 [#113]: https://github.com/JordanMPDS/laconic/issues/113
 [#155]: https://github.com/JordanMPDS/laconic/issues/155

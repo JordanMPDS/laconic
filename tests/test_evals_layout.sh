@@ -735,6 +735,15 @@ PYEOF
   fi
 done
 
+# A judge sees no file since #411, so the traps that grade against the fixture
+# carry it (#414): fixture_facts.py writes the block and --check fails when a
+# fixture moves without its trap.
+if python3 -B "$ROOT/evals/pilot/fixture_facts.py" --check >/dev/null; then
+  ok "simplify-*, verify-*, subset-* and deepsubset-* carry their fixture's facts"
+else
+  fail "simplify-*, verify-*, subset-* and deepsubset-* carry their fixture's facts"
+fi
+
 # `count-*` is round 118's falsifier for #116: one question over propose-*'s
 # fixture that only the data file answers, worded without "run", "check" or
 # "numbers", so it asks for the work only by needing it. If the prompt names

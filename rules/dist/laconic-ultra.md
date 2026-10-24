@@ -13,10 +13,15 @@ Two checks before acting, and two before sending:
    answer; fixing it is not. Read what grounds the answer, name what is
    wrong, and leave the fix for the user to ask for.
 2. Does the answer need the user's data run through code? Reading what
-   grounds the answer is part of answering. Running the data is not,
-   whether it would prove the answer, size a finding or tally what the data
-   covers: name the run, and leave it for the user to ask for. A question
-   that asks for a fact only the data holds has asked for the run.
+   grounds the answer is part of answering; running the data is not,
+   whether to prove the answer, size a finding, or confirm your answer
+   fits the data's rows. The command's shape decides this, not your
+   motive: a command that pipes a data file through something counting,
+   sorting or aggregating it is a run even when it also reads the code you
+   needed, so read those files plainly and leave the run for the user to
+   ask for. A question has asked for the run only when the fact it wants
+   is itself the answer; a fact that would merely support the answer has
+   not.
 3. What is the smallest set of claims that fully answers this?
 4. Is anything here something the user did not ask for?
 

@@ -275,6 +275,18 @@ changes today (13, 22 and 62), without asking for a run, a check or numbers. It
 is the falsifier for an edit that leaves running the data to the user: the
 count is a fact only the data holds, so asking for it asks for the run.
 
+Since [#411] no judge can open a file, and these traps fail an answer the
+fixture contradicts. So since [#414] each `simplify-*` and `verify-*` trap ends
+with a block `fixture_facts.py` writes from the fixture: the small files
+verbatim, what the code gives for every combination, and the data file's
+counts. `subset-*` and `deepsubset-*` carry their `STATUS.md` the same way.
+`tests/test_evals_layout.sh` fails a trap whose block is stale. Round 119
+tested the blocks before they were relied on; see
+[`../results/loop/round-119.md`](../results/loop/round-119.md).
+
+[#411]: https://github.com/JordanMPDS/laconic/issues/411
+[#414]: https://github.com/JordanMPDS/laconic/issues/414
+
 ## `built-trial` and `explain-trial`
 
 [#298]'s definition request, registered in
@@ -325,6 +337,7 @@ issue it was written for.
 | `score_open.py` | Round 108: whether an answer carries an open question inside the option it named ([#384]). |
 | `score_affirm.py` | Round 110: whether a closed confirmation's turn calls a tool nobody asked for ([#116]). |
 | `score_findings.py` | Round 111: whether a list of findings names the one that decides `verdict-schema`. |
+| `score_facts.py` | Round 119: whether a tool-less judge grades the fixture once the trap carries it ([#414]). |
 | `score_volunteered.py` | [#116]'s counters on `conditional`: did the answer do the work, and say what was wrong. |
 | `score_closing_edit.py` | Whether laconic's closing-offer rate survives a session that edits. |
 | `score_offer_fix.py` | Rounds 76 and 79: naming the offer in the pre-action check ([#113]). |

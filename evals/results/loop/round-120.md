@@ -206,3 +206,101 @@ holdout. Anything else rejects, and `rules/laconic.md` and `rules/dist/` are
 reverted before the merge.
 
 [#116]: https://github.com/JordanMPDS/laconic/issues/116
+
+---
+
+## Result: accepted
+
+**Accept.** The primary passed and every fatal bound held on both samples, and
+the holdout held. The edit stays in `rules/laconic.md` and `rules/dist/`. All
+generation was opus on CLI 2.1.310, control and edit from two trees at once
+(`release.py` clean on every pair, no arm imbalanced across a release), about
+$73 of generation and the panel's judging on top.
+
+The control fired higher than the precheck: `simplify-quota` analysed the data
+19/40 (47.5%) in the first sample and 16/40 (40.0%) in the replication, against
+the precheck's 4/15.
+
+### First sample
+
+| metric (opus) | control | edit | one-sided p |
+|---|--:|--:|--:|
+| **Primary: `simplify-quota` analyses the data** | **19/40** | **0/40** | **7e-07** |
+| `verify-quota` analyses the data (bound) | 12/12 | 12/12 | 1.0 |
+| `simplify-quota` calls a tool (bound) | 40/40 | 40/40 | 1.0 |
+| panel passes `simplify-quota` (bound) | 40/40 | 40/40 | 1.0 |
+| panel passes `count-quota` (bound) | 12/12 | 12/12 | 1.0 |
+| panel passes `quota-merge`, `verdict-experiment` (bound) | 19/20 | 20/20 | 1.0 |
+
+The edit's rate is 0.000 of the control's, inside the 0.50 margin. The one
+control miss on `quota-merge` is a control-side verdict; no edit-side scored
+cell fell.
+
+### Replication
+
+A fresh 40 runs a side of `simplify-quota` and 12 a side of `verify-quota` and
+`count-quota`, reps 40 to 79 and 12 to 23, from the same two trees:
+
+| metric (opus) | control | edit | one-sided p |
+|---|--:|--:|--:|
+| **Primary: `simplify-quota` analyses the data** | **16/40** | **0/40** | **2e-06** |
+| `verify-quota` analyses the data (bound) | 12/12 | 12/12 | 1.0 |
+| `simplify-quota` calls a tool (bound) | 40/40 | 40/40 | 1.0 |
+| panel passes `simplify-quota` (bound) | 40/40 | 39/40 | 0.5 |
+| panel passes `count-quota` (bound) | 12/12 | 12/12 | 1.0 |
+
+The one edit-side `simplify-quota` fail is a proposal the panel marked wrong on
+its merits, not a tally; it still read the files and did not run the data.
+
+### Disclosed, deciding nothing
+
+- **`count-quota` still counts, and states 62.** Both samples: `analyses_data`
+  12/12 both sides, and the judge-free count of answers stating 62 is 12/12 both
+  sides. A question whose answer only the data holds still runs the data, and
+  the answer is right.
+- **The two fixed stems did not regress.** `simplify-rates` and
+  `simplify-routing`, 8 reps a side, read `analyses_data` 0/8 on both sides;
+  `runs_code` is 2/8 (control rates, two module imports) and 0/8 elsewhere.
+- **`runs_code`, the wider event, fell too.** `simplify-quota` went 35/40 to
+  4/40 (first sample) and 28/40 to 8/40 (replication): closing the coverage
+  tally also cut the module imports that computed the table from the code,
+  which is disclosed rather than gated because that import is arguably the
+  proposal.
+- **Prose did not shrink.** `simplify-quota` median prose words 189.5 to 205.0
+  (first sample) and 197.5 to 216.0 (replication); median output tokens 2445 to
+  2838 and 2628 to 2723. The edit removed a run, not words.
+- **Hand audit.** Ten edit-side `simplify-quota` runs the classifier scores as
+  not analysing the data, drawn at seed 120: none tallies or aggregates
+  `accounts.csv`. Every one `cat`s the code and the two tables and then
+  `head -5 accounts.csv` with `wc -l accounts.csv` — reading the file's shape
+  plainly, which is what the edit instructs in place of `cut ... | sort | uniq
+  -c`.
+- **Panel.** `panel_agreement.py`: the first sample's `simplify-quota`/`count-quota`
+  52/52 decided, no three-way splits (sonnet 52/52, opus 51/52, kimi 52/52);
+  the replication 52/52; the core cells 20/20. kimi voted on every record this
+  round.
+
+### Holdout
+
+All six reserved cases, sonnet and opus, 5 reps, from both trees: 60 runs a
+side, 0 failed, CLI 2.1.310, judged by the panel. Every case passed 10 of 10 on
+both sides, none undecided. No reserved case is worse under the edit.
+
+### What the edit did
+
+Round 118's check 2 killed the data-run on two stems and left one, `quota`'s
+coverage tally, because it was keyed on the motive of a separate act and opus
+bundled the tally into the command that read the code, and because its closing
+sentence licensed the run as "a fact the question asked for." Re-keying the
+check to command shape and narrowing the exception to a fact that is itself the
+answer closed both readings: `simplify-quota`'s coverage tally went 19/40 to
+0/40 and 16/40 to 0/40, while the asked-for runs — `verify-quota`'s check and
+`count-quota`'s count of 62 — stayed at 12/12, and no quality bound or holdout
+case moved. opus now reads `accounts.csv` plainly where it used to tally it.
+
+The pre-mortem's likeliest failure — the point estimate moving with the
+direction but not separating — did not happen: the edit killed the behaviour
+rather than halving it, so the ~27% precheck rate was not the limit the
+power estimate feared. The second failure it named, a fatal counter rejecting
+because the command-shape sentence stopped an asked-for run, did not happen
+either: `verify-quota` and `count-quota` both held at 12/12.

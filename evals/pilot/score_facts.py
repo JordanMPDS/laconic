@@ -3,6 +3,7 @@
 
     python3 evals/pilot/score_facts.py build <out-dir>
     python3 evals/pilot/score_facts.py score <out-dir>
+    python3 evals/pilot/score_facts.py audit <out-dir>
     python3 evals/pilot/score_facts.py --selftest
 
 `build` draws the round's responses and writes two snapshots for `judge.py`:
@@ -30,6 +31,10 @@ read finds to be a genuine fixture contradiction leaves the denominator and is
 reported, since the panel that passed it could have missed it.
 **Bar 3:** the new traps fail no fewer of F than the old ones do, one-sided
 McNemar for a fall, alpha 0.05.
+
+`score` exits 0 when bars 1 and 3 pass. Bar 2 and the registered coverage
+audit are decided by hand, in the round document; `audit` prints the nine U
+responses that audit reads, three per `simplify-*` stem at seed 119.
 """
 import json
 import random
@@ -164,48 +169,60 @@ def verdicts(path):
 
 
 def score(out):
+    """Print the bars. Exit status covers bars 1 and 3; bar 2 needs a hand read.
+
+    The old-trap passes over U, F and the `subset-*` mutants were stopped
+    early (see round-119.md), so a pair is compared only where both files hold
+    a decided verdict, and each line says how many pairs that is. Bar 1 needs
+    all 30 of its pairs.
+    """
     out = Path(out)
     src = {(r["case"], r["rep"]): r
            for r in json.loads((out / "round-119-source.json").read_text())["runs"]}
     v = {(s, t): verdicts(out / ("round-119-%s-%s-judgments.json" % (s, t)))
          for s in ("source", "mutants") for t in ("old", "new")}
 
-    def tally(s, keys):
-        """(new fails, old fails, new-only fails, old-only fails) over `keys`."""
-        nf = {k for k in keys if v[(s, "new")][k]["verdict"] == "fail"}
-        of = {k for k in keys if v[(s, "old")][k]["verdict"] == "fail"}
+    def decided(s, t, k):
+        j = v[(s, t)].get(k)
+        return j is not None and j["reason"] not in ("judge call failed", "unparseable")
+
+    def keys(s, fam, kind, both=True):
+        return [k for k in v[(s, "new")] if k[0].startswith(fam) and src[k]["set"] == kind
+                and decided(s, "new", k) and (not both or decided(s, "old", k))]
+
+    def fails(s, t, ks):
+        return {k for k in ks if v[(s, t)][k]["verdict"] == "fail"}
+
+    def pairs(s, ks):
+        nf, of = fails(s, "new", ks), fails(s, "old", ks)
         return len(nf), len(of), len(nf - of), len(of - nf)
 
-    def keys(s, fam, kind):
-        return [k for k in v[(s, "new")] if k[0].startswith(fam)
-                and src[k]["set"] == kind]
-
-    ok = True
     m = keys("mutants", "simplify", "U")
-    nf, of, b, c = tally("mutants", m)
+    nf, of, b, c = pairs("mutants", m)
     p = mcnemar_more(b, c)
-    bar1 = nf >= 24 and nf > of and p < 0.05
-    ok &= bar1
-    print("Bar 1, simplify-* mutants: new fails %d/%d, old fails %d/%d, "
-          "discordant %d/%d, one-sided McNemar p = %.2g -> %s"
-          % (nf, len(m), of, len(m), b, c, p, "pass" if bar1 else "FAIL"))
-    m = keys("mutants", "subset", "U")
-    nf, of, b, c = tally("mutants", m)
-    print("disclosed, subset-* mutants: new fails %d/%d, old fails %d/%d, p = %.2g"
-          % (nf, len(m), of, len(m), mcnemar_more(b, c)))
+    bar1 = len(m) == 30 and nf >= 24 and nf > of and p < 0.05
+    print("Bar 1, simplify-* mutants, %d pairs: new fails %d, old fails %d, new only "
+          "%d, old only %d, one-sided McNemar p = %.2g -> %s"
+          % (len(m), nf, of, b, c, p, "pass" if bar1 else "FAIL"))
+    m = keys("mutants", "subset", "U", both=False)
+    print("disclosed, subset-* mutants: new fails %d/%d" % (len(fails("mutants", "new", m)), len(m)))
+    u = keys("source", "", "U", both=False)
+    nf = fails("source", "new", u)
+    print("Bar 2, U: new passes %d/%d; hand-read every new fail: %s"
+          % (len(u) - len(nf), len(u), ", ".join("%s/%d" % k for k in sorted(nf)) or "none"))
     u = keys("source", "", "U")
-    nf, of, b, c = tally("source", u)
-    print("Bar 2, U: new passes %d/%d, old passes %d/%d (hand-read every new fail: %s)"
-          % (len(u) - nf, len(u), len(u) - of, len(u),
-             ", ".join("%s/%d" % k for k in u if v[("source", "new")][k]["verdict"] == "fail")
-             or "none"))
-    f = keys("source", "", "F")
-    nf, of, b, c = tally("source", f)
+    print("disclosed, U with both: new passes %d/%d, old passes %d/%d"
+          % (len(u) - len(fails("source", "new", u)), len(u),
+             len(u) - len(fails("source", "old", u)), len(u)))
+    f = keys("source", "", "F", both=False)
+    nf = fails("source", "new", f)
+    fb = keys("source", "", "F")
+    _, of, b, c = pairs("source", fb)
     p = mcnemar_more(c, b)
     bar3 = p >= 0.05
-    ok &= bar3
-    print("Bar 3, F: new fails %d/%d, old fails %d/%d, one-sided McNemar for a "
-          "fall p = %.2g -> %s" % (nf, len(f), of, len(f), p, "pass" if bar3 else "FAIL"))
+    print("Bar 3, F: new fails %d/%d; on the %d pairs with an old verdict, old fails "
+          "%d, one-sided McNemar for a fall p = %.2g -> %s"
+          % (len(nf), len(f), len(fb), of, p, "pass" if bar3 else "FAIL"))
     for s in ("mutants", "source"):
         for t in ("old", "new"):
             members = {}
@@ -213,9 +230,18 @@ def score(out):
                 for mem, x in (j.get("panel") or {}).items():
                     members.setdefault(mem, []).append(x["verdict"])
             print("  %-7s %-3s %s" % (s, t, "  ".join(
-                "%s %d/%d fail" % (mem, xs.count("fail"), sum(x is not None for x in xs))
+                "%s %d fail, %d pass, %d no vote" % (mem, xs.count("fail"), xs.count("pass"),
+                                                     xs.count(None))
                 for mem, xs in sorted(members.items()))))
-    return ok
+    return bar1 and bar3
+
+
+def audit(out):
+    src = json.loads((Path(out) / "round-119-source.json").read_text())["runs"]
+    rng = random.Random(SEED)
+    for case in SIMPLIFY["cases"]:
+        reps = sorted(r["rep"] for r in src if r["case"] == case and r["set"] == "U")
+        print(case, sorted(rng.sample(reps, 3)))
 
 
 def selftest():
@@ -239,6 +265,8 @@ if __name__ == "__main__":
         selftest()
     elif cmd == ["build"]:
         build(sys.argv[2], sys.argv[3:])
+    elif cmd == ["audit"]:
+        audit(sys.argv[2])
     elif cmd == ["score"]:
         sys.exit(0 if score(sys.argv[2]) else 1)
     else:

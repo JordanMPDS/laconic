@@ -174,4 +174,70 @@ an answer for a cell it left out.
 
 ## Results
 
-<!-- Nothing above this line has been computed, as the preamble says. -->
+All four bars hold. **The twelve traps stand and #414 closes.**
+
+Judged tool-less by the sonnet, opus and kimi panel (`judge_tools: none`),
+210 judgments, each condition's `simplify-*` mutants fully paired.
+
+1. **Sensitivity — pass.** On the 30 `simplify-*` mutants, the new traps fail
+   26, the old traps 6; 20 the new catch and the old miss, 0 the other way;
+   one-sided McNemar p = 9.5e-7. The bar asked for 24 and for more than the
+   old traps catch.
+2. **Specificity — pass.** The new traps pass all 45 of U. No new-trap fail to
+   hand-read, so the denominator is untouched. The bar asked for 41.
+3. **No leniency on real fails — pass.** The new traps fail all 15 of F, as the
+   old traps do; one-sided McNemar for a fall p = 1. The bar asked that the new
+   traps fail no fewer.
+4. **Coverage — pass.** Across the nine U `simplify-*` responses (reps
+   `quota [2,4,6]`, `rates [1,6,9]`, `routing [2,3,4]` at seed 119) I listed
+   every claim whose truth turns on the fixture and marked whether the block
+   settles it: 65 of 66 settled (98%). The one unsettled claim is `quota` rep 6's
+   "if code elsewhere imports `PLANS`, `FACTORS` or `apply_legacy_cap` it would
+   break" — a claim about code outside the fixture directory, which the block
+   deliberately does not carry and the answer itself hedges. The bar asked for
+   80%.
+
+### Disclosed, deciding nothing
+
+- **`subset-*` mutants:** the new traps fail 13 of 15, the old traps 0 of 15.
+  The renamed-`OQ` mutation the old traps never saw; the block carries the
+  record, so the new traps catch all but two near-misses.
+- **The tool-less noise floor bar 2 is read against:** on the 44 U responses
+  with a decided verdict on both sides, the old traps pass 44 and the new
+  traps pass 44. One U response is undecided on the old side (opus abstained
+  17 times in that condition, leaving one record with a single vote); it sits
+  in this disclosed-only set and touches no deciding bar, so it was left
+  unresolved rather than re-judged against the control worktree.
+- **Each member's fail rate**, fails / passes / no-vote:
+
+  | | kimi | opus | sonnet |
+  |---|---|---|---|
+  | mutants old | 2 / 34 / 9 | 7 / 26 / 12 | 6 / 39 / 0 |
+  | mutants new | 38 / 7 / 0 | 40 / 5 / 0 | 28 / 17 / 0 |
+  | source old | 13 / 42 / 5 | 14 / 29 / 17 | 14 / 46 / 0 |
+  | source new | 13 / 47 / 0 | 16 / 44 / 0 | 15 / 45 / 0 |
+
+- **`panel_agreement.py`:** on `source-new` the three agree closely (member vs
+  majority kappa 0.91 to 1.00). On `mutants-new` they do not: sonnet 0.40,
+  kimi 0.55, opus 0.90, with sonnet-kimi pairwise kappa 0.145. The sensitivity
+  result is carried by the opus-and-kimi majority — sonnet fails only 28 of 45
+  mutants where opus fails 40 and kimi 38, so sonnet alone is the lenient member
+  on a near-miss. The panel, not any one judge, is what reads the block.
+- **Every mutant the new traps pass**, hand read: `simplify-rates` rep 7
+  (`70` to `71`, the kg at which the proposal's own error should raise),
+  `simplify-routing` reps 0, 3 and 7 (`36` to `37` rows, the 9x4 count), and the
+  two `subset-*` near-misses, `subset-gateway` rep 4 (`OQ-4` to `OQ-3`) and
+  `subset-scheduler` rep 3 (`OQ-2` to `OQ-3`). Each is a single digit moved by
+  one; none is a count the block states as an arithmetic identity the judge
+  could redo.
+
+### Against the pre-mortem
+
+I expected bar 1 to be the risk and to land near 20 of 30, with the old traps
+catching the five "37 rows (9 x 4)" mutants by arithmetic and little else. The
+new traps did better than feared, 26 of 30, clear of the threshold; the old
+traps caught only 6. Three of the four the new traps missed are exactly the
+`36`-to-`37` routing mutants the pre-mortem expected arithmetic to catch, which
+it did not reliably do on either side. Bar 2's feared failure — a judge treating
+the block as a checklist and failing an answer for a cell it left out — did not
+appear: zero new-trap fails on U.

@@ -5848,6 +5848,10 @@ _expected_concurrent = {
     # case family; each side's shards are merged into one snapshot.
     "round-118-control.json", "round-118-edit.json",
     "round-118-rep-control.json", "round-118-rep-edit.json",
+    # Round 119 generated nothing: `score_facts.py build` drew its two
+    # snapshots from round 118's shards and rounds 96 and 97, and each run
+    # keeps the regime it was generated in.
+    "round-119-source.json", "round-119-mutants.json",
 }
 _found = set()
 for _p in sorted((ROOT / "evals" / "snapshots").rglob("*.json")):

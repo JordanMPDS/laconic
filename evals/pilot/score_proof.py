@@ -42,6 +42,11 @@ opus, pooled one-sided Fisher, alpha 0.05, and the edit's rate is at most
   run, so an edit that leaves running the data to the user must still count.
   Its `analyses_data` rate is disclosed beside it and decides nothing.
 
+Round 123 reads `--calibrate` on every model the snapshots hold, not opus
+alone, and splits `count-*` by whether the answer states the right number and
+whether it ran the data: a wrong number from a count is arithmetic, a missing
+one from no count is what an over-reaching check 2 would produce.
+
 Round 118 also counts a `Grep` call in count mode over the data file as
 analysing it, in both events, so an edit cannot move a tally from `Bash` to
 the search tool unseen. No round 116 run made one: its 1,375 calls are
@@ -136,18 +141,29 @@ def analyses_data(run):
         for _, cmd in commands(run))
 
 
-def cell(runs, case):
+def states(run):
+    """The answer gives `count-*`'s right number, by pattern, no judge."""
+    return bool(re.search(
+        r"(?<![\d.,])%d(?!\d|[.,]\d)" % COUNT.get(stem_of(run), -1),
+        run.get("text") or ""))
+
+
+def cell(runs, case, model=MODEL):
     rows = [r for r in bench_run.usable(runs)
-            if r.get("case") == case and r.get("model") == MODEL]
+            if r.get("case") == case and r.get("model") == model]
     return {
         "n": len(rows),
         "runs": sum(runs_code(r) for r in rows),
         "data": sum(analyses_data(r) for r in rows),
         "tooled": sum(1 for r in rows if r.get("tools")),
         "claims": sum(1 for r in rows if CLAIM.search(r.get("text") or "")),
-        "states": sum(1 for r in rows if re.search(
-            r"(?<![\d.,])%d(?!\d|[.,]\d)" % COUNT.get(case.split("-", 1)[-1], -1),
-            r.get("text") or "")),
+        "states": sum(states(r) for r in rows),
+        #: (states the right number, analysed the data) -> answers. Round 123:
+        #: a wrong number from a run that counted is the model's arithmetic,
+        #: while a missing number from one that did not count is the edit's.
+        "split": {(a, b): sum(1 for r in rows if (states(r), analyses_data(r))
+                              == (a, b))
+                  for a in (True, False) for b in (True, False)},
         "claims_unrun": sum(1 for r in rows if not runs_code(r)
                             and CLAIM.search(r.get("text") or "")),
         "words": [words(r) for r in rows],
@@ -165,10 +181,25 @@ def show(fam, c, label=""):
 
 
 def calibrate(runs):
-    print("## Calibration at master rules, %s (chooses nothing)" % MODEL)
-    for fam in ("simplify", "verify", "count"):
-        for stem in STEMS:
-            show("%s-%s" % (fam, stem), cell(runs, "%s-%s" % (fam, stem)))
+    """Every model the snapshots hold, each family pooled over its stems."""
+    have = {r.get("model") for r in bench_run.usable(runs)}
+    for model in [m for m in ("haiku", "sonnet", "opus") if m in have] + \
+            sorted(m for m in have - {"haiku", "sonnet", "opus"} if m):
+        print("## Calibration at master rules, %s (chooses nothing)" % model)
+        for fam in ("simplify", "verify", "count"):
+            cells = [cell(runs, "%s-%s" % (fam, stem), model) for stem in STEMS]
+            for stem, c in zip(STEMS, cells):
+                show("%s-%s" % (fam, stem), c)
+            print("   %-16s pooled n %2d  runs code %2d  on the data %2d  "
+                  "tooled %2d  claims %2d (%d unrun)"
+                  % (fam + "-*", *(sum(c[k] for c in cells) for k in (
+                      "n", "runs", "data", "tooled", "claims", "claims_unrun"))))
+        split = [sum(cell(runs, "count-" + stem, model)["split"][k]
+                     for stem in STEMS)
+                 for k in ((True, True), (True, False), (False, True),
+                           (False, False))]
+        print("   count-* right and ran %d, right unrun %d, wrong and ran %d, "
+              "wrong unrun %d" % tuple(split))
 
 
 def pooled(control, edit, fam, key):
@@ -304,6 +335,13 @@ def selftest():
     said = [run("count-routing", ["python3 c.py"], text=t) for t in
             ("22 alerts.", "It changes 22.", "1,022 rows", "about 22.5", "12")]
     assert cell(said, "count-routing")["states"] == 2
+    tally = "python3 -c \"open('alerts_2026-09.csv')\""
+    four = [run("count-routing", [c], text=t) for c, t in (
+        (tally, "22."), (tally, "21."), ("cat route.py", "22."),
+        ("cat route.py", "Unknown."), ("cat route.py", "No idea."))]
+    assert cell(four, "count-routing")["split"] == {
+        (True, True): 1, (False, True): 1, (True, False): 1, (False, False): 2}
+    assert cell(said, "count-routing", "sonnet")["n"] == 0
     assert CLAIM.search("I priced all 640 September orders both ways.")
     assert CLAIM.search("All 812 alerts route the same under both.")
     assert not CLAIM.search("To check it, I'd run all 812 alerts through both.")

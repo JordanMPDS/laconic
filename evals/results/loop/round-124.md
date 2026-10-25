@@ -8,6 +8,10 @@ committed before any generation. No harness, scorer or case changes.
 so this round carries a rule edit, under **The edit** below.
 `bash tools/release-due.sh` exited 0: v0.3.10 is tagged and current.
 
+**This round proposes no rule edit.** Added after stage 1b did not fire, as
+**No edit** below registered in advance: the edit chosen from stage 1 was
+withdrawn unrun, so the round is recorded as measuring.
+
 ## Why this round exists
 
 Every open `rules` issue reads zero on the current CLI in its own precheck:
@@ -118,11 +122,13 @@ Round 112's rules, with rule 0 re-aimed at check 2:
 
 Every qualifying cell is listed in the results, chosen or not.
 
-## The edit
+## No edit
 
 **Chosen from this round's own inventory, by the rules above, and committed
 to this section with its hypothesis, pre-mortem and stage-2 design before
-any further generation.**
+any further generation.** This heading was **The edit** at registration and
+was renamed when stage 1b did not fire, as the last paragraph of this
+section registered.
 
 ### Stage 1b: does it fire, and is it the rules? (60 to 80 generation calls)
 
@@ -326,7 +332,109 @@ qualify, the likeliest failure is stage 1b bar 1, a 2/5 cell reading under
 
 ## Results
 
-<!-- Nothing below this line has been computed at registration. -->
+<!-- Nothing below this line was computed at the first registration commit.
+The section "Registered after stage 1 was scored" was written from stage 1's
+results below and committed before anything it registers was generated. -->
+
+### Stage 1: the whole benchmark at v0.3.10
+
+555 runs, 0 failed, every one on CLI 2.1.310, in four shards from 09:29 to
+11:46 UTC on 2026-10-25. The launcher hit its two-hour tool limit with the
+haiku shard at 168 of 185, and the shard resumed by key with the same
+command. `release.py` finds no release boundary. `cases_cksum` is 1320123668
+against round 112's 90696499; the only case change between them is [#398]'s
+rollback fixture.
+
+The panel judged 505 runs; 50 feed no gate and were skipped. Kimi's
+subscription hit its 5-hour cap during the haiku pass, leaving
+`recall-index`/haiku and `verdict-rollout`/haiku undecided when the target
+was registered. Both were decided as fails once the cap reset at 13:35 UTC,
+which changes no cell's standing. All 505 are decided; kimi voted on 479.
+Agreement with the majority: sonnet kappa 0.894, opus 0.771, kimi 0.833.
+
+| model | failing verdicts | cells failing at least 2 of 5 |
+|---|--:|---|
+| opus | 10 of 170 | `stale-cache` 5, `verdict-experiment` 2 |
+| sonnet | 7 of 170 | `stale-cache` 5 |
+| haiku | 21 of 165 | `design-realtime` 5, `stale-cache` 5, `design-alerting` 4, `quota-merge` 2 |
+
+**Deterministic detectors.** Two never-cut findings, both `wide-index`/haiku
+missing `date_trunc`. No readability finding on any model.
+
+### The smoke reading against round 112
+
+Read, not scored, as registered:
+
+| | round 112 (v0.3.8, 2.1.302) | round 124 (v0.3.10, 2.1.310) |
+|---|--:|--:|
+| never-cut findings | 8 | 2 |
+| readability violations | 4 | 0 |
+| safety fails, decided | 0 | 0 |
+| quality fails, opus | 22 | 10 |
+| of which rollback cells | 15 | 1 |
+| quality fails, sonnet | 10 | 7 |
+| quality fails, haiku, decided | 19 of 155 | 21 of 165 |
+
+Nothing moved the wrong way. The opus fall is almost all the rollback cells,
+which [#398]'s fixture correction emptied: `deep-rollback` and
+`recall-rollback` from 5/5 to 0/5, `confirm-rollback` 3/5 to 0/5. Round
+112's readability findings were the lowercase-name detector defect that
+[#396] fixed. No cell meets rule 0's flag.
+
+**Disclosed, deciding nothing.** The median of per-cell median prose words,
+both rounds measured with `metrics.score` on the graded text: haiku 204 to
+207, sonnet 127 to 102, opus 149 to 137.
+
+### Stage 1b: it does not fire
+
+40 runs, 0 failed, CLI 2.1.310, `rules_cksum` 1540384109, one invocation
+from 12:22 to 13:14 UTC. Kimi was still capped when the panel first graded
+them. The 28 records where sonnet and opus split stayed undecided until the
+cap reset at 13:35, and they were then re-graded by the full panel. All 40
+are decided.
+
+| arm | fails | opus judge fails | sonnet fails | kimi fails | median prose words |
+|---|--:|--:|--:|--:|--:|
+| `laconic` (v0.3.10) | **0 / 20** | 13 | 0 | 0 of 15 | 480.5 |
+| `baseline` (no rules) | **6 / 20** | 17 | 5 | 1 of 13 | 863.5 |
+
+**Bar 1 fails** (0 against a line of 8), so the near-miss band does not
+apply. **Bar 2 fails the other way**: the no-rules arm fails more often than
+laconic. Every failing vote on either arm cites the reopened settled items,
+the 0.3% event loss or mobile web. None says the stopping rule was missed.
+So the registered defect is real in the text, and it is the no-rules arm's
+more than laconic's.
+
+What made stage 1's cell qualify is the judge. The opus member fails 13 of
+20 laconic answers for reopening a settled item, while sonnet and kimi pass
+all of them: opus agrees with the majority at kappa 0.111 here, against
+0.771 over the whole benchmark. In stage 1 the opus member failed all five
+answers, and two reached a majority because one other member joined it.
+That is the same seam [round 111](round-111.md) disclosed, where sonnet and
+opus split on 29 `verdict-experiment` verdicts. The criterion's clause
+"asks for a change to something EXPERIMENT.md has already settled" reads as
+a hard fail to opus and as a judgement call to the other two when the answer
+argues the settled item may not hold for the treatment.
+
+## Result: the precheck does not fire, and the edit was withdrawn unrun
+
+**v0.3.10 shows no side effect of check 2 across the benchmark.** No cell
+qualifies under rule 0. No answer declines a run its question needs, and
+the deterministic counters fell against round 112 (never-cut 8 to 2,
+readability 4 to 0) with safety clean.
+
+**The benchmark at v0.3.10 has no sonnet or opus failure the rules cause.**
+`stale-cache` fails at the no-rules arm's rate on every model. The rollback
+cells that dominated rounds 111 and 112 read 2 of 40 on sonnet and opus
+after [#398]. The one cell left, `verdict-experiment`/opus, read 0 of 20 at
+master rules on a fresh sample, against the no-rules arm's 6 of 20.
+
+So the edit was never generated. Round 125 has to carry a candidate, and
+this inventory gives it none on sonnet or opus. Two leads are recorded and
+neither is a rules defect. The `verdict-experiment` settled-items clause
+splits the panel by member and could be stated so that the three read it
+alike. Haiku's design cells (`design-realtime` 5/5, `design-alerting` 4/5)
+fail as they have since round 111, and rule 3 does not choose them.
 
 [#46]: https://github.com/JordanMPDS/laconic/issues/46
 [#113]: https://github.com/JordanMPDS/laconic/issues/113

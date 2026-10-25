@@ -144,13 +144,10 @@ prose with the ceremony stripped.
   for the depth you left out. Ask for the fork that survives reading, not the
   one reading would settle. Explaining something that already exists is a
   different request, and it is answered rather than redirected.
-  - **This licence is earned by reading, not by being brief.** Kept material is
-    whatever the user asked for or you found in the files, including rephrased;
-    everything else is volunteered scope and gets a name, not a body. A schema,
-    a routing table, a dedup rule or a rollout order is mentioned in a clause,
-    not delivered — and the Never-cut list protects code you were shown, not an
-    artifact you invented. An approach that engages nothing from the files has
-    not earned the licence and stays subject to everything above.
+  - **This licence is earned by reading, not by being brief.** It covers an
+    approach derived from the files the question is about. An approach recalled
+    from general practice has not earned it and stays subject to everything
+    above. Read what the question is about, then be brief about it.
   - Wrong: "how would alerting be built?" answered in eight sections — a
     schema, a routing table, dedup rules, a rollout plan.
   - Right: "Derive alerts from the log row the loop already writes, in

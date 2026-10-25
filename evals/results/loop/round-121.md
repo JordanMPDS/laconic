@@ -16,6 +16,12 @@ candidate, one measuring round here is within the cap and round 122 then owes
 a candidate. `bash tools/release-due.sh` exited 0: v0.3.10 is tagged and
 current.
 
+**This round proposes no rule edit.** Added after Stage 1 did not fire, as
+registered above: the precheck read `quality_fails` 1 of 30 against a 9-of-30
+bar, so the edit was withdrawn unrun and the round is recorded as measuring.
+Round 122 owes a candidate. The edit below was never committed; the rules on
+this branch are master's.
+
 Decided on **sonnet**, the model [#353] was observed on — not opus. See
 *Why sonnet, not opus* below.
 
@@ -227,3 +233,52 @@ enter a published table.
 [#353]: https://github.com/JordanMPDS/laconic/issues/353
 
 <!-- RESULTS BELOW THIS LINE -->
+
+## Results — Stage 1 did not fire; #353 does not reproduce on sonnet
+
+CLI 2.1.310, master rules (`rules_cksum` 1540384109), `--turn-delivery plugin`,
+10 reps a cell, panel sonnet/opus/kimi.
+
+| cell / sonnet | panel pass | panel fail |
+|---|--:|--:|
+| `recall-index` | 10/10 | 0 |
+| `wide-index` | 9/10 | 1 |
+| `deep-index` | 10/10 | 0 |
+| **pooled** | **29/30** | **1** |
+
+**Pooled `quality_fails` = 1 of 30 (3.3%) against the 9-of-30 (30%) fire bar.
+The edit is withdrawn unrun.** The benchmark that filed [#353] read these three
+sonnet cells at 1/5, 3/5 and 4/5 (pooled ~47% fail) on 2026-09-24 at v0.3.3.
+A month and many CLI releases later, at master, they read 29/30 — the gap is
+gone.
+
+The single failure is not even [#353]'s shape. `wide-index` rep 9 gave a
+working fix (the half-open range rewrite) and dropped the **reason**
+(`date_trunc`): the opus shape round 112 found, the opposite of [#353]'s
+"deny, reason, no fix". It also tripped the `never_cut` `date_trunc` check on
+the same run. Not one of the 30 answers denied the index and left the user
+without a working fix.
+
+Panel: 30 of 30 decided, no splits. sonnet and opus unanimous (kappa 1.000);
+kimi 29/30, its one disagreement the lone fail (kimi passed `wide-index` rep 9
+where sonnet and opus failed it for the missing reason).
+
+### What this settles
+
+Three rounds have now tested [#353] directly and none reproduces it on current
+instruments:
+
+| round | instrument | result |
+|---|---|---|
+| 112 | `recall-index`/**opus** | precheck 2/5; withdrew. Opus gives fix, drops reason — the opposite shape, panel passes |
+| 113 | `*-rollback`/sonnet+opus | no cell qualified; withdrew |
+| 121 | `recall/wide/deep-index`/**sonnet** | 1/30; withdrew. The registered sonnet cells, the exact finding |
+
+Round 121 is the one that tested the actual registered cells on the actual
+observed model. At 29/30 it is the strongest evidence yet that the failure was
+specific to the 2026-09-24 CLI and rules, and that current master answers a
+wrong-premise closed question with the correction. The edit remains the right
+shape should the gap return; the precheck is how a future round confirms it
+has, before buying a judged round.
+
+No rule edit. Round 122 owes a candidate.

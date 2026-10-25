@@ -73,9 +73,11 @@ files, everything else is named not rendered — should move `output_tokens`
 - **Disclosed secondary, not a gate:** rendered-artifact count per answer
   (fenced code blocks and Markdown tables, by regex), control against edit, to
   show whether the cut landed on the rendered artifacts rather than on prose.
-- **Looks:** one. The round opens at 15 reps a side on the eight cases and is
-  scored once; `report.py --looks 1`. A decision to extend would be a new round,
-  not a second look at this one.
+- **Looks:** one. The round runs 10 reps a side on the eight cases and is
+  scored once; `report.py --looks 1`. The `output_tokens` sign test counts
+  cells, not reps, and round 26 read 8/8 at 25 reps where 10 would very likely
+  have read the same, so 10 is the buy. A decision to extend would be a new
+  round, not a second look at this one.
 
 ## Why provenance, and its origin
 

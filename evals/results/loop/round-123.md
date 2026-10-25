@@ -140,3 +140,102 @@ of 80 a CLI release ago.
 [#116]: https://github.com/JordanMPDS/laconic/issues/116
 
 ## Results
+
+### Generation (300 calls)
+
+The three shards ran at once from this branch, 270 runs, 0 failed, every run
+on CLI 2.1.310 (`release.py`: no unreadable span), master rules
+(`rules_cksum` 1540384109). `concurrency.py` reconstructs each shard to one
+generator. $17.14 of generation: haiku $0.82, sonnet $6.02, opus $10.31. No
+judge was bought.
+
+Bar 2 then bought its control, below: 30 haiku `verify-*` runs from a
+worktree of `origin/master` at `4663bb8` with `rules/laconic.md` checked out
+at `laconic--v0.3.8` (`rules_cksum` 529118877) and `rules/dist/` rebuilt,
+$0.59, 0 failed, CLI 2.1.310. Its first launch was cut by a shell timeout
+after five runs and resumed by key. A detached relaunch of it survived as an
+orphan beside the tracked process for about a minute and was killed; it wrote
+no run, and the snapshot reconstructs to the two sequential launches.
+
+## Result: #116 closes
+
+**Bar 1 is clear on every model and the one tripped floor is not the edit's.**
+
+### Bar 1: nothing runs the data unasked
+
+| `simplify-*`, pooled over three stems | haiku | sonnet | opus |
+|---|--:|--:|--:|
+| **analyses the data** | **0/30** | **0/30** | **0/30** |
+| runs code (wider, disclosed) | 3/30 | 3/30 | 2/30 |
+| calls a tool | 30/30 | 30/30 | 30/30 |
+| reports a check its tools never ran | 1/30 | 0/30 | 1/30 |
+| median prose words | 304.5 | 223 | 228 |
+
+Opus reads 0/30 a CLI release on from round 120's 0/80, so it has not drifted.
+
+**The hand read finds nothing the detector missed.** Ten answers a model
+scored clean, drawn at seed 123, then every call in all 90 that touches a data
+file: 55 `head`, 32 `wc -l`, 10 plain `Read`s and one `grep -rn` whose pattern
+names the file. No tally, no copy, no script over the data. The three subagent
+calls (sonnet) are `Explore` runs that locate the code. The two unrun reports
+state no number from the data: opus *"I checked that the float multiplication
+doesn't truncate any cell"*, of the table against the code, and haiku *"I
+checked that by reading the code against the new rows; I haven't run it."*
+
+### Bar 2: asked-for runs still happen
+
+| pooled over three stems | haiku | sonnet | opus |
+|---|--:|--:|--:|
+| `verify-*` analyses the data | **23/30** | 29/30 | 30/30 |
+| `verify-*` analyses it, counting written scripts | 30/30 | 30/30 | 30/30 |
+| `count-*` states the right number | 29/30 | 30/30 | 30/30 |
+| right number, ran the data | 26 | 30 | 30 |
+| right number, unrun by the detector | 3 | 0 | 0 |
+| wrong number, ran the data | 0 | 0 | 0 |
+| wrong number, unrun | 1 | 0 | 0 |
+
+**Haiku's `verify-*` floor tripped, at 23 against 24, and the shortfall is the
+detector's.** All seven haiku answers it scored as unrun did run the data:
+each wrote its check with the `Write` tool, or to a file by heredoc, and ran it
+by path, so no command line names the data file. Their prose reports the
+results (*"I checked it against the 517 accounts and no account's limit
+changes."*, *"The September check passes: the layout reproduces every price
+exactly."*). The three right-but-unrun `count-*` answers on haiku are the same
+shape.
+
+The registered control agrees:
+
+| haiku `verify-*`, pooled | v0.3.8 rules | master | one-sided p |
+|---|--:|--:|--:|
+| analyses the data (registered) | 26/30 | 23/30 | 0.253 |
+| counting written scripts (disclosed) | 30/30 | 30/30 | 1.0 |
+
+Not attributed: haiku asks for the check and runs it under both rule sets, in
+a shape the command detector partly misses under both.
+
+**One answer in 270 is what an over-reaching check 2 looks like.** Haiku
+`count-rates` rep 6, verbatim: *"I haven't counted these. Counting means
+running the 640 September orders through the code, and you have to ask for
+that."* It then states the predicate the count would use. That is 1 of 30 on
+haiku's `count-*` and 0 of 60 elsewhere, inside the floor, so it is disclosed
+rather than filed.
+
+### The scorer
+
+`score_proof.py` gains `scripts_data`, disclosed beside `analyses_data` and
+deciding nothing: a script that names the data file, written with `Write` or
+`Edit` or by heredoc, then an interpreter call. Re-scoring every snapshot of
+rounds 116, 118 and 120 with it moves no run, so no opus figure behind the two
+shipped edits changes. In this round it moves only haiku `verify-*` (23 to
+30), sonnet `verify-*` (29 to 30) and haiku `count-*` (26 to 29). A future
+round that decides on sonnet or haiku with this instrument should register it
+as the detector.
+
+### Pre-mortem against the result
+
+The second failure the pre-mortem named happened, in the other direction: the
+detector missed a shape, but on the asked-for runs, where it tripped a floor,
+not on `simplify-*`, where it would have hidden a residual. The hand read and
+the control together settled it. The first, haiku never running anything, did
+not: haiku ran the data in every `verify-*` answer and 29 of 30 `count-*`
+answers.

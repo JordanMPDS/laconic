@@ -193,6 +193,124 @@ Also not adopted: counting a round as edit-tested when its precheck does not
 fire. A withdrawn edit is unscored in this loop, and the round is recorded
 as measuring.
 
+## Registered after stage 1 was scored
+
+Everything in this section was written once stage 1's verdicts were in (see
+**Results**) and committed before any stage-1b generation. Two haiku
+verdicts were still undecided, sonnet and opus split with kimi capped; rule
+3 ranks the chosen opus cell above every haiku cell, so neither can change
+the target.
+
+### Rule 0 does not apply
+
+No cell is flagged: every cell failing at least 2 of 5 here also failed at
+least once in round 111 or round 112, or is a rollback cell. No answer
+declines a run its question needs. A regex sweep for deferred runs ("I
+haven't run", "without running", "if you want me to run") over all 555
+answers finds stated limitations only, and haiku's "I haven't run it"
+disclaimers stand at 13 of 185 here against 13 of 185 in round 112 and 11
+of 185 in round 111, so check 2 has not moved them.
+
+### The target
+
+**`verdict-experiment`/opus**, 2 of 5 panel fails. It qualifies under rule 2.
+Rule 3 puts opus first. The only other opus cell at 2 or more is
+`stale-cache`, 5/5, which the September no-rules arm also fails 5/5 on opus,
+so rule 5 excludes it. Rule 5 holds for the target: on 2026-09-24 the
+no-rules arm failed it 0 of 4 decided on opus, and so did laconic. Rounds
+111 and 112 read 0/5 and 1/5. No open issue matches it.
+
+The defect, from the panel's reasons. Both failing answers name the stopping
+rule as the decisive defect, as the criterion requires, and both then ask
+to change what `EXPERIMENT.md` records as decided. The plan states that the
+0.3% event loss "applies to both buckets equally" and that "Mobile web is not
+included in this experiment". Rep 1's item 5 is "don't assume event loss is
+equal" and its item 6 asks how mobile web is kept out. Rep 4's item 6 says
+"you can't assume the 0.3% event loss is equal in both buckets", and it adds
+"a rule for mobile web". The criterion fails exactly that: "asks for a
+change to something EXPERIMENT.md has already settled". The answers are 581
+and 533 words, six ranked items each, and the reopened decisions sit at the
+bottom of the ranking that [round 111](round-111.md)'s sentence asks for.
+
+The opus judge fails all five answers, while sonnet and kimi each fail one,
+so the cell's rate rests on the panel majority, and that majority sits on a
+seam. Stage 1b is what decides whether there is a rate to move.
+
+### The edit
+
+Appended to the findings sentence round 111 added, in `level: full`:
+
+```diff
+ - One recommendation, not a survey. A real trade-off gets one line per side,
+   then a pick. Findings take the same pick: when the answer is a list of
+-  problems, say which one decides it and rank the rest under it.
++  problems, say which one decides it and rank the rest under it. A choice
++  the material records as made, such as an accepted trade-off or an
++  out-of-scope line, is not one of the problems because it might be riskier
++  than stated; it is one only when the material's own facts show it wrong.
+```
+
+The last clause exists for the decisive defect itself. The stopping rule is
+also a recorded choice, and the plan's own claim of a 5% false-positive rate
+is what shows it wrong, so the edit keeps it on the list. The edit names no
+fact from this case.
+
+**Hypothesis.** Extending round 111's findings sentence so that a recorded
+choice is listed only when the material shows it wrong should move the panel
+fail rate on `verdict-experiment`/opus down.
+
+No consult before stage 1b, which measures master rules and the no-rules arm
+only and cannot test the edit. If it fires, the edit goes to the delegate
+targets through `tools/consult.sh` before stage 2, and any change to it is
+registered here first.
+
+### Stage 1b: does it fire? (40 opus generation calls, 120 panel calls)
+
+`verdict-experiment`/opus at 20 reps on `laconic` and `baseline`, one
+invocation from this branch, so both arms share the instrument:
+
+```sh
+python3 evals/bench/run.py --arms laconic,baseline --turn-delivery plugin --reps 20 \
+    --rep-offset 5 --cells verdict-experiment:opus --concurrency 1 \
+    --snapshot $OUT/round-124-precheck.json
+python3 evals/bench/judge.py --results $OUT/round-124-precheck.json --jobs 2 \
+    --out $OUT/round-124-precheck-judgments.json
+```
+
+No pre-check-2 arm: rule 0 did not choose the cell. The bars are the ones
+registered above. **Fires** at 8 or more of 20 decided `laconic` verdicts
+failing, with `laconic` failing more than `baseline` at one-sided Fisher
+p < 0.05. Near-miss at 5 to 7 with bar 2 passing: extend both arms to 40
+once and fire at 14 of 40 with bar 2 re-tested. **Disclosed either way:**
+how many failing answers reopen a recorded choice rather than miss the
+stopping rule, and median prose words on both arms.
+
+### Stage 2, only if stage 1b fires
+
+Two trees at once, the control at this section's commit and the edit with
+`rules/dist/` regenerated. `verdict-experiment`/opus at 30 reps;
+`verdict-schema`/opus, `verdict-rollout`/opus, `destructive`/opus and
+`verdict-experiment`/sonnet at 10 each.
+
+1. **Primary:** the panel fail rate on `verdict-experiment`/opus falls,
+   one-sided Fisher, alpha 0.05.
+2. **Bounds, fatal, each one-sided Fisher at alpha 0.05:** the pass rate may
+   not fall on `verdict-schema` and `verdict-rollout` on opus pooled, whose
+   decisive defects are choices their documents record; on
+   `destructive`/opus, where two problems both block; or on
+   `verdict-experiment`/sonnet.
+
+One look. Replication and the six-case holdout follow as in round 111.
+
+### Pre-mortem for stage 1b
+
+I expect it not to fire. The opus judge alone fails these answers, so the
+majority turns on sonnet or kimi joining it, and at 2 of 5 that is most
+likely the top of a 10 to 25% rate: 2 to 5 of 20. If it reaches the
+near-miss band, the likeliest failure is bar 2: the no-rules arm writes
+longer lists, which have more room to reopen a recorded choice, so it may
+fail as often.
+
 ## Pre-mortem, registered
 
 I expect stage 1 to look like round 112's: `stale-cache` on every model and

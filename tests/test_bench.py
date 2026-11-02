@@ -5860,6 +5860,11 @@ _expected_concurrent = {
     # Round 124's whole-benchmark pass: four simultaneous shards declaring
     # --concurrency 4, one per model and opus split by rep, merged into one.
     "round-124.json",
+    # Round 125's first sample and replication: four simultaneous shards
+    # declaring --concurrency 4, a target and a bounds shard a side from two
+    # trees; each side's shards are merged into one snapshot.
+    "round-125-control.json", "round-125-edit.json",
+    "round-125-rep-control.json", "round-125-rep-edit.json",
 }
 _found = set()
 for _p in sorted((ROOT / "evals" / "snapshots").rglob("*.json")):

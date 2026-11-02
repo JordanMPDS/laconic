@@ -186,5 +186,134 @@ promote items into the decider, and I give it little weight.
 
 <!-- Nothing below this line was computed at the registration commit. -->
 
+Control and edit generated from two trees at once, four shards, 0 failed
+runs. The first sample is all CLI 2.1.310. The replication stopped at a usage
+limit on 2026-10-25 and resumed by key on 2026-11-02, so it spans 2.1.310 and
+2.1.314: control 33/67 and edit 32/68 across the boundary, which `release.py`
+reads as balanced (p = 1.0) with no unreadable span.
+
+### First sample
+
+100 runs a side, reps 0 to 19 on the target cells and 0 to 9 on the bounds.
+
+| cell | control prose words | edit prose words | control items | edit items |
+|---|--:|--:|--:|--:|
+| `verdict-experiment`/opus | 478 | 412 | 11.0 | 9.0 |
+| `verdict-rollout`/opus | 271 | 281 | 4.0 | 5.0 |
+| `verdict-schema`/opus | 268 | 238 | 7.5 | 6.5 |
+
+**Primary passes:** mean log ratio −0.077 (factor 0.926), one-sided
+p = 0.0015. Two of the three cells carry it; `verdict-rollout`, which the
+registration said had the least room, moved 10 words up.
+
+| bound (panel passes) | control | edit | one-sided p |
+|---|--:|--:|--:|
+| `verdict-experiment`/opus | 19/20 | 19/20 | 0.76 |
+| `verdict-rollout`/opus | 20/20 | 20/20 | 1.0 |
+| `verdict-schema`/opus | 20/20 | 20/20 | 1.0 |
+| `destructive`/opus | 10/10 | 10/10 | 1.0 |
+| `verdict-experiment`/sonnet | 9/10 | 5/10 | 0.070 |
+| `verdict-rollout`/sonnet | 10/10 | 10/10 | 1.0 |
+| `verdict-schema`/sonnet | 8/10 | 9/10 | 0.89 |
+
+**Every bound holds**, and `verdict-experiment`/sonnet is the nearest miss.
+All five of its edit-side fails, like the one control fail beside them, are
+the failure round 124 isolated: the opus and kimi members fail the answer for
+reopening a choice `EXPERIMENT.md` records as settled (the equal 0.3% event
+loss, the logged-out exclusion, mobile web out of scope), and the sonnet
+member passes it every time. The cell is the pre-mortem's second named bound,
+but not in the form it predicted: the reopened items sit in the "Add" and
+"Scope" lists of edit and control answers alike, at similar length, so the
+text shows no mechanism that separates the edit's five fails from the
+control's one. It does not reach alpha at 10 a side, and the replication is
+what reads it again.
+
+### Replication
+
+A fresh 100 runs a side from the same two trees, reps 20 to 39 on the target
+cells and 10 to 19 on the bounds.
+
+| cell | control prose words | edit prose words | control items | edit items |
+|---|--:|--:|--:|--:|
+| `verdict-experiment`/opus | 486 | 456 | 12.0 | 11.0 |
+| `verdict-rollout`/opus | 311 | 292 | 5.0 | 5.0 |
+| `verdict-schema`/opus | 286 | 256 | 7.0 | 7.0 |
+
+**Primary passes again:** mean log ratio −0.080 (factor 0.923), one-sided
+p = 0.00125. This time all three cells move down, `verdict-rollout` included.
+
+| bound (panel passes) | control | edit | one-sided p |
+|---|--:|--:|--:|
+| `verdict-experiment`/opus | 20/20 | 18/20 | 0.24 |
+| `verdict-rollout`/opus | 20/20 | 20/20 | 1.0 |
+| `verdict-schema`/opus | 20/20 | 20/20 | 1.0 |
+| `destructive`/opus | 10/10 | 10/10 | 1.0 |
+| `verdict-experiment`/sonnet | 7/10 | 10/10 | 1.0 |
+| `verdict-rollout`/sonnet | 10/10 | 10/10 | 1.0 |
+| `verdict-schema`/sonnet | 9/10 | 10/10 | 1.0 |
+
+**Every bound holds.** `verdict-experiment`/sonnet, the first sample's nearest
+miss, reverses: 7/10 against 10/10, so over both samples it reads 16/20
+against 15/20. The edit's two fails on `verdict-experiment`/opus are the same
+settled-items failure, opus and kimi failing the answer for reopening the
+equal 0.3% event loss, the mobile-web exclusion and the logged-out exclusion,
+with sonnet passing it.
+
+### Holdout
+
+All six reserved cases, sonnet and opus, 5 reps, from both trees: 60 runs a
+side, 0 failed, CLI 2.1.314, judged by the panel with every record decided.
+Every case passed 10 of 10 under the edit; the control dropped one
+`holdout-destructive` run, 9/10. No reserved case is worse under the edit.
+
+### Disclosed, deciding nothing
+
+- **Total words** fall with prose words on the two opus cells that carry the
+  primary: `verdict-experiment` 508 to 442 and 522 to 484, `verdict-schema` 320
+  to 286 and 337 to 310. The fall is not prose moved into code spans.
+- **"One sentence each" is not obeyed literally.** Counting sentences in each
+  numbered item of the opus `verdict-experiment` and `verdict-schema` answers
+  (an approximate counter, code spans removed), single-sentence items are 5/150
+  and 8/152 under the edit against 2/129 and 0/111 under the control on
+  `verdict-experiment`, and at most 2 in either arm on `verdict-schema`. What
+  moves is the median item, 4 sentences to 3 on `verdict-experiment` in both
+  samples, while the count of items does not fall. The edit shortens the
+  remainder; it does not cut it to the length it names.
+- **Hand read** of ten first-sample edit answers: `verdict-experiment` reps 0
+  to 3, `verdict-rollout` and `verdict-schema` reps 0 to 2. Every answer names
+  the decider first and gives its fix. Of the 44 ranked items below the
+  decider on `verdict-experiment` and `verdict-schema`, 40 name a concrete
+  change; the four that name a defect without one are `verdict-experiment`
+  rep 0's step-events point and rep 2's untested-guests point, and
+  `verdict-schema` rep 2's period-boundary and plan-versioning points. `verdict-rollout`'s items are the two-release fix,
+  which the edit does not reach, as registered.
+- **Panel.** `panel_agreement.py` decided every record in all six files, with
+  no three-way splits. opus is the outlier member throughout (82/100, 90/100,
+  83/100 and 86/100 with the majority on the four main files), consistent with
+  round 124's finding that opus alone carries the settled-items fails; kimi
+  missed one vote in each replication file.
+- **Cost.** $41.14 of generation across the 520 runs, and the panel's judging
+  on top.
+- **Release audit.** `release.py` is clean on all three pairs; the holdout is
+  2.1.314 on both sides.
+
+## Result: accepted
+
+**Accept.** The primary passed on both samples (factor 0.926 at p = 0.0015,
+then 0.923 at p = 0.00125), every fatal bound held on both, and the holdout
+held. The edit stays in `rules/laconic.md` and `rules/dist/`.
+
+The pre-mortem expected the primary to pass and named
+`verdict-experiment`/sonnet as the likeliest fatal bound. It came within
+p = 0.070 in the first sample and reversed in the replication, and its fails
+on both sides are the settled-items failure round 124 isolated, which the
+edit does not touch. `destructive`/opus, the other named bound, read 10/10 on
+both sides of both samples: the second foreign key was never demoted.
+
+The effect is modest, about 8% of prose words on opus's evaluative answers,
+and it comes from shorter items rather than fewer of them. [#113]'s own
+report, a feasibility question at 600 words, is not one of these cells and
+this round does not measure it; the issue stays open.
+
 [#60]: https://github.com/JordanMPDS/laconic/issues/60
 [#113]: https://github.com/JordanMPDS/laconic/issues/113

@@ -515,6 +515,40 @@ foreach ($p in @('/laconic status', '/laconic max', '/laconic \"x\"')) {
 Invoke-Hook 'switch' '{"prompt":"/laconic"}'
 Assert-Has 'switch acknowledges a bare /laconic as full' 'level set to full.' $out
 
+# 43. A newline, tab or carriage return beside the command still switches
+# (#425). This side decodes the payload before matching, so it always accepted
+# these; laconic.sh greps the raw JSON and had to learn the two-byte escapes.
+# The cases are the bash suite's, so a divergence fails one platform only. An
+# escaped backslash before n is not a newline, and an unknown word stays
+# unknown.
+Clear-Project
+foreach ($p in @('/laconic off\nthanks', '/laconic off\n', '\n/laconic off', '\t/laconic off',
+                 '/laconic off\r\nthanks', '/laconic off\tnow')) {
+  Set-Level 'full'
+  Invoke-Hook 'remind' ('{"prompt":"' + $p + '"}')
+  Assert-Has "$p switches to off" 'off' (Get-FlagText $Flag)
+  Assert-Empty "$p prints nothing once off" $out
+}
+Set-Level 'full'
+Invoke-Hook 'remind' '{"prompt":"/laconic lite project\nnow"}'
+Assert-Has 'lite project then a newline writes the project flag' 'lite' (Get-FlagText $ProjectFlag)
+Assert-Has 'lite project then a newline leaves the machine flag' 'full' (Get-FlagText $Flag)
+Invoke-Hook 'switch' '{"prompt":"/laconic lite project\nnow"}'
+Assert-Has 'switch acknowledges the project scope after a newline' 'level set to lite for this project.' $out
+Clear-Project
+Set-Level 'lite'
+Invoke-Hook 'remind' '{"prompt":"/laconic\n"}'
+Assert-Has 'bare /laconic then a newline writes full' 'full' (Get-FlagText $Flag)
+Set-Level 'lite'
+Invoke-Hook 'remind' '{"prompt":"\t/laconic project\r\n"}'
+Assert-Has 'bare /laconic project between escapes writes the project flag' 'full' (Get-FlagText $ProjectFlag)
+Clear-Project
+foreach ($p in @('/laconic ultraviolet\n', '/laconic off\\nthanks', '/laconic\\n', '\\n/laconic off')) {
+  Set-Level 'lite'
+  Invoke-Hook 'remind' ('{"prompt":"' + $p + '"}')
+  Assert-Has "$p writes nothing" 'lite' (Get-FlagText $Flag)
+}
+
 # --- hooks.json ---
 # The TOML asserts the bash suite runs stay there: PowerShell 5.1 has no TOML
 # parser, and the ubuntu job covers them on the same commit.

@@ -451,6 +451,40 @@ for lvl in lite full ultra; do
   fi
 done
 
+# 43. A newline, tab or carriage return beside the command still switches
+# (#425). The payload is raw JSON, so a pasted "/laconic off" plus a second line
+# arrives as the two bytes \n, which [[:space:]] does not accept; laconic.ps1
+# decodes first and does. The project case is the one that wrote the wrong
+# flag: the scope was dropped and the machine flag took the level. An escaped
+# backslash before n is not a newline, and an unknown word stays unknown.
+clear_project
+for p in '/laconic off\nthanks' '/laconic off\n' '\n/laconic off' '\t/laconic off' \
+         '/laconic off\r\nthanks' '/laconic off\tnow'; do
+  set_level full
+  run remind "{\"prompt\":\"$p\"}"
+  assert_has "$p switches to off" "off" "$(cat "$FLAG")"
+  assert_empty "$p prints nothing once off" "$out"
+done
+set_level full
+run remind '{"prompt":"/laconic lite project\nnow"}'
+assert_has "lite project then a newline writes the project flag" "lite" "$(cat "$PROJECT_FLAG" 2>/dev/null)"
+assert_has "lite project then a newline leaves the machine flag" "full" "$(cat "$FLAG")"
+out=$(printf '{"prompt":"/laconic lite project\\nnow"}' | bash "$SCRIPT" switch)
+assert_has "switch acknowledges the project scope after a newline" "level set to lite for this project." "$out"
+clear_project
+set_level lite
+run remind '{"prompt":"/laconic\n"}'
+assert_has "bare /laconic then a newline writes full" "full" "$(cat "$FLAG")"
+set_level lite
+run remind '{"prompt":"\t/laconic project\r\n"}'
+assert_has "bare /laconic project between escapes writes the project flag" "full" "$(cat "$PROJECT_FLAG" 2>/dev/null)"
+clear_project
+for p in '/laconic ultraviolet\n' '/laconic off\\nthanks' '/laconic\\n' '\\n/laconic off'; do
+  set_level lite
+  run remind "{\"prompt\":\"$p\"}"
+  assert_has "$p writes nothing" "lite" "$(cat "$FLAG")"
+done
+
 # --- PowerShell source encoding ---
 # Every .ps1 in this repo must start with a UTF-8 BOM. Windows PowerShell 5.1
 # decodes a BOM-less script with the ANSI code page, so an em dash becomes the

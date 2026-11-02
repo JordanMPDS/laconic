@@ -71,23 +71,17 @@ the same project-flag precedence the hook uses. One edit, one time:
 }
 ```
 
-On native Windows, point at the PowerShell copy instead:
-
-```json
-{
-  "statusLine": {
-    "type": "command",
-    "command": "powershell -NoProfile -ExecutionPolicy Bypass -File \"%USERPROFILE%\\.claude\\laconic-statusline.ps1\""
-  }
-}
-```
+The same line serves Windows: Claude Code runs a status line command through
+Git Bash, as it runs the hook, and there `$HOME` is your Windows profile. The
+PowerShell badge script is installed only by `hooks/laconic.ps1`, which Claude
+Code never runs ([#423](https://github.com/JordanMPDS/laconic/issues/423)).
 
 The plugin installs the badge script at that path itself and refreshes it on
 every session start, so there is no script to copy and no path to re-check after
-an update. Each platform's hook installs its own copy, so a machine used from
-both WSL and native Windows ends up with both and neither goes stale. It writes
-only while a level is active — with laconic `off`, or with no level ever set, the
-hook does nothing at all, including this.
+an update. The WSL and Git Bash hooks each install their own copy, so a machine
+used from both ends up with both and neither goes stale. It writes only while a
+level is active — with laconic `off`, or with no level ever set, the hook does
+nothing at all, including this.
 
 Wiring it into `settings.json` is the one step that cannot be automated, because
 Claude Code reads `statusLine` from your settings and a plugin cannot register

@@ -4,6 +4,11 @@
 **Status:** Implemented (issue #2), on trigger 2 — the repo gained CI. The one deviation
 from the table below: the port also carries the project-level flag from issue #5, which
 landed after this spec was written.
+**Superseded in part (2026-11-02, #423):** Claude Code never read the `commandWindows` key
+this spec relies on. Under Claude Code, Windows runs the bash hook through Git Bash and
+`hooks/laconic.ps1` never runs, so Git for Windows is required and the key is gone from
+`hooks/hooks.json`. The port stays for Codex, which does read the key, and for the manual
+Gemini and Cursor wiring in [`other-agents.md`](other-agents.md).
 **Applies to:** `laconic` v0.1.1 and later
 **Supersedes:** the "no PowerShell port" entry in [`v0.1.0-known-limits.md`](v0.1.0-known-limits.md)
 
@@ -29,7 +34,7 @@ hook in JavaScript.**
 
 - `hooks/laconic.sh` stays authoritative for macOS, Linux, WSL, and Git Bash.
 - `hooks/laconic.ps1` handles native Windows, invoked through the `commandWindows` key that
-  Claude Code's hook manifest already supports.
+  Claude Code's hook manifest already supports. (It did not; see the status note.)
 - A two-job GitHub Actions workflow runs the bash suites on `ubuntu-latest` and the PowerShell
   suites on `windows-latest`.
 
@@ -108,6 +113,9 @@ Implement when **either** holds:
    documenting its absence.
 
 ## Implementation
+
+The plan as of 2026-07-30. The counts, the hook manifest and the contract below are
+historical; the behavior of record is `hooks/laconic.sh` and the two test suites.
 
 ### Files
 
@@ -215,3 +223,5 @@ The port is done when all of these hold:
   the one criterion CI could not close: both `claude plugin validate` invocations pass, and
   the acceptance criteria above are explicit that this is not evidence of loading, because
   v0.1.0 passed both and still failed at runtime. All criteria now hold.
+  That install verified loading, not dispatch: the PowerShell hook it was meant to exercise
+  never ran under Claude Code (#423).

@@ -205,23 +205,13 @@ else
   done
 fi
 
-# The Windows badge gets the same treatment, and for a sharper reason: a native
-# Windows user has no bash to fall back on, so a wrong path there leaves them
-# with no badge and no error.
-statusline_win=$(grep '"command": "powershell' "$STATUSLINE_DOC")
-if [ -z "$statusline_win" ]; then
-  fail "docs/configuration.md has no PowerShell statusline command line to check"
+# No PowerShell statusline line, because nothing installs its target: only
+# hooks/laconic.ps1 writes laconic-statusline.ps1, and Claude Code never runs
+# the port (#423). On Windows it runs the bash line above through Git Bash.
+if grep -q '"command": "powershell' "$STATUSLINE_DOC"; then
+  fail "docs/configuration.md offers a PowerShell statusline line whose script nothing installs (#423)"
 else
-  case "$statusline_win" in
-    *'.claude\\laconic-statusline.ps1'*)
-      ok "docs/configuration.md points at the path the PowerShell hook installs to" ;;
-    *)
-      fail "docs/configuration.md PowerShell statusline path does not match the hook's install target: $statusline_win" ;;
-  esac
-  case "$statusline_win" in
-    *CLAUDE_PLUGIN_ROOT*) fail "PowerShell statusline command still routes through: CLAUDE_PLUGIN_ROOT" ;;
-    *)                    ok "PowerShell statusline command avoids: CLAUDE_PLUGIN_ROOT" ;;
-  esac
+  ok "docs/configuration.md offers no PowerShell statusline line (#423)"
 fi
 
 # --- pre-sliced rule files: the committed copies must match what the hook emits ---

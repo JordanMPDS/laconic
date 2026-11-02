@@ -486,22 +486,21 @@ print(' '.join(h['command'].split()[-1].strip('\"')
   else
     fail "hooks.json wires $ev -> $mode (got: ${found:-nothing})"
   fi
-  # Same pairing on the native-Windows command. A missing commandWindows makes
-  # the plugin a total no-op on Windows, and the bash command sitting next to it
-  # would still look correct, so this is checked from the Linux job too — the
-  # PowerShell suite alone would never run on the commit that dropped the key.
-  found_win=$(python3 -c "
-import json
-d = json.load(open('$HOOKS'))['hooks']
-print(' '.join(h.get('commandWindows', '<missing>').split()[-1].strip('\"')
-               for g in d.get('$ev', []) for h in g['hooks']))
-" 2>/dev/null)
-  if [ "$found_win" = "$mode" ]; then
-    ok "hooks.json wires $ev -> $mode on Windows"
-  else
-    fail "hooks.json wires $ev -> $mode on Windows (got: ${found_win:-nothing})"
-  fi
 done
+
+# commandWindows is Codex's field, and Claude Code reads no such key: on Windows
+# it runs `command` through Git Bash. A hooks.json that carries it again would
+# promise a PowerShell path that never runs (#423), so it must stay absent here
+# while codex-config.toml keeps it.
+if python3 -c "
+import json, sys
+d = json.load(open('$HOOKS'))['hooks']
+sys.exit(1 if any('commandWindows' in h for gs in d.values() for g in gs for h in g['hooks']) else 0)
+" 2>/dev/null; then
+  ok "hooks.json carries no commandWindows (Claude Code does not read it, #423)"
+else
+  fail "hooks.json carries no commandWindows (Claude Code does not read it, #423)"
+fi
 
 # SubagentStart must stay absent. The loop above only checks the events that are
 # wired, so a reinstated subagent hook would pass every assertion in this file

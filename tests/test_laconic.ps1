@@ -502,24 +502,20 @@ $manifest = $null
 try { $manifest = ConvertFrom-Json ([System.IO.File]::ReadAllText($Hooks)) } catch {}
 if ($null -ne $manifest) { Ok 'hooks.json is valid JSON' } else { Fail 'hooks.json is valid JSON' }
 
-# Assert the event-to-mode pairing on the Windows command, not just that the key
-# is present. laconic.ps1's mode gate exits 0 silently on any argument other than
-# start/remind, so a typo like "starrt" would disable that hook on Windows with
-# no other symptom, and the bash command would still look correct.
+# commandWindows is Codex's field, and Claude Code reads no such key: on Windows
+# it runs `command` through Git Bash, so this port never runs under Claude Code.
+# A hooks.json that carries the key again would promise a path that does not
+# exist (#423). The bash suite checks the same thing from the Linux job.
 if ($null -ne $manifest) {
-  foreach ($pair in @(@('SessionStart', 'start'), @('UserPromptSubmit', 'remind'))) {
-    $ev = $pair[0]; $mode = $pair[1]
-    $found = @()
-    foreach ($group in $manifest.hooks.$ev) {
+  $stray = 0
+  foreach ($ev in $manifest.hooks.PSObject.Properties) {
+    foreach ($group in $ev.Value) {
       foreach ($h in $group.hooks) {
-        $cmd = $h.commandWindows
-        if ([string]::IsNullOrEmpty($cmd)) { $found += '<missing commandWindows>'; continue }
-        $found += ($cmd -split ' ')[-1].Trim('"')
+        if ($null -ne $h.PSObject.Properties['commandWindows']) { $stray++ }
       }
     }
-    $got = ($found -join ' ')
-    if ($got -ceq $mode) { Ok "hooks.json wires $ev -> $mode on Windows" } else { Fail "hooks.json wires $ev -> $mode on Windows (got: $got)" }
   }
+  if ($stray -eq 0) { Ok 'hooks.json carries no commandWindows (Claude Code does not read it, #423)' } else { Fail "hooks.json carries no commandWindows (Claude Code does not read it, #423; found $stray)" }
   # SubagentStart must stay absent. The loop above only checks the events that
   # are wired, so a reinstated subagent hook would pass every assertion in this
   # file without this one. Issue #6 measured that path: no accuracy change in

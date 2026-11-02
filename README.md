@@ -148,10 +148,15 @@ Destinations per agent, and what a static file gives up against the hook, are in
 
 ## Requirements
 
-- macOS, Linux, WSL, Git Bash: bash 3.2+ and POSIX awk.
-- Native Windows: Windows PowerShell 5.1+, which ships with Windows 10 (1607+),
-  Windows 11, and Server 2016+.
+- macOS, Linux, WSL: bash 3.2+ and POSIX awk.
+- Windows: Git for Windows. Claude Code runs plugin hooks through Git Bash, and
+  its hook manifest has no per-platform command, so a Windows machine without
+  Git Bash gets no rules ([#423](https://github.com/JordanMPDS/laconic/issues/423)).
 - No `jq`, no node, no `pwsh` install.
+
+`hooks/laconic.ps1` is a Windows PowerShell 5.1 port of the hook for agents that
+call it directly: Codex, and the manual Gemini and Cursor wiring in
+[`docs/other-agents.md`](docs/other-agents.md).
 
 Both implementations share one flag file, so a machine used from both WSL and
 native Windows keeps a single level. CI runs the bash suites on `ubuntu-latest`

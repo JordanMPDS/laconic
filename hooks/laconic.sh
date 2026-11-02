@@ -6,7 +6,8 @@
 #   switch  persist the same switch and acknowledge it by refusing the turn,
 #           for a hook system with no per-turn injection (#16). Prints nothing
 #           at all when the prompt is not a switch.
-# Prints nothing at all unless a valid level is active.
+# Prints nothing at all unless a valid level is active, or remind mode has a
+# switch it could not write to report.
 #
 # Output is raw text by default, which is what Claude Code consumes. Setting
 # LACONIC_JSON_PATH to a dotted key path wraps that text as JSON instead, for
@@ -46,6 +47,52 @@ PROJECT_CONFIG_DIR="$PROJECT_DIR/.claude"
 PROJECT_FLAG="$PROJECT_CONFIG_DIR/.laconic-level"
 
 RULES="$(cd "$(dirname "$0")/.." && pwd)/rules/laconic.md"
+
+# Emit on stdout: raw when LACONIC_JSON_PATH is unset or empty, otherwise the
+# same bytes as a JSON string nested at that dotted path.
+#
+# The escaping is the failure mode raw stdout never had. The rule slice contains
+# double quotes, backslashes and newlines on every level, so a wrapper that only
+# handled quotes would ship malformed JSON the moment a rule mentioned `\n` or a
+# quoted example. awk does it here rather than jq, which is not a dependency this
+# project has, or python, which a shell hook has no business requiring.
+laconic_emit() {
+  if [ -z "${LACONIC_JSON_PATH:-}" ]; then
+    cat
+    return
+  fi
+  awk -v path="$LACONIC_JSON_PATH" '
+    function esc(s,   out, i, c, n) {
+      out = ""
+      n = length(s)
+      for (i = 1; i <= n; i++) {
+        c = substr(s, i, 1)
+        if      (c == "\\") out = out "\\\\"
+        else if (c == "\"")  out = out "\\\""
+        else if (c == "\b")  out = out "\\b"
+        else if (c == "\f")  out = out "\\f"
+        else if (c == "\n")  out = out "\\n"
+        else if (c == "\r")  out = out "\\r"
+        else if (c == "\t")  out = out "\\t"
+        else if (c < " ")     out = out sprintf("\\u%04x", index(CTRL, c) - 1)
+        else                  out = out c
+      }
+      return out
+    }
+    BEGIN {
+      CTRL = ""
+      for (i = 0; i < 32; i++) CTRL = CTRL sprintf("%c", i)
+      body = ""
+    }
+    { body = body (NR > 1 ? "\n" : "") $0 }
+    END {
+      n = split(path, key, ".")
+      pre = ""; post = ""
+      for (i = 1; i <= n; i++) { pre = pre "{\"" esc(key[i]) "\":"; post = post "}" }
+      printf "%s\"%s\"%s\n", pre, esc(body), post
+    }
+  '
+}
 
 # On UserPromptSubmit the hook payload arrives on stdin as JSON. Grep it rather
 # than requiring jq, which is not present on many target machines. The match is
@@ -98,12 +145,25 @@ if [ "$MODE" = "remind" ] || [ "$MODE" = "switch" ]; then
     mkdir -p "$target_dir" 2>/dev/null || true
     { printf '%s' "$switch" > "$target"; } 2>/dev/null || true
     # Read the flag back rather than trusting the redirect, whose status the
-    # guard above deliberately discards. Only switch mode uses this, and its
-    # acknowledgment is a claim that the level is on disk: a write that failed,
-    # or one refused because the flag is a symlink, must not produce one.
+    # guard above deliberately discards. Switch mode's acknowledgment and remind
+    # mode's notice below are both claims about what is on disk: a write that
+    # failed, or one refused because the flag is a symlink, is not applied.
     if [ "$(head -c 16 "$target" 2>/dev/null | tr -cd 'a-z')" = "$switch" ]; then
       applied="$switch"
     fi
+  fi
+  # A switch that did not land has to say so (#426). Otherwise remind prints the
+  # reminder for whatever level is still in force, or nothing, and the model
+  # confirms a switch that never happened. The notice replaces the reminder for
+  # this turn rather than preceding it: it must reach the model whatever state
+  # the flags are in, which the exits below would not allow, and under
+  # LACONIC_JSON_PATH the hook may print only one object.
+  if [ "$MODE" = "remind" ] && [ -n "${switch:-}" ] && [ -z "$applied" ]; then
+    why="could not be written"
+    [ -L "$target" ] && why="is a symlink, which laconic never writes through"
+    printf 'laconic: the switch to %s was not applied, because %s %s. Tell the user the switch failed, and do not change that file yourself.\n' \
+      "$switch" "$target" "$why" | laconic_emit
+    exit 0
   fi
 fi
 
@@ -173,52 +233,6 @@ case "$LEVEL" in
   ultra) RANK=3 ;;
   *)     exit 0 ;;
 esac
-
-# Emit on stdout: raw when LACONIC_JSON_PATH is unset or empty, otherwise the
-# same bytes as a JSON string nested at that dotted path.
-#
-# The escaping is the failure mode raw stdout never had. The rule slice contains
-# double quotes, backslashes and newlines on every level, so a wrapper that only
-# handled quotes would ship malformed JSON the moment a rule mentioned `\n` or a
-# quoted example. awk does it here rather than jq, which is not a dependency this
-# project has, or python, which a shell hook has no business requiring.
-laconic_emit() {
-  if [ -z "${LACONIC_JSON_PATH:-}" ]; then
-    cat
-    return
-  fi
-  awk -v path="$LACONIC_JSON_PATH" '
-    function esc(s,   out, i, c, n) {
-      out = ""
-      n = length(s)
-      for (i = 1; i <= n; i++) {
-        c = substr(s, i, 1)
-        if      (c == "\\") out = out "\\\\"
-        else if (c == "\"")  out = out "\\\""
-        else if (c == "\b")  out = out "\\b"
-        else if (c == "\f")  out = out "\\f"
-        else if (c == "\n")  out = out "\\n"
-        else if (c == "\r")  out = out "\\r"
-        else if (c == "\t")  out = out "\\t"
-        else if (c < " ")     out = out sprintf("\\u%04x", index(CTRL, c) - 1)
-        else                  out = out c
-      }
-      return out
-    }
-    BEGIN {
-      CTRL = ""
-      for (i = 0; i < 32; i++) CTRL = CTRL sprintf("%c", i)
-      body = ""
-    }
-    { body = body (NR > 1 ? "\n" : "") $0 }
-    END {
-      n = split(path, key, ".")
-      pre = ""; post = ""
-      for (i = 1; i <= n; i++) { pre = pre "{\"" esc(key[i]) "\":"; post = post "}" }
-      printf "%s\"%s\"%s\n", pre, esc(body), post
-    }
-  '
-}
 
 if [ "$MODE" = "remind" ]; then
   printf 'LACONIC MODE ACTIVE (%s). Make fewer claims and keep normal grammar. Cut content, not words.\n' "$LEVEL" | laconic_emit

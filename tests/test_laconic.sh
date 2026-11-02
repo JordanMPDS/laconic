@@ -147,12 +147,15 @@ rm -f "$FLAG"
 
 # 14. The remind-mode write guard: never write THROUGH a symlinked flag. Without
 # this, /laconic ultra would clobber the link target and the read-path check would
-# then exit silently, so no other assert in this suite would notice.
+# then exit silently, so no other assert in this suite would notice. The refusal
+# is reported rather than silent, or the model confirms the switch (#426).
 rm -f "$FLAG"
 printf 'keep' > "$CLAUDE_CONFIG_DIR/decoy"
 ln -s "$CLAUDE_CONFIG_DIR/decoy" "$FLAG"
 run remind '{"prompt":"/laconic ultra"}'
-assert_silent "symlinked flag on remind"
+assert_has "symlinked flag on remind reports the refusal" \
+  "the switch to ultra was not applied, because $FLAG is a symlink" "$out"
+assert_empty "symlinked flag on remind (stderr)" "$err"
 assert_has "symlinked flag not written through" "keep" "$(cat "$CLAUDE_CONFIG_DIR/decoy")"
 rm -f "$FLAG"
 
@@ -282,7 +285,8 @@ assert_silent "symlinked project flag emits nothing"
 # 29. The remind-mode write guard applies to the project path too. Without it,
 # "/laconic ultra project" would clobber the link target.
 run remind '{"prompt":"/laconic lite project"}'
-assert_silent "symlinked project flag on remind"
+assert_has "symlinked project flag on remind reports the refusal" \
+  "the switch to lite was not applied, because $PROJECT_FLAG is a symlink" "$out"
 assert_has "symlinked project flag not written through" \
   "ultra" "$(cat "$CLAUDE_PROJECT_DIR/decoy")"
 clear_project
@@ -488,6 +492,53 @@ for p in '/laconic ultraviolet\n' '/laconic off\\nthanks' '/laconic\\n' '\\n/lac
   run remind "{\"prompt\":\"$p\"}"
   assert_has "$p writes nothing" "lite" "$(cat "$FLAG")"
 done
+
+# 44. A switch that could not be written says so rather than letting the model
+# confirm it (#426). Remind otherwise prints the reminder for the level still in
+# force, or nothing when that level is off. The notice replaces the reminder, so
+# under LACONIC_JSON_PATH it is still one object. Root ignores mode bits, so the
+# read-only flag cases skip there; a .claude that is a file blocks root too.
+notice="was not applied, because"
+tail_text="could not be written. Tell the user the switch failed, and do not change that file yourself."
+clear_project
+if [ "$(id -u)" != 0 ]; then
+  set_level full
+  chmod 444 "$FLAG"
+  run remind '{"prompt":"/laconic off"}'
+  assert_has "read-only flag: /laconic off reports the failure" "the switch to off $notice $FLAG $tail_text" "$out"
+  assert_lacks "read-only flag: no reminder for the old level" "LACONIC MODE ACTIVE" "$out"
+  assert_empty "read-only flag (stderr)" "$err"
+  assert_has "read-only flag stays full" "full" "$(cat "$FLAG")"
+  out=$(printf '%s' '{"prompt":"/laconic off"}' | LACONIC_JSON_PATH=a.b bash "$SCRIPT" remind)
+  if [ "$out" = "{\"a\":{\"b\":\"laconic: the switch to off $notice $FLAG $tail_text\"}}" ]; then
+    ok "the notice is one object under LACONIC_JSON_PATH"
+  else
+    fail "the notice under LACONIC_JSON_PATH — got: $out"
+  fi
+  run remind '{"prompt":"/laconic full"}'
+  assert_has "read-only flag already at the level: the reminder, no notice" "LACONIC MODE ACTIVE (full)" "$out"
+  chmod 644 "$FLAG"
+  set_level off
+  chmod 444 "$FLAG"
+  run remind '{"prompt":"/laconic full"}'
+  assert_has "read-only off: /laconic full reports the failure" "the switch to full $notice" "$out"
+  chmod 644 "$FLAG"
+else
+  ok "read-only flag cases skipped as root, which ignores mode bits"
+fi
+set_level full
+printf 'x' > "$CLAUDE_PROJECT_DIR/.claude"
+run remind '{"prompt":"/laconic ultra project"}'
+assert_has "unwritable project dir reports the failure" "the switch to ultra $notice $PROJECT_FLAG $tail_text" "$out"
+assert_empty "unwritable project dir (stderr)" "$err"
+assert_has "unwritable project dir leaves the machine flag" "full" "$(cat "$FLAG")"
+clear_project
+run remind '{"prompt":"/laconic lite"}'
+assert_has "a written switch prints the reminder" "LACONIC MODE ACTIVE (lite)" "$out"
+assert_lacks "a written switch prints no notice" "$notice" "$out"
+set_level full
+run remind '{"prompt":"/laconic off"}'
+assert_silent "a written off prints nothing"
 
 # --- PowerShell source encoding ---
 # Every .ps1 in this repo must start with a UTF-8 BOM. Windows PowerShell 5.1

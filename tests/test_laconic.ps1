@@ -211,11 +211,14 @@ Remove-Item -LiteralPath $Flag -Force -ErrorAction SilentlyContinue
 
 # 14. The remind-mode write guard: never write THROUGH a symlinked flag. Without
 # this, /laconic ultra would clobber the link target and the read-path check
-# would then exit silently, so no other assert in this suite would notice.
+# would then exit silently, so no other assert in this suite would notice. The
+# refusal is reported rather than silent, or the model confirms the switch (#426).
 [System.IO.File]::WriteAllText($decoy, 'keep', $Utf8NoBom)
 if (New-Link $Flag $decoy 'symlinked flag on remind') {
   Invoke-Hook 'remind' '{"prompt":"/laconic ultra"}'
-  Assert-Silent 'symlinked flag on remind'
+  Assert-Has 'symlinked flag on remind reports the refusal' `
+    "the switch to ultra was not applied, because $Flag is a symlink" $out
+  Assert-Empty 'symlinked flag on remind (stderr)' $err
   Assert-Has 'symlinked flag not written through' 'keep' (Get-FlagText $decoy)
 }
 Remove-Item -LiteralPath $Flag -Force -ErrorAction SilentlyContinue
@@ -349,7 +352,8 @@ if (New-Link $ProjectFlag $projectDecoy 'symlinked project flag emits nothing') 
   # 29. The remind-mode write guard applies to the project path too. Without it,
   # "/laconic ultra project" would clobber the link target.
   Invoke-Hook 'remind' '{"prompt":"/laconic lite project"}'
-  Assert-Silent 'symlinked project flag on remind'
+  Assert-Has 'symlinked project flag on remind reports the refusal' `
+    "the switch to lite was not applied, because $ProjectFlag is a symlink" $out
   Assert-Has 'symlinked project flag not written through' 'ultra' (Get-FlagText $projectDecoy)
 }
 Clear-Project
@@ -551,6 +555,54 @@ foreach ($p in @('/laconic ultraviolet\n', '/laconic off\\nthanks', '/laconic\\n
   Invoke-Hook 'remind' ('{"prompt":"' + $p + '"}')
   Assert-Has "$p writes nothing" 'lite' (Get-FlagText $Flag)
 }
+
+# 44. A switch that could not be written says so rather than letting the model
+# confirm it (#426). Remind otherwise prints the reminder for the level still in
+# force, or nothing when that level is off. The notice replaces the reminder, so
+# under LACONIC_JSON_PATH it is still one object. The read-only attribute stops
+# an elevated process too, so nothing here skips; a .claude that is a file
+# blocks the project write.
+$notice = 'was not applied, because'
+$tailText = 'could not be written. Tell the user the switch failed, and do not change that file yourself.'
+Clear-Project
+Set-Level 'full'
+Set-ItemProperty -LiteralPath $Flag -Name IsReadOnly -Value $true
+Invoke-Hook 'remind' '{"prompt":"/laconic off"}'
+Assert-Has 'read-only flag: /laconic off reports the failure' "the switch to off $notice $Flag $tailText" $out
+Assert-Lacks 'read-only flag: no reminder for the old level' 'LACONIC MODE ACTIVE' $out
+Assert-Empty 'read-only flag (stderr)' $err
+Assert-Has 'read-only flag stays full' 'full' (Get-FlagText $Flag)
+$env:LACONIC_JSON_PATH = 'a.b'
+Invoke-Hook 'remind' '{"prompt":"/laconic off"}'
+Remove-Item Env:\LACONIC_JSON_PATH -ErrorAction SilentlyContinue
+$parsed = $null
+try { $parsed = ConvertFrom-Json $out } catch {}
+if ($null -ne $parsed -and $parsed.a.b -ceq "laconic: the switch to off $notice $Flag $tailText") {
+  Ok 'the notice is one object under LACONIC_JSON_PATH'
+} else {
+  Fail "the notice under LACONIC_JSON_PATH — got: $out"
+}
+Invoke-Hook 'remind' '{"prompt":"/laconic full"}'
+Assert-Has 'read-only flag already at the level: the reminder, no notice' 'LACONIC MODE ACTIVE (full)' $out
+Set-ItemProperty -LiteralPath $Flag -Name IsReadOnly -Value $false
+Set-Level 'off'
+Set-ItemProperty -LiteralPath $Flag -Name IsReadOnly -Value $true
+Invoke-Hook 'remind' '{"prompt":"/laconic full"}'
+Assert-Has 'read-only off: /laconic full reports the failure' "the switch to full $notice" $out
+Set-ItemProperty -LiteralPath $Flag -Name IsReadOnly -Value $false
+Set-Level 'full'
+[System.IO.File]::WriteAllText($ProjectDir, 'x', $Utf8NoBom)
+Invoke-Hook 'remind' '{"prompt":"/laconic ultra project"}'
+Assert-Has 'unwritable project dir reports the failure' "the switch to ultra $notice $ProjectFlag $tailText" $out
+Assert-Empty 'unwritable project dir (stderr)' $err
+Assert-Has 'unwritable project dir leaves the machine flag' 'full' (Get-FlagText $Flag)
+Clear-Project
+Invoke-Hook 'remind' '{"prompt":"/laconic lite"}'
+Assert-Has 'a written switch prints the reminder' 'LACONIC MODE ACTIVE (lite)' $out
+Assert-Lacks 'a written switch prints no notice' $notice $out
+Set-Level 'full'
+Invoke-Hook 'remind' '{"prompt":"/laconic off"}'
+Assert-Silent 'a written off prints nothing'
 
 # --- hooks.json ---
 # The TOML asserts the bash suite runs stay there: PowerShell 5.1 has no TOML

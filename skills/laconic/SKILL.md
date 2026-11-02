@@ -28,7 +28,7 @@ themselves, so the two cannot drift.
 ## Switching
 
 `/laconic lite|full|ultra|off`, or `/laconic status` to report the active level.
-The level persists in `${CLAUDE_CONFIG_DIR:-$HOME/.claude}/.laconic-level`. Write
+A bare `/laconic` sets `full`. The level persists in `${CLAUDE_CONFIG_DIR:-$HOME/.claude}/.laconic-level`. Write
 the file directly if the user asks for a level and the command is unavailable.
 
 Add `project` to scope the level to one repository: `/laconic ultra project`

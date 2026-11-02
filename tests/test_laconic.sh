@@ -410,6 +410,28 @@ assert_lacks "CRLF rules: no marker line reaches the model" "<!-- level:" "$out"
 assert_lacks "CRLF rules: no carriage return reaches the model" $'\r' "$out"
 rm -rf "$CRLFDIR"
 
+# 41. A bare /laconic sets full, as the help card's first row promises, and a
+# bare /laconic project sets it for the project (#433). The level starts at lite
+# so a no-op cannot pass. Anything else after /laconic must still write nothing:
+# status is not a level, an unknown word is not full, and a quoted argument
+# reaches the payload escaped, so its quote cannot pass for the string's end.
+clear_project
+set_level lite
+run remind '{"prompt":"/laconic"}'
+assert_has "bare /laconic writes full" "full" "$(cat "$FLAG")"
+assert_has "bare /laconic reports full" "LACONIC MODE ACTIVE (full)" "$out"
+set_level lite
+run remind '{"prompt":"/laconic project"}'
+assert_has "bare /laconic project writes the project flag" "full" "$(cat "$PROJECT_FLAG")"
+assert_has "bare /laconic project leaves the machine flag" "lite" "$(cat "$FLAG")"
+clear_project
+for p in '/laconic status' '/laconic max' '/laconic \"x\"'; do
+  run remind "{\"prompt\":\"$p\"}"
+  assert_has "$p writes nothing" "lite" "$(cat "$FLAG")"
+done
+out=$(printf '{"prompt":"/laconic"}' | bash "$SCRIPT" switch)
+assert_has "switch acknowledges a bare /laconic as full" "level set to full." "$out"
+
 # --- PowerShell source encoding ---
 # Every .ps1 in this repo must start with a UTF-8 BOM. Windows PowerShell 5.1
 # decodes a BOM-less script with the ANSI code page, so an em dash becomes the

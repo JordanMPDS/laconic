@@ -493,6 +493,28 @@ Assert-Lacks 'CRLF rules: no marker line reaches the model'       '<!-- level:' 
 Assert-Lacks 'CRLF rules: no carriage return reaches the model'   "`r"              $out
 Remove-Item -LiteralPath $crlfDir -Recurse -Force -ErrorAction SilentlyContinue
 
+# 41. A bare /laconic sets full, as the help card's first row promises, and a
+# bare /laconic project sets it for the project (#433). The level starts at lite
+# so a no-op cannot pass. Anything else after /laconic must still write nothing:
+# status is not a level, an unknown word is not full, and a quoted argument is
+# not the end of the prompt.
+Clear-Project
+Set-Level 'lite'
+Invoke-Hook 'remind' '{"prompt":"/laconic"}'
+Assert-Has 'bare /laconic writes full' 'full' (Get-FlagText $Flag)
+Assert-Has 'bare /laconic reports full' 'LACONIC MODE ACTIVE (full)' $out
+Set-Level 'lite'
+Invoke-Hook 'remind' '{"prompt":"/laconic project"}'
+Assert-Has 'bare /laconic project writes the project flag' 'full' (Get-FlagText $ProjectFlag)
+Assert-Has 'bare /laconic project leaves the machine flag' 'lite' (Get-FlagText $Flag)
+Clear-Project
+foreach ($p in @('/laconic status', '/laconic max', '/laconic \"x\"')) {
+  Invoke-Hook 'remind' ('{"prompt":"' + $p + '"}')
+  Assert-Has "$p writes nothing" 'lite' (Get-FlagText $Flag)
+}
+Invoke-Hook 'switch' '{"prompt":"/laconic"}'
+Assert-Has 'switch acknowledges a bare /laconic as full' 'level set to full.' $out
+
 # --- hooks.json ---
 # The TOML asserts the bash suite runs stay there: PowerShell 5.1 has no TOML
 # parser, and the ubuntu job covers them on the same commit.

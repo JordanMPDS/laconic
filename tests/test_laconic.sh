@@ -432,6 +432,25 @@ done
 out=$(printf '{"prompt":"/laconic"}' | bash "$SCRIPT" switch)
 assert_has "switch acknowledges a bare /laconic as full" "level set to full." "$out"
 
+# 42. Every slice fits under Claude Code's 10,000-character cap on a hook's plain
+# stdout (#428). Over it, Claude Code swaps the rules for a file path and a
+# 2,000-character preview and never asks the model to read the file, so ultra
+# would deliver less than lite while the hook still exits 0. The budget sits 500
+# under the cap so that a slice which trips it still ships: an edit learns its
+# cost here, not after a round has measured rules the plugin cannot deliver.
+# Characters, not bytes, and not wc -m, which counts bytes under the C locale.
+SLICE_BUDGET=9500
+for lvl in lite full ultra; do
+  set_level "$lvl"
+  n=$(bash "$SCRIPT" start </dev/null 2>/dev/null \
+      | python3 -c 'import sys; print(len(sys.stdin.buffer.read().decode("utf-8")))')
+  if [ "${n:-0}" -gt 0 ] && [ "$n" -le "$SLICE_BUDGET" ]; then
+    ok "$lvl slice is $n characters, within the $SLICE_BUDGET budget"
+  else
+    fail "$lvl slice is ${n:-?} characters; the budget is $SLICE_BUDGET, under Claude Code's 10,000 cap (#428)"
+  fi
+done
+
 # --- PowerShell source encoding ---
 # Every .ps1 in this repo must start with a UTF-8 BOM. Windows PowerShell 5.1
 # decodes a BOM-less script with the ANSI code page, so an em dash becomes the

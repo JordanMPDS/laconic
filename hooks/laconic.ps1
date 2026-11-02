@@ -6,7 +6,8 @@
 #   switch  persist the same switch and acknowledge it by refusing the turn,
 #           for a hook system with no per-turn injection (#16). Prints nothing
 #           at all when the prompt is not a switch.
-# Prints nothing at all unless a valid level is active.
+# Prints nothing at all unless a valid level is active, or remind mode has a
+# switch it could not write to report.
 #
 # There is deliberately no subagent mode; see hooks/laconic.sh and issue #6.
 #
@@ -110,6 +111,20 @@ function Write-Flag([string]$Path, [string]$Dir, [string]$Value) {
   }
 }
 
+# Cap the read and strip everything outside [a-z] so malformed contents cannot
+# reach the terminal or the model. The whitelist below is the real gate.
+# -creplace, not -replace: PowerShell's operator is case-insensitive by default,
+# which would let uppercase bytes survive a filter meant to delete them.
+function Read-Level([string]$Path) {
+  try {
+    $bytes = [System.IO.File]::ReadAllBytes($Path)
+    $take = [Math]::Min(16, $bytes.Length)
+    return [System.Text.Encoding]::ASCII.GetString($bytes, 0, $take) -creplace '[^a-z]', ''
+  } catch {
+    return ''
+  }
+}
+
 # On UserPromptSubmit the hook payload arrives on stdin as JSON. The bash script
 # greps the raw payload because jq is not present on many target machines;
 # ConvertFrom-Json ships with PowerShell 3.0+, so the Windows side gets a real
@@ -155,12 +170,22 @@ if ($Mode -eq 'remind' -or $Mode -eq 'switch') {
   # guard: without it, /laconic ultra against a symlinked flag would write
   # through the link into an attacker-chosen file.
   #
-  # Only switch mode reads the result: its acknowledgment is a claim that the
-  # level is on disk, so a write that failed, or one refused because the flag is
-  # a link, must not produce one. laconic.sh reads the flag back for the same
-  # reason, its redirect having no status to test.
+  # Switch mode's acknowledgment and remind mode's notice below are both claims
+  # about what is on disk, so a write that failed, or one refused because the
+  # flag is a link, is not applied. Read the flag back rather than trusting the
+  # write, as laconic.sh does: a read-only flag already at the level holds it.
   if ($switch -ne '' -and -not (Test-IsLink $target)) {
-    if (Write-Flag $target $targetDir $switch) { $applied = $switch }
+    [void](Write-Flag $target $targetDir $switch)
+    if ((Read-Level $target) -ceq $switch) { $applied = $switch }
+  }
+
+  # A switch that did not land has to say so (#426), in place of the reminder
+  # for this turn; laconic.sh says why it replaces rather than precedes it.
+  if ($Mode -eq 'remind' -and $switch -ne '' -and $applied -eq '') {
+    $why = 'could not be written'
+    if (Test-IsLink $target) { $why = 'is a symlink, which laconic never writes through' }
+    Emit "laconic: the switch to $switch was not applied, because $target $why. Tell the user the switch failed, and do not change that file yourself.`n"
+    exit 0
   }
 }
 
@@ -219,18 +244,8 @@ if ($flag -eq '') {
   $flag = $globalFlag
 }
 
-# Cap the read and strip everything outside [a-z] so malformed contents cannot
-# reach the terminal or the model. The whitelist below is the real gate.
-# -creplace, not -replace: PowerShell's operator is case-insensitive by default,
-# which would let uppercase bytes survive a filter meant to delete them.
-$level = ''
-try {
-  $bytes = [System.IO.File]::ReadAllBytes($flag)
-  $take = [Math]::Min(16, $bytes.Length)
-  $level = [System.Text.Encoding]::ASCII.GetString($bytes, 0, $take) -creplace '[^a-z]', ''
-} catch {
-  exit 0
-}
+# An unreadable flag reads as '', which the whitelist below rejects.
+$level = Read-Level $flag
 
 $rank = switch -CaseSensitive ($level) {
   'lite'  { 1 }

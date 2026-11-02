@@ -160,6 +160,8 @@ state and a user may switch between WSL and native Windows against the same `~/.
 3. **Whitelist.** Exactly `lite`, `full`, `ultra`, `off`. Read at most 16 characters, strip to
    `[a-z]`, and emit nothing for any value outside the list — including `off`.
 4. **Never emit when off or unset.** No flag file and no `LACONIC_DEFAULT` means no output.
+   The one exception is a `/laconic` switch that could not be written: `remind` reports it
+   in place of the reminder, whatever the level, so the model does not confirm it (#426).
 5. **Symlink refusal.** Refuse to read *or* write through a symlinked or reparse-point flag
    file. On Windows check `(Get-Item $flag -Force).LinkType`; note that the Unix script needs
    the write guard separately from the read guard because the `remind` write happens first.

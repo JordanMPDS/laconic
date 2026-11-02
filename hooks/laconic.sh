@@ -63,6 +63,17 @@ if [ "$MODE" = "remind" ] || [ "$MODE" = "switch" ]; then
   switch=$(printf '%s' "$match" \
     | grep -oE '(lite|full|ultra|off)' \
     | tail -1) || switch=""
+  # A bare "/laconic", optionally scoped, sets full, the default the help card
+  # promises (#433). It is a separate, end-anchored match rather than an optional
+  # level group above, which would let "/laconic status" or "/laconic max" write
+  # full. The closing quote can only be the string's own: a quote inside the
+  # prompt reaches this payload escaped, and so preceded by a backslash.
+  if [ -z "$switch" ]; then
+    match=$(printf '%s' "$payload" \
+      | grep -oE '"prompt"[[:space:]]*:[[:space:]]*"[[:space:]]*/laconic( +project)?[[:space:]]*"' \
+      | tail -1) || match=""
+    [ -n "$match" ] && switch=full
+  fi
   # "project" contains none of the level words, so the extraction above is
   # unaffected by the suffix and this stays a plain substring test.
   target="$GLOBAL_FLAG"
@@ -101,7 +112,7 @@ fi
 #
 # Anything that is not a switch prints nothing, and an empty stdout blocks
 # nothing. The blast radius of this mode is exactly the prompts that begin
-# "/laconic lite|full|ultra|off".
+# "/laconic lite|full|ultra|off", plus a bare "/laconic" with nothing after it.
 if [ "$MODE" = "switch" ]; then
   [ -n "${applied:-}" ] || exit 0
   scope=""

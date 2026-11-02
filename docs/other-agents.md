@@ -241,8 +241,8 @@ the PowerShell command in place, JSON-escaped as shown:
   Blocking is the only channel that event has to the user, and the message
   carries the part a Cursor user has to know: **a mid-session switch does not
   take effect until the next session.** Nothing else is ever blocked — a prompt
-  that does not begin `/laconic lite|full|ultra|off` produces no output at all,
-  and empty stdout blocks nothing. A refused write produces no acknowledgment
+  that does not begin `/laconic lite|full|ultra|off`, or consist of a bare
+  `/laconic`, produces no output at all, and empty stdout blocks nothing. A refused write produces no acknowledgment
   either: the flag is read back first, so a symlinked flag is silent rather than
   claiming a level it did not set.
 - **No subagent injection**, the same deliberate omission as everywhere else.

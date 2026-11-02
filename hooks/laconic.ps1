@@ -131,6 +131,16 @@ if ($Mode -eq 'remind' -or $Mode -eq 'switch') {
       if ($m.Success) {
         $switch = $m.Groups[1].Value
         $scoped = $m.Groups[2].Success
+      } else {
+        # A bare "/laconic", optionally scoped, sets full, the default the help
+        # card promises (#433). A separate, end-anchored match rather than an
+        # optional level group above, which would let "/laconic status" or
+        # "/laconic max" write full.
+        $m = [regex]::Match($prompt, '^\s*/laconic( +project)?\s*$')
+        if ($m.Success) {
+          $switch = 'full'
+          $scoped = $m.Groups[1].Success
+        }
       }
     }
   } catch {
@@ -168,7 +178,8 @@ if ($Mode -eq 'remind' -or $Mode -eq 'switch') {
 #
 # Anything that is not a switch prints nothing, and an empty stdout blocks
 # nothing. The blast radius of this mode is exactly the prompts that begin
-# "/laconic lite|full|ultra|off". The JSON is written out rather than built with
+# "/laconic lite|full|ultra|off", plus a bare "/laconic" with nothing after it.
+# The JSON is written out rather than built with
 # ConvertTo-Json so that it stays byte-identical to the bash side's printf.
 if ($Mode -eq 'switch') {
   if ($applied -eq '') { exit 0 }

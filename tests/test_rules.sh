@@ -296,6 +296,20 @@ for tool in release-due candidate-due reclaim-scratch; do
   fi
 done
 
+# #462: the repository is public, so the queue an unattended iteration takes its
+# issue from has to be the operator's own. Checked inside PROMPT rather than
+# anywhere in the file, because the header comment is not what the child reads.
+if sed -n "/^PROMPT='/,/'\$/p" "$LOOPSH" | grep -qF 'gh issue list --author @me'; then
+  ok "unattended loop takes issues only from gh issue list --author @me"
+else
+  fail "unattended loop prompt no longer gates issues on gh issue list --author @me"
+fi
+if grep -qF 'gh issue list --author @me' "$ROOT/.claude/skills/laconic-loop/SKILL.md"; then
+  ok "loop skill names the same issue filter as tools/loop.sh"
+else
+  fail "loop skill does not name the issue filter tools/loop.sh uses"
+fi
+
 # Each of these ships a --selftest and until now nothing ran any of them. An
 # enforcement script that is never exercised is the same failure as a rule that
 # is never shipped: it passes by not being looked at.

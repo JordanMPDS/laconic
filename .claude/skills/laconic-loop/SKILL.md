@@ -61,6 +61,16 @@ touch .claude/loop-stop            # finish the current issue, then exit
 `LOOP_PERMISSION_MODE` defaults to `auto`. A genuinely unattended overnight run
 wants `bypassPermissions`; set it per run, deliberately.
 
+**Only the operator's own issues are work.** The repository is public, and an
+iteration merges its own pull request and can push a release tag, so an issue
+anyone can open is a path to master. The prompt takes its queue from
+`gh issue list --author @me`, the account `gh` runs as, which already holds the
+merge, and calls everything anyone else wrote, comments and reviews included,
+data rather than instructions. Keeping foreign text out of the context is the
+part that works; telling a model to disregard text it has already read is a
+mitigation, and `bypassPermissions` is no defence against injection at all. To
+hand the loop an outside report, open it yourself.
+
 **A failed iteration waits and retries; it does not end the loop.** The first
 version stopped on any non-zero exit, and on 2026-09-02 that cost twelve hours:
 iteration 3 exited 1 at 04:05 with `You've hit your session limit · resets

@@ -392,6 +392,24 @@ set_level full
 printf '{"prompt":"hello"}' | bash "$SCRIPT" remind >/dev/null
 if [ -f "$BADGE_DST" ]; then fail "remind must not install the badge"; else ok "remind installs no badge"; fi
 
+# 40. A CRLF rules file still slices. A Windows clone without the attributes in
+# .gitattributes, or a hand copy, puts a carriage return before every line end,
+# and the whole-line marker patterns then match nothing: every level got all
+# three blocks, markers included (#424). The rules are converted here rather
+# than relying on this checkout's own endings.
+CRLFDIR="$(mktemp -d)"
+mkdir -p "$CRLFDIR/hooks" "$CRLFDIR/rules"
+cp "$SCRIPT" "$CRLFDIR/hooks/laconic.sh"
+sed 's/$/\r/' "$ROOT/rules/laconic.md" > "$CRLFDIR/rules/laconic.md"
+set_level lite
+out=$(bash "$CRLFDIR/hooks/laconic.sh" start </dev/null 2>/dev/null)
+assert_has "CRLF rules: lite slice is delivered" "## Level: lite" "$out"
+assert_lacks "CRLF rules: lite slice omits the full block" "## Level: full" "$out"
+assert_lacks "CRLF rules: lite slice omits the ultra block" "## Level: ultra" "$out"
+assert_lacks "CRLF rules: no marker line reaches the model" "<!-- level:" "$out"
+assert_lacks "CRLF rules: no carriage return reaches the model" $'\r' "$out"
+rm -rf "$CRLFDIR"
+
 # --- PowerShell source encoding ---
 # Every .ps1 in this repo must start with a UTF-8 BOM. Windows PowerShell 5.1
 # decodes a BOM-less script with the ANSI code page, so an em dash becomes the
@@ -409,6 +427,26 @@ for ps1 in "$ROOT"/hooks/*.ps1 "$ROOT"/tests/*.ps1; do
     fail "$name has no UTF-8 BOM (PowerShell 5.1 would mis-decode its non-ASCII characters)"
   fi
 done
+
+# --- Line endings ---
+# Git for Windows defaults to core.autocrlf=true and the marketplace installs by
+# cloning, so without .gitattributes a Windows install gets CRLF. A CRLF
+# laconic.sh exits 2 under bash, which blocks every prompt on UserPromptSubmit
+# (#424). This checkout is LF whatever the attributes say, so the bytes check
+# alone cannot see a deleted .gitattributes; the attribute check can.
+in_git=no
+git -C "$ROOT" rev-parse --is-inside-work-tree >/dev/null 2>&1 && in_git=yes
+for f in "$ROOT"/hooks/*.sh "$ROOT/rules/laconic.md"; do
+  rel=${f#"$ROOT"/}
+  if grep -q $'\r' "$f"; then fail "$rel contains a carriage return"; else ok "$rel has LF endings"; fi
+  [ "$in_git" = yes ] || continue
+  if [ "$(git -C "$ROOT" check-attr eol -- "$rel" | sed 's/.*: //')" = "lf" ]; then
+    ok "$rel checks out as LF on every platform"
+  else
+    fail "$rel is not eol=lf in .gitattributes (a Windows clone would get CRLF)"
+  fi
+done
+[ "$in_git" = yes ] || ok "eol attribute checks skipped: not a git checkout"
 
 # --- hooks.json ---
 HOOKS="$ROOT/hooks/hooks.json"

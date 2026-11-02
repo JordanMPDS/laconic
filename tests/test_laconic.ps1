@@ -471,6 +471,28 @@ Set-Level 'full'
 Invoke-Hook 'remind' '{"prompt":"hello"}'
 if (Test-Path -LiteralPath $BadgeDst) { Fail 'remind must not install the badge' } else { Ok 'remind installs no badge' }
 
+# 40. A CRLF rules file still slices. This side has stripped carriage returns
+# since the port; the bash hook did not until #424, when a CRLF clone delivered
+# every level at once. The rules are converted here rather than relying on this
+# checkout's own endings, and the suite's hook path is pointed at the copy for
+# the one invocation.
+$crlfDir = New-TempDir
+New-Item -ItemType Directory -Path (Join-Path $crlfDir 'hooks'), (Join-Path $crlfDir 'rules') -Force | Out-Null
+Copy-Item -LiteralPath $Script -Destination (Join-Path $crlfDir 'hooks\laconic.ps1')
+$lfRules = [System.IO.File]::ReadAllText((Join-Path $Root 'rules\laconic.md'), $Utf8NoBom) -replace "`r", ''
+[System.IO.File]::WriteAllText((Join-Path $crlfDir 'rules\laconic.md'), ($lfRules -replace "`n", "`r`n"), $Utf8NoBom)
+$savedScript = $Script
+$Script = Join-Path $crlfDir 'hooks\laconic.ps1'
+Set-Level 'lite'
+Invoke-Hook 'start'
+$Script = $savedScript
+Assert-Has   'CRLF rules: lite slice is delivered'                '## Level: lite'  $out
+Assert-Lacks 'CRLF rules: lite slice omits the full block'        '## Level: full'  $out
+Assert-Lacks 'CRLF rules: lite slice omits the ultra block'       '## Level: ultra' $out
+Assert-Lacks 'CRLF rules: no marker line reaches the model'       '<!-- level:'     $out
+Assert-Lacks 'CRLF rules: no carriage return reaches the model'   "`r"              $out
+Remove-Item -LiteralPath $crlfDir -Recurse -Force -ErrorAction SilentlyContinue
+
 # --- hooks.json ---
 # The TOML asserts the bash suite runs stay there: PowerShell 5.1 has no TOML
 # parser, and the ubuntu job covers them on the same commit.

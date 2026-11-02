@@ -229,8 +229,11 @@ fi
 [ -f "$RULES" ] || exit 0
 
 # Print the shared block (rank 0) plus every block up to the active level.
+# Strip a trailing CR first, as laconic.ps1 does: a CRLF rules file would
+# otherwise match no marker and deliver every level at once (#424).
 awk -v want="$RANK" '
   BEGIN                    { rank = 0 }
+                           { sub(/\r$/, "") }
   /^<!-- level:lite -->$/  { rank = 1; next }
   /^<!-- level:full -->$/  { rank = 2; next }
   /^<!-- level:ultra -->$/ { rank = 3; next }

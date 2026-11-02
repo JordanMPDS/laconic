@@ -57,8 +57,17 @@ if [ "$MODE" = "remind" ] || [ "$MODE" = "switch" ]; then
   payload=$(cat)
   # Keep the whole matched span, not just the level: the optional " project"
   # suffix that selects the scope is only visible here.
+  #
+  # Whitespace inside the prompt is either a space or, being raw JSON, the
+  # escape JSON writes for a newline, tab, carriage return, form feed or
+  # vertical tab, so every boundary takes either (#425): a pasted "/laconic off"
+  # plus a second line must switch, as laconic.ps1, which decodes first, already
+  # does. Consumed from the opening quote or from the end of a word, a backslash
+  # there always starts a real escape, so an escaped backslash followed by n
+  # cannot pass for a newline.
+  ws='([[:space:]]|\\[nrtf]|\\u000[bB])'
   match=$(printf '%s' "$payload" \
-    | grep -oE '"prompt"[[:space:]]*:[[:space:]]*"[[:space:]]*/laconic +(lite|full|ultra|off)( +project)?("|[[:space:]])' \
+    | grep -oE "\"prompt\"[[:space:]]*:[[:space:]]*\"$ws*/laconic +(lite|full|ultra|off)( +project)?(\"|$ws)" \
     | tail -1) || match=""
   switch=$(printf '%s' "$match" \
     | grep -oE '(lite|full|ultra|off)' \
@@ -70,7 +79,7 @@ if [ "$MODE" = "remind" ] || [ "$MODE" = "switch" ]; then
   # prompt reaches this payload escaped, and so preceded by a backslash.
   if [ -z "$switch" ]; then
     match=$(printf '%s' "$payload" \
-      | grep -oE '"prompt"[[:space:]]*:[[:space:]]*"[[:space:]]*/laconic( +project)?[[:space:]]*"' \
+      | grep -oE "\"prompt\"[[:space:]]*:[[:space:]]*\"$ws*/laconic( +project)?$ws*\"" \
       | tail -1) || match=""
     [ -n "$match" ] && switch=full
   fi

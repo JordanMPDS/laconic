@@ -64,8 +64,10 @@ confirmation again.
 - **No `matcher`.** The field is a regex over the event's source and omitting it
   fires on every one, which is what laconic wants — the rules need reloading
   whatever restarted the session.
-- **`commandWindows`.** Codex spells the field exactly as `hooks/hooks.json`
-  does, so the PowerShell path needs no separate fragment.
+- **`commandWindows`.** Codex reads its native-Windows command from this field,
+  so one fragment serves both platforms. Claude Code has no such field, which is
+  why `hooks/hooks.json` does not carry it
+  ([#423](https://github.com/JordanMPDS/laconic/issues/423)).
 
 ### What is different from Claude Code
 

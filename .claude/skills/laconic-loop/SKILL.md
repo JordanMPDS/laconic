@@ -1195,9 +1195,11 @@ bash tools/release-due.sh
 ```
 
 Exit 1 means a release is owed. It names every shipped file that has moved since
-the last `laconic--v*` tag and recommends patch or minor, reading an added or
-removed shipped file as a new surface. The recommendation is not the decision —
-0.3.0 was argued in its own commit body — but the exit status is.
+the last `laconic--v*` tag and recommends patch or minor. A rule edit is a
+minor, because it changes what every user's model writes, and so is an added or
+removed shipped file; hooks, skills and commands edited in place are a patch.
+The recommendation is not the decision — 0.3.0 was argued in its own commit
+body — but the exit status is.
 
 1. Bump `version` in `.claude-plugin/plugin.json`. A release is the one context
    in which that file may be edited, and `AGENTS.md` says so there.

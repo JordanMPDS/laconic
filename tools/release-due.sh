@@ -31,15 +31,17 @@ SHIPPED=(rules hooks skills commands .claude-plugin)
 TAG_GLOB='laconic--v*'
 
 # A shipped file added or removed is a new surface — a platform, a hook, a
-# skill, a command — and that is a minor. Editing files in place is a patch.
-# This reproduces both calls already in the log rather than inventing a third
-# rule: 0.3.0 was cut minor because it added three hook files for Codex, Gemini
-# and Cursor ("this ships three new agents, not just a rule edit"), and 0.2.3
-# was a patch because it changed one line of rules/laconic.md.
+# skill, a command — and that is a minor. So is any change to rules/laconic.md:
+# the rules are what the plugin delivers, and a rule edit changes what every
+# user's model writes. Hooks, skills and commands edited in place are a patch.
+# The rule edit used to read as a patch too, and 0.3.1 through 0.3.11 were
+# eleven of them in a row: the product's behaviour moved every week and its
+# minor version did not move once.
 bump_kind() { # reads `git diff --name-status` on stdin
-  local status rest kind=patch
-  while read -r status rest; do
+  local status path rest kind=patch
+  while read -r status path rest; do
     case "$status" in A*|D*|R*) kind=minor ;; esac
+    [ "$path" = rules/laconic.md ] && kind=minor
   done
   printf '%s' "$kind"
 }
@@ -83,24 +85,28 @@ release_ref() {
 # what catches the bug class that matters here: tag discovery and the diff
 # pathspec are the parts that fail silently by reporting "nothing owed".
 if [ "${1:-}" = "--selftest" ]; then
-  failed=0
+  failed=0 total=0
   check() { # name, expected-grep, actual
+    total=$((total + 1))
     if printf '%s' "$3" | grep -qE "$2"; then return 0; fi
     failed=$((failed + 1))
     printf 'FAIL %s\n  wanted /%s/ in:\n%s\n' "$1" "$2" "$3"
   }
   checkst() { # name, expected-status, actual-status
+    total=$((total + 1))
     if [ "$2" = "$3" ]; then return 0; fi
     failed=$((failed + 1))
     printf 'FAIL %s\n  wanted exit %s, got %s\n' "$1" "$2" "$3"
   }
 
   check "an added shipped file is a minor" '^minor$' \
-    "$(printf 'M\trules/laconic.md\nA\thooks/cursor-hooks.json\n' | bump_kind)"
+    "$(printf 'M\thooks/laconic.sh\nA\thooks/cursor-hooks.json\n' | bump_kind)"
   check "a removed shipped file is a minor too" '^minor$' \
     "$(printf 'D\thooks/gemini-settings.json\n' | bump_kind)"
-  check "files modified in place are a patch" '^patch$' \
+  check "a rule edit is a minor" '^minor$' \
     "$(printf 'M\trules/laconic.md\nM\trules/dist/laconic-full.md\n' | bump_kind)"
+  check "hooks and skills modified in place are a patch" '^patch$' \
+    "$(printf 'M\thooks/laconic.sh\nM\tskills/laconic/SKILL.md\n' | bump_kind)"
   check "a rename carries its similarity score and still reads as a minor" '^minor$' \
     "$(printf 'R100\thooks/old.json\thooks/new.json\n' | bump_kind)"
   check "a minor resets the patch component" '^0\.4\.0$' "$(next_version 0.3.7 minor)"
@@ -119,6 +125,7 @@ if [ "${1:-}" = "--selftest" ]; then
     > "$r/.claude-plugin/plugin.json"
   echo 'rule text' > "$r/rules/laconic.md"
   echo 'generated' > "$r/rules/dist/laconic-full.md"
+  echo 'hook' > "$r/hooks/laconic.sh"
   echo 'prose about the plugin' > "$r/README.md"
   git -C "$r" init -q -b master
   git -C "$r" config user.email selftest@example.invalid
@@ -147,6 +154,13 @@ if [ "${1:-}" = "--selftest" ]; then
   checkst "and exits 0 with the candidate checked out" 0 "$st"
   git -C "$r" checkout -q master
 
+  echo 'a hook fix' >> "$r/hooks/laconic.sh"
+  git -C "$r" commit -qam 'hook fix'
+  out=$(due); st=$?
+  check "a hook fixed in place recommends a patch" \
+    'recommended bump: patch, 0\.3\.0 to 0\.3\.1' "$out"
+  checkst "and owes a release" 1 "$st"
+
   # The case this whole script exists for: an accepted edit merged to master.
   echo 'the accepted edit' >> "$r/rules/laconic.md"
   echo 'regenerated' >> "$r/rules/dist/laconic-full.md"
@@ -154,14 +168,8 @@ if [ "${1:-}" = "--selftest" ]; then
   out=$(due); st=$?
   check "a merged rule edit owes a release" 'release owed' "$out"
   check "and names the file that moved" 'rules/laconic\.md' "$out"
-  check "and recommends a patch" 'recommended bump: patch, 0\.3\.0 to 0\.3\.1' "$out"
+  check "and recommends a minor" 'recommended bump: minor, 0\.3\.0 to 0\.4\.0' "$out"
   checkst "and exits 1 so a caller can branch on it" 1 "$st"
-
-  echo '{}' > "$r/hooks/cursor-hooks.json"
-  git -C "$r" add -A && git -C "$r" commit -qm 'cursor port'
-  out=$(due)
-  check "a new shipped file makes it a minor" \
-    'recommended bump: minor, 0\.3\.0 to 0\.4\.0' "$out"
 
   # Half a release: the version bumped, the tag never cut. The diff alone reads
   # this as an ordinary patch, so it is tested separately from the diff.
@@ -191,7 +199,7 @@ if [ "${1:-}" = "--selftest" ]; then
   out=$(due)
   check "a preregistration tag is not a release" 'nothing has ever been released' "$out"
 
-  [ "$failed" -eq 0 ] && echo "release-due.sh selftest: 24/24 passed" \
+  [ "$failed" -eq 0 ] && echo "release-due.sh selftest: $total/$total passed" \
     || echo "release-due.sh selftest: $failed failed"
   exit $([ "$failed" -eq 0 ] && echo 0 || echo 1)
 fi
@@ -231,8 +239,8 @@ count=$(printf '%s\n' "$changed" | wc -l | tr -d ' ')
 tagged=$(git log -1 --format=%ad --date=short "$tag")
 
 case "$kind" in
-  minor) why="a shipped file was added or removed, so this is a new surface and not only an edit" ;;
-  patch) why="every shipped file was modified in place" ;;
+  minor) why="the rules changed or a shipped file was added or removed, so users get new behaviour and not only a fix" ;;
+  patch) why="hooks, skills or commands were modified in place and the rules did not change" ;;
 esac
 
 echo "release owed: $count shipped file(s) changed on $ref since $tag ($tagged)"

@@ -126,7 +126,8 @@ prose with the ceremony stripped.
   to act on the answer.
 - One recommendation, not a survey. A real trade-off gets one line per side,
   then a pick. Findings take the same pick: when the answer is a list of
-  problems, say which one decides it and rank the rest under it.
+  problems, say which one decides it and rank the rest under it, one sentence
+  each.
 - No unrequested alternatives, no "you could also".
 - No teaching a concept the question already shows the user knows.
 - No next-steps list unless they asked what is next.

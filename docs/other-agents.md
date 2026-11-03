@@ -326,18 +326,16 @@ command = "powershell -NoProfile -ExecutionPolicy Bypass -File C:\\path\\to\\lac
 
 - **The rules do not follow the flag.** The level is whichever file sits in
   `AGENTS.md`; the flag moves only the reminder.
-- **`/laconic` does not switch the level.** Kimi's `UserPromptSubmit` payload
-  carries `prompt` as an array of content parts, not a string:
+- **`/laconic` moves the flag and the reminder, not the rules.** Kimi's
+  `UserPromptSubmit` payload carries `prompt` as an array of content parts
+  rather than a string, and the hook reads the switch out of the first part's
+  text:
 
   ```json
   "prompt":[{"type":"text","text":"/laconic ultra"}]
   ```
 
-  The hook parses the switch only out of a string, so the flag stays where it
-  was. The model still sees the prompt, and in the test it replied that it would
-  answer at ultra from then on, a switch nothing recorded. Teaching both hooks
-  the array form would make the reminder switch, but the rules in `AGENTS.md`
-  still would not.
+  To move the rules as well, copy the matching file into `AGENTS.md`.
 - **`off` silences only the reminder.** The rules stay until the copied text is
   removed from `AGENTS.md`.
 - **No subagent injection**, the same deliberate omission as everywhere else.
@@ -355,7 +353,7 @@ Against Kimi Code CLI 0.38.0 (`@moonshot-ai/kimi-code`) on 2026-11-03, running
 | `SessionStart` running `laconic.sh start` at `full` | the event fired (a second hook wrote a marker file), and none of the 8,681 bytes `start` prints reached the context |
 | `UserPromptSubmit` running `laconic.sh remind` at `full` | the reminder line, as a `<hook_result>` user message ahead of the prompt |
 | `rules/dist/laconic-full.md` as `AGENTS.md` | present in the system prompt |
-| `/laconic ultra` as the prompt | flag unchanged at `full`, with `prompt` an array in the payload |
+| `/laconic ultra` as the prompt | flag written as `ultra`, and the same turn's reminder named ultra |
 
 The interactive TUI was not tested, and neither was native Windows.
 
@@ -490,8 +488,9 @@ so the copied file is what it gets today. **Cursor runs the hooks for everything
 except the reminder**, which is its own section above — a static file there is
 the choice for someone who would rather not wire a hook at all, and it costs the
 `/laconic` switch and the off switch on top of the reminder. **Kimi Code takes
-the static file too**, and its hook gives back the per-turn reminder; the switch
-and the off switch stay lost, as its section above describes.
+the static file too**, and its hook gives back the per-turn reminder and a
+`/laconic` switch that moves it; the rules change only when the file does, as
+its section above describes.
 
 Regenerate after editing `rules/laconic.md`:
 

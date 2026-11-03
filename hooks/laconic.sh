@@ -113,8 +113,15 @@ if [ "$MODE" = "remind" ] || [ "$MODE" = "switch" ]; then
   # there always starts a real escape, so an escaped backslash followed by n
   # cannot pass for a newline.
   ws='([[:space:]]|\\[nrtf]|\\u000[bB])'
+  # Kimi Code sends the prompt as an array of content parts rather than a string,
+  # "prompt":[{"type":"text","text":"/laconic ultra"}], so the string the switch
+  # starts may also be the first part's text. [^{}] keeps the match inside that
+  # first part, which is the same "the prompt starts with it" anchoring a string
+  # prompt gets: a later part, or a first part holding an object, never matches.
+  # Inside a JSON string a quote is escaped, so "text": can only be a key.
+  open="\"prompt\"[[:space:]]*:[[:space:]]*(\\[[[:space:]]*\\{[^{}]*\"text\"[[:space:]]*:[[:space:]]*)?\""
   match=$(printf '%s' "$payload" \
-    | grep -oE "\"prompt\"[[:space:]]*:[[:space:]]*\"$ws*/laconic +(lite|full|ultra|off)( +project)?(\"|$ws)" \
+    | grep -oE "$open$ws*/laconic +(lite|full|ultra|off)( +project)?(\"|$ws)" \
     | tail -1) || match=""
   switch=$(printf '%s' "$match" \
     | grep -oE '(lite|full|ultra|off)' \
@@ -126,7 +133,7 @@ if [ "$MODE" = "remind" ] || [ "$MODE" = "switch" ]; then
   # prompt reaches this payload escaped, and so preceded by a backslash.
   if [ -z "$switch" ]; then
     match=$(printf '%s' "$payload" \
-      | grep -oE "\"prompt\"[[:space:]]*:[[:space:]]*\"$ws*/laconic( +project)?$ws*\"" \
+      | grep -oE "$open$ws*/laconic( +project)?$ws*\"" \
       | tail -1) || match=""
     [ -n "$match" ] && switch=full
   fi

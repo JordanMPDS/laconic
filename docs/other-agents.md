@@ -1,8 +1,9 @@
 # Other agents
 
 Codex CLI and Gemini CLI run the hooks. Cursor runs half of them — the rules
-load, the per-turn reminder has no carrier. Everything else takes a static rule
-file.
+load, the per-turn reminder has no carrier. Kimi Code runs the other half — the
+reminder lands, and the rules come from a static file. Everything else takes a
+static rule file.
 
 ## Codex CLI: run the hooks
 
@@ -258,6 +259,104 @@ the PowerShell command in place, JSON-escaped as shown:
   and `updated_input` silently stripped on `beforeSubmitPrompt` — so confirm the
   injected slice reaches the model rather than trusting the startup log.
 
+## Kimi Code: the reminder lands, the rules cannot
+
+Kimi Code CLI reads hooks from `~/.kimi-code/config.toml` and runs
+`hooks/laconic.sh` unchanged, but it keeps the output of only one of the two
+events laconic needs. The gap is the reverse of Cursor's:
+
+| Kimi event | Injects | laconic mode |
+| --- | --- | --- |
+| `SessionStart` | **Nothing.** The hook runs and its stdout is discarded | — |
+| `UserPromptSubmit` | stdout, as a user message wrapped in `<hook_result hook_event="UserPromptSubmit">`, ahead of the prompt | `remind` |
+
+So the rules come from a static file and the hook carries the reminder. Kimi
+reads `AGENTS.md` into its system prompt, so append the level you want there:
+
+```bash
+git clone https://github.com/JordanMPDS/laconic ~/projects/laconic
+cat ~/projects/laconic/rules/dist/laconic-full.md >> AGENTS.md
+```
+
+Then add the reminder to `~/.kimi-code/config.toml`, replacing
+`/absolute/path/to/laconic` with your clone:
+
+```toml
+[[hooks]]
+event = "UserPromptSubmit"
+command = "bash /absolute/path/to/laconic/hooks/laconic.sh remind"
+timeout = 5
+```
+
+Set the flag to the same level as the file you copied, because the reminder
+names whichever level the flag holds:
+
+```bash
+printf full > ~/.claude/.laconic-level
+```
+
+### Why the setup looks like that
+
+- **No `SessionStart` hook.** Kimi waits for the hook to finish and never reads
+  its result, so wiring `start` there gives the silent no-op
+  [#2](https://github.com/JordanMPDS/laconic/issues/2) exists to eliminate.
+- **Do not move `start` onto `UserPromptSubmit` instead.** That injects the whole
+  slice on every turn, which is the `repeat` delivery mode rather than the
+  shipped one. The benchmark measured them as different treatments: a median of
+  115 words on the graded turn at turn 2 under `repeat`, against 17 under
+  `plugin`. It also adds about 8,700 characters to every turn.
+- **No `LACONIC_JSON_PATH`.** Kimi injects raw stdout, so the plain path is the
+  correct one.
+- **`timeout = 5`.** Kimi's timeouts are seconds, like Codex's, and its default
+  is 30.
+- **No `matcher`.** On this event it is matched against the prompt text, and
+  omitting it fires on every prompt.
+- **No Kimi plugin.** A Kimi plugin manifest can name a `sessionStart` skill for
+  Kimi to inject, but that is the same static text as `AGENTS.md` in a different
+  package. It was read from Kimi's source, not tested.
+
+On native Windows, Kimi's hook schema has no `commandWindows` field, so
+substitute the PowerShell command in place:
+
+```toml
+command = "powershell -NoProfile -ExecutionPolicy Bypass -File C:\\path\\to\\laconic\\hooks\\laconic.ps1 remind"
+```
+
+### What is different from Claude Code
+
+- **The rules do not follow the flag.** The level is whichever file sits in
+  `AGENTS.md`; the flag moves only the reminder.
+- **`/laconic` moves the flag and the reminder, not the rules.** Kimi's
+  `UserPromptSubmit` payload carries `prompt` as an array of content parts
+  rather than a string, and the hook reads the switch out of the first part's
+  text:
+
+  ```json
+  "prompt":[{"type":"text","text":"/laconic ultra"}]
+  ```
+
+  To move the rules as well, copy the matching file into `AGENTS.md`.
+- **`off` silences only the reminder.** The rules stay until the copied text is
+  removed from `AGENTS.md`.
+- **No subagent injection**, the same deliberate omission as everywhere else.
+  Kimi has a `SubagentStart` event; see
+  [#6](https://github.com/JordanMPDS/laconic/issues/6).
+
+### What was verified
+
+Against Kimi Code CLI 0.38.0 (`@moonshot-ai/kimi-code`) on 2026-11-03, running
+`kimi -p` in a scratch `KIMI_CODE_HOME` and reading the session's
+`agents/main/wire.jsonl` back:
+
+| | Result |
+| --- | --- |
+| `SessionStart` running `laconic.sh start` at `full` | the event fired (a second hook wrote a marker file), and none of the 8,681 bytes `start` prints reached the context |
+| `UserPromptSubmit` running `laconic.sh remind` at `full` | the reminder line, as a `<hook_result>` user message ahead of the prompt |
+| `rules/dist/laconic-full.md` as `AGENTS.md` | present in the system prompt |
+| `/laconic ultra` as the prompt | flag written as `ultra`, and the same turn's reminder named ultra |
+
+The interactive TUI was not tested, and neither was native Windows.
+
 ## GitHub Copilot CLI: the hooks cannot carry it
 
 **Copilot CLI has a hook system that runs shell commands, and neither of the two
@@ -388,7 +487,10 @@ section above and closed [#15](https://github.com/JordanMPDS/laconic/issues/15),
 so the copied file is what it gets today. **Cursor runs the hooks for everything
 except the reminder**, which is its own section above — a static file there is
 the choice for someone who would rather not wire a hook at all, and it costs the
-`/laconic` switch and the off switch on top of the reminder.
+`/laconic` switch and the off switch on top of the reminder. **Kimi Code takes
+the static file too**, and its hook gives back the per-turn reminder and a
+`/laconic` switch that moves it; the rules change only when the file does, as
+its section above describes.
 
 Regenerate after editing `rules/laconic.md`:
 

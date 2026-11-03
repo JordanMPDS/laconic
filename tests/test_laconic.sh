@@ -540,6 +540,40 @@ set_level full
 run remind '{"prompt":"/laconic off"}'
 assert_silent "a written off prints nothing"
 
+# 45. Kimi Code sends the prompt as an array of content parts, not a string, and
+# the switch has to parse out of the first part's text. Only the first part
+# counts, as only the start of a string prompt does: a switch in a later part,
+# behind a first part that is not text, or after an escaped quote inside the
+# text writes nothing. The level starts at lite so a no-op cannot pass.
+clear_project
+set_level lite
+run remind '{"hook_event_name":"UserPromptSubmit","session_id":"s","cwd":"/w","client_type":"kimi_code_cli","prompt":[{"type":"text","text":"/laconic ultra"}],"is_steer":false}'
+assert_has "array prompt: /laconic ultra writes the flag" "ultra" "$(cat "$FLAG")"
+assert_has "array prompt: the reminder names the new level" "LACONIC MODE ACTIVE (ultra)" "$out"
+set_level lite
+run remind '{"prompt": [ {"text": "/laconic off\nthanks", "type": "text"} ]}'
+assert_has "array prompt: spacing, key order and an escaped newline still switch" "off" "$(cat "$FLAG")"
+set_level lite
+run remind '{"prompt":[{"type":"text","text":"/laconic"}]}'
+assert_has "array prompt: a bare /laconic writes full" "full" "$(cat "$FLAG")"
+set_level lite
+run remind '{"prompt":[{"type":"text","text":"/laconic ultra project"}]}'
+assert_has "array prompt: project scope writes the project flag" "ultra" "$(cat "$PROJECT_FLAG" 2>/dev/null)"
+assert_has "array prompt: project scope leaves the machine flag" "lite" "$(cat "$FLAG")"
+clear_project
+for p in '[{"type":"text","text":"does /laconic off actually work?"}]' \
+         '[{"type":"text","text":"hello"},{"type":"text","text":"/laconic off"}]' \
+         '[{"type":"image_url","image_url":{"url":"x"}},{"type":"text","text":"/laconic off"}]' \
+         '[{"type":"text","text":"x \"text\":\"/laconic off"}]' \
+         '["/laconic off"]' '[]'; do
+  set_level lite
+  run remind "{\"prompt\":$p}"
+  assert_has "array prompt $p writes nothing" "lite" "$(cat "$FLAG")"
+  assert_empty "array prompt $p (stderr)" "$err"
+done
+out=$(printf '%s' '{"prompt":[{"type":"text","text":"/laconic ultra"}]}' | bash "$SCRIPT" switch)
+assert_has "switch acknowledges an array prompt" "level set to ultra." "$out"
+
 # --- PowerShell source encoding ---
 # Every .ps1 in this repo must start with a UTF-8 BOM. Windows PowerShell 5.1
 # decodes a BOM-less script with the ANSI code page, so an em dash becomes the

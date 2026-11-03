@@ -604,6 +604,41 @@ Set-Level 'full'
 Invoke-Hook 'remind' '{"prompt":"/laconic off"}'
 Assert-Silent 'a written off prints nothing'
 
+# 45. Kimi Code sends the prompt as an array of content parts, not a string, and
+# the switch has to parse out of the first part's text. Only the first part
+# counts, as only the start of a string prompt does: a switch in a later part,
+# behind a first part that is not text, or after an escaped quote inside the
+# text writes nothing. The level starts at lite so a no-op cannot pass.
+Clear-Project
+Set-Level 'lite'
+Invoke-Hook 'remind' '{"hook_event_name":"UserPromptSubmit","session_id":"s","cwd":"/w","client_type":"kimi_code_cli","prompt":[{"type":"text","text":"/laconic ultra"}],"is_steer":false}'
+Assert-Has 'array prompt: /laconic ultra writes the flag' 'ultra' (Get-FlagText $Flag)
+Assert-Has 'array prompt: the reminder names the new level' 'LACONIC MODE ACTIVE (ultra)' $out
+Set-Level 'lite'
+Invoke-Hook 'remind' '{"prompt": [ {"text": "/laconic off\nthanks", "type": "text"} ]}'
+Assert-Has 'array prompt: spacing, key order and an escaped newline still switch' 'off' (Get-FlagText $Flag)
+Set-Level 'lite'
+Invoke-Hook 'remind' '{"prompt":[{"type":"text","text":"/laconic"}]}'
+Assert-Has 'array prompt: a bare /laconic writes full' 'full' (Get-FlagText $Flag)
+Set-Level 'lite'
+Invoke-Hook 'remind' '{"prompt":[{"type":"text","text":"/laconic ultra project"}]}'
+Assert-Has 'array prompt: project scope writes the project flag' 'ultra' (Get-FlagText $ProjectFlag)
+Assert-Has 'array prompt: project scope leaves the machine flag' 'lite' (Get-FlagText $Flag)
+Clear-Project
+foreach ($p in @(
+    '[{"type":"text","text":"does /laconic off actually work?"}]',
+    '[{"type":"text","text":"hello"},{"type":"text","text":"/laconic off"}]',
+    '[{"type":"image_url","image_url":{"url":"x"}},{"type":"text","text":"/laconic off"}]',
+    '[{"type":"text","text":"x \"text\":\"/laconic off"}]',
+    '["/laconic off"]', '[]')) {
+  Set-Level 'lite'
+  Invoke-Hook 'remind' "{`"prompt`":$p}"
+  Assert-Has "array prompt $p writes nothing" 'lite' (Get-FlagText $Flag)
+  Assert-Empty "array prompt $p (stderr)" $err
+}
+Invoke-Hook 'switch' '{"prompt":[{"type":"text","text":"/laconic ultra"}]}'
+Assert-Has 'switch acknowledges an array prompt' 'level set to ultra.' $out
+
 # --- hooks.json ---
 # The TOML asserts the bash suite runs stay there: PowerShell 5.1 has no TOML
 # parser, and the ubuntu job covers them on the same commit.

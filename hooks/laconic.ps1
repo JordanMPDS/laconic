@@ -141,6 +141,11 @@ if ($Mode -eq 'remind' -or $Mode -eq 'switch') {
   try {
     $payload = [Console]::In.ReadToEnd()
     $prompt = (ConvertFrom-Json $payload).prompt
+    # Kimi Code sends the prompt as an array of content parts rather than a
+    # string, "prompt":[{"type":"text","text":"/laconic ultra"}]. Only the first
+    # part's text counts, the same "the prompt starts with it" anchoring a string
+    # prompt gets; a first part that is not text leaves $prompt a non-string.
+    if ($prompt -is [array] -and $prompt.Count -gt 0) { $prompt = $prompt[0].text }
     if ($prompt -is [string]) {
       $m = [regex]::Match($prompt, '^\s*/laconic +(lite|full|ultra|off)( +project)?(\s|$)')
       if ($m.Success) {

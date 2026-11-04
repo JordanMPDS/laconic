@@ -111,10 +111,11 @@ To turn it off in one repository only, see
 
 ## Other agents
 
-Codex CLI, Gemini CLI and Cursor all have hook systems close enough to Claude
-Code's that the same scripts serve them. Cursor gets a partial port: the rules
-load at session start, and nothing there can carry the per-turn reminder.
-GitHub Copilot CLI's hooks cannot carry laconic at all; see
+Codex CLI, Gemini CLI, Cursor and Kimi Code all have hook systems close enough
+to Claude Code's that the same scripts serve them. Cursor gets a partial port:
+the rules load at session start, and nothing there can carry the per-turn
+reminder. Kimi Code gets the other half: the reminder runs as a hook, and the
+rules come from `AGENTS.md`. GitHub Copilot CLI's hooks cannot carry laconic at all; see
 [`docs/other-agents.md`](docs/other-agents.md#github-copilot-cli-the-hooks-cannot-carry-it).
 
 - **Codex CLI** — append [`hooks/codex-config.toml`](hooks/codex-config.toml) to
@@ -133,6 +134,12 @@ GitHub Copilot CLI's hooks cannot carry laconic at all; see
   and says so by blocking that one submission, because the switch would
   otherwise be silent until the next session:
   [`docs/other-agents.md`](docs/other-agents.md#cursor-the-rules-load-the-reminder-cannot).
+- **Kimi Code** — append [`rules/dist/laconic-full.md`](rules/dist/laconic-full.md),
+  or the level you want, to `AGENTS.md`, and add a `UserPromptSubmit` hook
+  running `laconic.sh remind` to `~/.kimi-code/config.toml`. **The rules do not
+  come from the hook**: Kimi discards `SessionStart` output, so `/laconic` moves
+  the flag and the reminder but not the rules in `AGENTS.md`:
+  [`docs/other-agents.md`](docs/other-agents.md#kimi-code-the-reminder-lands-the-rules-cannot).
 
 Agents without a hook system take a static instructions file. `rules/dist/` holds
 one pre-sliced file per level — copy
@@ -155,7 +162,7 @@ Destinations per agent, and what a static file gives up against the hook, are in
 - No `jq`, no node, no `pwsh` install.
 
 `hooks/laconic.ps1` is a Windows PowerShell 5.1 port of the hook for agents that
-call it directly: Codex, and the manual Gemini and Cursor wiring in
+call it directly: Codex, and the manual Gemini, Cursor and Kimi Code wiring in
 [`docs/other-agents.md`](docs/other-agents.md).
 
 Both implementations share one flag file, so a machine used from both WSL and

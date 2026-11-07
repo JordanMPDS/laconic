@@ -6718,6 +6718,24 @@ with tempfile.TemporaryDirectory() as td_merge:
           _merge_cli([a, safe, "--out", str(td / "y.json"), "--cases-dir",
                       str(ROOT / "evals" / "cases")]).returncode == 0)
 
+    # #522: the reminder and the effort are written on every snapshot and
+    # were compared nowhere. Absent on a file older than the field, which
+    # merges with either.
+    for _key, _v1, _v2 in (("reminder_cksum", "1", "2"),
+                           ("effort", "xhigh", "low")):
+        _x = _write("x-%s.json" % _key, _stamped("sonnet", **{_key: _v1}))
+        _y = _write("y-%s.json" % _key, _stamped("haiku", **{_key: _v2}))
+        _pk = _merge_cli([_x, _y, "--out", str(td / "z.json")])
+        check("merge refuses shards that disagree on %s (#522)" % _key,
+              _pk.returncode != 0 and _key in _pk.stderr)
+        _old = _merge_cli([a, _x, "--out", str(td / ("z-%s.json" % _key)),
+                           "--cases-dir", str(ROOT / "evals" / "cases")])
+        check("and merges a shard older than %s with one that has it, "
+              "keeping the recorded value" % _key,
+              _old.returncode == 0
+              and bench_run.load_snapshot(str(td / ("z-%s.json" % _key)))
+              ["metadata"].get(_key) == _v1)
+
 
 # The reminder is a second copy of a string that lives in hooks/laconic.sh, and
 # a copy that drifts is the failure this repo's sync convention exists to stop.
@@ -6999,6 +7017,119 @@ with tempfile.TemporaryDirectory() as td_del:
     _d6 = _run_delivery(td_del, "plugin", "--arms", "laconic")
     check("subprocess: an arm the pass does not ask for is not compared",
           _d6.returncode == 0)
+
+
+# #522: the rest of the regime a file records. reminder_cksum and effort were
+# written and never read, and a carry read nothing of its source's regime.
+def _edit_snap(path, fn):
+    s = json.loads(Path(path).read_text())
+    fn(s)
+    Path(path).write_text(json.dumps(s))
+
+
+with tempfile.TemporaryDirectory() as td_reg:
+    _rp = Path(td_reg) / "gen.json"
+    _g0 = _run_delivery(td_reg, "plugin", "--arms", "laconic,terse-control")
+    _edit_snap(_rp, lambda s: s["metadata"].update(reminder_cksum="1"))
+    _g1 = _run_delivery(td_reg, "plugin", "--arms", "laconic",
+                        "--rep-offset", "1")
+    check("subprocess: a resume refuses a changed reminder when it would send "
+          "it to a laconic arm's later turns (#522)",
+          _g0.returncode == 0 and _g1.returncode != 0
+          and "reminder" in _g1.stderr and "budget:" not in _g1.stdout)
+    _g2 = _run_delivery(td_reg, "plugin", "--arms", "terse-control",
+                        "--rep-offset", "1")
+    check("subprocess: and still extends an arm the reminder never reaches, "
+          "keeping the recorded checksum",
+          _g2.returncode == 0
+          and json.loads(_rp.read_text())["metadata"]["reminder_cksum"] == "1")
+    _edit_snap(_rp, lambda s: s["metadata"].update(
+        reminder_cksum=str(zlib.crc32(bench_run.REMINDER.encode())),
+        effort="low"))
+    _g3 = _run_delivery(td_reg, "plugin", "--arms", "terse-control",
+                        "--rep-offset", "2")
+    check("subprocess: a resume refuses a file generated at another effort",
+          _g3.returncode != 0 and "effort" in _g3.stderr
+          and "budget:" not in _g3.stdout)
+    _edit_snap(_rp, lambda s: s["metadata"].pop("effort"))
+    _g4 = _run_delivery(td_reg, "plugin", "--arms", "terse-control",
+                        "--rep-offset", "2")
+    check("subprocess: and resumes one older than the field",
+          _g4.returncode == 0)
+
+    # The carry source: a reminded arm and a control, both multi-turn.
+    _sp = Path(td_reg) / "src.json"
+    _s0 = _run_delivery(td_reg, "plugin", "--arms",
+                        "laconic,laconic-ponytail,terse-control",
+                        snap="src.json")
+
+    def _carry(name, *extra):
+        return _run_delivery(td_reg, "plugin", "--arms",
+                             "laconic,laconic-ponytail", *extra,
+                             "--carry-arms-from", str(_sp), snap=name)
+
+    _c1 = _carry("c1.json", "--no-safe-mode")
+    check("subprocess: a carry refuses a source generated under safe mode "
+          "into a pass without it (#522)",
+          _s0.returncode == 0 and _c1.returncode != 0
+          and "safe mode" in _c1.stderr
+          and not (Path(td_reg) / "c1.json").exists())
+    _edit_snap(_sp, lambda s: s["metadata"].update(safe_mode=False))
+    _c2 = _carry("c2.json")
+    check("subprocess: and the reverse, which setdefault labelled safe",
+          _c2.returncode != 0 and "safe mode" in _c2.stderr
+          and not (Path(td_reg) / "c2.json").exists())
+    _edit_snap(_sp, lambda s: (s["metadata"].pop("safe_mode"),
+                               s["metadata"].update(effort="low")))
+    _c3 = _carry("c3.json")
+    check("subprocess: a carry refuses a source generated at another effort",
+          _c3.returncode != 0 and "effort" in _c3.stderr
+          and not (Path(td_reg) / "c3.json").exists())
+
+    # A carried control whose text changed since the source was generated.
+    _edit_snap(_sp, lambda s: (
+        s["metadata"].pop("effort"),
+        s["arms"]["terse-control"].update(system_prompt="Answer briefly.")))
+    _c4 = _carry("c4.json")
+    _c4p = Path(td_reg) / "c4.json"
+    _c4s = json.loads(_c4p.read_text()) if _c4p.exists() else {}
+    check("subprocess: a carried arm is described by the text it was "
+          "generated from, not the live one (#522)",
+          _c4.returncode == 0
+          and _c4s["arms"]["terse-control"]["system_prompt"]
+          == "Answer briefly.")
+    check("and a generated arm keeps the live text",
+          _c4s.get("arms", {}).get("laconic", {}).get("system_prompt")
+          == json.loads(_rp.read_text())["arms"]["laconic"]["system_prompt"])
+    _c5 = _run_delivery(td_reg, "plugin", "--arms", "terse-control",
+                        "--rep-offset", "1", snap="c4.json")
+    check("subprocess: so extending the carried arm under its new text is "
+          "refused by the resume's text guard",
+          _c5.returncode != 0 and "terse-control" in _c5.stderr
+          and "changed since" in _c5.stderr)
+    _edit_snap(_sp, lambda s: s["arms"].pop("terse-control"))
+    _c6 = _carry("c6.json")
+    _c6p = Path(td_reg) / "c6.json"
+    check("subprocess: a source with no text for a carried arm leaves the "
+          "arm undescribed rather than labelled with the live text",
+          _c6.returncode == 0 and _c6p.exists()
+          and "terse-control" not in json.loads(_c6p.read_text())["arms"])
+
+    # The reminder reached the carried laconic-ponytail's later turns, and is
+    # disclosed beside the source's rules_cksum rather than refused, so a
+    # round that edits the reminder can still carry a derived arm.
+    _edit_snap(_sp, lambda s: s["metadata"].update(reminder_cksum="1"))
+    _c7 = _run_delivery(td_reg, "plugin", "--arms", "laconic",
+                        "--carry-arms-from", str(_sp), snap="c7.json")
+    _c7p = Path(td_reg) / "c7.json"
+    _c7m = json.loads(_c7p.read_text())["metadata"] if _c7p.exists() else {}
+    check("subprocess: a carry records the reminder its source's reminded "
+          "arms were sent, beside the file's own (#522)",
+          _c7.returncode == 0
+          and _c7m.get("carried_arms_from", {}).get("reminder_cksum") == "1"
+          and "laconic-ponytail" in _c7m["carried_arms_from"].get("arms", [])
+          and _c7m["reminder_cksum"]
+          == str(zlib.crc32(bench_run.REMINDER.encode())))
 
 
 # --- the edit stratum (#209) ---------------------------------------------

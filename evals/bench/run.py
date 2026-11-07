@@ -577,6 +577,19 @@ def _clip_input(value):
 # prompt. Kept in step with the string in hooks/laconic.sh.
 REMINDER = ("LACONIC MODE ACTIVE (%s). Make fewer claims and keep normal "
             "grammar. Cut content, not words.")
+REMINDER_CKSUM = str(zlib.crc32(REMINDER.encode()))
+
+
+def reminder_changed(meta):
+    """Whether a file was started under a reminder other than this tree's.
+
+    rules_cksum does not cover the reminder, so a resume or a carry across an
+    edit to it would generate a reminded arm's later turns from two texts
+    under one stamp (#522). Absent on every file below round 48, which is
+    read as matching: nothing records what those files were sent.
+    """
+    stored = (meta or {}).get("reminder_cksum")
+    return stored is not None and stored != REMINDER_CKSUM
 
 
 def plugin_reminded(arm):
@@ -783,9 +796,27 @@ def carry_arms(snap, source, keep_arms, cells=None):
                and (keep is None or (r.get("case"), r.get("model")) in keep)]
     snap["runs"].extend(carried)
     carried_arms = sorted(set(r["arm"] for r in carried))
+    # new_snapshot described every arm by the live text, and a carried arm's
+    # runs were generated from whatever the source recorded, which an edit
+    # since may have moved (#522). Refusing instead would stop every round
+    # that carries a derived laconic arm across a rules edit. A source with
+    # no text for the arm cannot say, so the entry goes, and the resume's
+    # text guard then treats the arm as predating the table.
+    src_arms = source.get("arms") or {}
+    table = snap.get("arms")
+    for a in carried_arms if table is not None else ():
+        if a in src_arms:
+            table[a] = src_arms[a]
+        else:
+            table.pop(a, None)
     snap["metadata"]["carried_arms_from"] = {
         "path": source.get("__path", ""),
         "rules_cksum": source.get("metadata", {}).get("rules_cksum"),
+        # Disclosed beside rules_cksum rather than refused, for the same
+        # reason: a carried laconic arm's later turns had the source's
+        # reminder, and this file's own stamp describes only what it
+        # generates (#522).
+        "reminder_cksum": source.get("metadata", {}).get("reminder_cksum"),
         "arms": carried_arms,
         "missing_arms": sorted(set(ARMS) - set(keep_arms) - set(carried_arms)),
     }
@@ -838,7 +869,7 @@ def new_snapshot(reps, models, level, rules_cksum, arms, claude_bin="claude",
             # two snapshots generated from the same rules under two different
             # UserPromptSubmit reminders are identical in metadata. Round 48
             # makes that line the treatment, so the file has to record it.
-            "reminder_cksum": str(zlib.crc32(REMINDER.encode())),
+            "reminder_cksum": REMINDER_CKSUM,
             "rules_cksum": rules_cksum,
             "reps": reps,
             "rep_offset": rep_offset,
@@ -1540,6 +1571,24 @@ def main():
                          "against a control that carried laconic's instruction. "
                          "Generate the arm instead"
                          % (args.carry_arms_from, ", ".join(stale)))
+            # The source's regime, which the carried runs bring with them and
+            # this file's metadata would otherwise relabel as this pass's
+            # (#522). Absent fields are what every file before them ran under.
+            src_meta = source.get("metadata") or {}
+            if snap["runs"] and src_meta.get("safe_mode", True) != safe_mode:
+                sys.exit("%s was generated %s safe mode and this pass runs %s "
+                         "it, so the file would split the arms by regime and "
+                         "label the split as one (#522). Carry from a source "
+                         "generated the same way, or generate the arms"
+                         % (args.carry_arms_from,
+                            "under" if src_meta.get("safe_mode", True)
+                            else "without",
+                            "under" if safe_mode else "without"))
+            if snap["runs"] and src_meta.get("effort", EFFORT) != EFFORT:
+                sys.exit("%s was generated at effort %s and this pass runs at "
+                         "%s, so its runs are not the control this round "
+                         "would compare against (#522). Generate the arms"
+                         % (args.carry_arms_from, src_meta["effort"], EFFORT))
             # Carried runs bring their own stamps, so a fresh file is only
             # per-run-stamped if the file it actually took runs from was (#272).
             if snap["runs"] and not (
@@ -1586,6 +1635,15 @@ def main():
                      % ", ".join("%s (%s)" % (a, stored_arms[a].get("source")
                                               or "evals/bench/run.py")
                                  for a in changed))
+        # Pinned in code since #334, so this fires only across an edit to
+        # EFFORT; a file older than the field was generated at the level the
+        # pin copied, and is read as matching (#522).
+        stored_effort = snap["metadata"].get("effort")
+        if stored_effort is not None and stored_effort != EFFORT:
+            sys.exit("this snapshot was generated at effort %s and this tree "
+                     "runs at %s; resuming would generate one round at two "
+                     "levels. Restore EFFORT in evals/bench/run.py, or generate "
+                     "into a new snapshot (#522)" % (stored_effort, EFFORT))
         stored_cells = snap["metadata"].get("cells")
         if stored_cells is None:
             print("note: this snapshot predates the cell declaration (#285), so "
@@ -1706,6 +1764,19 @@ def main():
                      "arm without it, so the file would hold one arm under two "
                      "treatments. Generate into a new snapshot instead"
                      % ", ".join(mixed))
+        # The stamp is never rewritten, so a file whose reminder moved keeps
+        # describing the runs it holds, and a pass that would send the new
+        # one to a reminded arm is refused instead (#522).
+        reminded = sorted({a for c, a, _, _ in left_cells
+                           if turns_per_case[c] > 1 and plugin_reminded(a)})
+        if reminded and reminder_changed(meta):
+            sys.exit("the plugin reminder changed since this snapshot was "
+                     "started (reminder_cksum %s vs %s), and this pass would "
+                     "send it to the later turns of %s. Resuming would "
+                     "generate one arm under two reminders. Restore REMINDER "
+                     "in evals/bench/run.py, or generate into a new snapshot "
+                     "(#522)" % (meta["reminder_cksum"], REMINDER_CKSUM,
+                                 ", ".join(reminded)))
     # Describes the file rather than one invocation, like the concurrency
     # declaration above it: once a snapshot holds multi-turn runs it holds the
     # treatment they were generated under, and rounds 33 to 36 are the cost of

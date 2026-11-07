@@ -754,16 +754,18 @@ else
   ok "hooks.json does not wire SubagentStart"
 fi
 
-# The SessionStart matcher is load-bearing: without it the rules would not reload
-# after /clear or a compaction, and the mode would appear to silently lapse.
+# SessionStart carries no matcher, so it fires on every source. The rules must
+# reload whatever restarted the session, or the mode silently lapses: a pinned
+# list of four sources left out `fork`, so a forked session was never re-sliced
+# (#429), and a pinned list would drop any source Claude Code adds later.
 matcher=$(python3 -c "
 import json
-print(json.load(open('$HOOKS'))['hooks']['SessionStart'][0].get('matcher', ''))
+print(json.load(open('$HOOKS'))['hooks']['SessionStart'][0].get('matcher', '<none>'))
 " 2>/dev/null)
-if [ "$matcher" = "startup|resume|clear|compact" ]; then
-  ok "SessionStart matcher covers startup/resume/clear/compact"
+if [ "$matcher" = "<none>" ]; then
+  ok "SessionStart has no matcher, so it fires on every source"
 else
-  fail "SessionStart matcher (got: ${matcher:-nothing})"
+  fail "SessionStart must not pin its sources (got matcher: ${matcher:-empty})"
 fi
 
 # --- switch mode: the Cursor acknowledgment (#16) ---

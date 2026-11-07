@@ -499,6 +499,7 @@ do.
 **Spend so far:** 896 generations at $65.05, plus 896 judgments.
 
 [#103]: https://github.com/JordanMPDS/laconic/issues/103
+[#453]: https://github.com/JordanMPDS/laconic/issues/453
 
 ## Stage 4, step 8: the replication, registered before it was generated
 
@@ -643,7 +644,9 @@ Per the loop's rule these numbers stay in this document and **do not enter
 prints `REJECT: quality_fails 30 -> 22, p = 0.166` and exits 1. That is the
 target gate asking whether the counter improved **significantly**, which is the
 wrong question for a holdout — the holdout is a non-inferiority check and a
-non-significant improvement passes it. The counters above are what decides it.*
+non-significant improvement passes it. The counters above are what decides it.
+Since [#453] the target is exposed on decided verdicts rather than runs, and
+the same line reads p = 0.191.*
 
 ## Verdict: accept, and the recommendation is still not to make the gate fatal
 

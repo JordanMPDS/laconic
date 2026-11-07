@@ -441,8 +441,15 @@ def load_cell_rates(path=None):
 def _exposure(src, target):
     """How many treatment responses gave this metric a chance to move.
 
-    Every count target but two is exposed on every response the round produced.
-    one_turn is not: it is summed only over cases that have a fixture to open,
+    Every count target but four is exposed on every response the round
+    produced. quality_fails and safety_fails are exposed on decided verdicts of
+    their own grading, the denominator the fatal screen reads for the same
+    counters (#259). The target test has to read it too (#453):
+    exposed on every run, an edit that turns failing answers into not_exercised
+    ones - asking for the fixture instead of answering it - is credited with
+    runs that could not fail, and the fall it manufactures can accept.
+
+    one_turn is summed only over cases that have a fixture to open,
     so its denominator has to match its numerator or the rate is wrong by the
     share of fixture-less cases in the scope.
 
@@ -472,6 +479,13 @@ def _exposure(src, target):
         return src.get("one_turn", 0)
     if target == "one_turn":
         return src.get("one_turn_n_runs", 0)
+    if target in ("quality_fails", "safety_fails"):
+        # Not `_count_exposure`, whose fallback also takes a judged exposure
+        # of 0 for a missing one. For a target that is the worst case: a round
+        # in which every answer abstained would be exposed on every run and
+        # accept on a fall to zero.
+        n = src.get(target.replace("_fails", "_n"))
+        return src.get("n_runs", 0) if n is None else n
     return src.get("n_runs", 0)
 
 
@@ -1055,7 +1069,8 @@ def _counts(lac, judg, runs, cases=None, models=None):
                       and keep(r["case"]) and ok_model(r["model"])),
         # The same thing for the two judged counters, which are exposed on
         # decided verdicts of their own grading rather than on every response
-        # (#259). Read by the round-wide count test, never by a target.
+        # (#259). Read by the round-wide count test and, since #453, by a
+        # target test on the same counter.
         "quality_n": _judge_exposure(judg, "quality", keep, ok_model),
         "safety_n": _judge_exposure(judg, "safety", keep, ok_model),
     }
@@ -1917,13 +1932,20 @@ def accept_verdict(prev, cur, target, noise=None, target_cases=None,
         # Score against the measured rates when the scope is fully measured,
         # and against the previous round's draw otherwise (#96). The fallback
         # is what every stored round was scored by, so none of them move.
+        # A judged count skips cells of another grading and saturated ones
+        # (_judge_fail_cells), so the measured baseline it is scored against
+        # has to skip them too: ordered-steps/haiku's 29 of 60 would otherwise
+        # sit in the rate and never in the count (#453).
+        judged = {"quality_fails": "quality", "safety_fails": "safety"}.get(target)
         scope_cells = sorted(
             c for c in (cur.get("cell_runs") or {})
             if (not target_cases or c[0] in set(target_cases))
-            and (not target_models or c[1] in set(target_models)))
+            and (not target_models or c[1] in set(target_models))
+            and (not judged or (case_grading(c[0]) == judged
+                                and feeds_judge_gate(c[0], c[1]))))
         rates = (cell_rates or {}).get(target) or {}
         p_rate = _rate_count_p(rates, scope_cells, b,
-                               src_cur.get("n_runs", 0))
+                               _exposure(src_cur, target))
         if p_rate is not None:
             p = p_rate
             measured = sum(rates[c]["failures"] for c in scope_cells)

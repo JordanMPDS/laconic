@@ -4310,6 +4310,82 @@ check("#515: the null rate at the floor is the test's, not the count's",
       < bench_report._null_cell_reject_p(0.2, 19, 19, 0.05))
 
 
+# --- #526: a replication clears the cells it can test, not the round-wide count
+#
+# The untestable cells are carried by the round-wide count (#259) and are never
+# on the cell path, so a replication that clears every testable cell has said
+# nothing about them. It used to accept there without asking the round-wide
+# count at all. It asks now, with each cleared cell at its replicated count:
+# a cleared rise may not carry that test, so a round whose cleared cell
+# replicated at the control's count reads as one where the cell never rose.
+A526, B526, D526 = ("a", "sonnet"), ("b", "sonnet"), ("d", "sonnet")
+RUNS526 = {A526: 20, B526: 5, D526: 5}
+
+
+def _q526(a, b, d=0, tokens=100, runs=None):
+    s = _summary(qf=a + b + d, n_runs=30, tokens=TEN_CELLS(tokens))
+    s["cells"] = {"quality_fails": {A526: a, B526: b, D526: d}}
+    s["cell_runs"] = dict(runs or RUNS526)
+    s["judged_cells"] = set(RUNS526)
+    return s
+
+
+prev526 = _q526(3, 0, tokens=500)
+v, why = bench_report.accept_verdict(prev526, _q526(10, 5), "output_tokens")
+check("#526: the issue's round rejects with no replication",
+      v == "reject" and any("a/sonnet +7" in r for r in why))
+v, why = bench_report.accept_verdict(prev526, _q526(10, 5), "output_tokens",
+                                     arbitration=_q526(3, 5))
+v0, why0 = bench_report.accept_verdict(prev526, _q526(3, 5), "output_tokens")
+check("#526: a cell cleared at the control's count reads as one that never rose",
+      v == v0 == "accept"
+      and any("cleared by replication: a/sonnet did not reproduce, and at the "
+              "replicated count the round-wide count (3 -> 8, p = %.4f)"
+              % bench_report._count_rise_p(3, 8, 30, 30) in r for r in why)
+      and any("round-wide count, p = %.4f"
+              % bench_report._count_rise_p(3, 8, 30, 30) in r for r in why0))
+# Two untestable cells whose rise is significant without the cleared one.
+cur526 = _q526(10, 5, 5)
+v, why = bench_report.accept_verdict(prev526, cur526, "output_tokens",
+                                     arbitration=_q526(3, 5, 5))
+check("#526: a replication that clears the testable cell does not clear the "
+      "round-wide count",
+      v == "reject" and any(
+          r.startswith("REJECT: quality lost (3 -> 20) round-wide at p = %.4f "
+                       "with a/sonnet at the replicated count (3 -> 13)"
+                       % bench_report._count_rise_p(3, 13, 30, 30))
+          and "not testable at under 20 runs a side: b/sonnet +5, d/sonnet +5"
+          in r for r in why))
+check("#526: and it is not reported as cleared",
+      not any("cleared by replication" in r for r in why))
+v, why = bench_report.accept_verdict(prev526, cur526, "output_tokens",
+                                     arbitration=_q526(3, 0, 0))
+check("#526: an untestable cell is not arbitrable, even when replicated",
+      v == "reject" and any("(3 -> 13)" in r for r in why))
+v, why = bench_report.accept_verdict(prev526, _q526(10, 1), "output_tokens",
+                                     arbitration=_q526(3, 0))
+check("#526: a cleared cell's first draw does not carry the round-wide count",
+      bench_report._count_rise_p(3, 11, 30, 30) < 0.05
+      and v == "accept" and any("(3 -> 4, p = " in r for r in why))
+# A replication at twice the runs enters with its own exposure: 6 of 40 is the
+# control's 3 of 20, and counted against 20 runs it would read as a rise.
+v, why = bench_report.accept_verdict(
+    prev526, _q526(10, 5), "output_tokens",
+    arbitration=_q526(6, 5, runs={A526: 40, B526: 5, D526: 5}))
+check("#526: a replicated cell enters the round-wide count with its exposure",
+      bench_report._count_rise_p(3, 11, 30, 30) < 0.05
+      and v == "accept"
+      and any("(3 -> 11, p = %.4f)" % bench_report._count_rise_p(3, 11, 30, 50)
+              in r for r in why))
+check("#526: the legacy gate keeps every risen cell on the replication",
+      bench_report.accept_verdict(prev526, cur526, "output_tokens",
+                                  arbitration=_q526(3, 5, 5),
+                                  legacy_count_gate=True)[0] == "reject"
+      and bench_report.accept_verdict(prev526, cur526, "output_tokens",
+                                      arbitration=_q526(3, 0, 0),
+                                      legacy_count_gate=True)[0] == "accept")
+
+
 # --- #68: the graders keep the usage fields they already receive -------------
 #
 # Generation was priced from the start and both grading stages were not, so a

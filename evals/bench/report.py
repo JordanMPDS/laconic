@@ -1715,7 +1715,9 @@ def accept_verdict(prev, cur, target, noise=None, target_cases=None,
         # would make this change a tightening of the gate somewhere rather than
         # a relaxation of it everywhere. With that restriction the new gate
         # rejects a strict subset of what the old one rejected, which is what
-        # lets the archive re-score have a direction fixed in advance.
+        # lets the archive re-score have a direction fixed in advance. That
+        # holds without a replication: an untestable cell is not arbitrable,
+        # so a replication that clears it clears it under the old gate only.
         wide_fatal = wide_p is None or wide_p <= noise["alpha"]
         comp = ""
         if risen:
@@ -1825,6 +1827,41 @@ def accept_verdict(prev, cur, target, noise=None, target_cases=None,
                                                    _cell_floor(arbitration,
                                                                prev, key, c))))]
             blocked = [c for c in risen if c not in cleared]
+            if not blocked and untestable:
+                # A replication answers for the cells it was asked about. The
+                # untestable ones never reached the cell path, so the
+                # round-wide count still carries them (#526). A cell the
+                # replication cleared enters that count at its replicated
+                # count: its first draw was called sampling, and a cleared
+                # rise may no more carry the round-wide test than a screened
+                # one may. With the replication at the control's count, the
+                # round reads as one where that cell never rose.
+                rep_k = cur[key] + sum(arb_cells.get(c, 0) - cur_cells.get(c, 0)
+                                       for c in cleared)
+                rep_n = _count_exposure(cur, key) + sum(
+                    arb_runs.get(c, 0) - cur_runs.get(c, 0) for c in cleared)
+                rep_p = _count_rise_p(prev[key], rep_k,
+                                      _count_exposure(prev, key), rep_n)
+                names = ", ".join("%s/%s" % c for c in cleared)
+                if rep_p is None or rep_p <= noise["alpha"]:
+                    reasons.append(
+                        "REJECT: %s lost (%d -> %d) round-wide at p = %.4f "
+                        "with %s at the replicated count (%d -> %d); no "
+                        "other risen cell is testable at these reps, so the "
+                        "round-wide count is what carries them (#526)%s"
+                        % (label, prev[key], cur[key], rep_p, names,
+                           prev[key], rep_k, comp))
+                    fatal = True
+                else:
+                    reasons.append(
+                        "%s rise (%d -> %d) cleared by replication: %s did not "
+                        "reproduce, and at the replicated count the round-wide "
+                        "count (%d -> %d, p = %.4f) is inside its sampling "
+                        "noise; no other risen cell is testable at these reps "
+                        "(#526)%s"
+                        % (label, prev[key], cur[key], names, prev[key], rep_k,
+                           rep_p, comp))
+                continue
             if not blocked:
                 reasons.append("%s rise (%d -> %d) cleared by replication: "
                                "%s did not reproduce" %

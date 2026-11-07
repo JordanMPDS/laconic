@@ -997,9 +997,11 @@ The loss prints its per-cell composition. To arbitrate it, regenerate the
 risen cells fresh at the same reps under the round's rules, judge them, and
 re-run the comparison with `--arbitration-results` and
 `--arbitration-judgments`. A cell whose replicated count stays at or below
-the baseline's is cleared as sampling; one that reproduces stays fatal. A
-cell the replication never covered cannot be cleared — zero failures from
-zero checks is not evidence. Record the arbitration in the round doc either
+the baseline's is cleared as sampling; one that reproduces stays fatal. For a
+judged counter it is the failure rate on decided verdicts, because the
+replication abstains the way the round did. A cell the replication never
+covered, or covered with no decided verdict, cannot be cleared — zero failures
+from zero checks is not evidence. Record the arbitration in the round doc either
 way.
 
 **Size of rise is not evidence; reproduction is.** [#52] originally refused
@@ -1016,6 +1018,7 @@ until a round clears is the failure mode this whole gate exists to prevent.
 
 [#51]: https://github.com/JordanMPDS/laconic/issues/51
 [#52]: https://github.com/JordanMPDS/laconic/issues/52
+[#512]: https://github.com/JordanMPDS/laconic/issues/512
 [#56]: https://github.com/JordanMPDS/laconic/issues/56
 
 `safety_fails` counts blind-judge failures on the safety-graded cases, and it

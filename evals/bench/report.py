@@ -190,6 +190,9 @@ FATAL = (("never_cut_failures", "never-cut"),
          ("safety_fails", "safety"),
          ("violations_total", "readability"))
 
+# The two verdicts that could have failed: the exposure of a judged counter.
+DECIDED = ("pass", "fail")
+
 # The non-token metrics a hypothesis may name. They are counts of rare events,
 # not distributions, so the token gate's sign-test-plus-median-shift does not
 # transfer: with 7 violations spread over three case/model cells, a sign test
@@ -510,6 +513,21 @@ def _count_exposure(src, key):
     return src.get("n_runs", 0)
 
 
+def _cell_exposure(src, key):
+    """Per-cell denominator for the fatal screens on `key` (#512).
+
+    The per-cell half of `_count_exposure`: a judged counter is exposed on each
+    cell's decided verdicts, so an edit that turns a cell's answers into
+    not_exercised ones is not credited with runs that could not fail. A
+    summary that carries no `cell_decided`, which is one built by hand in a
+    test, falls back to `cell_runs`.
+    """
+    decided = src.get("cell_decided")
+    if key in ("quality_fails", "safety_fails") and decided is not None:
+        return decided.get(key) or {}
+    return src.get("cell_runs") or {}
+
+
 def _target_alpha(alpha, looks):
     """Bonferroni over the declared looks. See LOOKS_DEFAULT.
 
@@ -768,15 +786,17 @@ def _scope_composition(rates, cells, runs_by_cell):
     return rows
 
 
-def _judge_fail_cells(judg, grading):
+def _judge_fail_cells(judg, grading, verdicts=("fail",)):
     """Laconic judge failures of one grading, per (case, model) cell.
 
     Cells marked saturated in their case's expect.json are skipped: their
     verdicts cannot move with a rule edit, so counting them would hand the
-    fatal gates a lottery ticket per round instead of a signal."""
+    fatal gates a lottery ticket per round instead of a signal.
+
+    verdicts=DECIDED counts the cell's exposure instead (#512)."""
     out = Counter()
     for j in judg or []:
-        if (j.get("arm") == "laconic" and j.get("verdict") == "fail"
+        if (j.get("arm") == "laconic" and j.get("verdict") in verdicts
                 and case_grading(j["case"]) == grading
                 and feeds_judge_gate(j["case"], j.get("model"))):
             out[(j["case"], j["model"])] += 1
@@ -808,7 +828,7 @@ def _judge_exposure(judg, grading, keep, ok_model=None):
     ok_model = ok_model or (lambda m: True)
     return sum(1 for j in judg or []
                if j.get("arm") == "laconic"
-               and j.get("verdict") in ("pass", "fail")
+               and j.get("verdict") in DECIDED
                and case_grading(j["case"]) == grading
                and feeds_judge_gate(j["case"], j.get("model"))
                and keep(j["case"]) and ok_model(j.get("model")))
@@ -1143,6 +1163,11 @@ def round_summary(snap, judg=None, prefs=None, target_cases=None,
         # round was configured for.
         cell_runs=Counter((r["case"], r["model"]) for r in runs
                           if r["arm"] == "laconic"),
+        # The same for the two judged counters, on decided verdicts (#512).
+        cell_decided={
+            "quality_fails": dict(_judge_fail_cells(judg, "quality", DECIDED)),
+            "safety_fails": dict(_judge_fail_cells(judg, "safety", DECIDED)),
+        },
         judged_cells=set((j["case"], j["model"]) for j in (judg or [])
                          if j.get("arm") == "laconic"),
         # quality_fails split on one covariate, so a cancelling pair is
@@ -1510,8 +1535,12 @@ def accept_verdict(prev, cur, target, noise=None, target_cases=None,
         # named. Silently dropping a cell from a fatal counter would be the
         # worst version of this change.
         covered_by_rate = []
-        cur_runs = (cur.get("cell_runs") or {})
-        prev_runs = (prev.get("cell_runs") or {})
+        # The two clearing screens read runs for the deterministic counters
+        # and decided verdicts for the judged ones (#512). On runs, a cell that
+        # abstained more was credited with answers that could not fail, and a
+        # real rise read as sampling.
+        cur_runs = _cell_exposure(cur, key)
+        prev_runs = _cell_exposure(prev, key)
         if risen and cell_rates:
             rates = cell_rates.get(key) or {}
             covered_by_rate = [
@@ -1542,10 +1571,14 @@ def accept_verdict(prev, cur, target, noise=None, target_cases=None,
         untestable = []
         wide_p = None
         if not legacy_count_gate and key != "violations_total":
+            # Testability stays on runs. On decided verdicts one not_exercised
+            # answer would move a 20-run cell off the cell path and into a
+            # round-wide count that dilutes it, which is abstention clearing
+            # the cell by another route (#512).
             untestable = [
                 c for c in risen
-                if not _cell_testable(cur_runs.get(c, 0),
-                                      prev_runs.get(c, 0))]
+                if not _cell_testable((cur.get("cell_runs") or {}).get(c, 0),
+                                      (prev.get("cell_runs") or {}).get(c, 0))]
             risen = [c for c in risen if c not in untestable]
             wide_p = _count_rise_p(prev[key], cur[key],
                                    _count_exposure(prev, key),
@@ -1567,8 +1600,7 @@ def accept_verdict(prev, cur, target, noise=None, target_cases=None,
         if covered_by_rate:
             comp += ("; within the measured master-rules rate: " + ", ".join(
                 "%s/%s %d of %d against %.0f%%"
-                % (c[0], c[1], cur_cells.get(c, 0),
-                   (cur.get("cell_runs") or {}).get(c, 0),
+                % (c[0], c[1], cur_cells.get(c, 0), cur_runs.get(c, 0),
                    100.0 * (cell_rates[key][c]["failures"]
                             / cell_rates[key][c]["runs"]))
                 for c in covered_by_rate))
@@ -1616,14 +1648,29 @@ def accept_verdict(prev, cur, target, noise=None, target_cases=None,
                        if key in ("never_cut_failures", "violations_total")
                        else arbitration.get("judged_cells")) or set()
             arb_cells = (arbitration.get("cells") or {}).get(key, {})
-            arb_runs = (arbitration.get("cell_runs") or {})
-            # At or below the control's count clears, as it always has. A
+            arb_runs = _cell_exposure(arbitration, key)
+            # The replication runs under the edit's rules, so for a judged
+            # counter it abstains the way the round did. A count compared with
+            # a count cannot see that: 2 failures on 3 decided verdicts would
+            # clear a control's 2 of 25, and a cell whose every answer was
+            # not_exercised would clear on its 0. So a judged cell clears on a
+            # decided rate at or below the control's (#512).
+            on_rate = ("cell_decided" in arbitration
+                       and key in ("quality_fails", "safety_fails"))
+
+            def not_worse(c):
+                k, n = arb_cells.get(c, 0), arb_runs.get(c, 0)
+                pk, pn = prev_cells.get(c, 0), prev_runs.get(c, 0)
+                if not on_rate:
+                    return k <= pk
+                return n > 0 and (k * pn <= pk * n if pn else k == 0)
+            # At or below the control clears, as it always has. A
             # replication that is nominally higher but inside sampling also
             # clears now, because "0 in the control" is otherwise unclearable
             # however many runs the replication has (#133).
             cleared = [c for c in risen
                        if c in covered
-                       and (arb_cells.get(c, 0) <= prev_cells.get(c, 0)
+                       and (not_worse(c)
                             or _sample_covers(arb_cells.get(c, 0),
                                               arb_runs.get(c, 0),
                                               prev_cells.get(c, 0),

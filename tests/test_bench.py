@@ -4257,6 +4257,58 @@ check("#512: round_summary counts each cell's decided laconic verdicts",
       rs_dec["cell_decided"] == {"quality_fails": {QCELL: 2}, "safety_fails": {}}
       and rs_dec["cell_runs"][QCELL] == 4)
 
+# #515: testability stays on runs (#512), but a judged cell that passes the run
+# bar is then tested on its decided verdicts down to CELL_DECIDED_MIN a side.
+# Until this, one not_exercised answer left a 20-run cell short of 20 decided,
+# so it was neither tested nor sent to the round-wide count: condemned on 5 > 4.
+check("#515: the decided floor is below the run bar",
+      bench_report.CELL_DECIDED_MIN < bench_report.CELL_TEST_MIN_RUNS)
+v, why = bench_report.accept_verdict(_abstaining(4, 19, tokens=500),
+                                     _abstaining(5, 19), "output_tokens")
+check("#515: a 20-run cell one verdict short is tested, not counted",
+      v == "accept" and any("design-cache/sonnet 5 of 19 against 4 of 19, "
+                            "p = 0.500, tested at under 20 decided verdicts "
+                            "a side (#515)" in r for r in why))
+_null_515 = bench_report._null_cell_reject_p(4 / 19, 19, 19, 0.05,
+                                             bench_report.CELL_DECIDED_MIN)
+check("#515: and the null disclosure describes the test it got",
+      _null_515 < 0.05
+      and any("#451" in r and "at least one in %.1f%%" % (100 * _null_515) in r
+              for r in why))
+_lo = bench_report.CELL_DECIDED_MIN - 1
+v, why = bench_report.accept_verdict(_abstaining(4, 20, tokens=500),
+                                     _abstaining(5, _lo), "output_tokens")
+check("#515: under the decided floor the cell keeps its count, and says so",
+      bench_report._fisher_upper_tail(5, _lo, 4, 20) >= 0.05
+      and v == "reject"
+      and any("under %d decided verdicts a side, counted rather than tested "
+              "(#515): design-cache/sonnet 5 of %d against 4 of 20"
+              % (bench_report.CELL_DECIDED_MIN, _lo) in r for r in why))
+v, why = bench_report.accept_verdict(_abstaining(4, 19, 19, tokens=500),
+                                     _abstaining(5, 19, 19), "output_tokens")
+check("#515: a cell under the run bar is still untestable, decided or not",
+      not any("inside the round's own sampling" in r for r in why)
+      and any("not testable at under 20 runs a side" in r for r in why))
+_arb_515 = _abstaining(5, 19)
+_arb_515["judged_cells"] = {QCELL}
+v, why = bench_report.accept_verdict(_abstaining(4, 20, tokens=500),
+                                     _abstaining(5, _lo), "output_tokens",
+                                     arbitration=_arb_515)
+check("#515: a replication one verdict short clears inside sampling",
+      v == "accept" and any("cleared by replication" in r for r in why))
+_arb_515 = _abstaining(5, 19, 19)
+_arb_515["judged_cells"] = {QCELL}
+v, why = bench_report.accept_verdict(_abstaining(4, 20, tokens=500),
+                                     _abstaining(5, _lo), "output_tokens",
+                                     arbitration=_arb_515)
+check("#515: a replication under the run bar is held to it, on its own runs",
+      v == "reject" and any("replication did not clear design-cache/sonnet" in r
+                            for r in why))
+check("#515: the null rate at the floor is the test's, not the count's",
+      bench_report._null_cell_reject_p(0.2, 19, 19, 0.05,
+                                       bench_report.CELL_DECIDED_MIN) < 0.05
+      < bench_report._null_cell_reject_p(0.2, 19, 19, 0.05))
+
 
 # --- #68: the graders keep the usage fields they already receive -------------
 #

@@ -666,6 +666,47 @@ $env:CLAUDE_CONFIG_DIR = $savedConfig
 $env:CLAUDE_PROJECT_DIR = $savedProject
 Remove-Item -LiteralPath $H -Recurse -Force -ErrorAction SilentlyContinue
 
+# 47. A Unicode space is whitespace beside the command too (#491). .NET's \s
+# always counted every one, but stdin was decoded with the console code page,
+# which on Windows is not UTF-8 by default, so U+00A0 arrived as two other
+# characters, the scope was dropped and the machine flag took the level. The
+# code points are the bash suite's, so a divergence fails one platform only.
+# The runner's console already reads UTF-8, which hid the bug, so the console
+# the hook shares is set to cp437 for this case and put back after it.
+$savedInput = $null
+try {
+  $savedInput = [Console]::InputEncoding
+  [Console]::InputEncoding = [System.Text.Encoding]::GetEncoding(437)
+  Ok 'the console input code page is cp437 for case 47'
+} catch {
+  Fail "the console input code page is cp437 for case 47 — $($_.Exception.Message)"
+}
+foreach ($cp in @(0x0085, 0x00A0, 0x1680, 0x2000, 0x2001, 0x2002, 0x2003, 0x2004, 0x2005, 0x2006,
+                  0x2007, 0x2008, 0x2009, 0x200A, 0x2028, 0x2029, 0x202F, 0x205F, 0x3000)) {
+  $u = 'U+{0:X4}' -f $cp
+  Clear-Project
+  Set-Level 'full'
+  Invoke-Hook 'remind' ('{"prompt":"/laconic lite project' + [char]$cp + 'now"}')
+  Assert-Has "$u after project writes the project flag" 'lite' (Get-FlagText $ProjectFlag)
+  Assert-Has "$u after project leaves the machine flag" 'full' (Get-FlagText $Flag)
+}
+foreach ($cp in @(0x00A0, 0x3000)) {
+  $u = 'U+{0:X4}' -f $cp
+  Clear-Project
+  Set-Level 'full'
+  Invoke-Hook 'remind' ('{"prompt":"' + [char]$cp + '/laconic project' + [char]$cp + '"}')
+  Assert-Has "$u around a bare /laconic project writes full there" 'full' (Get-FlagText $ProjectFlag)
+  Invoke-Hook 'switch' ('{"prompt":"/laconic lite project' + [char]$cp + 'now"}')
+  Assert-Has "switch acknowledges the project scope before $u" 'level set to lite for this project.' $out
+}
+Clear-Project
+Set-Level 'full'
+Invoke-Hook 'remind' ('{"prompt":"/laconic lite project' + [char]0x200B + 'now"}')
+Assert-Has 'U+200B after project is not a boundary' 'lite' (Get-FlagText $Flag)
+if (Test-Path -LiteralPath $ProjectFlag) { Fail 'U+200B after project writes no project flag' } else { Ok 'U+200B after project writes no project flag' }
+Clear-Project
+if ($null -ne $savedInput) { try { [Console]::InputEncoding = $savedInput } catch {} }
+
 # --- hooks.json ---
 # The TOML asserts the bash suite runs stay there: PowerShell 5.1 has no TOML
 # parser, and the ubuntu job covers them on the same commit.

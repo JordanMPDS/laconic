@@ -608,6 +608,47 @@ else
 fi
 rm -rf "$H"
 
+# 47. A Unicode space is whitespace beside the command too (#491). JSON leaves
+# one unescaped, and laconic.ps1 matches with .NET's \s, which counts every
+# one, while [[:space:]] misses U+0085 everywhere, the no-break spaces under
+# glibc and all of them under C. A miss dropped the scope and wrote the
+# machine flag. Every code point in
+# .NET's set runs under the ambient locale and under C, where only the hook's
+# own byte sequences can match. U+200B is not whitespace to .NET, so after
+# "project" it is trailing text, as the rest of "projector" would be.
+uchar() { python3 -c 'import sys; sys.stdout.buffer.write(chr(int(sys.argv[1], 16)).encode("utf-8"))' "$1"; }
+for loc in "${LC_ALL:-}" C; do
+  for cp in 0085 00A0 1680 2000 2001 2002 2003 2004 2005 2006 2007 2008 2009 200A 2028 2029 202F 205F 3000; do
+    clear_project
+    set_level full
+    out=$(printf '{"prompt":"/laconic lite project%snow"}' "$(uchar "$cp")" \
+      | LC_ALL=$loc bash "$SCRIPT" remind 2>/dev/null)
+    assert_has "U+$cp after project writes the project flag (locale ${loc:-ambient})" "lite" "$(cat "$PROJECT_FLAG" 2>/dev/null)"
+    assert_has "U+$cp after project leaves the machine flag (locale ${loc:-ambient})" "full" "$(cat "$FLAG")"
+  done
+  for cp in 00A0 3000; do
+    clear_project
+    set_level full
+    printf '{"prompt":"%s/laconic project%s"}' "$(uchar "$cp")" "$(uchar "$cp")" \
+      | LC_ALL=$loc bash "$SCRIPT" remind >/dev/null 2>&1
+    assert_has "U+$cp around a bare /laconic project writes full there (locale ${loc:-ambient})" "full" "$(cat "$PROJECT_FLAG" 2>/dev/null)"
+    out=$(printf '{"prompt":"/laconic lite project%snow"}' "$(uchar "$cp")" \
+      | LC_ALL=$loc bash "$SCRIPT" switch 2>/dev/null)
+    assert_has "switch acknowledges the project scope before U+$cp (locale ${loc:-ambient})" "level set to lite for this project." "$out"
+  done
+  clear_project
+  set_level full
+  printf '{"prompt":"/laconic lite project%snow"}' "$(uchar 200B)" \
+    | LC_ALL=$loc bash "$SCRIPT" remind >/dev/null 2>&1
+  assert_has "U+200B after project is not a boundary (locale ${loc:-ambient})" "lite" "$(cat "$FLAG")"
+  if [ -e "$PROJECT_FLAG" ]; then
+    fail "U+200B after project writes no project flag (locale ${loc:-ambient})"
+  else
+    ok "U+200B after project writes no project flag (locale ${loc:-ambient})"
+  fi
+done
+clear_project
+
 # --- PowerShell source encoding ---
 # Every .ps1 in this repo must start with a UTF-8 BOM. Windows PowerShell 5.1
 # decodes a BOM-less script with the ANSI code page, so an em dash becomes the

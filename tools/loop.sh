@@ -77,6 +77,19 @@ limit_reset_epoch() { # <time> [tz] -> epoch on stdout
   printf '%s' "$target"
 }
 
+# A retry can wait six hours for a stated reset, and the stop file used to be
+# read only at the top of the loop, so `touch .claude/loop-stop` during a limit
+# window was obeyed when the window ended (#477). Sleep in minute slices and
+# return as soon as the file appears; the loop head then stops as usual.
+nap() { # <seconds>
+  local left=$1 s
+  while [ "$left" -gt 0 ] && [ ! -e "$STOP_FILE" ]; do
+    s=$((left < 60 ? left : 60))
+    sleep "$s"
+    left=$((left - s))
+  done
+}
+
 # An iteration inherits whatever branch the last one left checked out. That is
 # deliberate — a round too long for one iteration continues on its branch, which
 # is how round 48 finished what round 48 started. But a branch whose work is
@@ -125,11 +138,18 @@ STUB
          LOOP_RESET_MAX_WAIT=0
   export LOOP_RETRY_GAP=1 LOOP_RETRY_CAP=1 LOOP_GAP=1
 
-  failed=0
+  failed=0 total=0
   check() { # name, expected-grep, actual
+    total=$((total + 1))
     if printf '%s' "$3" | grep -qE "$2"; then return 0; fi
     failed=$((failed + 1))
     printf 'FAIL %s\n  wanted /%s/ in:\n%s\n' "$1" "$2" "$3"
+  }
+  checkno() { # name, forbidden-grep, actual
+    total=$((total + 1))
+    if ! printf '%s' "$3" | grep -qE "$2"; then return 0; fi
+    failed=$((failed + 1))
+    printf 'FAIL %s\n  did not want /%s/ in:\n%s\n' "$1" "$2" "$3"
   }
 
   out=$(STUB_STATE=$tmp/a STUB_FAILS=2 LOOP_MAX=1 bash "$0" 2>&1)
@@ -183,9 +203,27 @@ STUB
 
   out=$(STUB_STATE=$tmp/d STUB_TOUCH=$tmp/stop bash "$0" 2>&1)
   check "the stop file ends the loop" 'stop present, stopping' "$out"
-  [ -e "$tmp/stop" ] && { failed=$((failed + 1)); echo "FAIL stop file left behind"; }
+  check "and is removed" '^gone$' "$([ -e "$tmp/stop" ] || echo gone)"
 
-  [ "$failed" -eq 0 ] && echo "loop.sh selftest: 14/14 passed" || echo "loop.sh selftest: $failed failed"
+  # #477: a stop touched during a failed iteration is obeyed before the wait.
+  out=$(STUB_STATE=$tmp/f STUB_FAILS=1 STUB_TOUCH=$tmp/stop bash "$0" 2>&1)
+  check "a stop touched by a failed iteration ends the loop" 'stop present, stopping' "$out"
+  checkno "without waiting first" 'retrying in' "$out"
+
+  # And one touched during the wait cuts it short. The stub `sleep` touches the
+  # stop file and returns, so the six hours asked for cost nothing either way;
+  # what tells the two apart is whether it was asked for all of them at once.
+  mkdir -p "$tmp/sleep"
+  printf '#!/bin/sh\necho "$1" >> "$SLEEP_LOG"; touch "$LOOP_STOP_FILE"\n' > "$tmp/sleep/sleep"
+  chmod +x "$tmp/sleep/sleep"
+  out=$(PATH="$tmp/sleep:$PATH" SLEEP_LOG=$tmp/slept STUB_STATE=$tmp/g STUB_FAILS=99 \
+    LOOP_RETRY_GAP=21600 LOOP_RETRY_CAP=21600 bash "$0" 2>&1)
+  check "a stop touched during the wait ends the loop" 'stop present, stopping' "$out"
+  check "after one slice of it, not all of it" '^60$' \
+    "$(awk '{ s += $1 } END { print s }' "$tmp/slept")"
+
+  [ "$failed" -eq 0 ] && echo "loop.sh selftest: $total/$total passed" \
+    || echo "loop.sh selftest: $failed of $total failed"
   exit $([ "$failed" -eq 0 ] && echo 0 || echo 1)
 fi
 
@@ -371,8 +409,9 @@ while :; do
     echo "loop: $reason — $failures consecutive failures, stopping"
     break
   fi
+  [ -e "$STOP_FILE" ] && continue  # the loop head stops
   echo "loop: $reason — retrying in ${wait_s}s ($failures/$MAX_FAILURES)$waited_to_reset"
-  sleep "$wait_s"
+  nap "$wait_s"
   backoff=$((backoff * 2))
   [ "$backoff" -gt "$RETRY_CAP" ] && backoff=$RETRY_CAP
 done

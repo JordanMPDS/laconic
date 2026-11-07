@@ -65,13 +65,15 @@ round_numbers() {
 # that reports "nothing owed" because it found no rounds is indistinguishable
 # from one that found a candidate.
 if [ "${1:-}" = "--selftest" ]; then
-  failed=0
+  failed=0 total=0
   check() { # name, expected-grep, actual
+    total=$((total + 1))
     if printf '%s' "$3" | grep -qE "$2"; then return 0; fi
     failed=$((failed + 1))
     printf 'FAIL %s\n  wanted /%s/ in:\n%s\n' "$1" "$2" "$3"
   }
   checkst() { # name, expected-status, actual-status
+    total=$((total + 1))
     if [ "$2" = "$3" ]; then return 0; fi
     failed=$((failed + 1))
     printf 'FAIL %s\n  wanted exit %s, got %s\n' "$1" "$2" "$3"
@@ -139,8 +141,8 @@ No rule edit is proposed.'
   check "a companion document is not a round" 'round 59' "$out"
   check "and round 9 does not outrank round 58" 'no candidate owed' "$out"
 
-  [ "$failed" -eq 0 ] && echo "candidate-due.sh selftest: 19/19 passed" \
-    || echo "candidate-due.sh selftest: $failed failed"
+  [ "$failed" -eq 0 ] && echo "candidate-due.sh selftest: $total/$total passed" \
+    || echo "candidate-due.sh selftest: $failed of $total failed"
   exit $([ "$failed" -eq 0 ] && echo 0 || echo 1)
 fi
 

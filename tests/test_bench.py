@@ -7132,6 +7132,70 @@ with tempfile.TemporaryDirectory() as td_reg:
           == str(zlib.crc32(bench_run.REMINDER.encode())))
 
 
+# #524: a resume read nothing of the file's safe mode and relabelled the file
+# False once any pass dropped it, so the split the carry and merge guards
+# refuse could be built in two steps on one file.
+with tempfile.TemporaryDirectory() as td_sm:
+    _mp = Path(td_sm) / "m.json"
+    _m0 = _run_delivery(td_sm, "plugin", "--arms", "laconic", snap="m.json")
+    _m1 = _run_delivery(td_sm, "plugin", "--arms", "laconic", "--no-safe-mode",
+                        "--rep-offset", "1", snap="m.json")
+    _mm = json.loads(_mp.read_text())
+    check("subprocess: a resume without safe mode refuses a file generated "
+          "under it, before it spends a call (#524)",
+          _m0.returncode == 0 and _m1.returncode != 0
+          and "safe mode" in _m1.stderr and "budget:" not in _m1.stdout
+          and _mm["metadata"]["safe_mode"] is True and len(_mm["runs"]) == 1)
+    _edit_snap(_mp, lambda s: s["metadata"].update(safe_mode=False))
+    _m2 = _run_delivery(td_sm, "plugin", "--arms", "laconic",
+                        "--rep-offset", "1", snap="m.json")
+    check("subprocess: and the reverse, which setdefault left labelled False "
+          "over safe-mode runs",
+          _m2.returncode != 0 and "safe mode" in _m2.stderr
+          and len(json.loads(_mp.read_text())["runs"]) == 1)
+    _edit_snap(_mp, lambda s: s["metadata"].pop("safe_mode"))
+    _m3 = _run_delivery(td_sm, "plugin", "--arms", "laconic", "--no-safe-mode",
+                        "--rep-offset", "1", snap="m.json")
+    check("subprocess: an absent field is read as the safe mode every file "
+          "below round 61 ran under",
+          _m3.returncode != 0 and "safe mode" in _m3.stderr)
+    _m4 = _run_delivery(td_sm, "plugin", "--arms", "laconic",
+                        "--rep-offset", "1", snap="m.json")
+    check("subprocess: so such a file still resumes under safe mode",
+          _m4.returncode == 0
+          and json.loads(_mp.read_text())["metadata"]["safe_mode"] is True)
+
+    # A file whose every run failed holds nothing generated under its label,
+    # so the label describes the pass about to fill it, in either direction.
+    _edit_snap(_mp, lambda s: [r.update(ok=False) for r in s["runs"]])
+    _m5 = _run_delivery(td_sm, "plugin", "--arms", "laconic", "--no-safe-mode",
+                        snap="m.json")
+    _m5m = json.loads(_mp.read_text())
+    check("subprocess: a file with no usable run is relabelled by the pass "
+          "that fills it",
+          _m5.returncode == 0 and _m5m["metadata"]["safe_mode"] is False
+          and any(r["ok"] for r in _m5m["runs"]))
+    _edit_snap(_mp, lambda s: [r.update(ok=False) for r in s["runs"]])
+    _m6 = _run_delivery(td_sm, "plugin", "--arms", "laconic", snap="m.json")
+    check("subprocess: and back, where setdefault kept the False label",
+          _m6.returncode == 0
+          and json.loads(_mp.read_text())["metadata"]["safe_mode"] is True)
+
+    # The issue's own two steps: carry under safe mode, then resume without.
+    _ms = _run_delivery(td_sm, "plugin", "--arms", "laconic,terse-control",
+                        snap="src.json")
+    _mc = _run_delivery(td_sm, "plugin", "--arms", "laconic",
+                        "--carry-arms-from", str(Path(td_sm) / "src.json"),
+                        snap="c.json")
+    _mr = _run_delivery(td_sm, "plugin", "--arms", "laconic", "--no-safe-mode",
+                        "--rep-offset", "1", snap="c.json")
+    check("subprocess: a carried file resumed without safe mode is refused",
+          _ms.returncode == 0 and _mc.returncode == 0 and _mr.returncode != 0
+          and "safe mode" in _mr.stderr
+          and json.loads((Path(td_sm) / "c.json").read_text())
+          ["metadata"]["safe_mode"] is True)
+
+
 # --- the edit stratum (#209) ---------------------------------------------
 # `turns` reads num_turns, which cannot tell a read from a write. The tool list
 # from #142 can, and the measured null it was waiting for now exists: 5,557 runs

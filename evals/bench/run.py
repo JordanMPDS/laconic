@@ -1644,6 +1644,18 @@ def main():
                      "runs at %s; resuming would generate one round at two "
                      "levels. Restore EFFORT in evals/bench/run.py, or generate "
                      "into a new snapshot (#522)" % (stored_effort, EFFORT))
+        # The carry and merge guards refuse a file split by safe mode, and a
+        # resume could build the same split in place (#524). A file with no
+        # usable run holds nothing generated under its label, so it is the
+        # one file the label below may still rewrite.
+        stored_safe = snap["metadata"].get("safe_mode", True)
+        if usable(snap["runs"]) and stored_safe != safe_mode:
+            sys.exit("this snapshot was generated %s safe mode and this pass "
+                     "runs %s it, so the file would split the arms by regime "
+                     "and label the split as one (#524). Resume it the same "
+                     "way, or generate into a new snapshot"
+                     % ("under" if stored_safe else "without",
+                        "under" if safe_mode else "without"))
         stored_cells = snap["metadata"].get("cells")
         if stored_cells is None:
             print("note: this snapshot predates the cell declaration (#285), so "
@@ -1681,14 +1693,11 @@ def main():
     meta = snap["metadata"]
     meta["concurrency_declared"] = max(meta.get("concurrency_declared") or 1,
                                        args.concurrency)
-    # Describes the file, like the concurrency and opus declarations: once any
-    # pass over this snapshot generated without safe mode, the file holds runs
-    # that were, and a later resume must not relabel it. Absent on every
-    # snapshot below round 61, which were all generated under safe mode.
-    if not safe_mode:
-        meta["safe_mode"] = False
-    else:
-        meta.setdefault("safe_mode", True)
+    # The guards above leave a file holding runs only under the regime this
+    # pass runs, and the carry guard a carried file likewise, so this pass's
+    # mode describes the file (#524). Absent on every snapshot below round 61,
+    # which were all generated under safe mode.
+    meta["safe_mode"] = safe_mode
     # True only when every run in the file was stamped with the version that
     # generated it. A file this pass created qualifies; one started before #272
     # holds per-invocation stamps in its existing runs and cannot be repaired by

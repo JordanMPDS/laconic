@@ -254,16 +254,20 @@ def blocked_permutation(shallow, deep, seed=94, resamples=20000):
     if obs is None:
         return None, None
     rng = random.Random(seed)
-    pools = {s: ([r for r in shallow if stem_of(r) == s] + [r for r in deep if stem_of(r) == s],
+    # Log words once per run rather than per resample (#476). Every pool is
+    # still shuffled, a skipped one included, so the RNG stream and the p are
+    # bit-identical to the version that permuted the runs themselves.
+    pools = {s: ([math.log(max(words(r), 1)) for r in shallow if stem_of(r) == s]
+                 + [math.log(max(words(r), 1)) for r in deep if stem_of(r) == s],
                  sum(stem_of(r) == s for r in shallow)) for s in SEEDED}
     hits = 0
     for _ in range(resamples):
-        a, b = [], []
+        shifts = []
         for pool, n in pools.values():
             rng.shuffle(pool)
-            a += pool[:n]
-            b += pool[n:]
-        if abs(blocked_log_shift(a, b)) >= abs(obs) - 1e-12:
+            if 0 < n < len(pool):
+                shifts.append(sum(pool[n:]) / (len(pool) - n) - sum(pool[:n]) / n)
+        if abs(sum(shifts) / len(shifts)) >= abs(obs) - 1e-12:
             hits += 1
     return obs, (hits + 1) / (resamples + 1)
 

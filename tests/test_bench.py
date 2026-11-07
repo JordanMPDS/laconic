@@ -4040,6 +4040,118 @@ v, why = bench_report.accept_verdict(
 check("#453: a saturated cell's rate does not enter a judged target's baseline",
       v == "reject" and any("measured rate 2 of 60" in r for r in why))
 
+# #512: the per-cell half of the fatal screen reads decided verdicts too. On
+# cell_runs, a cell going from 2 of 20 to 5 failures while 12 of its 20
+# answers turned not_exercised was cleared as sampling (30% against 10%); on
+# decided verdicts it is 5 of 8 against 2 of 20, too few to clear as sampling,
+# so the rise stays on the cell path. Testability stays on runs: on decided
+# verdicts the cell would leave that path for a round-wide count that dilutes it.
+QCELL = ("design-cache", "sonnet")
+_EXP = {"cell_runs": {QCELL: 20}, "cell_decided": {"quality_fails": {QCELL: 8}}}
+check("#512: a judged counter's per-cell exposure is its decided verdicts",
+      bench_report._cell_exposure(_EXP, "quality_fails") == {QCELL: 8}
+      and bench_report._cell_exposure(_EXP, "safety_fails") == {}
+      and bench_report._cell_exposure(_EXP, "never_cut_failures") == {QCELL: 20}
+      and bench_report._cell_exposure({"cell_runs": {QCELL: 20}},
+                                      "quality_fails") == {QCELL: 20})
+
+
+def _abstaining(fails, decided, runs=20, tokens=100):
+    s = _with_cells(_summary(qf=fails, tokens=TEN_CELLS(tokens)),
+                    "quality_fails", {QCELL: fails}, runs=runs)
+    s["quality_n"] = decided
+    s["cell_decided"] = {"quality_fails": {QCELL: decided}, "safety_fails": {}}
+    return s
+
+
+v, why = bench_report.accept_verdict(_abstaining(2, 20, tokens=500),
+                                     _abstaining(5, 8), "output_tokens")
+check("#512: a judged rise made of abstentions is not cleared as sampling",
+      v == "reject" and any("quality lost (2 -> 5)" in r
+                            and "design-cache/sonnet +3" in r for r in why))
+v, why = bench_report.accept_verdict(_abstaining(2, 10, tokens=500),
+                                     _abstaining(5, 20), "output_tokens")
+check("#512: the control side is exposed on its decided verdicts too",
+      v == "reject" and not any("inside the round's own sampling" in r
+                                for r in why))
+v, why = bench_report.accept_verdict(_abstaining(2, 20, tokens=500),
+                                     _abstaining(5, 20), "output_tokens")
+check("#512: the same rise on full decided exposure is still inside sampling",
+      v == "accept" and any("design-cache/sonnet 5 of 20 against 2 of 20" in r
+                            for r in why))
+
+_TEN = [("design-%s" % c, "sonnet") for c in "abcdefghij"]
+
+
+def _ten(fails, decided, tokens=100):
+    f, d = {c: 2 for c in _TEN}, {c: 20 for c in _TEN}
+    f[_TEN[0]], d[_TEN[0]] = fails, decided
+    s = _summary(qf=sum(f.values()), n_runs=200,
+                 tokens={c: tokens for c in _TEN})
+    s.update(cells={"quality_fails": f}, cell_runs={c: 20 for c in _TEN},
+             quality_n=sum(d.values()),
+             cell_decided={"quality_fails": d, "safety_fails": {}})
+    return s
+
+
+for _f, _d in ((5, 8), (9, 19)):
+    v, why = bench_report.accept_verdict(_ten(2, 20, 500), _ten(_f, _d),
+                                         "output_tokens")
+    check("#512: %d of %d decided against 2 of 20 rejects in a ten-cell round"
+          % (_f, _d),
+          v == "reject" and any("design-a/sonnet +%d" % (_f - 2) in r
+                                and r.startswith("REJECT: quality") for r in why))
+
+v, why = bench_report.accept_verdict(
+    _abstaining(1, 20, tokens=500), _abstaining(4, 6), "output_tokens",
+    cell_rates={"quality_fails": {QCELL: {"failures": 4, "runs": 40}}})
+check("#512: the measured-rate screen reads decided verdicts too",
+      v == "reject" and not any("within the measured" in r for r in why))
+
+# Arbitration replicates under the edit's rules, so it abstains the way the
+# round did, and a count compared with a count cannot see that. For a judged
+# counter the replication clears on a decided rate at or below the control's.
+_prev_q, _cur_q = _abstaining(2, 25, 25, tokens=500), _abstaining(10, 25, 25)
+
+
+def _arb_q(fails, decided):
+    a = _abstaining(fails, decided, 25)
+    a["judged_cells"] = {QCELL}
+    return a
+
+
+v, why = bench_report.accept_verdict(_prev_q, _cur_q, "output_tokens",
+                                     arbitration=_arb_q(2, 3))
+check("#512: 2 failures on 3 decided verdicts does not clear 2 of 25",
+      v == "reject" and any("replication did not clear design-cache/sonnet" in r
+                            for r in why))
+v, why = bench_report.accept_verdict(_prev_q, _cur_q, "output_tokens",
+                                     arbitration=_arb_q(0, 0))
+check("#512: a replication with no decided verdict clears nothing",
+      v == "reject" and any("did not clear" in r for r in why))
+v, why = bench_report.accept_verdict(_prev_q, _cur_q, "output_tokens",
+                                     arbitration=_arb_q(1, 18))
+check("#512: a lower decided rate on fewer verdicts still clears",
+      v == "accept" and any("cleared by replication" in r for r in why))
+
+rs_dec = bench_report.round_summary(
+    {"runs": [{"case": "design-cache", "arm": a, "model": "sonnet", "rep": i,
+               "ok": True, "text": "Fine.", "output_tokens": 10}
+              for a in ("laconic", "baseline") for i in range(4)]},
+    [{"case": "design-cache", "arm": "laconic", "model": "sonnet", "rep": 0,
+      "verdict": "fail"},
+     {"case": "design-cache", "arm": "laconic", "model": "sonnet", "rep": 1,
+      "verdict": "pass"},
+     {"case": "design-cache", "arm": "laconic", "model": "sonnet", "rep": 2,
+      "verdict": "not_exercised"},
+     {"case": "design-cache", "arm": "laconic", "model": "sonnet", "rep": 3,
+      "verdict": None},
+     {"case": "design-cache", "arm": "baseline", "model": "sonnet", "rep": 0,
+      "verdict": "fail"}])
+check("#512: round_summary counts each cell's decided laconic verdicts",
+      rs_dec["cell_decided"] == {"quality_fails": {QCELL: 2}, "safety_fails": {}}
+      and rs_dec["cell_runs"][QCELL] == 4)
+
 
 # --- #68: the graders keep the usage fields they already receive -------------
 #

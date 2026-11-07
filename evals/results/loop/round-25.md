@@ -274,9 +274,15 @@ design-rate-limit/sonnet 2 of 25 against 0 of 25, p = 0.245,
 design-retry/sonnet 2 of 25 against 0 of 25, p = 0.245
 ```
 
+*Since [#512] a judged cell is exposed on its decided verdicts rather than its
+runs, and two of the four read design-alerting/sonnet 12 of 24 against 9 of 25,
+p = 0.242, and design-cache/sonnet 9 of 24 against 7 of 25, p = 0.343. The line
+is otherwise unchanged and still clears.*
+
 **That line is why round 26 exists rather than why the licence is kept.**
 
 [#131]: https://github.com/JordanMPDS/laconic/issues/131
+[#512]: https://github.com/JordanMPDS/laconic/issues/512
 
 **Method note, recorded because it cost a restart.** The first attempt invoked
 `run.py` once per case into a shared snapshot. `cases_cksum` covers *the cases

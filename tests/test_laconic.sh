@@ -696,18 +696,6 @@ else
   fail "hooks.json is valid JSON"
 fi
 
-# --- command TOMLs ---
-# `claude plugin validate . --strict` resolves "." to the marketplace manifest and
-# never parses these, so they get zero coverage from the CLI gate. Parse each with
-# stdlib tomllib directly.
-for toml in "$ROOT"/commands/*.toml; do
-  name=$(basename "$toml")
-  if python3 -c "import tomllib; tomllib.load(open('$toml', 'rb'))" 2>/dev/null; then
-    ok "$name is valid TOML"
-  else
-    fail "$name is valid TOML"
-  fi
-done
 # Assert the event-to-mode pairing, not just that the event name appears somewhere.
 # laconic.sh's mode gate exits 0 silently on any argument other than start/remind,
 # so a typo like "starrt" would disable that hook with no other symptom, and a

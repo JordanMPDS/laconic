@@ -108,8 +108,7 @@ esac
 # item is the difference between a terse answer and one that omits a security
 # warning.
 #
-# commands/laconic.toml is deliberately absent from the list below. It used to
-# carry an inline copy of the rule set, and this loop enforced it — the file is
+# skills/laconic/SKILL.md is deliberately absent from the list below. It is
 # checked further down for the opposite property, that it restates nothing and
 # points at rules/laconic.md instead. skills/laconic-help/SKILL.md keeps its
 # condensed list because it declares that file authoritative on any
@@ -146,34 +145,35 @@ for kw in "code" "config" "command" "error string" "ecurity warning" "estructive
   done
 done
 
-# --- commands/laconic.toml must point at the rules, not repeat them ---
+# --- skills/laconic/SKILL.md must point at the rules, not repeat them ---
 # It is the instruction the model follows on /laconic, so a stale copy here is
 # the highest-consequence copy in the repo: it would be followed in preference
-# to the file it contradicts. Both skills refuse to restate the rule set for
-# exactly this reason, and the command now refuses too.
-CMD="$ROOT/commands/laconic.toml"
-if grep -q 'rules/laconic\.md' "$CMD"; then
-  ok "commands/laconic.toml points at rules/laconic.md"
+# to the file it contradicts. These checks used to guard a Gemini-format TOML
+# command that Claude Code never loaded, while this skill, which is what
+# /laconic actually runs, went unchecked (#434).
+SKILL="$ROOT/skills/laconic/SKILL.md"
+if grep -q 'rules/laconic\.md' "$SKILL"; then
+  ok "skills/laconic/SKILL.md points at rules/laconic.md"
 else
-  fail "commands/laconic.toml no longer points at rules/laconic.md"
+  fail "skills/laconic/SKILL.md no longer points at rules/laconic.md"
 fi
 
 # The read has to be imperative, not a trailing suggestion. On the turn that
 # switches the level the hook has emitted only its one-line reminder, so the
 # rule set is not in context and an unread pointer leaves that turn ungoverned.
-if grep -q 'Read rules/laconic\.md in this plugin directory now' "$CMD"; then
-  ok "commands/laconic.toml demands the read rather than suggesting it"
+if grep -qE 'Read `?rules/laconic\.md`? in this plugin directory now' "$SKILL"; then
+  ok "skills/laconic/SKILL.md demands the read rather than suggesting it"
 else
-  fail "commands/laconic.toml lost the imperative read instruction"
+  fail "skills/laconic/SKILL.md lost the imperative read instruction"
 fi
 
 # Phrases that only appear in an actual restatement of the rule set. Naming the
 # never-cut list is fine; listing its members is the drift risk.
 for phrase in "error string" "security warning" "performative agreement"; do
-  if grep -qi -- "$phrase" "$CMD"; then
-    fail "commands/laconic.toml restates the rule set again: $phrase"
+  if grep -qi -- "$phrase" "$SKILL"; then
+    fail "skills/laconic/SKILL.md restates the rule set again: $phrase"
   else
-    ok "commands/laconic.toml does not restate: $phrase"
+    ok "skills/laconic/SKILL.md does not restate: $phrase"
   fi
 done
 

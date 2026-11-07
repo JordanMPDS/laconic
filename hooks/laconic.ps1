@@ -169,7 +169,19 @@ if ($Mode -eq 'remind' -or $Mode -eq 'switch') {
 
   $target = $globalFlag
   $targetDir = $configDir
-  if ($scoped) { $target = $projectFlag; $targetDir = $projectConfigDir }
+  $shared = $false
+  if ($scoped) {
+    $target = $projectFlag; $targetDir = $projectConfigDir
+    # A project rooted where the machine configuration lives has no project
+    # flag of its own, so a scoped switch is refused rather than widened to
+    # every project (#427); laconic.sh says more. -eq is case-insensitive, as
+    # the Windows file system is.
+    try {
+      $a = [System.IO.Path]::GetFullPath($projectConfigDir).TrimEnd('\', '/')
+      $b = [System.IO.Path]::GetFullPath($configDir).TrimEnd('\', '/')
+      $shared = $a -eq $b
+    } catch {}
+  }
 
   # This write precedes the read-path link check below, so it needs its own
   # guard: without it, /laconic ultra against a symlinked flag would write
@@ -179,7 +191,7 @@ if ($Mode -eq 'remind' -or $Mode -eq 'switch') {
   # about what is on disk, so a write that failed, or one refused because the
   # flag is a link, is not applied. Read the flag back rather than trusting the
   # write, as laconic.sh does: a read-only flag already at the level holds it.
-  if ($switch -ne '' -and -not (Test-IsLink $target)) {
+  if ($switch -ne '' -and -not $shared -and -not (Test-IsLink $target)) {
     [void](Write-Flag $target $targetDir $switch)
     if ((Read-Level $target) -ceq $switch) { $applied = $switch }
   }
@@ -189,6 +201,7 @@ if ($Mode -eq 'remind' -or $Mode -eq 'switch') {
   if ($Mode -eq 'remind' -and $switch -ne '' -and $applied -eq '') {
     $why = 'could not be written'
     if (Test-IsLink $target) { $why = 'is a symlink, which laconic never writes through' }
+    if ($shared) { $why = 'is also the machine flag here, so a project-scoped switch would change every project' }
     Emit "laconic: the switch to $switch was not applied, because $target $why. Tell the user the switch failed, and do not change that file yourself.`n"
     exit 0
   }

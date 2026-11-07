@@ -574,6 +574,40 @@ done
 out=$(printf '%s' '{"prompt":[{"type":"text","text":"/laconic ultra"}]}' | bash "$SCRIPT" switch)
 assert_has "switch acknowledges an array prompt" "level set to ultra." "$out"
 
+# 46. A project rooted where the machine configuration lives, $HOME by default,
+# has no project flag of its own (#427): both paths name one file, so a scoped
+# switch there is refused with a notice instead of changing every project, and
+# an unscoped one still sets the machine level. The first run is the real-world
+# shape: neither variable set, started from the home directory.
+H=$(mktemp -d)
+mkdir -p "$H/.claude"
+printf 'full' > "$H/.claude/.laconic-level"
+home_hook() { # home_hook <mode> <prompt-json>; sets out, rc
+  out=$(cd "$H" && printf '%s' "$2" \
+    | env -u CLAUDE_CONFIG_DIR -u CLAUDE_PROJECT_DIR HOME="$H" bash "$SCRIPT" "$1" 2>/dev/null); rc=$?
+}
+home_hook remind '{"prompt":"/laconic off project"}'
+assert_has "home: a project switch reports the refusal" \
+  "the switch to off was not applied, because $H/.claude/.laconic-level is also the machine flag here" "$out"
+assert_has "home: the machine flag stays full" "full" "$(cat "$H/.claude/.laconic-level")"
+home_hook switch '{"prompt":"/laconic ultra project"}'
+assert_lacks "home: switch mode acknowledges no project scope" "for this project" "$out"
+assert_has "home: switch mode leaves the machine flag" "full" "$(cat "$H/.claude/.laconic-level")"
+home_hook remind '{"prompt":"/laconic ultra"}'
+assert_has "home: an unscoped switch still sets the machine level" "ultra" "$(cat "$H/.claude/.laconic-level")"
+# The same collision through the variables, before the directory exists, where
+# -ef is false and only the string comparison can see it.
+rm -rf "$H/.claude"
+out=$(printf '%s' '{"prompt":"/laconic lite project"}' \
+  | CLAUDE_CONFIG_DIR="$H/.claude" CLAUDE_PROJECT_DIR="$H" bash "$SCRIPT" remind 2>/dev/null)
+assert_has "home, no config yet: the refusal is reported" "is also the machine flag here" "$out"
+if [ -e "$H/.claude/.laconic-level" ]; then
+  fail "home, no config yet: no flag is written"
+else
+  ok "home, no config yet: no flag is written"
+fi
+rm -rf "$H"
+
 # --- PowerShell source encoding ---
 # Every .ps1 in this repo must start with a UTF-8 BOM. Windows PowerShell 5.1
 # decodes a BOM-less script with the ANSI code page, so an em dash becomes the

@@ -14,6 +14,9 @@ Add `project` to any level to scope it to the current repository:
 That writes `.claude/.laconic-level` under the project directory. The machine
 flag at `${CLAUDE_CONFIG_DIR:-$HOME/.claude}/.laconic-level` is left untouched,
 and `/laconic ultra` without the suffix still writes the machine flag as before.
+A session started in the directory that holds the machine configuration, `$HOME`
+by default, has no separate project flag: both paths are the same file, so a
+`project` switch there is refused and says so rather than changing every project.
 
 The project flag wins wherever both exist, `off` included, so a repository where
 you want full explanations can opt out of a machine-wide `ultra`:

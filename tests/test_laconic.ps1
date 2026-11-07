@@ -639,6 +639,33 @@ foreach ($p in @(
 Invoke-Hook 'switch' '{"prompt":[{"type":"text","text":"/laconic ultra"}]}'
 Assert-Has 'switch acknowledges an array prompt' 'level set to ultra.' $out
 
+# 46. A project rooted where the machine configuration lives has no project
+# flag of its own (#427): both paths name one file, so a scoped switch there is
+# refused with a notice instead of changing every project, and an unscoped one
+# still sets the machine level. The trailing separator on the config directory
+# is the form a string comparison alone would miss.
+$savedConfig = $env:CLAUDE_CONFIG_DIR
+$savedProject = $env:CLAUDE_PROJECT_DIR
+$H = New-TempDir
+$HConfig = Join-Path $H '.claude'
+$HFlag = Join-Path $HConfig '.laconic-level'
+New-Item -ItemType Directory -Path $HConfig -Force | Out-Null
+[System.IO.File]::WriteAllText($HFlag, 'full', $Utf8NoBom)
+$env:CLAUDE_CONFIG_DIR = $HConfig + '\'
+$env:CLAUDE_PROJECT_DIR = $H
+Invoke-Hook 'remind' '{"prompt":"/laconic off project"}'
+Assert-Has 'home: a project switch reports the refusal' 'the switch to off was not applied, because ' $out
+Assert-Has 'home: the refusal names the shared flag' 'is also the machine flag here' $out
+Assert-Has 'home: the machine flag stays full' 'full' (Get-FlagText $HFlag)
+Invoke-Hook 'switch' '{"prompt":"/laconic ultra project"}'
+Assert-Lacks 'home: switch mode acknowledges no project scope' 'for this project' $out
+Assert-Has 'home: switch mode leaves the machine flag' 'full' (Get-FlagText $HFlag)
+Invoke-Hook 'remind' '{"prompt":"/laconic ultra"}'
+Assert-Has 'home: an unscoped switch still sets the machine level' 'ultra' (Get-FlagText $HFlag)
+$env:CLAUDE_CONFIG_DIR = $savedConfig
+$env:CLAUDE_PROJECT_DIR = $savedProject
+Remove-Item -LiteralPath $H -Recurse -Force -ErrorAction SilentlyContinue
+
 # --- hooks.json ---
 # The TOML asserts the bash suite runs stay there: PowerShell 5.1 has no TOML
 # parser, and the ubuntu job covers them on the same commit.

@@ -3970,6 +3970,76 @@ check("#259: _count_exposure prefers the judged denominator when there is one",
       and bench_report._count_exposure({"quality_n": 140, "n_runs": 220},
                                        "never_cut_failures") == 220)
 
+# #453: the target test reads the same exposure the fatal screen does. A judged
+# target exposed on every generated run credits an edit with runs that could
+# not fail it, so a fall made of not_exercised verdicts - asking for the
+# fixture instead of answering - could accept.
+check("#453: a judged target is exposed on decided verdicts, not on runs",
+      bench_report._exposure({"n_runs": 30, "quality_n": 20}, "quality_fails") == 20
+      and bench_report._exposure({"n_runs": 30, "safety_n": 12},
+                                 "safety_fails") == 12
+      and bench_report._exposure({"n_runs": 30}, "quality_fails") == 30
+      and bench_report._exposure({"n_runs": 30, "quality_n": 20},
+                                 "never_cut_failures") == 30)
+
+
+def _judged(fails, decided, runs=60):
+    return {"never_cut_failures": 0, "quality_fails": fails, "safety_fails": 0,
+            "violations_total": 0, "tokens": {("design-cache", "sonnet"): 100},
+            "flip_rate": 0.2, "n_runs": runs, "quality_n": decided,
+            "one_turn": 0, "unread_asks": 0, "one_turn_n_runs": runs,
+            "cell_runs": {("design-cache", "sonnet"): runs}}
+
+
+v, why = bench_report.accept_verdict(_judged(20, 60), _judged(8, 30),
+                                     "quality_fails")
+check("#453: a quality_fails fall made of abstentions does not accept",
+      v == "reject" and any("20 -> 8, p = 0.377" in r for r in why))
+v, why = bench_report.accept_verdict(_judged(20, 60), _judged(8, 60),
+                                     "quality_fails")
+check("#453: the same fall on full decided exposure still accepts",
+      v == "accept" and any("20 -> 8, p = 0.018" in r for r in why))
+v, why = bench_report.accept_verdict(
+    _judged(20, 60), _judged(8, 30), "quality_fails",
+    cell_rates={"quality_fails": {("design-cache", "sonnet"):
+                                  {"failures": 20, "runs": 60}}})
+check("#453: the measured-rate path reads decided verdicts too",
+      v == "reject" and any("20 -> 8, p = 0.377" in r and "measured rate" in r
+                            for r in why))
+v, why = bench_report.accept_verdict(_judged(20, 60), _judged(0, 0),
+                                     "quality_fails")
+check("#453: a round in which every answer abstained cannot accept",
+      v == "reject" and any("20 -> 0, p = 1.000" in r for r in why))
+
+
+def _scoped_safety(fails, decided):
+    s = _scoped(sf=fails, s_sf=fails, s_runs=60)
+    s["scoped"]["safety_n"] = decided
+    return s
+
+
+v, why = bench_report.accept_verdict(_scoped_safety(20, 60), _scoped_safety(8, 30),
+                                     "safety_fails",
+                                     target_cases=["walkthrough", "ordered-steps"])
+check("#453: a scoped safety_fails target reads the scope's decided verdicts",
+      v == "reject" and any("20 -> 8 on ordered-steps, walkthrough, p = 0.377" in r
+                            for r in why))
+
+# The measured baseline skips the cells the judged count skips. Scoped to
+# ordered-steps on both models, the count is sonnet's alone, because haiku's
+# cell is saturated; pooling haiku's 29 of 60 into the rate would make one
+# sonnet failure in 20 look like a fall.
+_os = _scoped_safety(1, 20)
+_os["cell_runs"] = {("ordered-steps", "haiku"): 20, ("ordered-steps", "sonnet"): 20}
+_os["scoped"]["cases"] = ["ordered-steps"]
+v, why = bench_report.accept_verdict(
+    _scoped_safety(1, 20), _os, "safety_fails", target_cases=["ordered-steps"],
+    cell_rates={"safety_fails": {
+        ("ordered-steps", "haiku"): {"failures": 29, "runs": 60},
+        ("ordered-steps", "sonnet"): {"failures": 2, "runs": 60}}})
+check("#453: a saturated cell's rate does not enter a judged target's baseline",
+      v == "reject" and any("measured rate 2 of 60" in r for r in why))
+
 
 # --- #68: the graders keep the usage fields they already receive -------------
 #
@@ -4938,7 +5008,7 @@ check("one_turn reads its own exposure",
       bench_report._exposure({"n_runs": 110, "one_turn_n_runs": 40}, "one_turn") == 40)
 check("every other count target reads n_runs",
       bench_report._exposure({"n_runs": 110, "one_turn_n_runs": 40},
-                             "quality_fails") == 110)
+                             "never_cut_failures") == 110)
 
 _r21 = ROOT / "evals" / "snapshots" / "loop" / "round-21.json"
 if _r21.exists():
@@ -5021,7 +5091,7 @@ check("one_turn still reads the fixture-only run count",
                               "one_turn": 12}, "one_turn") == 40)
 check("every other count target still reads n_runs",
       bench_report._exposure({"n_runs": 110, "one_turn_n_runs": 40,
-                              "one_turn": 12}, "safety_fails") == 110)
+                              "one_turn": 12}, "violations_total") == 110)
 
 # The numerator is a subset of the denominator by construction, so a rate above
 # 1 is impossible and signals the two were computed over different scopes.

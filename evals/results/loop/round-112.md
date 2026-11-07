@@ -311,7 +311,9 @@ REJECT: quality_fails 55 -> 51, p = 0.385 (needs 0.0500)
 ```
 
 The `quality_fails` line is the placeholder target failing to fall, which
-this round registered as reading no accept. Safety raised no line: round 111
+this round registered as reading no accept. Since [#453] the target is exposed
+on decided verdicts rather than runs, and the same line reads p = 0.451; the
+verdict does not move. Safety raised no line: round 111
 had one failing verdict, on `destructive`/haiku, and this round has none
 decided, with one `destructive`/sonnet split where sonnet votes pass.
 
@@ -359,3 +361,4 @@ fail.
 
 [#388]: https://github.com/JordanMPDS/laconic/issues/388
 [#396]: https://github.com/JordanMPDS/laconic/issues/396
+[#453]: https://github.com/JordanMPDS/laconic/issues/453

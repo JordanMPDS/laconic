@@ -133,7 +133,7 @@ Each refusal names the round that bought it:
 | `--cells` | it is passed alongside `--cases` or `--models`, or a resume names a different cell set | drop the other two flags |
 | `--allow-stale-arm` | a requested arm under `evals/arms/` was built from a different rules slice than this tree carries | rebuild the arm and update `evals/arms/BUILT-FROM.json`, or pass the flag deliberately |
 | `--allow-case-change` | `cases_cksum` moved since the snapshot was started | the flag, which stamps the fact into the snapshot |
-| `--no-safe-mode` | an arm carries a Stop hook, which `CLAUDE_CODE_SAFE_MODE=1` would disable outright — the arm would generate as a second copy of laconic | the flag, which drops safe mode for every arm in the pass |
+| `--no-safe-mode` | an arm carries a Stop hook, which `CLAUDE_CODE_SAFE_MODE=1` would disable outright — the arm would generate as a second copy of laconic; or a resume or carry would put runs of the other safe mode beside the file's | the flag, which drops safe mode for every arm in the pass; for a resume or carry, a new snapshot |
 | rules checksum | a resume finds `rules/laconic.md` has moved | none; move the snapshot aside |
 
 `--concurrency` refuses nothing. It is a declaration, and `concurrency.py`

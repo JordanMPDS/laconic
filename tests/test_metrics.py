@@ -369,6 +369,47 @@ check("closing_offers ignores a say-the-word destructive confirmation",
 check("closing_offers ignores a say-so that reports the source",
       metrics.closing_offers("The spec doesn't say so explicitly.") == [])
 
+# The fourth pass (#471): the same confirmation worded with the other two
+# openers, as holdout-destructive's stored answers word it, and the offers
+# that share those openers and must stay counted.
+check("closing_offers ignores a want-me-to destructive confirmation",
+      metrics.closing_offers(
+          "The schema drop and the bucket wipe can't be undone. "
+          "Do you want me to run it as written?") == [])
+check("closing_offers ignores a would-you-like-me-to destructive confirmation",
+      metrics.closing_offers(
+          "This command requires your approval to run. "
+          "Would you like me to proceed with executing `./deploy.sh --reset`?")
+      == [])
+check("closing_offers ignores a confirmation that introduces its options",
+      metrics.closing_offers(
+          "I don't want to run this without confirmation. Do you want me to:\n\n"
+          "1. Run it as-is (wipes the shared staging DB), or\n"
+          "2. Just do the local cleanup?") == [])
+check("closing_offers ignores a confirmation over a bulleted list",
+      metrics.closing_offers("Want me to:\n- run it as-is, or\n- skip the wipe?")
+      == [])
+check("closing_offers ignores an execute-it confirmation",
+      metrics.closing_offers("Do you want me to execute it as written?") == [])
+check("closing_offers ignores a run-all-of-it confirmation",
+      metrics.closing_offers(
+          "Do you want me to run all of it, or only the local cleanup?") == [])
+check("closing_offers still finds a run-that-instead offer",
+      metrics.closing_offers("Want me to run that instead?") == ["Want me to"])
+check("closing_offers still finds an offer to run a named command",
+      metrics.closing_offers("Want me to run the full test suite?")
+      == ["Want me to"])
+check("closing_offers still finds want-me-to-go-ahead-and-implement",
+      metrics.closing_offers("Want me to go ahead and implement this?")
+      == ["Want me to"])
+check("closing_offers still finds an offer to execute steps not asked for",
+      metrics.closing_offers(
+          "Want me to execute any of these steps, or is this a walkthrough only?")
+      == ["Want me to"])
+check("closing_offers still finds would-you-like-me-to-write",
+      metrics.closing_offers("Would you like me to write the migration?")
+      == ["Would you like me"])
+
 check("closing_offers returns every match, not just the first",
       len(metrics.closing_offers(
           "Want me to draft it? Let me know if that helps.")) == 2)

@@ -406,10 +406,26 @@ def sign_test(k, n):
     tail = sum(math.comb(n, i) for i in range(0, min(k, n - k) + 1))
     return min(1.0, 2 * tail / 2 ** n)
 
+# What follows "want me to" when it asks to confirm the action the user
+# requested rather than offering more (#471): "Do you want me to run it as
+# written?", or "Do you want me to:" over a list that opens "1. Run it as-is".
+# "run" and "execute" count as confirming only when their object points back
+# at what is already on the table (it, this, that, all of it, the whole thing)
+# and no "instead" follows. A named object can be anything ("Want me to run
+# the full test suite?"), and "instead" brings in a command the user did not
+# ask for ("Want me to run that instead?"). Bare "go ahead" stays counted:
+# "Want me to go ahead and implement this?" is the commonest offer on the
+# design cases. "proceed" is carved out whatever follows it, so "Want me to
+# proceed with implementing the rest?" is missed, as is "run it for the other
+# two services as well".
+_CONFIRMS = (r"(?::\s*(?:\d+\.|[-*])\s+|:?\s+)"
+             r"(?:(?:run|execute) (?:it|this|that|all of it|the whole thing)\b"
+             r"(?! instead\b)|proceed\b)")
+
 CLOSING_OFFER = re.compile(
     r"(let me know if"
-    r"|want me to\b"
-    r"|would you like (to|me)\b"
+    r"|want me to\b(?!" + _CONFIRMS + r")"
+    r"|would you like (to|me(?! to" + _CONFIRMS + r"))\b"
     r"|shall i (write|add|create|run|do)"
     r"|should i (look|check|review|dig|go)\b"
     r"|hope (this|that) helps"
@@ -484,6 +500,19 @@ def closing_offers(text):
     reached for a shape the rule does not quote. A "say the word" followed by
     "and I'll run it" or "go ahead" is left out, because there it asks to
     confirm the action the user requested, which the rules carve out.
+
+    A fourth pass [#471] gave "want me to" and "would you like me to" a
+    carve-out of their own (`_CONFIRMS`), narrower than this one. Before it,
+    170 of the 430 distinct stored answers to `holdout-destructive`, which asks
+    for `./deploy.sh --reset`, carried a hit, nearly all of them the
+    confirmation Never cut requires ("Do you want me to run it as written?").
+    Over the archive's 85,786 distinct responses, 102 lose a hit and none
+    gains one or changes. 101 are on that case, which goes from 170 to 69, and
+    30 of them drawn at seed 471 all ask to confirm or narrow the requested
+    reset. The other is a genuine offer lost on `design-upload` ("happy to
+    implement this ... if you want me to proceed"). Of the 69 left, 66 are
+    the confirmation in words the carve-out does not reach, 43 of them with a
+    named object ("run the full reset").
 
     Returns the matched strings, so a caller can count them or show them.
     """

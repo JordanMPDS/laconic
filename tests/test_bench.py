@@ -3218,10 +3218,10 @@ def _scoped_tok(tokens, stdev=None, cases=SCOPE3, **kw):
 
 # Round 01's real scoped cells: median 856, all-cells floor 120.0.
 base6 = _scoped_tok(_tok6(442, 439, 653, 1059, 1163, 3666), stdev=STDEV3)
+swept6 = _scoped_tok(_tok6(380, 400, 500, 700, 900, 1700))
 
-v, why = bench_report.accept_verdict(
-    base6, _scoped_tok(_tok6(380, 400, 500, 700, 900, 1700)),
-    "output_tokens", target_cases=SCOPE3)
+v, why = bench_report.accept_verdict(base6, swept6, "output_tokens",
+                                     target_cases=SCOPE3)
 check("a 6-cell sweep past the scoped floor is accepted", v == "accept")
 check("the scoped token line names its floor",
       any("scoped floor 120.0" in r for r in why))
@@ -3471,6 +3471,9 @@ def _turns(cells, **kw):
 # The #49 shape: the same answers, reached in fewer tool calls.
 busy = _turns({c: ([8] * 6, [1] * 4) for c in TEN_CELLS(0)})
 lean = _turns({c: ([3] * 6, [1] * 4) for c in TEN_CELLS(0)})
+# Six cells, for the --looks checks: a sweep of six is p = 0.031.
+busy6 = _turns({c: ([8] * 6, [1] * 4) for c in "abcdef"})
+lean6 = _turns({c: ([3] * 6, [1] * 4) for c in "abcdef"})
 v, why = bench_report.accept_verdict(busy, lean, "turns")
 check("a fall in grounded turns past the floor is accepted (#49)", v == "accept")
 check("the accepted turn line reports the shift and the cell count",
@@ -7812,6 +7815,28 @@ _, why = bench_report.accept_verdict(worse, _summary(tokens=TEN_CELLS(100)),
                                      "output_tokens", looks=2)
 check("a two-look round names the boundary it was scored at",
       any("Bonferroni alpha 0.0250" in r for r in why))
+
+# The boundary it names has to be the one every target branch tested (#452).
+# Each fixture lands its sign test between alpha / 2 and alpha, so one look
+# accepts and two reject. 8 of 9 cells is p = 0.039; a sweep of six is 0.031.
+nine_prev = _summary(tokens={(c, "sonnet"): 500 for c in "abcdefghi"})
+nine_cur = _summary(tokens={**{(c, "sonnet"): 100 for c in "abcdefgh"},
+                            ("i", "sonnet"): 600})
+looks_cases = [
+    ("round-wide output_tokens", nine_prev, nine_cur, "output_tokens", {}),
+    ("scoped output_tokens", base6, swept6, "output_tokens",
+     {"target_cases": SCOPE3}),
+    ("turns", busy6, lean6, "turns", {}),
+]
+for name, lp, lc, tgt, kw in looks_cases:
+    v1, _ = bench_report.accept_verdict(lp, lc, tgt, looks=1, **kw)
+    v2, why2 = bench_report.accept_verdict(lp, lc, tgt, looks=2, **kw)
+    check("%s accepts at one look with p between alpha / 2 and alpha" % name,
+          v1 == "accept")
+    check("%s is tested at the corrected alpha it reports (#452)" % name,
+          v2 == "reject")
+    check("%s's rejection names the corrected boundary it missed" % name,
+          any("REJECT" in r and "needs 0.0250" in r for r in why2))
 
 # Multiplicity across the campaign, which is where the spec says it lives.
 check("the campaign line reports expected false accepts",

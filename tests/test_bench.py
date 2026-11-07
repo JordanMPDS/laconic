@@ -1147,6 +1147,29 @@ check("panel: an unparseable reply is not a vote",
 check("panel: every member's vote is kept on the record",
       set(_pv({"sonnet": _vote("pass"), "opus": _vote("pass"), "kimi": _vote("fail")})["panel"])
       == set(bench_judge.PANEL))
+# #446: what makes a vote kept from an earlier pass sound. Two agreeing votes
+# return the same record whatever the third is, so a decision two members
+# reached is the panel's, and only a record they left undecided needs the
+# third. If the rule ever changes, this fails before the retry goes wrong.
+_third = [None] + [_vote(x) for x in bench_judge.VERDICTS]
+check("panel: no third vote overturns two agreeing ones (#446)",
+      all(len({_pv(dict(zip(bench_judge.PANEL, order)))["verdict"]
+               for t in _third
+               for order in ((_vote(a), _vote(a), t), (_vote(a), t, _vote(a)),
+                             (t, _vote(a), _vote(a)))}) == 1
+          for a in bench_judge.VERDICTS))
+check("panel: each member's quote is kept beside its vote (#446)",
+      _pv({"sonnet": _vote("pass"), "opus": _vote("fail"), "kimi": None})
+      ["panel"]["opus"]["quote"] == "q-fail")
+_held = bench_judge.held_votes(_short)
+check("panel: a retry holds the votes already cast and nothing else (#446)",
+      set(_held) == {"sonnet", "opus"}
+      and _held["opus"] == _vote("fail")
+      and _pv(dict(_held, kimi=_vote("pass")))["verdict"] == "pass")
+check("panel: a pre-#446 vote without a quote is still held",
+      bench_judge.held_votes({"panel": {"sonnet": {"verdict": "pass", "reason": "r"},
+                                        "kimi": {"verdict": None, "reason": "x"}}})
+      == {"sonnet": {"verdict": "pass", "quote": "", "reason": "r"}})
 check("panel: kimi is the Kimi Code subscription alias, not the API model",
       bench_judge.KIMI_MODEL.startswith("kimi-code/"))
 check("setup: the panel is the default and a single judge keeps its bare name",
@@ -4070,6 +4093,90 @@ with tempfile.TemporaryDirectory() as td_jobs:
 
 check("judge: --jobs defaults to 6, matching prefer.py",
       "default=6" in (ROOT / "evals" / "bench" / "judge.py").read_text().replace(" ", ""))
+
+# --- #446: the panel path end to end, and a retry that keeps the votes cast.
+# Three runs: sonnet and opus agree on one and split on two. kimi is down for
+# the first pass and back for the second, except on the run it never grades.
+# Re-calling sonnet and opus on a split is a re-roll until they agree, which is
+# a different instrument from kimi breaking the tie, so the second pass must
+# call kimi alone and only where a vote is missing.
+with tempfile.TemporaryDirectory() as td_pan:
+    _pd = Path(td_pan)
+    _pclaude = _pd / "claude-stub.sh"
+    _pclaude.write_text(
+        "#!/usr/bin/env bash\n"
+        'echo "$3" >> "%s"\n'
+        'in=$(cat)\n'
+        'v=pass\n'
+        'if [ "$3" = opus ] && [[ "$in" != *answer-agree* ]]; then v=fail; fi\n'
+        "printf '%%s\\n' '{\"type\":\"system\",\"subtype\":\"init\",\"tools\":[]}'\n"
+        "printf '{\"type\":\"result\",\"is_error\":false,\"result\":\"{\\\\\"verdict\\\\\":"
+        "\\\\\"%%s\\\\\",\\\\\"quote\\\\\":\\\\\"q\\\\\",\\\\\"reason\\\\\":\\\\\"r\\\\\"}\","
+        "\"num_turns\":1,\"total_cost_usd\":0.001,\"duration_ms\":1,\"usage\":"
+        "{\"input_tokens\":1,\"output_tokens\":1,\"cache_creation_input_tokens\":0,"
+        "\"cache_read_input_tokens\":0}}\\n' \"$v\"\n" % (_pd / "claude-calls"))
+    _pclaude.chmod(0o755)
+    (_pd / "kimi").write_text(
+        "#!/usr/bin/env bash\n"
+        'echo call >> "%s"\n'
+        'if [ ! -e "%s" ] || [[ "$2" == *answer-stuck* ]]; then\n'
+        '  echo "usage cap reached" >&2; exit 3\nfi\n'
+        "printf '%%s\\n' '%s' '%s'\n"
+        % (_pd / "kimi-calls", _pd / "kimi-up", _KM,
+           _KA.replace("pass", "fail")))
+    (_pd / "kimi").chmod(0o755)
+    _psnap = _pd / "results.json"
+    _ps = bench_run.new_snapshot(reps=1, models=["haiku"], level="full",
+                                 rules_cksum="1", arms=bench_run.ARMS)
+    for _rep, _txt in enumerate(("answer-agree", "answer-split", "answer-stuck")):
+        _ps["runs"].append({"case": "floor", "arm": "baseline", "model": "haiku",
+                            "rep": _rep, "ok": True, "text": _txt})
+    bench_run.save_snapshot(_psnap, _ps)
+    _pout = _pd / "judgments.json"
+    _penv = dict(os.environ, PATH=td_pan + os.pathsep + os.environ["PATH"])
+    _pcmd = [sys.executable, str(ROOT / "evals" / "bench" / "judge.py"),
+             "--claude-bin", str(_pclaude), "--jobs", "1", "--judge-all",
+             "--results", str(_psnap), "--out", str(_pout)]
+
+    def _pcalls(name):
+        p = _pd / name
+        return p.read_text().split() if p.exists() else []
+
+    _pp1 = subprocess.run(_pcmd, capture_output=True, text=True, env=_penv)
+    _pj1 = {j["rep"]: j for j in json.loads(_pout.read_text())["judgments"]}
+    check("panel pass: the file is stamped as the panel's",
+          json.loads(_pout.read_text())["metadata"]["judge_model"]
+          == "panel:sonnet,opus,kimi")
+    check("panel pass: every record holds a vote entry for each member",
+          all(set(j["panel"]) == set(bench_judge.PANEL) for j in _pj1.values()))
+    check("panel pass: a sonnet-opus agreement decides with kimi down",
+          _pj1[0]["verdict"] == "pass" and not bench_judge._is_infra_failure(_pj1[0]))
+    check("panel pass: a split with kimi down is left for the resume",
+          bench_judge._is_infra_failure(_pj1[1]) and bench_judge._is_infra_failure(_pj1[2]))
+    check("panel pass: a failed kimi attempt says why on stderr (#446)",
+          "exit 3" in _pp1.stderr and "usage cap reached" in _pp1.stderr)
+    _pc1 = len(_pcalls("claude-calls"))
+
+    (_pd / "kimi-up").touch()
+    _pp2 = subprocess.run(_pcmd, capture_output=True, text=True, env=_penv)
+    _pj2 = {j["rep"]: j for j in json.loads(_pout.read_text())["judgments"]}
+    check("panel resume: sonnet and opus are not re-rolled (#446)",
+          len(_pcalls("claude-calls")) == _pc1)
+    check("panel resume: the budget counts only the missing votes",
+          "2 judgment(s) to make by panel:sonnet,opus,kimi, 2 call(s)" in _pp2.stdout)
+    check("panel resume: kimi breaks the tie the kept votes left",
+          _pj2[1]["verdict"] == "fail"
+          and _pj2[1]["panel"]["sonnet"]["verdict"] == "pass"
+          and _pj2[1]["panel"]["kimi"]["verdict"] == "fail")
+    check("panel resume: the kept votes' cost stays on the record",
+          _pj2[1]["usage"]["output_tokens"] == 2)
+    check("panel resume: a decided record is not graded again",
+          _pj2[0] == _pj1[0])
+    check("panel resume: a member still down leaves the split open, votes kept",
+          bench_judge._is_infra_failure(_pj2[2])
+          and _pj2[2]["panel"]["opus"]["verdict"] == "fail")
+    check("panel resume: one record per run, none appended",
+          len(json.loads(_pout.read_text())["judgments"]) == 3)
 
 # --- #80: provenance is stamped per run, and the report reads it off the runs.
 # round-12.json records round-01-n10-v2.json's CLI and date because the

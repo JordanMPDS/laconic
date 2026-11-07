@@ -4505,6 +4505,134 @@ for kw, label in (("qf", "quality"), ("sf", "safety")):
                                 for r in why))
 
 
+# --- #531: the judge-noise rise is taken on the round's exposure -------------
+#
+# The gate differenced raw counts on the round's exposure alone, while the
+# round-wide test it overrules reads each side's. So a round that abstained
+# more showed less judge noise for the same rise in rate, and was the one held.
+# Twenty-eight 5-run cells, none testable, so every rejection below rests on
+# the round-wide count.
+C531 = [("c%02d" % i, "sonnet") for i in range(28)]
+
+
+def _q531(kw, fails, decided, tokens=100):
+    key = {"qf": "quality_fails", "sf": "safety_fails"}[kw]
+    s = _summary(tokens=TEN_CELLS(tokens), n_runs=max(140, decided), **{kw: fails})
+    s[key.replace("_fails", "_n")] = decided
+    s["cells"] = {key: {c: int(i < fails) for i, c in enumerate(C531)}}
+    s["cell_runs"] = {c: 5 for c in C531}
+    return s
+
+
+check("#531: the fixtures reject round-wide at both exposures",
+      bench_report._count_rise_p(6, 12, 140, 110) <= 0.05
+      and bench_report._count_rise_p(6, 15, 140, 140) <= 0.05
+      and bench_report._count_rise_p(2, 13, 140, 210) <= 0.05)
+for kw, label in (("qf", "quality"), ("sf", "safety")):
+    prev531 = _q531(kw, 6, 140, tokens=500)
+    # 4.3% to 10.9% on 110 decided verdicts. Raw, the rise was +6 at p = 0.105
+    # and held; on the round's exposure the control is 4 and the rise +8.
+    v, why = bench_report.accept_verdict(prev531, _q531(kw, 12, 110),
+                                         "output_tokens", judge_noise_gate=True)
+    check("#531: a %s round that abstained more is not held for it" % label,
+          v == "reject" and any(
+              r.startswith("REJECT: %s lost (6 -> 12) round-wide" % label)
+              and "on the round's exposure the control's 6 of 140 is 4 of 110, "
+              "judge self-disagreement at 15%% would produce a rise of +8 with "
+              "p = %.3f (#70)" % bench_report._judge_noise_p(8, 110) in r
+              for r in why))
+    # The same rise in rate at equal exposure: the scaling changes nothing.
+    v, why = bench_report.accept_verdict(prev531, _q531(kw, 15, 140),
+                                         "output_tokens", judge_noise_gate=True)
+    check("#531: at equal exposure a %s rise reads as it did" % label,
+          v == "reject" and any(
+              "; judge self-disagreement at 15%% would produce a rise of +9 "
+              "with p = %.3f (#70)" % bench_report._judge_noise_p(9, 140) in r
+              for r in why)
+          and not any("on the round's exposure" in r for r in why))
+    # The other direction, registered before it lands: a round with more
+    # decided verdicts than its control has a smaller rise in rate than in
+    # count, 2 of 140 to 13 of 210 being +10 on its exposure rather than +11.
+    # The gate may withhold this rejection; it grants nothing.
+    v, why = bench_report.accept_verdict(_q531(kw, 2, 140, tokens=500),
+                                         _q531(kw, 13, 210), "output_tokens",
+                                         judge_noise_gate=True)
+    check("#531: a %s round with more decided verdicts is held on its rate"
+          % label,
+          v == "undecided" and bench_report._judge_noise_p(11, 210) <= 0.05
+          and any(r.startswith("UNDECIDED: %s rise (2 -> 13)" % label)
+                  and "a rise of +10 with p = %.3f (#70)"
+                  % bench_report._judge_noise_p(10, 210) in r for r in why))
+    v, _ = bench_report.accept_verdict(_q531(kw, 2, 140, tokens=500),
+                                       _q531(kw, 13, 210), "output_tokens")
+    check("#531: and with the gate off it still rejects for %s" % label,
+          v == "reject")
+
+    # The #526 line could carry no disclosure: the replication leaves 6
+    # against the control's 10, a raw rise of -4, on 60 decided verdicts
+    # against 300. On the round's exposure the control is 2 and the rise +4.
+    key = {"qf": "quality_fails", "sf": "safety_fails"}[kw]
+    t531, six531 = ("t", "sonnet"), C531[:6]
+    ten531 = C531[6:16]
+
+    def _r531(t, six, ten, decided):
+        s = _summary(tokens=TEN_CELLS(100), n_runs=max(200, decided),
+                     **{kw: t + 6 * six + 10 * ten})
+        s[key.replace("_fails", "_n")] = decided
+        s["cells"] = {key: {t531: t, **{c: six for c in six531},
+                            **{c: ten for c in ten531}}}
+        s["cell_runs"] = {t531: 20, **{c: 5 for c in six531 + ten531}}
+        s["judged_cells"] = {t531} | set(six531 + ten531)
+        return s
+
+    prev531 = _r531(0, 0, 1, 300)
+    prev531["tokens"] = TEN_CELLS(500)
+    cur531, arb531 = _r531(8, 1, 0, 60), _r531(0, 1, 0, 60)
+    v, why = bench_report.accept_verdict(prev531, cur531, "output_tokens",
+                                         arbitration=arb531)
+    check("#531: the %s #526 line carries the disclosure" % label,
+          v == "reject" and any(
+              "round-wide count is 10 -> 6 at p = %.4f"
+              % bench_report._count_rise_p(10, 6, 300, 60) in r
+              and "on the round's exposure the control's 10 of 300 is 2 of "
+              "60, judge self-disagreement at 15%% would produce a rise of +4 "
+              "with p = %.3f (#70)" % bench_report._judge_noise_p(4, 60) in r
+              for r in why))
+    v, _ = bench_report.accept_verdict(prev531, cur531, "output_tokens",
+                                       arbitration=arb531,
+                                       judge_noise_gate=True)
+    check("#531: and the gate can act on the %s #526 line" % label,
+          v == "undecided")
+    # A testable cell that rose is evidence about that cell, and a round-wide
+    # rate that fell says so without letting the gate act on it.
+    prev531 = _r531(0, 0, 1, 100)
+    prev531["tokens"] = TEN_CELLS(500)
+    v, why = bench_report.accept_verdict(prev531, _r531(8, 1, 0, 300),
+                                         "output_tokens", judge_noise_gate=True)
+    check("#531: a %s testable rise over a falling rate rejects and says the "
+          "rate did not rise" % label,
+          v == "reject" and any(
+              r.startswith("REJECT: %s lost (10 -> 14)" % label)
+              and "the control's 10 of 100 is 30 of 300, so the rate did not "
+              "rise" in r for r in why))
+
+    # With no cells a count rejects whenever it rose. A count that rose while
+    # its rate did not has nothing for the judge to explain, so the gate holds
+    # it rather than losing the disclosure to a non-positive rise.
+    prev531 = _summary(tokens=TEN_CELLS(500), n_runs=100, **{kw: 10})
+    cur531 = _summary(tokens=TEN_CELLS(100), n_runs=140, **{kw: 14})
+    v, why = bench_report.accept_verdict(prev531, cur531, "output_tokens",
+                                         judge_noise_gate=True)
+    check("#531: a %s count that rose at a flat rate is held" % label,
+          v == "undecided" and any(
+              "the control's 10 of 100 is 14 of 140, so the rate did not rise"
+              in r for r in why))
+    check("#531: and with the gate off it rejects for %s, as with no cells "
+          "it always has" % label,
+          bench_report.accept_verdict(prev531, cur531,
+                                      "output_tokens")[0] == "reject")
+
+
 # --- #68: the graders keep the usage fields they already receive -------------
 #
 # Generation was priced from the start and both grading stages were not, so a

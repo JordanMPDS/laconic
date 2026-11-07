@@ -1,9 +1,12 @@
 ﻿#Requires -Version 5.1
-# laconic — optional statusline badge (native Windows). The SessionStart hook
-# installs and refreshes a copy of this file at a stable path, so point
-# settings.json there rather than into the plugin, whose path carries a version:
+# laconic — optional statusline badge (native Windows). hooks/laconic.ps1
+# installs and refreshes a copy of this file at a stable path. Claude Code never
+# runs that port (#423): it runs the bash hook and the status line command
+# through Git Bash, so wire the bash badge as docs/configuration.md shows. Where
+# the port did install this copy, point settings.json at it in the same bash
+# form, since Git Bash passes a %USERPROFILE% path through literally:
 #   "statusLine": { "type": "command",
-#                   "command": "powershell -NoProfile -ExecutionPolicy Bypass -File \"%USERPROFILE%\\.claude\\laconic-statusline.ps1\"" }
+#                   "command": "powershell -NoProfile -ExecutionPolicy Bypass -File \"${CLAUDE_CONFIG_DIR:-$HOME/.claude}/laconic-statusline.ps1\"" }
 # Do not reference it through ${CLAUDE_PLUGIN_ROOT}: Claude Code resolves that
 # variable for plugin hooks only, and a statusLine command containing it raises
 # an error that is logged and swallowed, so the badge silently renders nothing.

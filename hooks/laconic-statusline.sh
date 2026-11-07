@@ -3,11 +3,13 @@
 # refreshes a copy of this file at a stable path, so point settings.json there
 # rather than into the plugin, whose path carries a version:
 #   "statusLine": { "type": "command",
-#                   "command": "bash \"$HOME/.claude/laconic-statusline.sh\"" }
+#                   "command": "bash \"${CLAUDE_CONFIG_DIR:-$HOME/.claude}/laconic-statusline.sh\"" }
 # Do not reference it through ${CLAUDE_PLUGIN_ROOT}: Claude Code resolves that
 # variable for plugin hooks only, and a statusLine command containing it raises
 # an error that is logged and swallowed, so the badge silently renders nothing.
 GLOBAL_FLAG="${CLAUDE_CONFIG_DIR:-$HOME/.claude}/.laconic-level"
+# Claude Code exports CLAUDE_PROJECT_DIR to a status line command as it does to
+# hooks (seen on CLI 2.1.319), so this resolves the project laconic.sh does.
 PROJECT_FLAG="${CLAUDE_PROJECT_DIR:-$PWD}/.claude/.laconic-level"
 
 # Same resolution and hardening as the hook: project flag first, never

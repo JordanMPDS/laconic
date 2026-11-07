@@ -188,12 +188,44 @@ statusline_cmd=$(grep '"command": "bash' "$STATUSLINE_DOC")
 if [ -z "$statusline_cmd" ]; then
   fail "docs/configuration.md has no statusline command line to check"
 else
-  case "$statusline_cmd" in
-    *'$HOME/.claude/laconic-statusline.sh'*)
-      ok "docs/configuration.md points at the path the hook installs to" ;;
-    *)
-      fail "docs/configuration.md statusline path does not match the hook's install target: $statusline_cmd" ;;
-  esac
+  # Run the documented line, as the shell Claude Code hands it to would, against
+  # the copy the hook installed, with CLAUDE_CONFIG_DIR set and unset. A glob on
+  # the text passed the old $HOME/.claude line, which found nothing whenever the
+  # variable moved the hook's install directory (#432).
+  cmd_json=$(printf '%s' "${statusline_cmd#*\"command\": }" | sed 's/[[:space:]]*$//')
+  cmd=$(printf '%s' "$cmd_json" | sed -e 's/^"//' -e 's/"$//' -e 's/\\"/"/g')
+  SL_TMP=$(mktemp -d)
+  mkdir -p "$SL_TMP/proj"
+  sl_env() { # <config dir, empty for unset> <command...>
+    local cfg=$1; shift
+    if [ -n "$cfg" ]; then
+      env HOME="$SL_HOME" CLAUDE_PROJECT_DIR="$SL_TMP/proj" CLAUDE_CONFIG_DIR="$cfg" "$@"
+    else
+      env -u CLAUDE_CONFIG_DIR HOME="$SL_HOME" CLAUDE_PROJECT_DIR="$SL_TMP/proj" "$@"
+    fi
+  }
+  for label in set unset; do
+    SL_HOME="$SL_TMP/home-$label"
+    cfg=""; [ "$label" = set ] && cfg="$SL_TMP/cfg"
+    dir=${cfg:-$SL_HOME/.claude}
+    mkdir -p "$dir"
+    printf 'full' > "$dir/.laconic-level"
+    sl_env "$cfg" bash "$ROOT/hooks/laconic.sh" start </dev/null >/dev/null 2>&1
+    case "$(sl_env "$cfg" sh -c "$cmd" </dev/null 2>/dev/null)" in
+      *'[LACONIC]'*)
+        ok "the documented statusline command renders the installed badge (CLAUDE_CONFIG_DIR $label)" ;;
+      *)
+        fail "the documented statusline command finds no badge where the hook installed it (CLAUDE_CONFIG_DIR $label): $cmd" ;;
+    esac
+  done
+  rm -rf "$SL_TMP"
+  # The badge script's header repeats the line for whoever reads the copy in
+  # their configuration directory; it must not drift from the doc.
+  if grep -qF -- "\"command\": $cmd_json" "$ROOT/hooks/laconic-statusline.sh"; then
+    ok "hooks/laconic-statusline.sh repeats the documented statusline command"
+  else
+    fail "hooks/laconic-statusline.sh header differs from the documented statusline command: $cmd_json"
+  fi
   # A versioned install path breaks on the next plugin update, and
   # ${CLAUDE_PLUGIN_ROOT} is rejected outright for statusLine commands. Both
   # fail silently, which is why they are gated rather than left to review.

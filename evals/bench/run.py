@@ -715,6 +715,17 @@ def usable(runs):
     return [r for r in runs if r.get("ok")]
 
 
+def delivery_modes(runs):
+    """The delivery modes a file's multi-turn runs were generated under.
+
+    Read from the per-run stamp every multi-turn run has carried since #192,
+    not from metadata.turn_delivery, which is a declaration: a pass killed
+    before its first multi-turn run finished declared a mode and holds no run
+    generated under it (#441).
+    """
+    return sorted({r["turn_delivery"] for r in runs if r.get("turn_delivery")})
+
+
 def dedupe(runs):
     """One record per (arm, case, model, rep), a successful one winning.
 
@@ -1557,16 +1568,22 @@ def main():
         # then report a changed scope as an edited case file. That is the
         # conflation #285 is about, and with the design declared the older
         # guard no longer has to carry both meanings.
-        # rules_cksum covers the laconic slice only, so an edit to the
-        # vendored ponytail text between a pass and its resume would otherwise
-        # go unseen. The text the file was started with is in its arms table.
-        if "laconic-ponytail" in arm_names:
-            stored_pt = (snap.get("arms") or {}).get(
-                "laconic-ponytail", {}).get("system_prompt")
-            if stored_pt is not None and stored_pt != arms["laconic-ponytail"]:
-                sys.exit("evals/arms/vendor/ponytail-full.md changed since this "
-                         "snapshot was started; resuming would generate the "
-                         "laconic-ponytail arm from two different texts")
+        # rules_cksum covers the laconic slice only, so an edit to an arm file,
+        # an in-code control or the vendored ponytail text between a pass and
+        # its resume would otherwise go unseen; stale_arms compares base
+        # checksums, not the arm's bytes. The text the file was started with
+        # is in its arms table, so every requested arm is compared (#441). An
+        # arm the table lacks predates it and is skipped, as before.
+        stored_arms = snap.get("arms") or {}
+        changed = [a for a in arm_names if a in stored_arms
+                   and stored_arms[a].get("system_prompt") != arms[a]]
+        if changed:
+            sys.exit("the text of %s changed since this snapshot was started; "
+                     "resuming would generate the same arm from two different "
+                     "texts. Restore the text, or generate into a new snapshot"
+                     % ", ".join("%s (%s)" % (a, stored_arms[a].get("source")
+                                              or "evals/bench/run.py")
+                                 for a in changed))
         stored_cells = snap["metadata"].get("cells")
         if stored_cells is None:
             print("note: this snapshot predates the cell declaration (#285), so "
@@ -1690,7 +1707,17 @@ def main():
     # Describes the file rather than one invocation, like the concurrency
     # declaration above it: once a snapshot holds multi-turn runs it holds the
     # treatment they were generated under, and rounds 33 to 36 are the cost of
-    # leaving a reader to assume.
+    # leaving a reader to assume. So a pass that would put a second mode beside
+    # the first is refused rather than relabelling the file, carried runs
+    # included (#441).
+    held = delivery_modes(snap["runs"])
+    if delivery and held and held != [delivery]:
+        sys.exit("this snapshot holds multi-turn runs generated under "
+                 "--turn-delivery %s, generated here or carried with "
+                 "--carry-arms-from, and this pass would generate more under "
+                 "%s. One file would hold two treatments under one label. Name "
+                 "the mode the file holds, or generate into a new snapshot"
+                 % ("/".join(held), delivery))
     if delivery:
         meta["turn_delivery"] = delivery
     print("budget: %d call(s) to make, of %d cell(s) in this pass (%d already "

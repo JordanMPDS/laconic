@@ -384,7 +384,9 @@ with tempfile.TemporaryDirectory() as td_pt:
     _pt_out.write_text(json.dumps(_pt_snap))
     _pt2 = subprocess.run(_pt_cmd, capture_output=True, text=True)
     check("subprocess: a resume refuses a changed ponytail text",
-          _pt2.returncode != 0 and "ponytail-full.md changed" in _pt2.stderr)
+          _pt2.returncode != 0 and "laconic-ponytail" in _pt2.stderr
+          and "ponytail-full.md" in _pt2.stderr
+          and "changed since" in _pt2.stderr)
 
 # #283's second enforcement arm. It exists to answer whether the block has to
 # quote the rule, so the one thing that must hold is that the two arms differ
@@ -6665,6 +6667,56 @@ with tempfile.TemporaryDirectory() as td_merge:
     check("and is reported as the gap it is",
           "4 usable run(s) against 8 for the 2 declared cell(s)" in proc4.stdout)
 
+    # #441: what the merged file says about the round comes from every shard,
+    # not from whichever was named first.
+    def _stamped(model, delivery=None, **meta):
+        s = _shard(model, ["floor"])
+        for r in s["runs"]:
+            r["claude_cli_version"] = "2.1.%s" % model
+            if delivery:
+                r["turn_delivery"] = delivery
+        s["metadata"].update(meta)
+        return s
+
+    pl = _write("pl.json", _stamped("haiku", "plugin", turn_delivery="plugin"))
+    rp = _write("rp.json", _stamped("sonnet", "repeat", turn_delivery="repeat"))
+    proc_mix = _merge_cli([pl, rp, "--out", str(td / "x.json")])
+    check("merge refuses shards holding multi-turn runs under two delivery "
+          "modes, naming which shard holds which",
+          proc_mix.returncode != 0
+          and "pl.json: plugin" in proc_mix.stderr
+          and "rp.json: repeat" in proc_mix.stderr)
+
+    # A shard with no multi-turn work left declares nothing (round 107's and
+    # 115's prechecks), and named first it used to label the merged file.
+    single = _write("single.json", _stamped(
+        "sonnet", cli_versions=["2.1.sonnet"], cli_versions_per_run=True,
+        rep_offset=0))
+    out5 = str(td / "merged5.json")
+    proc5 = _merge_cli([single, pl, "--out", out5, "--cases-dir",
+                        str(ROOT / "evals" / "cases")])
+    m5 = (bench_run.load_snapshot(out5) or {}).get("metadata", {})
+    check("merge takes the delivery mode from the runs that carry one",
+          proc5.returncode == 0 and m5.get("turn_delivery") == "plugin")
+    check("merge recomputes cli_versions from every shard's runs",
+          m5.get("cli_versions") == ["2.1.haiku", "2.1.sonnet"])
+    check("merge calls the file per-run stamped only when every shard is",
+          m5.get("cli_versions_per_run") is False)
+    check("each shard entry records its own delivery, safe mode and rep offset",
+          [(s.get("turn_delivery"), s.get("safe_mode"), s.get("rep_offset"))
+           for s in m5.get("shards", [])]
+          == [(None, None, 0), ("plugin", None, None)])
+
+    unsafe = _write("unsafe.json", _stamped("sonnet", safe_mode=False))
+    proc_safe = _merge_cli([a, unsafe, "--out", str(td / "x.json")])
+    check("merge refuses shards that disagree on safe mode, reading an absent "
+          "field as the safe mode every snapshot below round 61 ran under",
+          proc_safe.returncode != 0 and "safe_mode" in proc_safe.stderr)
+    safe = _write("safe.json", _stamped("sonnet", safe_mode=True))
+    check("and merges an old shard with one that records safe mode",
+          _merge_cli([a, safe, "--out", str(td / "y.json"), "--cases-dir",
+                      str(ROOT / "evals" / "cases")]).returncode == 0)
+
 
 # The reminder is a second copy of a string that lives in hooks/laconic.sh, and
 # a copy that drifts is the failure this repo's sync convention exists to stop.
@@ -6880,6 +6932,68 @@ with tempfile.TemporaryDirectory() as td_rem:
           _r4.returncode != 0 and "before #439" in _r4.stderr
           and "terse-control" in _r4.stderr
           and not (Path(td_rem) / "carry.json").exists())
+
+
+# #441: the delivery mode is a treatment, so a file holds its multi-turn runs
+# under one. Decided on the per-run stamps every multi-turn run has carried
+# since #192 rather than on the declaration, which a resume used to overwrite.
+check("delivery_modes reads the per-run stamps and ignores single-turn runs",
+      bench_run.delivery_modes([{"turn_delivery": "repeat"}, {},
+                                {"turn_delivery": "plugin"},
+                                {"turn_delivery": "plugin"}])
+      == ["plugin", "repeat"]
+      and bench_run.delivery_modes([{}, {"ok": False}]) == [])
+
+
+def _run_delivery(td, mode, *extra, snap="gen.json"):
+    stub = Path(td) / "claude"
+    stub.write_text(_PROMPT_STUB)
+    stub.chmod(0o755)
+    return subprocess.run(
+        [sys.executable, str(ROOT / "evals" / "bench" / "run.py"),
+         "--claude-bin", str(stub), "--models", "haiku", "--cases",
+         "recall-index", "--turn-delivery", mode, "--reps", "1",
+         "--snapshot", str(Path(td) / snap)] + list(extra),
+        capture_output=True, text=True,
+        env=dict(os.environ, PFILE=str(Path(td) / "prompts")))
+
+
+with tempfile.TemporaryDirectory() as td_del:
+    _d1 = _run_delivery(td_del, "plugin", "--arms", "laconic,terse-control")
+    _dp = Path(td_del) / "gen.json"
+    _d2 = _run_delivery(td_del, "repeat", "--arms", "laconic",
+                        "--rep-offset", "1")
+    check("subprocess: a resume under the other delivery mode is refused "
+          "before it spends a call (#441)",
+          _d1.returncode == 0 and _d2.returncode != 0
+          and "plugin" in _d2.stderr and "repeat" in _d2.stderr
+          and "budget:" not in _d2.stdout
+          and len(json.loads(_dp.read_text())["runs"]) == 2)
+    _d3 = _run_delivery(td_del, "plugin", "--arms", "laconic",
+                        "--rep-offset", "1")
+    check("subprocess: a resume under the same mode extends the file",
+          _d3.returncode == 0
+          and json.loads(_dp.read_text())["metadata"]["turn_delivery"]
+          == "plugin")
+    _d4 = _run_delivery(td_del, "repeat", "--arms", "laconic",
+                        "--carry-arms-from", str(_dp), snap="carry.json")
+    check("subprocess: a control carried from the other mode is refused, "
+          "since the file would compare two treatments under one label",
+          _d4.returncode != 0 and "plugin" in _d4.stderr
+          and not (Path(td_del) / "carry.json").exists())
+
+    # Every arm's text, not only ponytail's: 14 of them carry text that
+    # rules_cksum does not cover.
+    _ds = json.loads(_dp.read_text())
+    _ds["arms"]["terse-control"]["system_prompt"] = "Answer briefly."
+    _dp.write_text(json.dumps(_ds))
+    _d5 = _run_delivery(td_del, "plugin", "--arms", "laconic,terse-control")
+    check("subprocess: a resume refuses a changed control text (#441)",
+          _d5.returncode != 0 and "terse-control" in _d5.stderr
+          and "changed since" in _d5.stderr)
+    _d6 = _run_delivery(td_del, "plugin", "--arms", "laconic")
+    check("subprocess: an arm the pass does not ask for is not compared",
+          _d6.returncode == 0)
 
 
 # --- the edit stratum (#209) ---------------------------------------------

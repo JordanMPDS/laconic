@@ -24,6 +24,13 @@ What it refuses:
 - **Shards whose arm definitions differ.** Equal `rules_cksum` makes this
   near-impossible, but the check is one comparison and the alternative is a
   merged file whose `arms` block describes only whichever shard was read first.
+- **Shards that disagree on safe mode**, an absent field read as the safe
+  mode every snapshot below round 61 ran under. A round split by arm with the
+  enforcement arms outside safe mode and the controls inside it confounds the
+  mechanism with the regime (#441).
+- **Shards holding multi-turn runs under two delivery modes**, decided on the
+  per-run stamps rather than the declarations, so a shard with no multi-turn
+  work left, which declares nothing, merges with either (#441).
 
 What it recomputes rather than copies, because a merged file describes a round
 no single shard saw:
@@ -35,6 +42,8 @@ no single shard saw:
 - `concurrency_declared`, as the maximum any shard declared and never less than
   the number of shards, so the merged file cannot claim a lower concurrency than
   the merge itself demonstrates.
+- `turn_delivery`, `cli_versions` and `cli_versions_per_run`, from every
+  shard's runs rather than the first shard's metadata (#441).
 
 `metadata.shards` records where every run came from, so the merged file carries
 its own provenance instead of leaving it to be reconstructed.
@@ -61,18 +70,27 @@ def merge(paths, cases_dir=None):
     fm = first["metadata"]
     for s in snaps[1:]:
         m = s["metadata"]
-        for key in ("rules_cksum", "laconic_level"):
-            if m.get(key) != fm.get(key):
+        for key, absent in (("rules_cksum", None), ("laconic_level", None),
+                            ("safe_mode", True)):
+            if m.get(key, absent) != fm.get(key, absent):
                 sys.exit(
                     "%s and %s disagree on %s (%s vs %s). These are two rounds, "
                     "not two shards of one; merging them would report a single "
                     "round generated from two different instruments."
                     % (first["__path"], s["__path"], key,
-                       fm.get(key), m.get(key)))
+                       fm.get(key, absent), m.get(key, absent)))
         if s.get("arms") != first.get("arms"):
             sys.exit("%s and %s disagree on their arm definitions, despite equal "
                      "rules_cksum. Merging would keep only the first."
                      % (first["__path"], s["__path"]))
+
+    held = [(s["__path"], R.delivery_modes(s.get("runs", []))) for s in snaps]
+    modes = sorted({m for _, v in held for m in v})
+    if len(modes) > 1:
+        sys.exit("the shards hold multi-turn runs under different delivery "
+                 "modes (%s). One file would hold two treatments under one "
+                 "label." % "; ".join("%s: %s" % (p, "/".join(v))
+                                      for p, v in held if v))
 
     runs = R.dedupe([r for s in snaps for r in s.get("runs", [])])
 
@@ -105,6 +123,14 @@ def merge(paths, cases_dir=None):
     meta["cells"] = R.cells_of(cells)
     meta["models"] = models
     meta["reps"] = max(s["metadata"].get("reps") or 0 for s in snaps)
+    if modes:
+        meta["turn_delivery"] = modes[0]
+    versions = sorted({r["claude_cli_version"] for r in runs
+                       if r.get("claude_cli_version")})
+    if versions:
+        meta["cli_versions"] = versions
+    meta["cli_versions_per_run"] = all(
+        s["metadata"].get("cli_versions_per_run") for s in snaps)
     meta["concurrency_declared"] = max(
         [concurrency.declared(s) for s in snaps] + [len(snaps)])
     # Carried runs belong to the pass that generated them, so they are dropped
@@ -126,6 +152,9 @@ def merge(paths, cases_dir=None):
         # checked equal above, so the span cannot have moved the instrument -
         # but a reader comparing rounds should see it rather than deduce it.
         "git_commit": s["metadata"].get("git_commit"),
+        "safe_mode": s["metadata"].get("safe_mode"),
+        "turn_delivery": s["metadata"].get("turn_delivery"),
+        "rep_offset": s["metadata"].get("rep_offset"),
         "usable_runs": len(R.usable(s.get("runs", []))),
     } for s in snaps]
     return out

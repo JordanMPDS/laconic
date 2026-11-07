@@ -10,16 +10,26 @@ curve is flat") and the advice changes meaning.
 
 ## Install
 
-```bash
+Inside Claude Code:
+
+```text
 /plugin marketplace add JordanMPDS/laconic
 /plugin install laconic@laconic
 /laconic full
 ```
 
-From a clone, which is also how you develop against it:
+`/plugin install` opens the plugin panel so you can choose a scope; the plugin
+installs from there.
+
+From a clone, which is also how you develop against it, clone in a shell:
 
 ```bash
 git clone https://github.com/JordanMPDS/laconic ~/projects/laconic
+```
+
+Then, inside Claude Code:
+
+```text
 /plugin marketplace add ~/projects/laconic
 /plugin install laconic@laconic
 ```
@@ -27,6 +37,24 @@ git clone https://github.com/JordanMPDS/laconic ~/projects/laconic
 Then run `/laconic full`. With no level set, laconic
 injects nothing. To skip that step, set `LACONIC_DEFAULT` — see
 [Configuration](docs/configuration.md#default-level).
+
+### Update
+
+Claude Code does not update a plugin from a third-party marketplace unless you
+turn that on, so a GitHub install stays on the release it installed. From a
+shell:
+
+```bash
+claude plugin update laconic@laconic
+```
+
+Or, inside Claude Code, open `/plugin`, go to the **Marketplaces** tab, select
+`laconic`, and choose **Update marketplace**. Choosing **Enable auto-update**
+on the same screen takes each release as it ships. An update applies at the
+next session start, or after `/reload-plugins`.
+
+A clone added as a marketplace loads the working tree in place, so `git pull`
+is its update.
 
 ## Levels
 

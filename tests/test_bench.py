@@ -4405,6 +4405,168 @@ check("#526: the legacy gate keeps every risen cell on the replication",
                                       legacy_count_gate=True)[0] == "accept")
 
 
+# --- #529: a replication re-counts a cell the screens cleared ----------------
+#
+# A cell the #133 screen clears enters the round-wide count at its first draw,
+# and that stays: clearing is a non-rejection, and holding every cleared cell
+# at the control would hide a regression spread thinly over the testable
+# cells. But the replication was never consulted for it, so a smaller rise did
+# worse than a bigger one: 6 of 20 cleared kept its 6 while 10 of 20 blocked
+# and replicated at 3 entered at 3. A replication that covers a cleared cell
+# now re-counts it the way #526 re-counts a cell it cleared, whichever way that
+# moves the count.
+v, why = _v526(_q526(6, 5), None)
+check("#529: a cleared cell's first draw still carries the count unreplicated",
+      v == "reject" and any(
+          r.startswith("REJECT: quality lost (3 -> 11) round-wide at p = %.4f"
+                       % P526(11))
+          and "it counts the first draw of a/sonnet, which the screens "
+          "cleared, and a replication re-counts it (#529)" in r for r in why))
+v, why = _v526(_q526(6, 5), _q526(3, 5))
+v10 = _v526(_q526(10, 5), _q526(3, 5))[0]
+check("#529: replicated at 3, 6 of 20 does as well as 10 of 20 does",
+      P526(11) < 0.05 < P526(8) and v == v10 == "accept" and any(
+          "cleared by replication: counting a/sonnet at 3 of 20, the "
+          "round-wide count that carries the risen cells too small to test at "
+          "these reps is 3 -> 8, p = %.4f, inside its sampling noise (#529)"
+          % P526(8) in r and "first-draw round-wide p = %.4f" % P526(11) in r
+          for r in why))
+v, why = _v526(_q526(6, 5), _q526(6, 5))
+check("#529: a replication that reproduces the first draw leaves the count",
+      v == "reject" and any(
+          r.startswith("REJECT: quality lost (3 -> 11); counting a/sonnet at 6 "
+                       "of 20 after the replication, the round-wide count is "
+                       "3 -> 11 at p = %.4f" % P526(11)) and "(#529)" in r
+          for r in why))
+# Not capped at the first draw: the replication is the evidence, and a cap
+# would weigh the same replication differently by which side of the screen
+# the first draw fell.
+v, why = _v526(_q526(6, 5), _q526(9, 5))
+check("#529: a replication above the first draw raises the count",
+      v == "reject" and any("counting a/sonnet at 9 of 20 after the "
+                            "replication, the round-wide count is 3 -> 14 at "
+                            "p = %.4f" % P526(14) in r for r in why))
+# A count that passed on its first draw is not under arbitration, so a
+# replication bought for another counter does not re-count it.
+v, why = _v526(_q526(6, 1), _q526(9, 1))
+check("#529: a count that passed is not re-counted",
+      P526(7) > 0.05 > P526(10) and v == "accept" and any(
+          "is inside the sampling noise of the round-wide count, p = %.4f"
+          % P526(7) in r and "replication" not in r for r in why))
+# Beside a cell the replication cleared, the count is under arbitration either
+# way, and a cleared cell replicated above its first draw can reject: d/sonnet
+# 2 of 20 cleared, replicated at 6 of 20 against the control's 0.
+v0 = _v526(_q526(10, 1, 2, runs={A526: 20, B526: 5, D526: 20}),
+           _q526(3, 1, 0, runs={A526: 20, B526: 5, D526: 20}),
+           prev=_q526(3, 0, tokens=500, runs={A526: 20, B526: 5, D526: 20}))[0]
+v, why = _v526(_q526(10, 1, 2, runs={A526: 20, B526: 5, D526: 20}),
+               _q526(3, 1, 6, runs={A526: 20, B526: 5, D526: 20}),
+               prev=_q526(3, 0, tokens=500,
+                          runs={A526: 20, B526: 5, D526: 20}))
+check("#529: on #526's route a replication can raise a cleared cell",
+      P526(6) > 0.05 > P526(10) and v0 == "accept" and v == "reject"
+      and any("counting a/sonnet at 3 of 20, d/sonnet at 6 of 20 after the "
+              "replication, the round-wide count is 3 -> 10 at p = %.4f"
+              % P526(10) in r and "(#526, #529)" in r for r in why))
+# Nine failures elsewhere in the control that the round does not have: the
+# first draw passes at 12 -> 13, and the count is still re-counted.
+prev529 = _q526(3, 0, tokens=500, runs={A526: 20, B526: 5, D526: 20})
+prev529["quality_fails"] = 12
+v, why = _v526(_q526(10, 1, 2, runs={A526: 20, B526: 5, D526: 20}),
+               _q526(3, 1, 6, runs={A526: 20, B526: 5, D526: 20}),
+               prev=prev529)
+check("#529: beside a cleared cell, a count that passed is re-counted too",
+      bench_report._count_rise_p(12, 13, 30, 30) > 0.05 and v == "accept"
+      and any("counting a/sonnet at 3 of 20, d/sonnet at 6 of 20, the "
+              "round-wide count that carries the risen cells too small to "
+              "test at these reps is 12 -> 10" in r for r in why))
+# d/sonnet rose by count, 8 to 9, on 20 decided verdicts against the
+# control's 15, so its rate fell. The control's rate on its exposure is
+# ceil(8 * 20 / 15) = 11, and a replication that found nothing may not lift it
+# there from its first draw.
+RUNS529 = {A526: 20, B526: 5, D526: 20}
+prev529 = _q526(3, 0, 8, tokens=500, runs=RUNS529)
+cur529, arb529 = _q526(10, 5, 9, runs=RUNS529), _q526(3, 5, 0, runs=RUNS529)
+for s529, dec529 in ((prev529, (20, 5, 15)), (cur529, (20, 5, 20)),
+                     (arb529, (20, 5, 20))):
+    s529["cell_decided"] = {"quality_fails": dict(zip((A526, B526, D526),
+                                                      dec529))}
+    s529["quality_n"] = sum(dec529)
+why = _v526(cur529, arb529, prev=prev529)[1]
+check("#529: the control's floor never lifts a cell above its first draw",
+      any("counting a/sonnet at 3 of 20, d/sonnet at 9 of 20, the round-wide "
+          "count that carries the risen cells too small to test at these reps "
+          "is 11 -> 17" in r for r in why))
+arb529 = _q526(3, 5)
+arb529["judged_cells"] = {B526, D526}
+v, why = _v526(_q526(6, 5), arb529)
+check("#529: a replication that never covered the cleared cell re-counts "
+      "nothing", v == "reject" and any(
+          "3 -> 11) round-wide at p = %.4f" % P526(11) in r
+          and "which the screens cleared, and the replication did not "
+          "re-count it (#529)" in r for r in why))
+# The measured-rate screen clears a 5-run cell too, and that cell is no more
+# arbitrable than any other untestable one.
+rates529 = {"quality_fails": {B526: {"failures": 24, "runs": 40}}}
+v, why = bench_report.accept_verdict(_q526(3, 0, tokens=500), _q526(3, 3, 5),
+                                     "output_tokens", cell_rates=rates529,
+                                     arbitration=_q526(3, 0, 5))
+check("#529: a cleared cell under 20 runs a side is not re-counted",
+      v == "reject" and any(
+          "3 -> 11) round-wide at p = %.4f" % P526(11) in r
+          and "within the measured master-rules rate: b/sonnet" in r
+          and "#529" not in r for r in why))
+# Covered, but with no answer that could fail: zero of zero is not evidence.
+prev529, cur529, arb529 = _q526(3, 0, tokens=500), _q526(6, 5), _q526(0, 5)
+for s529, a529 in ((prev529, 20), (cur529, 20), (arb529, 0)):
+    s529["cell_decided"] = {"quality_fails": {A526: a529, B526: 5, D526: 5}}
+v, why = _v526(cur529, arb529, prev=prev529)
+check("#529: a cleared cell replicated with no decided verdict keeps its "
+      "first draw", v == "reject" and any(
+          "3 -> 11) round-wide at p = %.4f" % P526(11) in r for r in why))
+# The measured-rate screen clears too, and is re-counted the same way: 10 of
+# 20 is an ordinary draw at a 50% rate the Fisher screen never sees.
+rates529 = {"quality_fails": {A526: {"failures": 20, "runs": 40}}}
+v0, why0 = bench_report.accept_verdict(_q526(3, 0, tokens=500), _q526(10, 5),
+                                       "output_tokens", cell_rates=rates529)
+v, why = bench_report.accept_verdict(_q526(3, 0, tokens=500), _q526(10, 5),
+                                     "output_tokens", cell_rates=rates529,
+                                     arbitration=_q526(3, 5))
+check("#529: a cell the measured rate cleared is re-counted too",
+      v0 == "reject" and any("it counts the first draw of a/sonnet" in r
+                             for r in why0)
+      and v == "accept" and any("is 3 -> 8, p = %.4f" % P526(8) in r
+                                for r in why))
+# A blocked cell, a cleared one and an untestable one. The replication clears
+# a/sonnet and re-counts d/sonnet; without d it would be 3 -> 10.
+RUNS529 = {A526: 20, B526: 5, D526: 20}
+v, why = _v526(_q526(10, 5, 2, runs=RUNS529), None,
+               prev=_q526(3, 0, tokens=500, runs=RUNS529))
+check("#529: the arbitrable hint names the cleared cell the count carries",
+      v == "reject" and any(
+          "(arbitrable - replicate the risen cells at the same reps, with "
+          "d/sonnet, whose first draw the round-wide count carries (#529); "
+          "see the loop skill)" in r for r in why))
+v, why = _v526(_q526(10, 5, 2, runs=RUNS529), _q526(3, 5, 0, runs=RUNS529),
+               prev=_q526(3, 0, tokens=500, runs=RUNS529))
+check("#529: one replication re-counts a cleared cell beside a blocked one",
+      P526(10) < 0.05 < P526(8) and v == "accept" and any(
+          "a/sonnet did not reproduce; counting a/sonnet at 3 of 20, d/sonnet "
+          "at 0 of 20, the round-wide count that carries the risen cells too "
+          "small to test at these reps is 3 -> 8" in r and "(#526, #529)" in r
+          for r in why))
+# The judge-noise gate reads the re-counted count, as it does on #526's route.
+why = bench_report.accept_verdict(_q526(3, 0, tokens=500), _q526(6, 5),
+                                  "output_tokens", arbitration=_q526(9, 5),
+                                  judge_noise_gate=True)[1]
+check("#529: the judge-noise gate is asked about the re-counted rise",
+      any("3 -> 14 at p" in r and "a rise of +11 with p" in r for r in why))
+check("#529: the legacy gate does not re-count a cleared cell",
+      bench_report.accept_verdict(_q526(3, 0, tokens=500), _q526(6, 5),
+                                  "output_tokens", arbitration=_q526(3, 5),
+                                  legacy_count_gate=True)[0] == "reject")
+
+
 # --- #530: both round-wide rejections reach the judge-noise gate -------------
 #
 # The #259 route and the #526 route each rejected on the round-wide count and

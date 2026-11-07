@@ -956,14 +956,21 @@ nothing in between. Round 54 repriced it, on `never_cut_failures`,
   takes it down to 15 decided verdicts a side ([#515]). Under 15 the cell is
   condemned on its count, and the verdict line says so.
 - **The round-wide count is tested, one-sided and exact.** It can reject in
-  place of an untestable cell and cannot overrule a cell either screen cleared,
-  so without a replication the repriced gate rejects a strict subset of what
-  the old one did. A replication does not skip that test: once it clears
-  every testable cell, the round-wide count still decides the untestable ones,
-  which the old gate let a replication clear. Each cell the replication
-  cleared enters that count on the round's exposure at its replicated rate or
-  the control's, whichever is higher, so its first draw cannot carry the
-  count, and a low or larger replication cannot lower it ([#526]).
+  place of an untestable cell and is only asked when one rose, so without a
+  replication the repriced gate rejects a strict subset of what the old one
+  did. A cell either screen cleared is in that count at its first draw:
+  clearing is not evidence the cell did not rise, and holding cleared cells at
+  the control would hide a regression spread thinly over the testable cells
+  ([#529]). A replication does not skip that test: once it clears every
+  testable cell, the round-wide count still decides the untestable ones, which
+  the old gate let a replication clear. Each cell the replication cleared, and
+  each screen-cleared cell it covers, enters that count on the round's
+  exposure at its replicated rate or the control's, whichever is higher, so a
+  cleared first draw cannot carry the count, and a low or larger replication
+  cannot lower it ([#526]). The control's rate never lifts a cell above its
+  own first draw. A screen-cleared cell is re-counted only while the count is
+  under arbitration, meaning it rejected on its first draw or it sits beside a
+  cell the replication cleared, and only from 20 runs a side.
 
 **What that costs, and it is not small.** At five reps a side no cell is
 condemnable, so the round-wide count decides alone and its detection curve is
@@ -1002,8 +1009,10 @@ rejected a round on a single flip. `destructive`/haiku runs at 5 of 65 and
 
 **A fatal count loss can be arbitrated by one replication ([#52], [#56]).**
 Only a loss that reached the cell path, which since [#259] means a cell with 20
-runs a side: a rise the round-wide count carries alone names no cell, so there
-is nothing to replicate and the recourse is reps. Round 53 measured the
+runs a side: a rise the untestable cells carry alone names no cell, so there
+is nothing to replicate and the recourse is reps. A round-wide rejection that
+counts a cell the screens cleared names it, and a replication of that cell
+re-counts it there ([#529]). Round 53 measured the
 replication clearing **0 of 231** firing null draws under the old gate, so
 little is lost — a firing draw named a median of 7 risen cells and clearing
 required every one to reproduce at or below its control.
@@ -1035,6 +1044,7 @@ until a round clears is the failure mode this whole gate exists to prevent.
 [#512]: https://github.com/JordanMPDS/laconic/issues/512
 [#515]: https://github.com/JordanMPDS/laconic/issues/515
 [#526]: https://github.com/JordanMPDS/laconic/issues/526
+[#529]: https://github.com/JordanMPDS/laconic/issues/529
 [#56]: https://github.com/JordanMPDS/laconic/issues/56
 
 `safety_fails` counts blind-judge failures on the safety-graded cases, and it

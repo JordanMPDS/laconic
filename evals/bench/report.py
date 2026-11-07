@@ -1767,12 +1767,12 @@ def accept_verdict(prev, cur, target, noise=None, target_cases=None,
         if wide_p is not None:
             comp += "; round-wide p = %.4f" % wide_p
         # What a rejection would say, and, when no testable cell survived the
-        # screens, the round-wide rise it rests on. That rise is what the
+        # screens, the round-wide count it rests on. That count is what the
         # judge-noise gate below may hold. Both round-wide routes set these and
         # fall through to the gate; until #530 they rejected here and the gate
         # never saw them.
         head = "REJECT: %s lost (%d -> %d)" % (label, prev[key], cur[key])
-        wide_rise = None if risen else cur[key] - prev[key]
+        wide_k = None if risen else cur[key]
         basis = ""
         if not risen and untestable and not wide_fatal:
             reasons.append(
@@ -1882,7 +1882,7 @@ def accept_verdict(prev, cur, target, noise=None, target_cases=None,
                         "small to test at these reps (#526)"
                         % (label, prev[key], cur[key], held, prev[key], rep_k,
                            rep_p))
-                wide_rise = rep_k - prev[key]
+                wide_k = rep_k
                 basis = (", %d -> %d counting %s after the replication,"
                          % (prev[key], rep_k, held))
             elif not blocked:
@@ -1917,21 +1917,41 @@ def accept_verdict(prev, cur, target, noise=None, target_cases=None,
         # When it is on, it applies only where no testable cell survived the
         # screens or the replication - the case where the rejection rests on a
         # bare round-wide count and grading noise is the plausible
-        # explanation. That is wide_rise, set above by each route that
-        # rejects on the round-wide count (#530). A cell that rose testably is
-        # evidence about a named cell and still rejects.
+        # explanation. That is wide_k, set above by each route that rejects on
+        # the round-wide count (#530). A cell that rose testably is evidence
+        # about a named cell and still rejects.
+        #
+        # The rise is taken on the round's own exposure (#531). The round-wide
+        # test this may overrule reads each side's decided verdicts, and a raw
+        # difference of counts did not: a round that abstained more showed a
+        # smaller rise for the same rise in rate, and was the one held. So the
+        # control is scaled to the round's exposure first, as rep_k scales a
+        # replication, and floored so the rise rounds up and a hold gets no
+        # easier for the rounding. A count that rose while its rate did not has
+        # no rise for the judge to explain, and is inside judge noise at p = 1.
         #
         # The state it produces is "undecided", not "accept": the round has to
         # buy a second grading pass over the risen cells. That is more
         # evidence, not less, which is why it is not a relaxation.
         if key in JUDGE_DERIVED and not legacy_count_gate:
-            rise = (cur[key] - prev[key] if wide_rise is None else wide_rise)
-            jp = _judge_noise_p(rise, _count_exposure(cur, key))
-            if jp is not None:
-                comp += ("; judge self-disagreement at %.0f%% would produce a "
+            cur_n = _count_exposure(cur, key)
+            prev_n = _count_exposure(prev, key)
+            base = prev[key] * cur_n // prev_n if prev_n else prev[key]
+            rise = (cur[key] if wide_k is None else wide_k) - base
+            jp = _judge_noise_p(rise, cur_n)
+            scaled = (";" if base == prev[key] else
+                      "; on the round's exposure the control's %d of %d is %d "
+                      "of %d," % (prev[key], prev_n, base, cur_n))
+            if jp is None and rise <= 0 and cur_n:
+                jp = 1.0
+                comp += (scaled + " so the rate did not rise and judge "
+                         "self-disagreement has no rise to explain (#70)")
+            elif jp is not None:
+                comp += ("%s judge self-disagreement at %.0f%% would produce a "
                          "rise of +%d with p = %.3f (#70)"
-                         % (100 * JUDGE_DISAGREEMENT, rise, jp))
-                if (judge_noise_gate and wide_rise is not None
+                         % (scaled, 100 * JUDGE_DISAGREEMENT, rise, jp))
+            if jp is not None:
+                if (judge_noise_gate and wide_k is not None
                         and jp > noise["alpha"]):
                     reasons.append(
                         "UNDECIDED: %s rise (%d -> %d) rests on the round-wide "

@@ -85,17 +85,20 @@ def shift_p(control, edit, resamples=20000):
     if obs is None:
         return None, None
     rng = random.Random(SEED)
-    pools = [([r for r in control if r["case"] == c] + [r for r in edit if r["case"] == c],
+    # Log words once per run, not once per run per resample: words() re-splits
+    # the text, and recomputing it made the selftest ten minutes (#476). Same
+    # shuffles, same summation order as shift(), so the p is bit-identical.
+    pools = [([math.log(max(words(r), 1)) for r in control if r["case"] == c]
+              + [math.log(max(words(r), 1)) for r in edit if r["case"] == c],
               sum(r["case"] == c for r in control))
              for c in sorted({r["case"] for r in control} & {r["case"] for r in edit})]
     hits = 0
     for _ in range(resamples):
-        a, b = [], []
+        out = []
         for pool, n in pools:
             rng.shuffle(pool)
-            a += pool[:n]
-            b += pool[n:]
-        if shift(a, b) <= obs + 1e-12:
+            out.append(sum(pool[n:]) / (len(pool) - n) - sum(pool[:n]) / n)
+        if sum(out) / len(out) <= obs + 1e-12:
             hits += 1
     return obs, (hits + 1) / (resamples + 1)
 

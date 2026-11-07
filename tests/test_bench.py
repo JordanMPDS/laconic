@@ -10,6 +10,7 @@ import shutil
 import subprocess
 import sys
 import tempfile
+import time
 import zlib
 from pathlib import Path
 
@@ -32,13 +33,21 @@ import stop_hook as bench_stop_hook  # noqa: E402
 
 fails = 0
 
+# Each line carries the seconds since the suite started, and the suite ends by
+# naming its slowest stretches, so a CI log says where the minutes went (#476).
+# A stretch is charged to the check that closes it.
+_T0 = time.monotonic()
+_last = _T0
+_stretches = []
+
 
 def check(label, cond):
-    global fails
-    if cond:
-        print("ok   %s" % label)
-    else:
-        print("FAIL %s" % label)
+    global fails, _last
+    now = time.monotonic()
+    _stretches.append((now - _last, label))
+    _last = now
+    print("%s %7.1fs %s" % ("ok  " if cond else "FAIL", now - _T0, label))
+    if not cond:
         fails += 1
 
 
@@ -7921,5 +7930,8 @@ else:
     check("_judge_noise_p's complement tail stays far inside any threshold "
           "that decides a verdict", _worst < 1e-6)
 
-print("\n%d failure(s)" % fails)
+print("\nslowest stretches, each charged to the check that closed it:")
+for _secs, _label in sorted(_stretches, reverse=True)[:10]:
+    print("%7.1fs %s" % (_secs, _label))
+print("\n%d failure(s) in %.0fs" % (fails, time.monotonic() - _T0))
 sys.exit(1 if fails else 0)

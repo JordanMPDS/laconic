@@ -586,10 +586,11 @@ git worktree remove --force /tmp/laconic-control
 **A round cannot be relied on to do this, because the way a round ends badly is
 being killed, and a killed process runs no trap.** So the reclaim is also a
 command the *next* iteration runs: `bash tools/reclaim-scratch.sh`, called from
-the supervisor's tidy step, removes every registered worktree that no process is
-working inside, that holds no untracked file, and whose HEAD has already landed
-on `origin/master`. It keeps a live one — it is the round in flight that is the
-most expensive thing in this repository to destroy — and prints why it kept it.
+the supervisor's tidy step, removes every registered worktree under `/tmp` that
+no process is working inside, that holds no untracked file, and whose HEAD has
+already landed on `origin/master`. It keeps a live one — it is the round in
+flight that is the most expensive thing in this repository to destroy — and
+prints why it kept it.
 Run it by hand with `--dry-run` to see what would go.
 Round 38's two sides tracked within two runs of each other for 90 runs a side.
 

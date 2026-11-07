@@ -31,6 +31,9 @@ What it refuses:
 - **Shards holding multi-turn runs under two delivery modes**, decided on the
   per-run stamps rather than the declarations, so a shard with no multi-turn
   work left, which declares nothing, merges with either (#441).
+- **Shards that disagree on `reminder_cksum` or `effort`**, which
+  `rules_cksum` covers neither of. A shard older than the field merges with
+  either, and the merged file keeps the value a shard recorded (#522).
 
 What it recomputes rather than copies, because a merged file describes a round
 no single shard saw:
@@ -84,6 +87,20 @@ def merge(paths, cases_dir=None):
                      "rules_cksum. Merging would keep only the first."
                      % (first["__path"], s["__path"]))
 
+    # Absent on a shard older than the field rather than defaulted, because
+    # nothing records what such a file ran under, so it merges with either.
+    recorded = {}
+    for key in ("reminder_cksum", "effort"):
+        held = sorted({(s["metadata"].get(key), s["__path"]) for s in snaps
+                       if s["metadata"].get(key) is not None})
+        if len({v for v, _ in held}) > 1:
+            sys.exit("the shards disagree on %s (%s). These are two rounds, not "
+                     "two shards of one; merging them would report a single "
+                     "round generated from two different instruments (#522)."
+                     % (key, "; ".join("%s: %s" % (p, v) for v, p in held)))
+        if held:
+            recorded[key] = held[0][0]
+
     held = [(s["__path"], R.delivery_modes(s.get("runs", []))) for s in snaps]
     modes = sorted({m for _, v in held for m in v})
     if len(modes) > 1:
@@ -117,6 +134,7 @@ def merge(paths, cases_dir=None):
         "runs": runs,
     }
     meta = out["metadata"]
+    meta.update(recorded)
     meta["generated_at"] = min(s["metadata"]["generated_at"] for s in snaps)
     meta["cases_cksum"] = R.cases_cksum(cases_dir, cases)
     meta["cases_dir"] = cases_dir

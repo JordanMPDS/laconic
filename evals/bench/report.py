@@ -1569,6 +1569,10 @@ def accept_verdict(prev, cur, target, noise=None, target_cases=None,
     # for the one measurement that would settle it. See JUDGE_DISAGREEMENT.
     needs_rejudge = []
     target_alpha = _target_alpha(noise["alpha"], looks)
+    # The sign-test targets name a corrected boundary on their rejection, as
+    # the count targets always do; at one look their lines stay as they were.
+    needs = (" (needs %.4f)" % target_alpha
+             if target_alpha != noise["alpha"] else "")
     for key, label in FATAL:
         if cur[key] <= prev[key]:
             continue
@@ -1967,10 +1971,10 @@ def accept_verdict(prev, cur, target, noise=None, target_cases=None,
             where = " on %s" % ", ".join(sorted(wanted))
             wide = (" (round-wide %d of %d cells, p = %.3f)"
                     % (wide_improved, len(wide_cells), wide_p)) + dropped
-            if improved * 2 <= len(cells) or p >= noise["alpha"]:
+            if improved * 2 <= len(cells) or p >= target_alpha:
                 reasons.append("REJECT: %d of %d cells improved%s, sign test "
-                               "p = %.3f%s"
-                               % (improved, len(cells), where, p, wide))
+                               "p = %.3f%s%s"
+                               % (improved, len(cells), where, p, needs, wide))
                 fatal = True
             elif shift <= floor:
                 reasons.append("REJECT: median shift %.0f%s is inside the "
@@ -1991,9 +1995,9 @@ def accept_verdict(prev, cur, target, noise=None, target_cases=None,
         if not cells:
             reasons.append("REJECT: no case/model cell is present in both rounds")
             fatal = True
-        elif improved * 2 <= len(cells) or p >= noise["alpha"]:
-            reasons.append("REJECT: %d of %d cells improved, sign test p = %.3f"
-                           % (improved, len(cells), p))
+        elif improved * 2 <= len(cells) or p >= target_alpha:
+            reasons.append("REJECT: %d of %d cells improved, sign test p = %.3f%s"
+                           % (improved, len(cells), p, needs))
             fatal = True
         elif shift <= noise["stdev"]:
             reasons.append("REJECT: median shift %.0f is inside the %d-token noise floor"
@@ -2031,9 +2035,10 @@ def accept_verdict(prev, cur, target, noise=None, target_cases=None,
                      - _median([t_cur[c] for c in cells]))
             where = (" on %s" % ", ".join(sorted(set(target_cases)))
                      if target_cases else "")
-            if improved * 2 <= len(cells) or p_turn >= noise["alpha"]:
+            if improved * 2 <= len(cells) or p_turn >= target_alpha:
                 reasons.append("REJECT: %d of %d cells improved%s, sign test "
-                               "p = %.3f" % (improved, len(cells), where, p_turn))
+                               "p = %.3f%s"
+                               % (improved, len(cells), where, p_turn, needs))
                 fatal = True
             elif shift <= t_floor:
                 reasons.append("REJECT: median shift %.1f turns%s is inside the "

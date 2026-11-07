@@ -27,8 +27,8 @@ Two checks before acting, and two before sending:
 
 **Length scales to the request, at every level.** A yes/no question gets a word
 or a line. A report, walkthrough, comparison, or explanation the user asked for
-gets the scope it needs, and no claim in it twice. Laconic governs volunteered
-content.
+gets the scope the question needs, not the scope of the source you read to
+answer it, and no claim in it twice. Laconic governs volunteered content.
 
 ## Never cut (every level, including ultra)
 

@@ -5,7 +5,9 @@
 # --spec, creates a worktree, and leaves a branch behind. That is the wrong
 # shape for "here is the issue I am about to work, what am I missing" — the
 # answer is prose, there is nothing to review, and a branch per question is
-# litter. So this asks the same models directly and writes nothing anywhere.
+# litter. So this asks the same models directly, and none of them can edit
+# anything: codex runs in a read-only sandbox, deepseek with only the read
+# tools, and kimi with no tools at all (#457).
 #
 #   bash tools/consult.sh "why might this hypothesis not replicate?"
 #   bash tools/consult.sh < question.md
@@ -29,6 +31,9 @@ KIMI_CONFIG="$HOME/.kimi-code/config.toml"
 DEEPSEEK_BASE_URL="https://api.deepseek.com/anthropic"
 DEEPSEEK_MODEL_DEFAULT="deepseek-v4-pro"
 KIMI_MODEL_DEFAULT="kimi-code/kimi-for-coding"
+# The judge's agent file, reused rather than copied: it is kimi's default
+# system prompt with `tools: []`, which is exactly what a feeler needs.
+KIMI_AGENT="$REPO/evals/bench/kimi-judge.md"
 TIMEOUT=${CONSULT_TIMEOUT:-240}
 # A feeler is meant to be read by a model that still has an issue to work. Three
 # unbounded essays would spend the context the round needs, so each answer is
@@ -78,19 +83,30 @@ ask_one() { # <target> <question> <outfile>
     deepseek)
       # env -u ANTHROPIC_API_KEY for delegate's reason: in -p mode a stray key
       # is always used and would bill Anthropic credits instead of DeepSeek.
+      # At the repository root for codex's second reason, so it is confined by
+      # flags rather than by its cwd (#457). Left alone, a -p session takes the
+      # operator's settings: auto mode, Edit and Write allowed, every MCP
+      # server, and every hook, one of which writes .remember/ into the cwd.
+      # --tools leaves only the read tools, --strict-mcp-config loads no
+      # server, and safe mode fires no hook, as in every run.py generation.
       # shellcheck disable=SC1090
       ( . "$KEYS" 2>/dev/null
+        cd "$REPO" || exit 1
         timeout "$TIMEOUT" env -u ANTHROPIC_API_KEY \
           "ANTHROPIC_BASE_URL=$DEEPSEEK_BASE_URL" \
           "ANTHROPIC_AUTH_TOKEN=${DEEPSEEK_API_KEY:-}" \
           "ANTHROPIC_MODEL=${CONSULT_DEEPSEEK_MODEL:-$DEEPSEEK_MODEL_DEFAULT}" \
-          CLAUDE_CODE_DISABLE_EXPERIMENTAL_BETAS=1 \
-          claude -p "$q" ) > "$out" 2>"$out.err" < /dev/null
+          CLAUDE_CODE_DISABLE_EXPERIMENTAL_BETAS=1 CLAUDE_CODE_SAFE_MODE=1 \
+          claude -p "$q" --tools "Read,Grep,Glob" --strict-mcp-config ) \
+        > "$out" 2>"$out.err" < /dev/null
       ;;
     kimi)
+      # A scratch cwd is not a boundary: kimi's default profile has a shell, and
+      # as a judge it used it to read files outside its scratch dir (#411).
       ( cd "$scratch" \
         && timeout "$TIMEOUT" kimi -p "$q" \
-             -m "${CONSULT_KIMI_MODEL:-$KIMI_MODEL_DEFAULT}" ) \
+             -m "${CONSULT_KIMI_MODEL:-$KIMI_MODEL_DEFAULT}" \
+             --agent-file "$KIMI_AGENT" ) \
         > "$out" 2>"$out.err" < /dev/null
       ;;
   esac
@@ -112,21 +128,23 @@ if [ "${1:-}" = "--selftest" ]; then
     cat > "$tmp/stub/$b" <<STUB
 #!/usr/bin/env bash
 [ -n "\${STUB_HANG:-}" ] && sleep 30
-echo "$b saw: \$*"
+echo "$b saw: \$* safe=\${CLAUDE_CODE_SAFE_MODE:-}"
 STUB
     chmod +x "$tmp/stub/$b"
   done
   printf 'DEEPSEEK_API_KEY=stub-key\n' > "$tmp/cfg/keys.env"
   printf '[providers."managed:kimi-code"]\napi_key = ""\n' > "$tmp/kimi.toml"
 
-  failed=0
+  failed=0 total=0
   check() { # name, expected-grep, actual
+    total=$((total + 1))
     if printf '%s' "$3" | grep -qE "$2"; then return 0; fi
     failed=$((failed + 1))
     printf 'FAIL %s\n  wanted /%s/ in:\n%s\n' "$1" "$2" "$3"
   }
 
   export PATH="$tmp/stub:$PATH" DELEGATE_KEYS="$tmp/cfg/keys.env"
+  unset CLAUDE_CODE_SAFE_MODE  # so the safe-mode check sees the script's own
   export HOME="$tmp"  # so KIMI_CONFIG resolves under the sandbox
   mkdir -p "$tmp/.kimi-code" && cp "$tmp/kimi.toml" "$tmp/.kimi-code/config.toml"
 
@@ -136,6 +154,15 @@ STUB
   check "kimi is asked" 'kimi saw' "$out"
   check "the question reaches the target" 'what am I missing\?' "$out"
   check "each answer is attributed" '^## deepseek' "$out"
+  # #457: a feeler reads and never edits. Each target's confinement has to reach
+  # the binary, because the operator's own settings are what apply otherwise.
+  check "deepseek gets only the read tools" 'claude saw: .*--tools Read,Grep,Glob( |$)' "$out"
+  check "deepseek loads no MCP server" 'claude saw: .*--strict-mcp-config' "$out"
+  check "deepseek runs no hook" 'claude saw: .* safe=1$' "$out"
+  check "kimi runs with the no-tools agent file" \
+    "kimi saw: .*--agent-file $KIMI_AGENT( |\$)" "$out"
+  check "the kimi agent file exists and lists no tools" '^tools: \[\]$' \
+    "$(cat "$KIMI_AGENT" 2>/dev/null)"
 
   # A config without the subscription must be named, not silently dropped: a
   # reader has to tell "no concerns" from "never asked".
@@ -158,6 +185,7 @@ STUB
 
   out=$(CONSULT_TARGETS=deepseek bash "$0" "q" 2>&1)
   check "CONSULT_TARGETS narrows the fan-out" '^## deepseek' "$out"
+  total=$((total + 1))
   if printf '%s' "$out" | grep -q '^## codex'; then
     failed=$((failed + 1)); echo "FAIL CONSULT_TARGETS still asked codex"
   fi
@@ -177,6 +205,7 @@ STUB
     for pair in "DEEPSEEK_BASE_URL=$DEEPSEEK_BASE_URL" \
                 "DEEPSEEK_MODEL_DEFAULT=$DEEPSEEK_MODEL_DEFAULT" \
                 "KIMI_MODEL_DEFAULT=$KIMI_MODEL_DEFAULT"; do
+      total=$((total + 1))
       grep -qF "${pair%%=*}=\"${pair#*=}\"" "$d" \
         || { failed=$((failed + 1))
              echo "FAIL delegate no longer defines $pair — this script has drifted" ; }
@@ -185,8 +214,8 @@ STUB
     echo "note: delegate not installed, endpoint drift not checked"
   fi
 
-  [ "$failed" -eq 0 ] && echo "consult.sh selftest: 12/12 passed" \
-                      || echo "consult.sh selftest: $failed failed"
+  [ "$failed" -eq 0 ] && echo "consult.sh selftest: $total/$total passed" \
+                      || echo "consult.sh selftest: $failed of $total failed"
   exit $([ "$failed" -eq 0 ] && echo 0 || echo 1)
 fi
 

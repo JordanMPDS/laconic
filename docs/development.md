@@ -193,7 +193,7 @@ and the field may not be stratified on for those files.
 | `bash tools/release-due.sh` | is a release owed? Diffs the shipped surface against the newest `laconic--v*` tag, names every file that moved, and recommends patch or minor. `README.md` and `docs/` are deliberately outside that surface |
 | `bash tools/candidate-due.sh` | must the next round carry a rule candidate? Exits 1 when two measuring rounds would run back to back, reading the declaration each round document already makes |
 | `bash tools/reclaim-scratch.sh` | removes spent scratch worktrees. On this machine `/tmp` is tmpfs, so a worktree left behind is held RAM. It removes one only when it sits under `/tmp` (`LACONIC_SCRATCH_ROOT` names another root), nothing is working inside it, it holds no untracked file, and its HEAD has already landed on `origin/master`; `--dry-run` says what would go |
-| `bash tools/consult.sh "<question>"` | asks the delegate targets one question and prints what they say. Creates no worktree and writes nothing; a dead target is named rather than failing the caller |
+| `bash tools/consult.sh "<question>"` | asks the delegate targets one question and prints what they say. Creates no worktree and edits nothing: codex runs in a read-only sandbox, deepseek with only Read, Grep and Glob, and kimi with no tools. A dead target is named rather than failing the caller |
 | `bash tools/loop.sh` | the backlog supervisor: one `claude` process per issue, so each gets a genuinely empty context. It runs `reclaim-scratch.sh` at the top of every iteration |
 
 Each of the five with a `--selftest` is exercised by `tests/test_rules.sh`.

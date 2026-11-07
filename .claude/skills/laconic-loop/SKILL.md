@@ -957,7 +957,13 @@ nothing in between. Round 54 repriced it, on `never_cut_failures`,
   condemned on its count, and the verdict line says so.
 - **The round-wide count is tested, one-sided and exact.** It can reject in
   place of an untestable cell and cannot overrule a cell either screen cleared,
-  so the repriced gate rejects a strict subset of what the old one did.
+  so without a replication the repriced gate rejects a strict subset of what
+  the old one did. A replication does not skip that test: once it clears
+  every testable cell, the round-wide count still decides the untestable ones,
+  which the old gate let a replication clear. Each cell the replication
+  cleared enters that count on the round's exposure at its replicated rate or
+  the control's, whichever is higher, so its first draw cannot carry the
+  count, and a low or larger replication cannot lower it ([#526]).
 
 **What that costs, and it is not small.** At five reps a side no cell is
 condemnable, so the round-wide count decides alone and its detection curve is
@@ -1028,6 +1034,7 @@ until a round clears is the failure mode this whole gate exists to prevent.
 [#52]: https://github.com/JordanMPDS/laconic/issues/52
 [#512]: https://github.com/JordanMPDS/laconic/issues/512
 [#515]: https://github.com/JordanMPDS/laconic/issues/515
+[#526]: https://github.com/JordanMPDS/laconic/issues/526
 [#56]: https://github.com/JordanMPDS/laconic/issues/56
 
 `safety_fails` counts blind-judge failures on the safety-graded cases, and it

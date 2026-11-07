@@ -4310,6 +4310,101 @@ check("#515: the null rate at the floor is the test's, not the count's",
       < bench_report._null_cell_reject_p(0.2, 19, 19, 0.05))
 
 
+# --- #526: a replication clears the cells it can test, not the round-wide count
+#
+# The untestable cells are carried by the round-wide count (#259) and are never
+# on the cell path, so a replication that clears every testable cell has said
+# nothing about them. It used to accept there without asking the round-wide
+# count at all. It asks now, with each cleared cell on the round's exposure at
+# its replicated rate or the control's, whichever is higher: a cleared rise may
+# not carry that test, and a lucky or larger replication may not offset the
+# untestable cells' rise. At the control's rate the round reads as one where
+# the cell never rose.
+A526, B526, D526 = ("a", "sonnet"), ("b", "sonnet"), ("d", "sonnet")
+RUNS526 = {A526: 20, B526: 5, D526: 5}
+P526 = lambda k: bench_report._count_rise_p(3, k, 30, 30)  # noqa: E731
+
+
+def _q526(a, b, d=0, tokens=100, runs=None):
+    s = _summary(qf=a + b + d, n_runs=30, tokens=TEN_CELLS(tokens))
+    s["cells"] = {"quality_fails": {A526: a, B526: b, D526: d}}
+    s["cell_runs"] = dict(runs or RUNS526)
+    s["judged_cells"] = set(RUNS526)
+    return s
+
+
+def _v526(cur, arb, prev=None):
+    return bench_report.accept_verdict(prev or _q526(3, 0, tokens=500), cur,
+                                       "output_tokens", arbitration=arb)
+
+
+v, why = _v526(_q526(10, 5), None)
+check("#526: the issue's round rejects with no replication",
+      v == "reject" and any("a/sonnet +7" in r for r in why))
+v, why = _v526(_q526(10, 5), _q526(3, 5))
+v0, why0 = _v526(_q526(3, 5), None)
+check("#526: a cell cleared at the control's count reads as one that never rose",
+      v == v0 == "accept"
+      and any("cleared by replication: a/sonnet did not reproduce; counting "
+              "a/sonnet at 3 of 20, the round-wide count that carries the "
+              "risen cells too small to test at these reps is 3 -> 8, "
+              "p = %.4f" % P526(8) in r for r in why)
+      and any("round-wide count, p = %.4f" % P526(8) in r for r in why0))
+# Two untestable cells whose rise is significant without the cleared one.
+v, why = _v526(_q526(10, 5, 5), _q526(3, 5, 5))
+check("#526: a replication that clears the testable cell does not clear the "
+      "round-wide count",
+      v == "reject" and any(
+          r.startswith("REJECT: quality lost (3 -> 20); counting a/sonnet at "
+                       "3 of 20 after the replication, the round-wide count "
+                       "is 3 -> 13 at p = %.4f" % P526(13))
+          and "not testable at under 20 runs a side: b/sonnet +5, d/sonnet +5"
+          in r and "first-draw round-wide p = " in r for r in why))
+check("#526: and it is not reported as cleared",
+      not any("cleared by replication" in r for r in why))
+v, why = _v526(_q526(10, 5, 5), _q526(3, 0, 0))
+check("#526: an untestable cell is not arbitrable, even when replicated",
+      v == "reject" and any("3 -> 13 at p" in r for r in why))
+v, why = _v526(_q526(10, 1), _q526(3, 0))
+check("#526: a cleared cell's first draw does not carry the round-wide count",
+      P526(11) < 0.05 and v == "accept"
+      and any("is 3 -> 4, p = %.4f" % P526(4) in r for r in why))
+# The cell held at the control's count rejects this round at 3 -> 11.
+held526 = _v526(_q526(3, 5, 3), None)[0]
+v, why = _v526(_q526(10, 5, 3), _q526(0, 5, 3))
+check("#526: a replication below the control earns no credit",
+      held526 == v == "reject"
+      and any("a/sonnet at 3 of 20" in r and "3 -> 11 at p = %.4f" % P526(11)
+              in r for r in why))
+# 6 of 40 is the control's rate, and counted on 40 runs it would dilute the
+# round-wide count to 3 -> 14 of 50, p = 0.07.
+v, why = _v526(_q526(10, 5, 3),
+               _q526(6, 5, 3, runs={A526: 40, B526: 5, D526: 5}))
+check("#526: a larger replication enters on the round's exposure",
+      bench_report._count_rise_p(3, 14, 30, 50) > 0.05
+      and v == "reject" and any("a/sonnet at 3 of 20" in r for r in why))
+# A judged counter reads decided verdicts on every side: the round's cell has
+# 18 of its 20 runs decided and the replication 15, so 3 of 15 enters as
+# ceil(3.6) = 4 of 18. On runs it would have been 3 of 20.
+prev526j, cur526j, arb526j = _q526(3, 0, tokens=500), _q526(10, 5, 5), _q526(3, 5, 5)
+for s526, n526, a526 in ((prev526j, 30, 20), (cur526j, 28, 18), (arb526j, 25, 15)):
+    s526["quality_n"] = n526
+    s526["cell_decided"] = {"quality_fails": {A526: a526, B526: 5, D526: 5}}
+v, why = _v526(cur526j, arb526j, prev=prev526j)
+check("#526: a judged cell enters on decided verdicts",
+      v == "reject" and any(
+          "a/sonnet at 4 of 18" in r and "3 -> 14 at p = %.4f"
+          % bench_report._count_rise_p(3, 14, 30, 28) in r for r in why))
+check("#526: the legacy gate keeps every risen cell on the replication",
+      bench_report.accept_verdict(_q526(3, 0, tokens=500), _q526(10, 5, 5),
+                                  "output_tokens", arbitration=_q526(3, 5, 5),
+                                  legacy_count_gate=True)[0] == "reject"
+      and bench_report.accept_verdict(_q526(3, 0, tokens=500), _q526(10, 5, 5),
+                                      "output_tokens",
+                                      arbitration=_q526(3, 0, 0),
+                                      legacy_count_gate=True)[0] == "accept")
+
+
 # --- #68: the graders keep the usage fields they already receive -------------
 #
 # Generation was priced from the start and both grading stages were not, so a

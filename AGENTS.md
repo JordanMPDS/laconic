@@ -116,7 +116,10 @@ one that catches stale generated files, and it is the easiest to skip by acciden
   `verdict`, with each vote kept beside it. kimi is the Kimi Code subscription
   through the `kimi` CLI (`kimi-code/kimi-for-coding`), never the Moonshot API
   key. Two agreeing votes decide; a three-way split is recorded as
-  `not_exercised`; anything less than two agreeing votes is retried on resume.
+  `not_exercised`; anything less than two agreeing votes is retried on resume,
+  and the retry calls only the members with no vote, keeping the votes already
+  cast: calling all three again settles a split by re-rolling the two who
+  disagreed, where the panel would have had the third break the tie (#446).
   A judgments file holds one judge setup, stamped as `judge_model`, and
   `judge.py` refuses to resume or carry across two while `report.py` refuses
   to compare them. `--model <name>` is the single-judge compatibility mode,

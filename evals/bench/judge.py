@@ -367,8 +367,16 @@ def _call_kimi(prompt):
                 print("refused a kimi judgment whose transcript is not plain "
                       "text: a tool call, or a stream format this harness does "
                       "not know (#411)", file=sys.stderr)
+            elif p.returncode:
+                # A capped subscription fails every call of a pass, and the
+                # reason is only ever in kimi's own stderr (#446).
+                print("kimi judgment attempt failed: exit %d: %s"
+                      % (p.returncode, " ".join(p.stderr.split()[-40:])),
+                      file=sys.stderr)
             res = {"ok": bool(text and text.strip()), "text": text or ""}
-        except (OSError, subprocess.TimeoutExpired):
+        except (OSError, subprocess.TimeoutExpired) as e:
+            print("kimi judgment attempt failed: %s" % type(e).__name__,
+                  file=sys.stderr)
             res = {"ok": False}
         finally:
             shutil.rmtree(scratch, ignore_errors=True)
@@ -402,7 +410,8 @@ def panel_verdict(votes):
     failed. A vote that did not parse is not a vote. Two agreeing votes decide,
     whatever the third did. Fewer than two votes, or two that disagree with the
     third missing, decide nothing, so the record is an infra failure and a
-    resume retries it rather than freezing a coin flip.
+    resume retries it rather than freezing a coin flip. The retry calls only
+    the members with no vote (held_votes, #446).
     """
     decided = {m: v for m, v in votes.items()
                if v and v.get("reason") not in INFRA_REASONS}
@@ -419,12 +428,30 @@ def panel_verdict(votes):
     else:
         out = {"verdict": "not_exercised", "quote": "",
                "reason": REASON_JUDGE_CALL_FAILED}
-    out["panel"] = {m: ({"verdict": v["verdict"], "reason": v["reason"]}
+    out["panel"] = {m: ({"verdict": v["verdict"], "quote": v["quote"],
+                         "reason": v["reason"]}
                         if m in decided else {"verdict": None,
                                               "reason": (v or {}).get("reason")
                                               or REASON_JUDGE_CALL_FAILED})
                     for m, v in votes.items()}
     return out
+
+
+def held_votes(j):
+    """The votes a panel record already holds, for a retry to keep (#446).
+
+    A record is left undecided when two members disagree and the third cast no
+    vote. Calling all three again re-rolls the two who disagreed until they
+    agree, and a judge disagrees with itself on 5 to 10% of identical text
+    (#70), so a split settled that way is decided by self-disagreement where
+    the panel would have had the third member break the tie. Holding the votes
+    already cast and calling only the missing member gives the record the
+    verdict the full panel gives. A vote stored before #446 has no quote.
+    """
+    return {m: {"verdict": v["verdict"], "quote": v.get("quote", ""),
+                "reason": v.get("reason", "")}
+            for m, v in (j.get("panel") or {}).items()
+            if v.get("verdict") in VERDICTS}
 
 
 def main():
@@ -647,6 +674,10 @@ def main():
 
     todo = [r for r in runs
             if (r["case"], r["arm"], r["model"], r["rep"]) not in done]
+    # A retried panel record keeps the votes it holds, and their cost (#446).
+    held = {} if args.model else {
+        k: (held_votes(prior["judgments"][i]), prior["judgments"][i].get("usage") or {})
+        for k, i in at.items() if k not in done}
     ungated = []
     if not args.judge_all:
         todo, ungated = gate_split(todo, CASES)
@@ -672,12 +703,14 @@ def main():
     # Printed before the first call, for the same reason run.py prints one:
     # a judging pass is hundreds of CLI sessions and nothing said so up front.
     per = 1 if args.model else len(PANEL)
+    calls = sum(per - len(held.get((r["case"], r["arm"], r["model"], r["rep"]),
+                                   ({}, {}))[0])
+                for r in todo)
     print("budget: %d judgment(s) to make by %s, %d call(s), of %d usable "
           "run(s) in this snapshot (%d already graded or carried, %d skipped as "
           "feeding no gate). A failed call is retried once, so the ceiling is %d."
-          % (len(todo), setup, per * len(todo), len(runs),
-             len(runs) - len(todo) - len(ungated), len(ungated),
-             2 * per * len(todo)))
+          % (len(todo), setup, calls, len(runs),
+             len(runs) - len(todo) - len(ungated), len(ungated), 2 * calls))
 
     # The one piece of state a worker thread does touch, so it takes a lock.
     # "Consecutive" means consecutive *completions*, which is the only ordering
@@ -716,8 +749,14 @@ def main():
             # Members in sequence, not in parallel: --jobs already runs that
             # many judgments at once, and three processes each would triple the
             # open sessions on a machine #255 found memory-bound.
-            votes, usage = {}, {k: 0 for k in USAGE_FIELDS}
+            kept, spent = held.get((r["case"], r["arm"], r["model"], r["rep"]),
+                                   ({}, {}))
+            votes = {}
+            usage = {k: spent.get(k, 0) or 0 for k in USAGE_FIELDS}
             for m in PANEL:
+                if m in kept:
+                    votes[m] = kept[m]
+                    continue
                 res = _call_kimi(prompt) if m == "kimi" else \
                     _call_blind(claude_bin, m, prompt)
                 votes[m] = parse_verdict(res.get("text", "")) if res.get("ok") else None
@@ -754,15 +793,17 @@ def main():
     bench_run.save_snapshot(args.out, prior)
     print("\nwrote %s (%d judgments)" % (args.out, len(prior["judgments"])))
     # A kimi vote that never arrived - an outage, or a transcript kimi_reply
-    # refused (#411) - leaves a two-member panel deciding, and no progress line
-    # shows it.
+    # refused (#411) - leaves sonnet and opus deciding where they agree. That is
+    # the panel's verdict, which no third vote overturns (#446), but
+    # panel_agreement.py has no kimi vote for those records.
     absent = sum(1 for j in prior["judgments"]
                  if "panel" in j
                  and (j["panel"].get("kimi") or {}).get("verdict") is None
                  and not _is_infra_failure(j))
     if absent:
         print("warning: kimi cast no vote on %d of the %d judgments in this "
-              "file, so sonnet and opus decided those alone"
+              "file, so sonnet and opus decided those alone. Their verdicts are "
+              "the panel's, but panel_agreement.py has no kimi vote for them"
               % (absent, len(prior["judgments"])))
     if stop["aborted"]:
         sys.exit(

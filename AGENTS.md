@@ -142,7 +142,9 @@ one that catches stale generated files, and it is the easiest to skip by acciden
   as a property of conversational depth; it was the delivery mode, and four
   round documents had to be corrected. There is now no default: a pass with
   multi-turn work left refuses to start without `--turn-delivery`, and records
-  the answer as `metadata.turn_delivery`. Use `plugin` for any claim about the
+  the answer as `metadata.turn_delivery`. A resume, a carry or a `merge.py`
+  that would put multi-turn runs of a second mode beside the first is refused,
+  decided on the mode each run is stamped with. Use `plugin` for any claim about the
   product and `repeat` to resume or extend a snapshot below round 40.
 
 - **A round says whether it proposes a rule edit, and two that do not may not

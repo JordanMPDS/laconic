@@ -99,18 +99,21 @@ reclaimable() { # <path> -> 0 if safe to remove; prints the reason when not
 }
 
 if [ "${1:-}" = "--selftest" ]; then
-  failed=0
+  failed=0 total=0
   check() { # name, expected-grep, actual
+    total=$((total + 1))
     if printf '%s' "$3" | grep -qE "$2"; then return 0; fi
     failed=$((failed + 1))
     printf 'FAIL %s\n  wanted /%s/ in:\n%s\n' "$1" "$2" "$3"
   }
   checkno() { # name, forbidden-grep, actual
+    total=$((total + 1))
     if ! printf '%s' "$3" | grep -qE "$2"; then return 0; fi
     failed=$((failed + 1))
     printf 'FAIL %s\n  did not want /%s/ in:\n%s\n' "$1" "$2" "$3"
   }
   checkst() { # name, expected-status, actual-status
+    total=$((total + 1))
     if [ "$2" = "$3" ]; then return 0; fi
     failed=$((failed + 1))
     printf 'FAIL %s\n  wanted exit %s, got %s\n' "$1" "$2" "$3"
@@ -217,11 +220,11 @@ if [ "${1:-}" = "--selftest" ]; then
   check "it keeps the untracked tree" "kept $s/untracked" "$out"
   check "it keeps the unlanded tree" "kept $s/ahead" "$out"
   check "it keeps the tree outside the scratch root" "kept $tmp/outside" "$out"
-  [ "$(cat "$tmp/outside/a.txt" 2>/dev/null)" = edited ] \
-    || { failed=$((failed + 1)); echo "FAIL the uncommitted edit outside the root survived"; }
-  [ -d "$s/spent" ] && { failed=$((failed + 1)); echo "FAIL the spent tree is gone"; }
-  [ -d "$s/live" ] || { failed=$((failed + 1)); echo "FAIL the live tree survived"; }
-  [ -d "$s/untracked" ] || { failed=$((failed + 1)); echo "FAIL the untracked tree survived"; }
+  checkst "the uncommitted edit outside the root survived" edited \
+    "$(cat "$tmp/outside/a.txt" 2>/dev/null)"
+  checkst "the spent tree is gone" 1 "$([ -d "$s/spent" ]; echo $?)"
+  checkst "the live tree survived" 0 "$([ -d "$s/live" ]; echo $?)"
+  checkst "the untracked tree survived" 0 "$([ -d "$s/untracked" ]; echo $?)"
 
   out=$(PROCESS_CWDS_STUB="$s/live" bash tools/reclaim-scratch.sh 2>&1); st=$?
   check "a second run has nothing left to reclaim" 'nothing to reclaim' "$out"
@@ -232,10 +235,10 @@ if [ "${1:-}" = "--selftest" ]; then
   echo two > "$s/untracked/a.txt"; rm "$s/untracked/notes.md"
   out=$(PROCESS_CWDS_STUB="$s/live" bash tools/reclaim-scratch.sh --dry-run 2>&1)
   check "--dry-run says what would go" "would reclaim $s/untracked" "$out"
-  [ -d "$s/untracked" ] || { failed=$((failed + 1)); echo "FAIL --dry-run deleted it"; }
+  checkst "and leaves it in place" 0 "$([ -d "$s/untracked" ]; echo $?)"
 
-  [ "$failed" -eq 0 ] && echo "reclaim-scratch.sh selftest: 31/31 passed" \
-    || echo "reclaim-scratch.sh selftest: $failed failed"
+  [ "$failed" -eq 0 ] && echo "reclaim-scratch.sh selftest: $total/$total passed" \
+    || echo "reclaim-scratch.sh selftest: $failed of $total failed"
   exit $([ "$failed" -eq 0 ] && echo 0 || echo 1)
 fi
 

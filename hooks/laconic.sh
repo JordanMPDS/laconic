@@ -116,8 +116,9 @@ if [ "$MODE" = "remind" ] || [ "$MODE" = "switch" ]; then
   # JSON leaves a Unicode space unescaped, and laconic.ps1's \s counts every one
   # .NET does, so the class names their UTF-8 sequences too (#491): U+0085,
   # U+00A0, U+1680, U+2000 to U+200A, U+2028, U+2029, U+202F, U+205F, U+3000.
-  # [[:space:]] misses U+00A0 in every locale and all of them under C, and a
-  # miss after "project" dropped the scope and wrote the machine flag. Each is
+  # [[:space:]] misses U+0085 everywhere, the no-break spaces under glibc and
+  # all of them under C, and a miss after "project" dropped the scope and wrote
+  # the machine flag. Each is
   # a whole character rather than a byte range, so a UTF-8 locale reads it as
   # one character and C as its bytes, and both match.
   ws='([[:space:]]|\\[nrtf]|\\u000[bB]'$'|\302\205|\302\240|\341\232\200|\342\200\200|\342\200\201|\342\200\202|\342\200\203|\342\200\204|\342\200\205|\342\200\206|\342\200\207|\342\200\210|\342\200\211|\342\200\212|\342\200\250|\342\200\251|\342\200\257|\342\201\237|\343\200\200)'

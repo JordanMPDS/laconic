@@ -141,10 +141,10 @@ if ($Mode -eq 'remind' -or $Mode -eq 'switch') {
   try {
     # Decode stdin as the UTF-8 every host sends, not through [Console]::In,
     # which uses the console's input code page: the OEM one, cp437 on a US
-    # install, where the two bytes of a no-break space become two other characters, \s
-    # misses them, and a scoped switch wrote the machine flag (#491). Setting
-    # [Console]::InputEncoding instead calls SetConsoleCP, which throws with no
-    # console attached, and the catch below would hide that.
+    # install, where the two bytes of a no-break space become two other
+    # characters, \s misses them, and a scoped switch wrote the machine flag
+    # (#491). Setting [Console]::InputEncoding instead calls SetConsoleCP, which
+    # throws with no console attached, and the catch below would hide that.
     $payload = (New-Object System.IO.StreamReader([Console]::OpenStandardInput(), $Utf8NoBom)).ReadToEnd()
     $prompt = (ConvertFrom-Json $payload).prompt
     # Kimi Code sends the prompt as an array of content parts rather than a

@@ -610,8 +610,9 @@ rm -rf "$H"
 
 # 47. A Unicode space is whitespace beside the command too (#491). JSON leaves
 # one unescaped, and laconic.ps1 matches with .NET's \s, which counts every
-# one, while [[:space:]] misses U+00A0 in every locale and all of them under C.
-# A miss dropped the scope and wrote the machine flag. Every code point in
+# one, while [[:space:]] misses U+0085 everywhere, the no-break spaces under
+# glibc and all of them under C. A miss dropped the scope and wrote the
+# machine flag. Every code point in
 # .NET's set runs under the ambient locale and under C, where only the hook's
 # own byte sequences can match. U+200B is not whitespace to .NET, so after
 # "project" it is trailing text, as the rest of "projector" would be.

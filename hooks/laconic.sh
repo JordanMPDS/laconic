@@ -141,14 +141,25 @@ if [ "$MODE" = "remind" ] || [ "$MODE" = "switch" ]; then
   # unaffected by the suffix and this stays a plain substring test.
   target="$GLOBAL_FLAG"
   target_dir="$CONFIG_DIR"
+  shared=""
   case "$match" in
-    *" project"*) target="$PROJECT_FLAG"; target_dir="$PROJECT_CONFIG_DIR" ;;
+    *" project"*)
+      target="$PROJECT_FLAG"; target_dir="$PROJECT_CONFIG_DIR"
+      # A project rooted where the machine configuration lives, $HOME by
+      # default, has no project flag of its own: both paths name one file, so a
+      # scoped switch would change every project (#427). Refuse it rather than
+      # widen it. -ef compares the directories, which exist in practice; it is
+      # false when neither does, so equal strings count too.
+      if [ "$PROJECT_CONFIG_DIR" -ef "$CONFIG_DIR" ] || [ "$PROJECT_CONFIG_DIR" = "$CONFIG_DIR" ]; then
+        shared=1
+      fi
+      ;;
   esac
   applied=""
   # This write precedes the read-path symlink check below, so it needs its own
   # guard: without it, /laconic ultra against a symlinked flag would write
   # through the link into an attacker-chosen file.
-  if [ -n "${switch:-}" ] && [ ! -L "$target" ]; then
+  if [ -n "${switch:-}" ] && [ -z "$shared" ] && [ ! -L "$target" ]; then
     mkdir -p "$target_dir" 2>/dev/null || true
     { printf '%s' "$switch" > "$target"; } 2>/dev/null || true
     # Read the flag back rather than trusting the redirect, whose status the
@@ -168,6 +179,7 @@ if [ "$MODE" = "remind" ] || [ "$MODE" = "switch" ]; then
   if [ "$MODE" = "remind" ] && [ -n "${switch:-}" ] && [ -z "$applied" ]; then
     why="could not be written"
     [ -L "$target" ] && why="is a symlink, which laconic never writes through"
+    [ -n "$shared" ] && why="is also the machine flag here, so a project-scoped switch would change every project"
     printf 'laconic: the switch to %s was not applied, because %s %s. Tell the user the switch failed, and do not change that file yourself.\n' \
       "$switch" "$target" "$why" | laconic_emit
     exit 0

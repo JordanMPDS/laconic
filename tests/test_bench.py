@@ -4405,6 +4405,106 @@ check("#526: the legacy gate keeps every risen cell on the replication",
                                       legacy_count_gate=True)[0] == "accept")
 
 
+# --- #530: both round-wide rejections reach the judge-noise gate -------------
+#
+# The #259 route and the #526 route each rejected on the round-wide count and
+# `continue`d before the judge-noise block, so with per-cell data present
+# --judge-noise-gate could not return undecided for the very case its comment
+# names, and neither line carried the #70 disclosure. The judge-noise checks
+# above use summaries with no cells, which reach the block by the one path
+# where nothing rose for lack of data.
+#
+# 100 judged runs a side put 15 flips inside the judge's self-disagreement: a
+# rise of 7 is significant round-wide (3 -> 10, p = 0.046) and inside judge
+# noise (p = 0.059); a rise of 11 is outside it.
+T530 = ("t", "sonnet")
+U530 = [(c, "sonnet") for c in "abcdefghijk"]
+
+
+def _q530(kw, t, rises, t_runs=20):
+    s = _summary(tokens=TEN_CELLS(100), n_runs=100, **{kw: t + rises})
+    key = {"qf": "quality_fails", "sf": "safety_fails"}[kw]
+    s["cells"] = {key: {T530: t, **{c: int(i < rises)
+                                    for i, c in enumerate(U530)}}}
+    s["cell_runs"] = {T530: t_runs, **{c: 5 for c in U530}}
+    s["judged_cells"] = {T530} | set(U530)
+    return s
+
+
+P530 = bench_report._count_rise_p(3, 10, 100, 100)
+J530 = bench_report._judge_noise_p(7, 100)
+check("#530: the fixture's rise is significant round-wide and inside judge "
+      "noise", P530 <= 0.05 < J530)
+for kw, label in (("qf", "quality"), ("sf", "safety")):
+    prev530 = _q530(kw, 3, 0)
+    prev530["tokens"] = TEN_CELLS(500)
+    # The #259 route: every risen cell is under 20 runs a side.
+    cur530 = _q530(kw, 3, 7)
+    v, why = bench_report.accept_verdict(prev530, cur530, "output_tokens")
+    check("#530: the %s #259 rejection still rejects with the gate off" % label,
+          v == "reject" and any(
+              r.startswith("REJECT: %s lost (3 -> 10) round-wide at p = %.4f"
+                           % (label, P530)) for r in why))
+    check("#530: and its line carries the #70 disclosure for %s" % label,
+          any(r.startswith("REJECT: %s lost (3 -> 10) round-wide" % label)
+              and "judge self-disagreement at 15%% would produce a rise of +7 "
+              "with p = %.3f (#70)" % J530 in r for r in why))
+    v, why = bench_report.accept_verdict(prev530, cur530, "output_tokens",
+                                         judge_noise_gate=True)
+    check("#530: under the gate a %s #259 rejection inside judge noise is "
+          "undecided" % label,
+          v == "undecided" and any(
+              r.startswith("UNDECIDED: %s rise (3 -> 10) rests on the "
+                           "round-wide count alone" % label)
+              and "Re-judge the round" in r for r in why))
+    v, _ = bench_report.accept_verdict(prev530, _q530(kw, 3, 11),
+                                       "output_tokens", judge_noise_gate=True)
+    check("#530: a %s #259 rise outside judge noise rejects under the gate"
+          % label, v == "reject")
+
+    # The #526 route: the testable cell rose 3 -> 10 of 20, the replication
+    # clears it at 3, and the untestable cells' +7 still carries the count.
+    # The rise it rests on is 3 -> 10, not the first draw's 3 -> 17, which
+    # judge noise could not produce.
+    cur530 = _q530(kw, 10, 7)
+    arb530 = _q530(kw, 3, 7)
+    v, why = bench_report.accept_verdict(prev530, cur530, "output_tokens",
+                                         arbitration=arb530)
+    check("#530: the %s #526 rejection still rejects with the gate off" % label,
+          v == "reject" and any(
+              r.startswith("REJECT: %s lost (3 -> 17); counting t/sonnet at 3 "
+                           "of 20 after the replication, the round-wide count "
+                           "is 3 -> 10 at p = %.4f" % (label, P530))
+              and "would produce a rise of +7 with p = %.3f (#70)" % J530 in r
+              for r in why))
+    v, why = bench_report.accept_verdict(prev530, cur530, "output_tokens",
+                                         arbitration=arb530,
+                                         judge_noise_gate=True)
+    check("#530: under the gate a %s #526 rejection inside judge noise is "
+          "undecided, on the count the replication left" % label,
+          v == "undecided" and any(
+              r.startswith("UNDECIDED: %s rise (3 -> 17) rests on the "
+                           "round-wide count alone, 3 -> 10 counting t/sonnet "
+                           "at 3 of 20 after the replication," % label)
+              for r in why))
+    # A testable cell that rose, unreplicated or not cleared, is evidence
+    # about a named cell, and the gate leaves it alone. Its +7 is the same
+    # rise judge noise could produce above, so only that guard rejects it.
+    cur530 = _q530(kw, 10, 0)
+    v, why = bench_report.accept_verdict(prev530, cur530, "output_tokens",
+                                         judge_noise_gate=True)
+    check("#530: a %s testable cell that rose rejects under the gate, inside "
+          "judge noise" % label,
+          v == "reject" and any("p = %.3f (#70)" % J530 in r for r in why))
+    v, why = bench_report.accept_verdict(prev530, cur530, "output_tokens",
+                                         arbitration=_q530(kw, 10, 0),
+                                         judge_noise_gate=True)
+    check("#530: a %s cell the replication did not clear rejects under the "
+          "gate, inside judge noise" % label,
+          v == "reject" and any("replication did not clear t/sonnet" in r
+                                for r in why))
+
+
 # --- #68: the graders keep the usage fields they already receive -------------
 #
 # Generation was priced from the start and both grading stages were not, so a

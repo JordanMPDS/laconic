@@ -69,15 +69,18 @@ the same project-flag precedence the hook uses. One edit, one time:
 {
   "statusLine": {
     "type": "command",
-    "command": "bash \"$HOME/.claude/laconic-statusline.sh\""
+    "command": "bash \"${CLAUDE_CONFIG_DIR:-$HOME/.claude}/laconic-statusline.sh\""
   }
 }
 ```
 
-The same line serves Windows: Claude Code runs a status line command through
-Git Bash, as it runs the hook, and there `$HOME` is your Windows profile. The
-PowerShell badge script is installed only by `hooks/laconic.ps1`, which Claude
-Code never runs ([#423](https://github.com/JordanMPDS/laconic/issues/423)).
+The path names your configuration directory the way the hook does, so it still
+finds the script when `CLAUDE_CONFIG_DIR` moves that directory away from
+`~/.claude`. The same line serves Windows: Claude Code runs a status line
+command through Git Bash, as it runs the hook, and there `$HOME` is your Windows
+profile. The PowerShell badge script is installed only by `hooks/laconic.ps1`,
+which Claude Code never runs
+([#423](https://github.com/JordanMPDS/laconic/issues/423)).
 
 The plugin installs the badge script at that path itself and refreshes it on
 every session start, so there is no script to copy and no path to re-check after

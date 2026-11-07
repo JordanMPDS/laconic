@@ -56,6 +56,29 @@ next session start, or after `/reload-plugins`.
 A clone added as a marketplace loads the working tree in place, so `git pull`
 is its update.
 
+### Uninstall
+
+From a shell:
+
+```bash
+claude plugin uninstall laconic@laconic
+claude plugin marketplace remove laconic
+```
+
+That stops the hooks but leaves what they wrote. If you wired the
+[statusline badge](docs/configuration.md#statusline-badge), remove the
+`statusLine` entry from `settings.json`: the copied badge script reads only the
+level file, so it would go on showing `[LACONIC]` with no rules injected. Then
+delete `.laconic-level` and `laconic-statusline.*` from your configuration
+directory (`~/.claude`, or `$CLAUDE_CONFIG_DIR`), `.claude/.laconic-level` from
+any repository you scoped with `/laconic <level> project`, and `LACONIC_DEFAULT`
+from the `env` block of `settings.json` if you set it. To find the scoped
+repositories:
+
+```bash
+find ~ -path '*/.claude/.laconic-level'
+```
+
 ## Levels
 
 Cumulative. All three keep complete sentences, real articles, and real

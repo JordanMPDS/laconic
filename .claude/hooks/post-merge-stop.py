@@ -39,7 +39,10 @@ terminal. Under an agent's shell tool it is not, and the command prints
 nothing whatsoever — the first version of this hook matched that wording and
 so never fired even once. The tool payload carries no exit status either
 (`stdout`, `stderr`, `interrupted`, `isImage`, `noOutputExpected`), so the
-merge has to be confirmed by asking GitHub.
+merge has to be confirmed by asking GitHub. Matching it as a shortcut was worse
+than useless: the shortcut ran before GitHub was asked, so a grep of this file,
+whose selftest quotes the confirmation beside a merge command, ended a turn
+that merged nothing (#458).
 
 Reads the PostToolUse payload on stdin.
 """
@@ -54,9 +57,6 @@ import sys
 # `#123`, `123`, or a trailing `/123` from a full PR URL.
 PR_NUM = re.compile(r"(?:^|/)#?(\d+)$")
 
-# Only used when stderr *is* a terminal, which is the interactive case.
-MERGED_TEXT = re.compile(r"merged pull request", re.I)
-
 # How recently a pull request must have merged for this command to be what
 # merged it. A real merge is confirmed within seconds; anything older is the
 # command naming a pull request rather than merging one. Symmetric, so a
@@ -64,17 +64,32 @@ MERGED_TEXT = re.compile(r"merged pull request", re.I)
 MERGE_WINDOW = 120
 
 
-def pr_number(command):
-    """The PR `gh pr merge` was pointed at, or None for 'the current branch'."""
+def merge_args(command):
+    """The tokens after `gh pr merge`, up to the end of that command."""
     tail = command.split("gh pr merge", 1)[1] if "gh pr merge" in command else ""
     for token in tail.split():
+        if token in {"|", "&&", "||", ";", "2>&1"}:
+            return
+        yield token
+
+
+def pr_number(command):
+    """The PR `gh pr merge` was pointed at, or None for 'the current branch'."""
+    for token in merge_args(command):
         if token.startswith("-"):
             continue
-        if token in {"|", "&&", "||", ";", "2>&1"}:
-            break
         match = PR_NUM.search(token)
         return match.group(1) if match else None
     return None
+
+
+def deletes_branch(command):
+    """`--delete-branch`, or `-d` alone or in a cluster such as `-sd`."""
+    return any(
+        token.startswith("--delete-branch")
+        or re.fullmatch(r"-[A-Za-z]*d[A-Za-z]*", token)
+        for token in merge_args(command)
+    )
 
 
 def is_fresh(stamp, now=None):
@@ -89,12 +104,30 @@ def is_fresh(stamp, now=None):
     return abs((now - merged_at).total_seconds()) <= MERGE_WINDOW
 
 
-def merged_just_now(number):
-    """Ask GitHub. The only reliable signal available to this hook."""
-    argv = ["gh", "pr", "view"]
+def query(number, deleted=False):
+    """The `gh` call that says whether this command's PR just merged.
+
+    With no number, gh merged the current branch's PR, and that is what to ask
+    about, unless `--delete-branch` was passed: then gh has switched to the
+    base branch and pulled before this hook runs, the base branch has no PR,
+    and the question becomes whether any of the five most recently created
+    merged PRs merged just now. That list comes through the GraphQL connection
+    rather than search, whose index can lag a merge that is seconds old. It
+    cannot say which PR merged, so it is asked only when the flag forces it:
+    the loop restarts ten seconds after a stop, and every number-less mention
+    on the base branch would otherwise stop the new session too (#458).
+    """
     if number:
-        argv.append(number)
-    argv += ["--json", "state,mergedAt"]
+        return ["gh", "pr", "view", number, "--json", "state,mergedAt"]
+    if deleted:
+        return ["gh", "pr", "list", "--state", "merged", "--limit", "5",
+                "--json", "state,mergedAt"]
+    return ["gh", "pr", "view", "--json", "state,mergedAt"]
+
+
+def merged_just_now(number, deleted=False):
+    """Ask GitHub. The only reliable signal available to this hook."""
+    argv = query(number, deleted)
     try:
         done = subprocess.run(
             argv, capture_output=True, text=True, timeout=20, check=False
@@ -107,7 +140,12 @@ def merged_just_now(number):
         info = json.loads(done.stdout)
     except (json.JSONDecodeError, ValueError):
         return False
-    return info.get("state") == "MERGED" and is_fresh(info.get("mergedAt"))
+    prs = info if isinstance(info, list) else [info]
+    return any(
+        isinstance(pr, dict) and pr.get("state") == "MERGED"
+        and is_fresh(pr.get("mergedAt"))
+        for pr in prs
+    )
 
 
 def supervised():
@@ -166,8 +204,7 @@ def main() -> int:
     if re.search(r"(?<!\S)--auto(?!\S)", command):
         return 0
 
-    output = f"{response.get('stdout', '')}\n{response.get('stderr', '')}"
-    if not MERGED_TEXT.search(output) and not merged_just_now(pr_number(command)):
+    if not merged_just_now(pr_number(command), deletes_branch(command)):
         return 0
 
     json.dump(
@@ -204,9 +241,13 @@ def selftest() -> int:
         ("gh pr merge 9 -s", "", True, True, False),           # interrupted
         ("git status", "", False, True, False),
         ("gh pr view 3", "MERGED", False, True, False),
-        # A terminal did print the confirmation: fire without asking GitHub.
+        # gh's confirmation in the output proves nothing; GitHub decides. The
+        # grep is #458's false stop: this file's own lines carry both strings.
         ("gh pr merge 8 -s", "✓ Squashed and merged pull request #8",
-         False, False, True),
+         False, False, False),
+        ("grep -n 'gh pr merge' .claude/hooks/post-merge-stop.py",
+         '230:        ("gh pr merge 8 -s", '
+         '"✓ Squashed and merged pull request #8",', False, False, False),
         # Merged, but not by this command. Both of these stopped a turn on
         # 2026-09-05 while merging nothing: the hook reads the whole command
         # text, so a quoted merge command inside a pull request body or a JSON
@@ -233,6 +274,42 @@ def selftest() -> int:
         ("gh pr merge -s 42", "42"),
     ]
 
+    deletes = [
+        ("gh pr merge --squash --delete-branch", True),
+        ("gh pr merge -sd", True),
+        ("gh pr merge -d 12", True),
+        ("gh pr merge --squash", False),
+        ("gh pr merge --squash && git branch -d old", False),
+        ("grep -rn 'gh pr merge' .claude/", False),
+    ]
+
+    # What merged_just_now() asks GitHub and makes of the answer: (number,
+    # --delete-branch, gh exit, gh stdout, argv it must start with, merged now)
+    fresh = datetime.datetime.now(datetime.timezone.utc).isoformat()
+    old = "2026-09-05T01:00:00Z"
+    view = ["gh", "pr", "view", "193", "--json"]
+    current = ["gh", "pr", "view", "--json"]
+    listed = ["gh", "pr", "list", "--state", "merged"]
+    queries = [
+        ("193", False, 0, {"state": "MERGED", "mergedAt": fresh}, view, True),
+        ("193", False, 0, {"state": "MERGED", "mergedAt": old}, view, False),
+        ("193", False, 0, {"state": "OPEN", "mergedAt": None}, view, False),
+        ("193", False, 0, "not json", view, False),
+        ("193", True, 0, {"state": "MERGED", "mergedAt": fresh}, view, True),
+        # Number-less, branch kept: the current branch's PR is the one.
+        (None, False, 0, {"state": "MERGED", "mergedAt": fresh}, current, True),
+        # Number-less on the base branch, which has no PR: a mention, so no
+        # stop, however recently another PR merged.
+        (None, False, 1, "", current, False),
+        # Number-less after --delete-branch: the current branch is already
+        # the base, so the latest merged PRs are asked about instead.
+        (None, True, 0, [{"state": "MERGED", "mergedAt": old},
+                         {"state": "MERGED", "mergedAt": fresh}], listed, True),
+        (None, True, 0, [{"state": "MERGED", "mergedAt": old}], listed, False),
+        (None, True, 0, [], listed, False),
+        (None, True, 1, "", listed, False),
+    ]
+
     def run(payload):
         """Feed one payload through main(), returning whatever it emitted."""
         stdin_was, stdout_was = sys.stdin, sys.stdout
@@ -247,7 +324,7 @@ def selftest() -> int:
     failed = 0
     try:
         for command, stdout, interrupted, merged, want in cases:
-            globals()["merged_just_now"] = lambda _n, m=merged: m
+            globals()["merged_just_now"] = lambda *_a, m=merged: m
             got = bool(run(json.dumps({
                 "tool_input": {"command": command},
                 "tool_response": {"stdout": stdout, "stderr": "",
@@ -257,7 +334,7 @@ def selftest() -> int:
                 failed += 1
                 print(f"FAIL want={want} got={got}: {command!r}")
 
-        globals()["merged_just_now"] = lambda _n: True
+        globals()["merged_just_now"] = lambda *_a: True
         if run("not json"):
             failed += 1
             print("FAIL malformed payload fired")
@@ -299,7 +376,49 @@ def selftest() -> int:
             failed += 1
             print(f"FAIL pr_number want={want!r} got={got!r}: {command!r}")
 
-    total = len(cases) + len(numbers) + len(freshness) + 3
+    for command, want in deletes:
+        got = deletes_branch(command)
+        if got != want:
+            failed += 1
+            print(f"FAIL deletes_branch want={want} got={got}: {command!r}")
+
+    real_run = subprocess.run
+    try:
+        for number, deleted, code, stdout, prefix, want in queries:
+            asked = []
+
+            def fake(argv, code=code, stdout=stdout, **_kw):
+                asked.append(argv)
+                text = stdout if isinstance(stdout, str) else json.dumps(stdout)
+                return subprocess.CompletedProcess(argv, code, text, "")
+
+            subprocess.run = fake
+            got = merged_just_now(number, deleted)
+            if got != want or not asked or asked[0][:len(prefix)] != prefix:
+                failed += 1
+                print(f"FAIL merged_just_now({number!r}, {deleted}) want={want} "
+                      f"got={got} asked={asked}")
+
+        # And main() hands the flag through: the query is chosen end to end.
+        for command, prefix in (("gh pr merge -s --delete-branch", listed),
+                                ("grep -rn 'gh pr merge' .claude/", current)):
+            asked = []
+
+            def fake(argv, **_kw):
+                asked.append(argv)
+                return subprocess.CompletedProcess(argv, 1, "", "")
+
+            subprocess.run = fake
+            run(json.dumps({"tool_input": {"command": command},
+                            "tool_response": {"stdout": "", "stderr": ""}}))
+            if not asked or asked[0][:len(prefix)] != prefix:
+                failed += 1
+                print(f"FAIL main() asked={asked} for {command!r}")
+    finally:
+        subprocess.run = real_run
+
+    total = (len(cases) + len(numbers) + len(freshness) + len(deletes)
+             + len(queries) + 5)
     print(f"{total - failed}/{total} passed")
     return 1 if failed else 0
 

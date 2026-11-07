@@ -101,7 +101,13 @@ nothing at all. The first version of this hook matched that wording and never
 fired once — the merge it was meant to catch produced an empty payload. The
 tool payload carries no exit status either, so the hook parses the PR number
 out of the command and asks GitHub. Truncating or discarding the output is
-therefore harmless.
+therefore harmless. Reading it was harmful: until #458 a match on that wording
+skipped the GitHub check, so grepping the hook's own file ended a turn. A merge
+named by no number is asked about as the current branch's PR, except with
+`--delete-branch`, which has switched to the base branch by the time the hook
+runs: then it asks whether any of the five most recently created merged PRs
+merged just now. Only the flag earns that wider question, because the loop
+restarts ten seconds after a stop and the new session starts on the base branch.
 
 **It asks "was this merged just now", not "is this merged".** The hook is
 handed the whole command text, quoted heredocs and JSON payloads included, and
@@ -115,9 +121,10 @@ it, and `MERGE_WINDOW` (120 seconds, symmetric so a GitHub clock running ahead
 still counts) is the width of "just now".
 
 `python3 .claude/hooks/post-merge-stop.py --selftest` drives `main()` with
-GitHub stubbed — 25 checks covering the empty-output case that actually occurs,
-the two quoted-mention commands that fired falsely, the freshness arithmetic,
-and both branches of the stop message.
+GitHub stubbed — 45 checks covering the empty-output case that actually occurs,
+the quoted-mention commands that fired falsely, the freshness arithmetic, the
+query each form of the command sends GitHub, and both branches of the stop
+message.
 
 Inside a single interactive session the equivalent is a subagent per unit of
 work — a fresh window whose verbose output never reaches this one — but only

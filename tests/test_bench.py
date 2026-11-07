@@ -3940,6 +3940,97 @@ check("#259: violations_total keeps its own #103 treatment, cells and all",
       v == "reject" and any("readability lost" in r and "%s/%s +25" % CELL in r
                             for r in why))
 
+# --- #451: the bootstrap is violations_total's only significance test ---
+# cells["violations_total"] holds per-cell violation SUMS, and the #133 screen
+# read them as k failed runs of n. At 20 runs a side every cell of a rise the
+# bootstrap puts at p = 0.0002 cleared as "inside sampling" and the round
+# accepted. Eight cells, 2 -> 5 violations each, one per response.
+_V451_CELLS = [("c%d" % i, "sonnet") for i in range(8)]
+
+
+def _v451(tokens, per_response):
+    return {"never_cut_failures": 0, "quality_fails": 0, "safety_fails": 0,
+            "violations_total": 8 * sum(per_response), "flip_rate": 0.2,
+            "n_runs": 160, "tokens": TEN_CELLS(tokens),
+            "cells": {"violations_total": {c: sum(per_response)
+                                           for c in _V451_CELLS}},
+            "cell_runs": {c: len(per_response) for c in _V451_CELLS},
+            "violation_runs": {c: list(per_response) for c in _V451_CELLS}}
+
+
+v451_prev = _v451(500, [1, 1] + [0] * 18)
+v451_cur = _v451(100, [1] * 5 + [0] * 15)
+check("#451: the reproduction's rise is one the bootstrap can see",
+      bench_report._cluster_count_p(v451_cur["violation_runs"],
+                                    v451_prev["violation_runs"]) <= 0.05)
+check("#451: and the sums read as runs would clear every cell of it",
+      bench_report._sample_covers(5, 20, 2, 20, 0.05))
+v, why = bench_report.accept_verdict(v451_prev, v451_cur, "output_tokens")
+check("#451: a bootstrap-significant readability rise at 20 runs a side "
+      "rejects", v == "reject"
+      and any(r.startswith("REJECT: readability lost (16 -> 40)") for r in why))
+check("#451: and no cell of it is reported inside sampling",
+      not any("readability" in r and "inside" in r and "sampling" in r
+              and "#103" not in r for r in why))
+
+# A measured rate is a binomial rate too, so a rates file that carried the key
+# could not clear a clustered cell either.
+_V451_RATES = {"violations_total": {c: {"runs": 400, "failures": 100}
+                                    for c in _V451_CELLS}}
+v, why = bench_report.accept_verdict(v451_prev, v451_cur, "output_tokens",
+                                     cell_rates=_V451_RATES)
+check("#451: a violations_total entry in the rates file does not clear it",
+      v == "reject" and not any("within the measured" in r for r in why))
+
+# The replication clears a violations_total cell at or below the control's
+# count, and not on the Fisher arm: 3 against 2 of 20 is not a rise the sums
+# can test.
+v451_arb = _v451(100, [1] * 3 + [0] * 17)
+v451_arb.update(run_cells=set(_V451_CELLS), judged_cells=set())
+v, why = bench_report.accept_verdict(v451_prev, v451_cur, "output_tokens",
+                                     arbitration=v451_arb)
+check("#451: a replication above the control's count does not clear a "
+      "readability cell", v == "reject"
+      and any("replication did not clear" in r for r in why))
+v451_arb_clean = _v451(100, [1] * 2 + [0] * 18)
+v451_arb_clean.update(run_cells=set(_V451_CELLS), judged_cells=set())
+v, why = bench_report.accept_verdict(v451_prev, v451_cur, "output_tokens",
+                                     arbitration=v451_arb_clean)
+check("#451: a replication at the control's count still clears it",
+      v == "accept" and any("readability" in r and "cleared by replication" in r
+                            for r in why))
+
+# The disclosure: what the uncorrected cell screen does to a cell that did not
+# move, exactly, at the control's own rate. The issue's figures for 20 a side.
+check("#451: a null cell at 20%, 20 a side, is condemned with p = 0.0226",
+      abs(bench_report._null_cell_reject_p(0.2, 20, 20, 0.05) - 0.0226) < 5e-4)
+check("#451: and at 30% with p = 0.0265",
+      abs(bench_report._null_cell_reject_p(0.3, 20, 20, 0.05) - 0.0265) < 5e-4)
+check("#451: a cell that never fails is never condemned",
+      bench_report._null_cell_reject_p(0.0, 20, 20, 0.05) == 0.0)
+check("#451: below the run bar a rise is condemned on the count alone",
+      bench_report._null_cell_reject_p(0.2, 19, 20, 0.05)
+      > 10 * bench_report._null_cell_reject_p(0.2, 20, 20, 0.05))
+
+_NULL_CELLS = [("c%d" % i, "sonnet") for i in range(8)]
+null_prev = _with_cells(_summary(qf=40, tokens=TEN_CELLS(500)), "quality_fails",
+                        {c: 5 for c in _NULL_CELLS}, runs=20)
+null_cur = _with_cells(_summary(qf=40, tokens=TEN_CELLS(100)), "quality_fails",
+                       {c: 5 for c in _NULL_CELLS}, runs=20)
+v, why = bench_report.accept_verdict(null_prev, null_cur, "output_tokens")
+_disc = [r for r in why if "#451" in r]
+_p1 = bench_report._null_cell_reject_p(0.25, 20, 20, 0.05)
+check("#451: a round with testable cells discloses the screen's null rate",
+      v == "accept" and len(_disc) == 1
+      and "%.2f" % (8 * _p1) in _disc[0]
+      and "%.1f%%" % (100 * (1 - (1 - _p1) ** 8)) in _disc[0])
+v, why = bench_report.accept_verdict(
+    _with_cells(null_prev, "quality_fails", {c: 5 for c in _NULL_CELLS}, runs=5),
+    _with_cells(null_cur, "quality_fails", {c: 5 for c in _NULL_CELLS}, runs=5),
+    "output_tokens")
+check("#451: a round at 5 reps a side prints no such line",
+      not any("#451" in r for r in why))
+
 # The exposure the round-wide test divides by is decided verdicts of the
 # counter's own grading, not the round's run count: a 22-case round runs 220
 # responses and exposes quality_fails on far fewer.

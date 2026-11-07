@@ -56,6 +56,8 @@ SEED = 53
 
 #: Reps per block. Five is the round unit: what every round since 21 buys per
 #: side, and below report.CELL_TEST_MIN_RUNS, so the #133 screen is inactive.
+#: --block 20 reaches that screen, whose null rate at 20 a side has only been
+#: computed, never drawn (#451); it needs a pool of 40 or 60 reps.
 BLOCK = 5
 
 #: Blocks per draw. Three are control, edit and arbitration; --blocks 2 scores
@@ -234,14 +236,18 @@ def power(snap, judg, reps, rates, args):
 
 
 def main():
+    global BLOCK
     ap = argparse.ArgumentParser(description=__doc__,
                                  formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("pool")
     ap.add_argument("--judgments", required=True)
     ap.add_argument("--draws", type=int, default=500)
     ap.add_argument("--blocks", type=int, default=BLOCKS,
-                    help="disjoint 5-rep blocks per draw: 3 scores the "
+                    help="disjoint blocks per draw: 3 scores the "
                          "arbitration too, 2 scores only the bare gate")
+    ap.add_argument("--block", type=int, default=BLOCK,
+                    help="reps per block: 5 is the round unit, 20 reaches "
+                         "the per-cell screen (#451)")
     ap.add_argument("--cell-rates", default=None)
     ap.add_argument("--legacy-count-gate", action="store_true",
                     help="score under the pre-#259 gate, which is the one "
@@ -250,6 +256,9 @@ def main():
                     help="bar D: the detection curve, with failures injected "
                          "into the edit block instead of a null")
     args = ap.parse_args()
+    BLOCK = args.block
+    if BLOCK < 1:
+        sys.exit("--block must be at least 1, got %d" % BLOCK)
 
     snap = json.loads(Path(args.pool).read_text())
     raw = json.loads(Path(args.judgments).read_text())

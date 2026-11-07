@@ -257,6 +257,8 @@ def main():
                          "into the edit block instead of a null")
     args = ap.parse_args()
     BLOCK = args.block
+    if BLOCK < 1:
+        sys.exit("--block must be at least 1, got %d" % BLOCK)
 
     snap = json.loads(Path(args.pool).read_text())
     raw = json.loads(Path(args.judgments).read_text())

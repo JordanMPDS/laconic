@@ -466,9 +466,13 @@ def _cell_screen_null(prev, cur, alpha):
     """The verdict's line on the per-cell screen's own false rejections (#451).
 
     Over every cell testable at these reps, on the three counters the screen
-    reads, at the control's observed rate for the cell. A cell the control
-    never failed contributes nothing, so the figure is a floor. None when no
-    cell is testable, which keeps every 5-rep round's verdict as it was.
+    reads, at the control's observed rate for the cell. It is the screen
+    alone: the gate reaches it only after the round-wide total rose, and a
+    measured rate or a replication can clear what it condemns, so the gate
+    rejects less often than this (8 never-cut cells at 20% and 20 a side:
+    16.7% here, 12% to 13% of 3000 null draws through accept_verdict). A
+    cell the control never failed contributes nothing. None when no cell is
+    testable, which keeps every 5-rep round's verdict as it was.
     """
     prev_runs, cur_runs = prev.get("cell_runs") or {}, cur.get("cell_runs") or {}
     parts, probs = [], []
@@ -488,9 +492,10 @@ def _cell_screen_null(prev, cur, alpha):
     if not probs:
         return None
     none = math.prod(1 - p for p in probs)
-    return ("per-cell screen under a null at the control's own rates: false "
-            "cell rejections expected, %s cells; at least one in %.1f%% of "
-            "rounds. Uncorrected by design (#451)"
+    return ("per-cell screen under a null at the control's own rates, before "
+            "the round-wide total, measured rates or replication can stop it: "
+            "false cell rejections expected, %s cells; at least one in %.1f%% "
+            "of rounds. Uncorrected by design (#451)"
             % (", ".join(parts), 100 * (1 - none)))
 
 

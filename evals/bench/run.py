@@ -721,9 +721,11 @@ def delivery_modes(runs):
     Read from the per-run stamp every multi-turn run has carried since #192,
     not from metadata.turn_delivery, which is a declaration: a pass killed
     before its first multi-turn run finished declared a mode and holds no run
-    generated under it (#441).
+    generated under it (#441). A multi-turn run without the stamp predates
+    #192, which added `plugin` beside it, so it was generated under `repeat`.
     """
-    return sorted({r["turn_delivery"] for r in runs if r.get("turn_delivery")})
+    return sorted({r.get("turn_delivery") or "repeat" for r in runs
+                   if r.get("ok") and (r.get("turn_count") or 1) > 1})
 
 
 def dedupe(runs):

@@ -6675,6 +6675,7 @@ with tempfile.TemporaryDirectory() as td_merge:
             r["claude_cli_version"] = "2.1.%s" % model
             if delivery:
                 r["turn_delivery"] = delivery
+                r["turn_count"] = 2
         s["metadata"].update(meta)
         return s
 
@@ -6937,12 +6938,16 @@ with tempfile.TemporaryDirectory() as td_rem:
 # #441: the delivery mode is a treatment, so a file holds its multi-turn runs
 # under one. Decided on the per-run stamps every multi-turn run has carried
 # since #192 rather than on the declaration, which a resume used to overwrite.
+_mt = {"ok": True, "turn_count": 2}
 check("delivery_modes reads the per-run stamps and ignores single-turn runs",
-      bench_run.delivery_modes([{"turn_delivery": "repeat"}, {},
-                                {"turn_delivery": "plugin"},
-                                {"turn_delivery": "plugin"}])
-      == ["plugin", "repeat"]
-      and bench_run.delivery_modes([{}, {"ok": False}]) == [])
+      bench_run.delivery_modes([dict(_mt, turn_delivery="plugin"), {"ok": True},
+                                dict(_mt, turn_delivery="plugin"),
+                                {"ok": False, "turn_count": 2}])
+      == ["plugin"]
+      and bench_run.delivery_modes([{"ok": True}, {"ok": False}]) == [])
+check("an unstamped multi-turn run predates plugin delivery and is repeat",
+      bench_run.delivery_modes([_mt, dict(_mt, turn_delivery="plugin")])
+      == ["plugin", "repeat"])
 
 
 def _run_delivery(td, mode, *extra, snap="gen.json"):

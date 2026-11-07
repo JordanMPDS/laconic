@@ -20,20 +20,20 @@
 #   bash tools/release-due.sh            # exit 1 if a release is owed
 #   bash tools/release-due.sh --selftest
 #
-# Shipped means what a user installs and runs: rules/, hooks/, skills/,
-# commands/ and the manifest. README.md and docs/ are deliberately outside it.
+# Shipped means what a user installs and runs: rules/, hooks/, skills/ and
+# the manifest. README.md and docs/ are deliberately outside it.
 # Prose about the plugin is not the plugin, and a signal that fires on every
 # typo is a signal that gets ignored — which is the failure this replaces, not
 # a different one.
 set -uo pipefail
 
-SHIPPED=(rules hooks skills commands .claude-plugin)
+SHIPPED=(rules hooks skills .claude-plugin)
 TAG_GLOB='laconic--v*'
 
 # A shipped file added or removed is a new surface — a platform, a hook, a
-# skill, a command — and that is a minor. So is any change to rules/laconic.md:
+# skill — and that is a minor. So is any change to rules/laconic.md:
 # the rules are what the plugin delivers, and a rule edit changes what every
-# user's model writes. Hooks, skills and commands edited in place are a patch.
+# user's model writes. Hooks and skills edited in place are a patch.
 # The rule edit used to read as a patch too, and 0.3.1 through 0.3.11 were
 # eleven of them in a row: the product's behaviour moved every week and its
 # minor version did not move once.
@@ -118,7 +118,7 @@ if [ "${1:-}" = "--selftest" ]; then
   tmp=$(mktemp -d) || exit 1
   trap 'rm -rf "$tmp"' EXIT
   r=$tmp/repo
-  mkdir -p "$r/tools" "$r/rules/dist" "$r/hooks" "$r/skills" "$r/commands" \
+  mkdir -p "$r/tools" "$r/rules/dist" "$r/hooks" "$r/skills" \
            "$r/.claude-plugin"
   cp "$0" "$r/tools/release-due.sh"
   printf '{\n  "name": "laconic",\n  "version": "0.3.0"\n}\n' \
@@ -240,7 +240,7 @@ tagged=$(git log -1 --format=%ad --date=short "$tag")
 
 case "$kind" in
   minor) why="the rules changed or a shipped file was added or removed, so users get new behaviour and not only a fix" ;;
-  patch) why="hooks, skills or commands were modified in place and the rules did not change" ;;
+  patch) why="hooks or skills were modified in place and the rules did not change" ;;
 esac
 
 echo "release owed: $count shipped file(s) changed on $ref since $tag ($tagged)"

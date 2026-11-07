@@ -1550,7 +1550,10 @@ def accept_verdict(prev, cur, target, noise=None, target_cases=None,
     judged), and its replicated count must be at or below the baseline's.
     Rounds 07 and 08 both died partly on four separate +1 flips in known
     lottery cells; a strict inequality on raw counts fires on those at any
-    reps, so the screen stays strict and one replication arbitrates.
+    reps, so the screen stays strict and one replication arbitrates. A cell
+    the screens cleared is not arbitrated, but where the round-wide count
+    carries it at its first draw, a replication that covers it re-counts it
+    there (#529).
 
     Arbitration used to be refused above +1, on the theory that concentration
     is the signature of a real regression. Round 09 retired that theory (#56):
@@ -1709,16 +1712,30 @@ def accept_verdict(prev, cur, target, noise=None, target_cases=None,
             wide_p = _count_rise_p(prev[key], cur[key],
                                    _count_exposure(prev, key),
                                    _count_exposure(cur, key))
-        # The round-wide test may reject in place of an unreachable cell. It
-        # may NOT overrule a cell the two screens actively cleared: that cell
-        # was asked and answered, and letting a round-wide total re-condemn it
-        # would make this change a tightening of the gate somewhere rather than
-        # a relaxation of it everywhere. With that restriction the new gate
-        # rejects a strict subset of what the old one rejected, which is what
-        # lets the archive re-score have a direction fixed in advance. That
-        # holds without a replication: an untestable cell is not arbitrable,
-        # so a replication that clears it clears it under the old gate only.
+        # The round-wide test may reject in place of an unreachable cell, and
+        # it is only asked when one rose, so the new gate rejects a strict
+        # subset of what the old one rejected: the old one rejected on that
+        # cell alone. That is what let the archive re-score have a direction
+        # fixed in advance. It holds without a replication: an untestable cell
+        # is not arbitrable, so a replication that clears it clears it under
+        # the old gate only.
+        #
+        # The count carries every cell, and a cell the two screens cleared
+        # enters it at its first draw (#529). Clearing is a non-rejection, not
+        # evidence the cell did not rise. Holding every cleared cell at the
+        # control would blind the count to a regression spread thinly over the
+        # testable cells, each inside its own sampling, which is the one it is
+        # multiplicity-correct for. A replication is evidence, so where one
+        # covers a cleared cell the count takes it, as it does for a cell the
+        # replication cleared (#526).
         wide_fatal = wide_p is None or wide_p <= noise["alpha"]
+        screened = sorted(covered_by_rate + covered_by_sample)
+        # The measured-rate screen clears a cell at any runs, and a cell under
+        # CELL_TEST_MIN_RUNS is not arbitrable whichever screen cleared it.
+        recountable = [
+            c for c in screened
+            if _cell_testable((cur.get("cell_runs") or {}).get(c, 0),
+                              (prev.get("cell_runs") or {}).get(c, 0))]
         comp = ""
         if risen:
             comp = "; cells: " + ", ".join(
@@ -1774,27 +1791,8 @@ def accept_verdict(prev, cur, target, noise=None, target_cases=None,
         head = "REJECT: %s lost (%d -> %d)" % (label, prev[key], cur[key])
         wide_k = None if risen else cur[key]
         basis = ""
-        if not risen and untestable and not wide_fatal:
-            reasons.append(
-                "%s rise (%d -> %d) is inside the sampling noise of the "
-                "round-wide count, p = %.4f, and no risen cell is testable "
-                "at these reps (#259)%s"
-                % (label, prev[key], cur[key], wide_p, comp))
-            continue
-        if not risen and untestable:
-            head = ("REJECT: %s lost (%d -> %d) round-wide at p = %.4f; no "
-                    "risen cell is testable at these reps, so the round-wide "
-                    "count is what carries it (#259)"
-                    % (label, prev[key], cur[key], wide_p))
-        elif not risen and (covered_by_rate or covered_by_sample):
-            # The measured-rate wording is kept when that screen did the work
-            # alone, so a round scored before #133 reads the same afterwards.
-            how = ("within the measured rate" if not covered_by_sample
-                   else "inside sampling")
-            reasons.append("%s rise (%d -> %d) is %s%s"
-                           % (label, prev[key], cur[key], how, comp))
-            continue
-        elif risen and arbitration:
+        cleared, blocked, recount = [], risen, []
+        if arbitration:
             covered = (arbitration.get("run_cells")
                        if key in ("never_cut_failures", "violations_total")
                        else arbitration.get("judged_cells")) or set()
@@ -1832,66 +1830,112 @@ def accept_verdict(prev, cur, target, noise=None, target_cases=None,
                                                    _cell_floor(arbitration,
                                                                prev, key, c))))]
             blocked = [c for c in risen if c not in cleared]
-            if not blocked and untestable:
-                # A replication answers for the cells it was asked about. The
-                # untestable ones never reached the cell path, so the
-                # round-wide count still carries them (#526). A cleared cell
-                # enters that count on the round's own exposure, at its
-                # replicated rate or the control's, whichever is higher. Its
-                # first draw was called sampling, so it may not carry the
-                # test; a replication drawn low, or over more runs, may not
-                # offset the untestable cells' rise either. With the
-                # replication at the control's rate the round reads as one
-                # where that cell never rose. Integer ceilings, so a rate never
-                # rounds down into a pass.
-                rep_k = cur[key]
-                held = []
-                for c in cleared:
-                    n = cur_runs.get(c, 0)
-                    k = max(-(-arb_cells.get(c, 0) * n // arb_runs[c])
-                            if arb_runs.get(c) else 0,
-                            -(-prev_cells.get(c, 0) * n // prev_runs[c])
-                            if prev_runs.get(c) else 0)
-                    rep_k += k - cur_cells.get(c, 0)
-                    held.append("%s/%s at %d of %d" % (c[0], c[1], k, n))
-                rep_p = _count_rise_p(prev[key], rep_k,
-                                      _count_exposure(prev, key),
-                                      _count_exposure(cur, key))
-                held = ", ".join(held)
-                comp = comp.replace("; round-wide p = ",
-                                    "; first-draw round-wide p = ")
-                if rep_p > noise["alpha"]:
-                    reasons.append(
-                        "%s rise (%d -> %d) cleared by replication: %s did not "
-                        "reproduce; counting %s, the round-wide count that "
-                        "carries the risen cells too small to test at these "
-                        "reps is %d -> %d, p = %.4f, inside its sampling noise "
-                        "(#526)%s"
-                        % (label, prev[key], cur[key],
-                           ", ".join("%s/%s" % c for c in cleared), held,
-                           prev[key], rep_k, rep_p, comp))
-                    continue
-                # No testable cell survived the replication, so this rests on
-                # the round-wide count, and on the count the replication left
-                # rather than the first draw's: a cleared cell's first draw
-                # may not carry the judge-noise test any more than it carries
-                # this one.
-                head = ("REJECT: %s lost (%d -> %d); counting %s after the "
-                        "replication, the round-wide count is %d -> %d at "
-                        "p = %.4f, and it is what carries the risen cells too "
-                        "small to test at these reps (#526)"
-                        % (label, prev[key], cur[key], held, prev[key], rep_k,
-                           rep_p))
-                wide_k = rep_k
-                basis = (", %d -> %d counting %s after the replication,"
-                         % (prev[key], rep_k, held))
-            elif not blocked:
-                reasons.append("%s rise (%d -> %d) cleared by replication: "
-                               "%s did not reproduce" %
-                               (label, prev[key], cur[key],
-                                ", ".join("%s/%s" % c for c in cleared)))
+            # A cell the screens cleared is in the round-wide count at its
+            # first draw, and a replication that covers it with at least one
+            # answer it could fail replaces that draw there, whichever way it
+            # moves the count (#529). Otherwise a smaller rise could do worse
+            # than a bigger one: 6 of 20 cleared by the screen kept its 6,
+            # while 10 of 20 blocked and replicated at 3 entered at 3. Only a
+            # count under arbitration is re-counted: one that rejected on its
+            # first draw, or one beside a cell the replication cleared. A count
+            # that passed is not disputed, and a replication bought for another
+            # counter is not a second look at this one.
+            if cleared or wide_fatal:
+                recount = [c for c in recountable
+                           if c in covered and arb_runs.get(c)]
+        if untestable and not blocked and (cleared or recount):
+            # A replication answers for the cells it was asked about. The
+            # untestable ones never reached the cell path, so the round-wide
+            # count still carries them (#526). A replicated cell enters that
+            # count on the round's own exposure, at its replicated rate or the
+            # control's, whichever is higher. A cleared cell's first draw was
+            # called sampling, so it may not carry the test; a replication
+            # drawn low, or over more runs, may not offset the untestable
+            # cells' rise either. With the replication at the control's rate
+            # the round reads as one where that cell never rose. Integer
+            # ceilings, so a rate never rounds down into a pass. The floor is
+            # never above the first draw: a cell that rose by count on fewer
+            # decided verdicts than the control's can sit below the control's
+            # rate, and a replication that found nothing may not lift it.
+            rep_k = cur[key]
+            held = []
+            for c in sorted(cleared + recount):
+                n = cur_runs.get(c, 0)
+                k = max(-(-arb_cells.get(c, 0) * n // arb_runs[c])
+                        if arb_runs.get(c) else 0,
+                        min(-(-prev_cells.get(c, 0) * n // prev_runs[c])
+                            if prev_runs.get(c) else 0,
+                            cur_cells.get(c, 0)))
+                rep_k += k - cur_cells.get(c, 0)
+                held.append("%s/%s at %d of %d" % (c[0], c[1], k, n))
+            rep_p = _count_rise_p(prev[key], rep_k,
+                                  _count_exposure(prev, key),
+                                  _count_exposure(cur, key))
+            held = ", ".join(held)
+            tag = ", ".join(t for t, on in (("#526", cleared), ("#529", recount))
+                            if on)
+            comp = comp.replace("; round-wide p = ",
+                                "; first-draw round-wide p = ")
+            if rep_p > noise["alpha"]:
+                reasons.append(
+                    "%s rise (%d -> %d) cleared by replication: %scounting %s, "
+                    "the round-wide count that carries the risen cells too "
+                    "small to test at these reps is %d -> %d, p = %.4f, inside "
+                    "its sampling noise (%s)%s"
+                    % (label, prev[key], cur[key],
+                       "%s did not reproduce; "
+                       % ", ".join("%s/%s" % c for c in cleared)
+                       if cleared else "",
+                       held, prev[key], rep_k, rep_p, tag, comp))
                 continue
-            elif cleared:
+            # No testable cell survived the replication, so this rests on
+            # the round-wide count, and on the count the replication left
+            # rather than the first draw's: a cleared cell's first draw
+            # may not carry the judge-noise test any more than it carries
+            # this one.
+            head = ("REJECT: %s lost (%d -> %d); counting %s after the "
+                    "replication, the round-wide count is %d -> %d at "
+                    "p = %.4f, and it is what carries the risen cells too "
+                    "small to test at these reps (%s)"
+                    % (label, prev[key], cur[key], held, prev[key], rep_k,
+                       rep_p, tag))
+            wide_k = rep_k
+            basis = (", %d -> %d counting %s after the replication,"
+                     % (prev[key], rep_k, held))
+        elif not risen and untestable and not wide_fatal:
+            reasons.append(
+                "%s rise (%d -> %d) is inside the sampling noise of the "
+                "round-wide count, p = %.4f, and no risen cell is testable "
+                "at these reps (#259)%s"
+                % (label, prev[key], cur[key], wide_p, comp))
+            continue
+        elif not risen and untestable:
+            head = ("REJECT: %s lost (%d -> %d) round-wide at p = %.4f; no "
+                    "risen cell is testable at these reps, so the round-wide "
+                    "count is what carries it (#259)"
+                    % (label, prev[key], cur[key], wide_p))
+            if recountable:
+                head += ("; it counts the first draw of %s, which the screens "
+                         "cleared, and %s (#529)"
+                         % (", ".join("%s/%s" % c for c in recountable),
+                            "the replication did not re-count it"
+                            if arbitration else "a replication re-counts it"))
+        elif not risen and screened:
+            # The measured-rate wording is kept when that screen did the work
+            # alone, so a round scored before #133 reads the same afterwards.
+            how = ("within the measured rate" if not covered_by_sample
+                   else "inside sampling")
+            reasons.append("%s rise (%d -> %d) is %s%s"
+                           % (label, prev[key], cur[key], how, comp))
+            continue
+        elif risen and not blocked:
+            reasons.append("%s rise (%d -> %d) cleared by replication: "
+                           "%s did not reproduce" %
+                           (label, prev[key], cur[key],
+                            ", ".join("%s/%s" % c for c in cleared)))
+            continue
+        elif risen and arbitration:
+            if cleared:
                 comp += ("; replication cleared %s, did not clear %s"
                          % (", ".join("%s/%s" % c for c in cleared),
                             ", ".join("%s/%s" % c for c in blocked)))
@@ -1900,7 +1944,11 @@ def accept_verdict(prev, cur, target, noise=None, target_cases=None,
                          % ", ".join("%s/%s" % c for c in blocked))
         elif risen:
             comp += (" (arbitrable - replicate the risen cells at the same "
-                     "reps; see the loop skill)")
+                     "reps%s; see the loop skill)"
+                     % (", with %s, whose first draw the round-wide count "
+                        "carries (#529)"
+                        % ", ".join("%s/%s" % c for c in recountable)
+                        if untestable and recountable else ""))
         # Last question before a judge-derived counter rejects: could the judge
         # have produced this rise by itself? The deterministic detectors are
         # validated against hand labels and this one is not.

@@ -1766,6 +1766,14 @@ def accept_verdict(prev, cur, target, noise=None, target_cases=None,
                 for c in untestable)
         if wide_p is not None:
             comp += "; round-wide p = %.4f" % wide_p
+        # What a rejection would say, and, when no testable cell survived the
+        # screens, the round-wide rise it rests on. That rise is what the
+        # judge-noise gate below may hold. Both round-wide routes set these and
+        # fall through to the gate; until #530 they rejected here and the gate
+        # never saw them.
+        head = "REJECT: %s lost (%d -> %d)" % (label, prev[key], cur[key])
+        wide_rise = None if risen else cur[key] - prev[key]
+        basis = ""
         if not risen and untestable and not wide_fatal:
             reasons.append(
                 "%s rise (%d -> %d) is inside the sampling noise of the "
@@ -1774,14 +1782,11 @@ def accept_verdict(prev, cur, target, noise=None, target_cases=None,
                 % (label, prev[key], cur[key], wide_p, comp))
             continue
         if not risen and untestable:
-            reasons.append(
-                "REJECT: %s lost (%d -> %d) round-wide at p = %.4f; no risen "
-                "cell is testable at these reps, so the round-wide count is "
-                "what carries it (#259)%s"
-                % (label, prev[key], cur[key], wide_p, comp))
-            fatal = True
-            continue
-        if not risen and (covered_by_rate or covered_by_sample):
+            head = ("REJECT: %s lost (%d -> %d) round-wide at p = %.4f; no "
+                    "risen cell is testable at these reps, so the round-wide "
+                    "count is what carries it (#259)"
+                    % (label, prev[key], cur[key], wide_p))
+        elif not risen and (covered_by_rate or covered_by_sample):
             # The measured-rate wording is kept when that screen did the work
             # alone, so a round scored before #133 reads the same afterwards.
             how = ("within the measured rate" if not covered_by_sample
@@ -1789,7 +1794,7 @@ def accept_verdict(prev, cur, target, noise=None, target_cases=None,
             reasons.append("%s rise (%d -> %d) is %s%s"
                            % (label, prev[key], cur[key], how, comp))
             continue
-        if risen and arbitration:
+        elif risen and arbitration:
             covered = (arbitration.get("run_cells")
                        if key in ("never_cut_failures", "violations_total")
                        else arbitration.get("judged_cells")) or set()
@@ -1855,16 +1860,7 @@ def accept_verdict(prev, cur, target, noise=None, target_cases=None,
                 held = ", ".join(held)
                 comp = comp.replace("; round-wide p = ",
                                     "; first-draw round-wide p = ")
-                if rep_p <= noise["alpha"]:
-                    reasons.append(
-                        "REJECT: %s lost (%d -> %d); counting %s after the "
-                        "replication, the round-wide count is %d -> %d at "
-                        "p = %.4f, and it is what carries the risen cells too "
-                        "small to test at these reps (#526)%s"
-                        % (label, prev[key], cur[key], held, prev[key], rep_k,
-                           rep_p, comp))
-                    fatal = True
-                else:
+                if rep_p > noise["alpha"]:
                     reasons.append(
                         "%s rise (%d -> %d) cleared by replication: %s did not "
                         "reproduce; counting %s, the round-wide count that "
@@ -1874,14 +1870,28 @@ def accept_verdict(prev, cur, target, noise=None, target_cases=None,
                         % (label, prev[key], cur[key],
                            ", ".join("%s/%s" % c for c in cleared), held,
                            prev[key], rep_k, rep_p, comp))
-                continue
-            if not blocked:
+                    continue
+                # No testable cell survived the replication, so this rests on
+                # the round-wide count, and on the count the replication left
+                # rather than the first draw's: a cleared cell's first draw
+                # may not carry the judge-noise test any more than it carries
+                # this one.
+                head = ("REJECT: %s lost (%d -> %d); counting %s after the "
+                        "replication, the round-wide count is %d -> %d at "
+                        "p = %.4f, and it is what carries the risen cells too "
+                        "small to test at these reps (#526)"
+                        % (label, prev[key], cur[key], held, prev[key], rep_k,
+                           rep_p))
+                wide_rise = rep_k - prev[key]
+                basis = (", %d -> %d counting %s after the replication,"
+                         % (prev[key], rep_k, held))
+            elif not blocked:
                 reasons.append("%s rise (%d -> %d) cleared by replication: "
                                "%s did not reproduce" %
                                (label, prev[key], cur[key],
                                 ", ".join("%s/%s" % c for c in cleared)))
                 continue
-            if cleared:
+            elif cleared:
                 comp += ("; replication cleared %s, did not clear %s"
                          % (", ".join("%s/%s" % c for c in cleared),
                             ", ".join("%s/%s" % c for c in blocked)))
@@ -1905,30 +1915,33 @@ def accept_verdict(prev, cur, target, noise=None, target_cases=None,
         # moves.
         #
         # When it is on, it applies only where no testable cell survived the
-        # screens - the case where the rejection rests on a bare round-wide
-        # count and grading noise is the plausible explanation. A cell that
-        # rose testably is evidence about a named cell and still rejects.
+        # screens or the replication - the case where the rejection rests on a
+        # bare round-wide count and grading noise is the plausible
+        # explanation. That is wide_rise, set above by each route that
+        # rejects on the round-wide count (#530). A cell that rose testably is
+        # evidence about a named cell and still rejects.
         #
         # The state it produces is "undecided", not "accept": the round has to
         # buy a second grading pass over the risen cells. That is more
         # evidence, not less, which is why it is not a relaxation.
         if key in JUDGE_DERIVED and not legacy_count_gate:
-            jp = _judge_noise_p(cur[key] - prev[key], _count_exposure(cur, key))
+            rise = (cur[key] - prev[key] if wide_rise is None else wide_rise)
+            jp = _judge_noise_p(rise, _count_exposure(cur, key))
             if jp is not None:
                 comp += ("; judge self-disagreement at %.0f%% would produce a "
-                         "rise this large with p = %.3f (#70)"
-                         % (100 * JUDGE_DISAGREEMENT, jp))
-                if judge_noise_gate and not risen and jp > noise["alpha"]:
+                         "rise of +%d with p = %.3f (#70)"
+                         % (100 * JUDGE_DISAGREEMENT, rise, jp))
+                if (judge_noise_gate and wide_rise is not None
+                        and jp > noise["alpha"]):
                     reasons.append(
                         "UNDECIDED: %s rise (%d -> %d) rests on the round-wide "
-                        "count alone and is inside the judge's own measured "
+                        "count alone%s and is inside the judge's own measured "
                         "self-disagreement. Re-judge the round and score again; "
                         "one grading pass cannot settle this%s"
-                        % (label, prev[key], cur[key], comp))
+                        % (label, prev[key], cur[key], basis, comp))
                     needs_rejudge.append(label)
                     continue
-        reasons.append("REJECT: %s lost (%d -> %d)%s"
-                       % (label, prev[key], cur[key], comp))
+        reasons.append(head + comp)
         fatal = True
     screen_null = _cell_screen_null(prev, cur, noise["alpha"])
     if screen_null:

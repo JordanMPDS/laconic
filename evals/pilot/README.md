@@ -298,9 +298,22 @@ over the same `events.csv` and README (by symlink) plus a reference
 `conversion.py`. Scored by `score_reexplain.py --precheck`, and at stage 2 by
 `--told built`.
 
+## `relay-rollout`, `relay-migration`, `relay-retention`
+
+[#500]'s explain request, registered in
+[`../results/loop/round-126.md`](../results/loop/round-126.md): a bare
+"explain <part A> and <part B>" over a two-part spec of 107 to 141 lines that
+the model has to read to answer. Each spec carries one caveat that changes how
+to read its second part, which the trap requires, and plants identifiers no
+explanation needs (alert ids, tables, flags, jobs, channels, run times), which
+`score_relay.py` counts as relayed. The trap grades the two parts and the
+caveat, and nothing about the identifiers.
+
+[#500]: https://github.com/JordanMPDS/laconic/issues/500
+
 ## Borrowed by symlink
 
-`deep-*`, `confirm-*`, `drift-service` and `conditional` are symlinks to the
+`deep-*`, `confirm-*`, `drift-service`, `conditional` and `walkthrough` are symlinks to the
 scored cases of the same name in `evals/cases/`, so a pilot pass can generate
 them beside a pilot family without copying them.
 
@@ -338,6 +351,7 @@ issue it was written for.
 | `score_affirm.py` | Round 110: whether a closed confirmation's turn calls a tool nobody asked for ([#116]). |
 | `score_findings.py` | Round 111: whether a list of findings names the one that decides `verdict-schema`. |
 | `score_facts.py` | Round 119: whether a tool-less judge grades the fixture once the trap carries it ([#414]). |
+| `score_relay.py` | Round 126: whether an explanation of a spec just read relays the spec ([#500]). |
 | `score_volunteered.py` | [#116]'s counters on `conditional`: did the answer do the work, and say what was wrong. |
 | `score_closing_edit.py` | Whether laconic's closing-offer rate survives a session that edits. |
 | `score_offer_fix.py` | Rounds 76 and 79: naming the offer in the pre-action check ([#113]). |

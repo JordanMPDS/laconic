@@ -575,8 +575,36 @@ REMINDER = ("LACONIC MODE ACTIVE (%s). Make fewer claims and keep normal "
             "grammar. Cut content, not words.")
 
 
+def plugin_reminded(arm):
+    """Whether this arm's later turns carry the plugin's reminder line.
+
+    Every `laconic*` arm stands for a session with the plugin installed, the
+    derived ablations and laconic-ponytail included, so under `plugin` delivery
+    each gets the reminder the hook would send. The four controls stand for a
+    session without it. Until #439 the test was whether the arm had a system
+    prompt, which gave terse-control and word-compression laconic's own
+    instruction on every later turn: 300 runs of benchmark-2026-09-24.
+    """
+    return arm.startswith("laconic")
+
+
+def pre_439(run, arms):
+    """A plugin-delivery run whose arm #439 changed, generated before the fix.
+
+    Before #439 an arm got the reminder when it had a system prompt; now it
+    gets it when `plugin_reminded` says so. The two disagree on the controls
+    with a prompt, and a run of one with no `plugin_reminder` stamp carried
+    laconic's reminder. `arms` is the resolved table, whose laconic entries are
+    filled in.
+    """
+    a = run.get("arm")
+    return (run.get("turn_delivery") == "plugin"
+            and "plugin_reminder" not in run and a in arms
+            and bool(arms[a]) != plugin_reminded(a))
+
+
 def call_turns(claude_bin, model, turns, system_prompt, cwd, output_style=None,
-               delivery="repeat", level=None, stop_hook=None, safe_mode=True):
+               delivery="repeat", reminder=None, stop_hook=None, safe_mode=True):
     """Run a turn sequence in one CLI session and return one merged record.
 
     Turn 1 opens the session; each later turn resumes it by the id the previous
@@ -590,8 +618,10 @@ def call_turns(claude_bin, model, turns, system_prompt, cwd, output_style=None,
     - `repeat`, the default and what rounds 33 to 38 used, re-appends the whole
       rule slice as a system prompt on every turn.
     - `plugin` reproduces what a real session gets: the slice once on turn 1,
-      then only the one-line reminder, prepended to the prompt the way
-      UserPromptSubmit's additionalContext reaches the model.
+      then only `reminder`, prepended to the prompt the way UserPromptSubmit's
+      additionalContext reaches the model. `reminder` is None for an arm the
+      plugin is not installed in (`plugin_reminded`), which then gets the bare
+      prompt on later turns whatever its system prompt (#439).
 
     The default is `repeat` so no stored snapshot shifts, but it is the less
     faithful of the two. The plugin sends the full text once; the harness has
@@ -611,8 +641,8 @@ def call_turns(claude_bin, model, turns, system_prompt, cwd, output_style=None,
             return {"ok": False}
         if delivery == "plugin" and i:
             sp = None
-            if system_prompt and level:
-                text = (REMINDER % level) + "\n\n" + text
+            if reminder:
+                text = reminder + "\n\n" + text
         else:
             sp = system_prompt
         res = call(claude_bin, model, text, sp, cwd, output_style,
@@ -624,6 +654,10 @@ def call_turns(claude_bin, model, turns, system_prompt, cwd, output_style=None,
     merged = merge_turns(records)
     if merged.get("ok") and len(records) > 1:
         merged["turn_delivery"] = delivery
+        # Per run rather than per arm, so a run carried from an older file
+        # brings its own answer: one without the key predates #439.
+        if delivery == "plugin":
+            merged["plugin_reminder"] = bool(reminder)
     return merged
 
 
@@ -1479,6 +1513,16 @@ def main():
                 sys.exit("no snapshot to carry arms from: %s" % args.carry_arms_from)
             source["__path"] = args.carry_arms_from
             carry_arms(snap, source, arm_names, cellset)
+            # A control carried from before #439 is not the control its name
+            # says: its later turns carried laconic's own reminder.
+            stale = sorted({r["arm"] for r in snap["runs"] if pre_439(r, arms)})
+            if stale:
+                sys.exit("%s holds plugin-delivery runs of %s generated before "
+                         "#439, when laconic's reminder reached every arm with "
+                         "a system prompt, so carrying them would compare "
+                         "against a control that carried laconic's instruction. "
+                         "Generate the arm instead"
+                         % (args.carry_arms_from, ", ".join(stale)))
             # Carried runs bring their own stamps, so a fresh file is only
             # per-run-stamped if the file it actually took runs from was (#272).
             if snap["runs"] and not (
@@ -1625,6 +1669,20 @@ def main():
     # choice could reach, and should not be made to name one.
     multi_left = sorted({c for c, _, _, _ in left_cells if turns_per_case[c] > 1})
     delivery = require_turn_delivery(multi_left, args.turn_delivery)
+    # Before #439 a control arm with a system prompt carried laconic's reminder
+    # under `plugin`. A file holding such runs of an arm cannot take new ones
+    # generated without it, or it holds one arm under two treatments.
+    if delivery == "plugin":
+        mixed = sorted({r["arm"] for r in snap["runs"] if pre_439(r, arms)}
+                       & {a for c, a, _, _ in left_cells
+                          if turns_per_case[c] > 1})
+        if mixed:
+            sys.exit("this snapshot holds plugin-delivery runs of %s generated "
+                     "before #439, when laconic's reminder reached every arm "
+                     "with a system prompt. This pass would generate the same "
+                     "arm without it, so the file would hold one arm under two "
+                     "treatments. Generate into a new snapshot instead"
+                     % ", ".join(mixed))
     # Describes the file rather than one invocation, like the concurrency
     # declaration above it: once a snapshot holds multi-turn runs it holds the
     # treatment they were generated under, and rounds 33 to 36 are the cost of
@@ -1712,7 +1770,9 @@ def main():
                             out = call_turns(claude_bin, model, turns, arms[arm],
                                              scratch, ARM_OUTPUT_STYLES.get(arm),
                                              delivery=delivery or "repeat",
-                                             level=args.level,
+                                             reminder=(REMINDER % args.level
+                                                       if plugin_reminded(arm)
+                                                       else None),
                                              stop_hook=hook_cmd,
                                              safe_mode=safe_mode)
                             wrote = workspace_diff(scratch, before)

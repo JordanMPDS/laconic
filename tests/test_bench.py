@@ -6100,7 +6100,8 @@ try:
 
     _calls.clear()
     bench_run.call_turns("c", "m", ["one", "two", "three"], "RULES", "/tmp",
-                         delivery="plugin", level="full")
+                         delivery="plugin",
+                         reminder=bench_run.REMINDER % "full")
     check("plugin sends the slice only on turn 1",
           [c["system_prompt"] for c in _calls] == ["RULES", None, None])
     # Pinned to the whole string, not to its opening words. Round 48 made the
@@ -6115,7 +6116,8 @@ try:
     # exists for turns that follow one.
     _calls.clear()
     bench_run.call_turns("c", "m", ["only"], "RULES", "/tmp",
-                         delivery="plugin", level="full")
+                         delivery="plugin",
+                         reminder=bench_run.REMINDER % "full")
     check("a one-turn case is unchanged under plugin delivery",
           _calls == [{"prompt": "only", "system_prompt": "RULES",
                       "resume": None, "stop_hook": None, "safe_mode": True}])
@@ -6124,13 +6126,30 @@ try:
     # treatment it holds rather than leaving a reader to assume.
     _calls.clear()
     rec = bench_run.call_turns("c", "m", ["one", "two"], "RULES", "/tmp",
-                              delivery="plugin", level="full")
+                              delivery="plugin",
+                         reminder=bench_run.REMINDER % "full")
     check("a multi-turn record records its delivery mode",
           rec.get("turn_delivery") == "plugin")
     _calls.clear()
     rec1 = bench_run.call_turns("c", "m", ["only"], "RULES", "/tmp")
     check("a one-turn record carries no delivery field",
           "turn_delivery" not in rec1)
+
+    # #439: a control arm has a system prompt too, and the old test - whether
+    # there was one - gave terse-control and word-compression laconic's reminder
+    # on every later turn. Whether a reminder goes is now the caller's to say.
+    _calls.clear()
+    rec2 = bench_run.call_turns("c", "m", ["one", "two"], "Answer concisely.",
+                                "/tmp", delivery="plugin")
+    check("plugin with no reminder sends a control's later turn bare (#439)",
+          _calls[1]["prompt"] == "two" and _calls[1]["system_prompt"] is None)
+    check("and the run records that no reminder went",
+          rec2.get("plugin_reminder") is False)
+    check("a reminded run records that one did", rec.get("plugin_reminder") is True)
+    _calls.clear()
+    rec3 = bench_run.call_turns("c", "m", ["one", "two"], "RULES", "/tmp")
+    check("a repeat run carries no reminder field, since none can reach it",
+          "plugin_reminder" not in rec3)
 finally:
     bench_run.call = _real_call
 
@@ -6445,6 +6464,9 @@ check("there is exactly one call_turns site, so a retry cannot differ from it",
       _call_sites == 1)
 check("the pass records its delivery in the snapshot metadata",
       'meta["turn_delivery"] = delivery' in _run_src)
+check("only the four controls go without the plugin's reminder (#439)",
+      sorted(a for a in bench_run.ARMS if not bench_run.plugin_reminded(a))
+      == ["baseline", "concise-style", "terse-control", "word-compression"])
 
 # End-to-end through main(), the same way the claude-bin guard is tested: the
 # extracted predicate passing proves nothing if main() never reaches it, and a
@@ -6475,6 +6497,69 @@ with tempfile.TemporaryDirectory() as td_td:
         capture_output=True, text=True)
     check("subprocess: a single-turn pass is not stopped by this guard",
           "--turn-delivery" not in (_proc2.stderr + _proc2.stdout))
+
+
+# #439 end to end: the stub logs every prompt it is sent and hands back a
+# session id, so a two-turn case runs both turns. `recall-index` is two turns.
+_PROMPT_STUB = """#!/usr/bin/env bash
+[ "$1" = "--version" ] && { echo "0.0.0 (stub)"; exit 0; }
+{ cat; printf '\\n<<END>>\\n'; } >> "$PFILE"
+echo '{"type":"system","subtype":"init","tools":[]}'
+echo '{"type":"assistant","message":{"content":[{"type":"text","text":"an answer"}]}}'
+echo '{"type":"result","subtype":"success","is_error":false,"result":"an answer","num_turns":1,"duration_ms":40,"session_id":"s1","usage":{"output_tokens":5}}'
+"""
+
+
+def _run_reminder(td, *extra, snap="gen.json"):
+    stub = Path(td) / "claude"
+    stub.write_text(_PROMPT_STUB)
+    stub.chmod(0o755)
+    return subprocess.run(
+        [sys.executable, str(ROOT / "evals" / "bench" / "run.py"),
+         "--claude-bin", str(stub), "--models", "haiku", "--cases",
+         "recall-index", "--turn-delivery", "plugin",
+         "--snapshot", str(Path(td) / snap)] + list(extra),
+        capture_output=True, text=True,
+        env=dict(os.environ, PFILE=str(Path(td) / "prompts")))
+
+
+with tempfile.TemporaryDirectory() as td_rem:
+    _r = _run_reminder(td_rem, "--arms", "laconic,terse-control", "--reps", "1")
+    _p = Path(td_rem) / "gen.json"
+    _snap = json.loads(_p.read_text())
+    _sent = (Path(td_rem) / "prompts").read_text().split("<<END>>")
+    _by_arm = {r["arm"]: r.get("plugin_reminder") for r in _snap["runs"]}
+    check("subprocess: the reminder reaches laconic's turn 2 and not "
+          "terse-control's (#439)",
+          _r.returncode == 0
+          and sum("LACONIC MODE ACTIVE" in t for t in _sent) == 1
+          and _by_arm == {"laconic": True, "terse-control": False})
+    (Path(td_rem) / "stamped.json").write_text(_p.read_text())
+    _rc = _run_reminder(td_rem, "--arms", "laconic", "--reps", "1",
+                        "--carry-arms-from", str(Path(td_rem) / "stamped.json"),
+                        snap="carry-ok.json")
+    check("subprocess: a control generated under the fix carries as before",
+          _rc.returncode == 0)
+    # A file generated before the fix: the same runs without the stamp.
+    for _run in _snap["runs"]:
+        _run.pop("plugin_reminder", None)
+    _p.write_text(json.dumps(_snap))
+    _r2 = _run_reminder(td_rem, "--arms", "laconic,terse-control",
+                        "--reps", "1", "--rep-offset", "1")
+    check("subprocess: a pre-#439 control arm is not extended under the fix",
+          _r2.returncode != 0 and "before #439" in _r2.stderr
+          and "terse-control" in _r2.stderr and "budget:" not in _r2.stdout)
+    _r3 = _run_reminder(td_rem, "--arms", "laconic", "--reps", "1",
+                        "--rep-offset", "1")
+    check("subprocess: a laconic arm, whose treatment did not change, still "
+          "resumes from the same file",
+          _r3.returncode == 0)
+    _r4 = _run_reminder(td_rem, "--arms", "laconic", "--reps", "1",
+                        "--carry-arms-from", str(_p), snap="carry.json")
+    check("subprocess: a pre-#439 control is not carried into a new file",
+          _r4.returncode != 0 and "before #439" in _r4.stderr
+          and "terse-control" in _r4.stderr
+          and not (Path(td_rem) / "carry.json").exists())
 
 
 # --- the edit stratum (#209) ---------------------------------------------

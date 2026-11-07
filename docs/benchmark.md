@@ -38,8 +38,10 @@ three models the quality pass rate is level with baseline, 80.2% against 81.2%.
 On Sonnet alone it trails, 80.6% against 90.3% at z = -2.34, uncorrected for
 the three models; see [Answer quality](#answer-quality).
 
-**On Haiku it is not a compression plugin.** An 11% saving is smaller than what
-"Answer concisely." buys, and laconic is longer than baseline on 11 of 37 cases.
+**On Haiku it is not a compression plugin.** It saves 11%, and on the 27 cases
+where "Answer concisely." is a clean control the two save the same 9% (see
+[Provenance](#provenance-and-confounds)). Laconic is longer than baseline on 11
+of 37 cases.
 
 ## Provenance and confounds
 
@@ -63,6 +65,24 @@ stopped. A failed call is never recorded as a result, so the snapshot holds
 cases are conversations, and `--turn-delivery plugin` sends the laconic slice
 once on turn 1 and the one-line reminder afterwards — the shipped hook wiring,
 not a re-appended rule file.
+
+**The two prompt controls carried laconic's reminder on those later turns.**
+Until [#439] the harness prepended the reminder to every arm with a system
+prompt, so `terse-control` and `word-compression` were told "Make fewer claims
+and keep normal grammar. Cut content, not words." on turns 2 and later: 300 runs,
+150 of each arm's 555, the ten conversation cases on all three models.
+`baseline` and `concise-style` have no system prompt and were not touched. Every
+pooled figure for the two controls includes those cells, and what either would
+have produced without the reminder was not measured. The 27 single-turn cases
+are clean, and on them one claim changes: on Haiku `terse-control` and laconic
+are level, at 695 median output tokens each against baseline's 767, so the Haiku
+lead `terse-control` holds over all 37 cases comes from the ten that carried
+laconic's instruction. On Sonnet and Opus laconic's lead over `terse-control`
+widens on the clean cases, to 35% and 22%. The cells are not regenerated: a
+control generated now beside a laconic arm generated in September would break
+the same-batch provenance above, and the next benchmark generates under the fix.
+
+[#439]: https://github.com/JordanMPDS/laconic/issues/439
 
 **Every figure in this document describes the moment it was generated.** That is
 not a formality. On 2026-09-01 a matched batch re-measured a *syntactic* metric —
@@ -88,7 +108,8 @@ Median output tokens, as the median of the 37 per-case medians, n = 5 per cell.
 
 The comparison that isolates the rule set from merely asking for brevity is
 laconic against `terse-control`: 25% shorter on Sonnet and 17% on Opus, and 8%
-*longer* on Haiku. The comparison that decides whether this plugin still has a
+*longer* on Haiku. On the 27 single-turn cases, where `terse-control` did not
+carry laconic's reminder, it is 35% shorter, 22% shorter and level. The comparison that decides whether this plugin still has a
 reason to exist is laconic against `concise-style`, and on the two larger models
 laconic now wins it: shorter on 31 of 37 Sonnet cases and 35 of 37 Opus cases.
 Round 21 found the reverse on Sonnet, 19 of 22 cases to `concise-style`.
@@ -137,7 +158,8 @@ longer.
 | `wide-rollback` | quality | 27% | **74%** | **55%** | 3% | 29% | 11% |
 
 **Haiku is not a compression result.** The median saving is 11%, `terse-control`
-saves more, and laconic is longer than baseline on 11 of 37 cases —
+saves more over all 37 cases, the two save the same 9% on the 27 where
+`terse-control` is clean, and laconic is longer than baseline on 11 of 37 cases —
 `quota-merge` worst at -38%.
 
 **`destructive` is the one case laconic lengthens on every model**, by 7%, 27%

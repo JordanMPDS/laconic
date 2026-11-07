@@ -221,7 +221,10 @@ each number does and does not support are in
 
 Counts are over each arm's 555 responses, all three models pooled. The quality
 pass rate is the judge panel's majority over the 29 cases whose criteria come
-from the fixture rather than from the rules.
+from the fixture rather than from the rules. On the ten conversation cases the
+two prompt controls also carried laconic's own reminder, a harness defect since
+fixed ([#439](https://github.com/JordanMPDS/laconic/issues/439)); on the 27
+single-turn cases `terse-control` and laconic are level on Haiku.
 
 **What laconic wins.** On Sonnet and Opus it is the shortest, fastest and
 cheapest arm: it cuts output 60% and 44%, against 47% and 28% for Claude Code's

@@ -960,8 +960,10 @@ nothing in between. Round 54 repriced it, on `never_cut_failures`,
   so without a replication the repriced gate rejects a strict subset of what
   the old one did. A replication does not skip that test: once it clears
   every testable cell, the round-wide count still decides the untestable ones,
-  which the old gate let a replication clear, and each cleared cell enters it
-  at its replicated count, so a cleared rise cannot carry it ([#526]).
+  which the old gate let a replication clear. Each cell the replication
+  cleared enters that count on the round's exposure at its replicated rate or
+  the control's, whichever is higher, so its first draw cannot carry the
+  count, and a low or larger replication cannot lower it ([#526]).
 
 **What that costs, and it is not small.** At five reps a side no cell is
 condemnable, so the round-wide count decides alone and its detection curve is

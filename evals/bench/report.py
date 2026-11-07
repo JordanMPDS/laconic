@@ -1830,37 +1830,50 @@ def accept_verdict(prev, cur, target, noise=None, target_cases=None,
             if not blocked and untestable:
                 # A replication answers for the cells it was asked about. The
                 # untestable ones never reached the cell path, so the
-                # round-wide count still carries them (#526). A cell the
-                # replication cleared enters that count at its replicated
-                # count: its first draw was called sampling, and a cleared
-                # rise may no more carry the round-wide test than a screened
-                # one may. With the replication at the control's count, the
-                # round reads as one where that cell never rose.
-                rep_k = cur[key] + sum(arb_cells.get(c, 0) - cur_cells.get(c, 0)
-                                       for c in cleared)
-                rep_n = _count_exposure(cur, key) + sum(
-                    arb_runs.get(c, 0) - cur_runs.get(c, 0) for c in cleared)
+                # round-wide count still carries them (#526). A cleared cell
+                # enters that count on the round's own exposure, at its
+                # replicated rate or the control's, whichever is higher. Its
+                # first draw was called sampling, so it may not carry the
+                # test; a replication drawn low, or over more runs, may not
+                # offset the untestable cells' rise either. With the
+                # replication at the control's rate the round reads as one
+                # where that cell never rose. Integer ceilings, so a rate never
+                # rounds down into a pass.
+                rep_k = cur[key]
+                held = []
+                for c in cleared:
+                    n = cur_runs.get(c, 0)
+                    k = max(-(-arb_cells.get(c, 0) * n // arb_runs[c])
+                            if arb_runs.get(c) else 0,
+                            -(-prev_cells.get(c, 0) * n // prev_runs[c])
+                            if prev_runs.get(c) else 0)
+                    rep_k += k - cur_cells.get(c, 0)
+                    held.append("%s/%s at %d of %d" % (c[0], c[1], k, n))
                 rep_p = _count_rise_p(prev[key], rep_k,
-                                      _count_exposure(prev, key), rep_n)
-                names = ", ".join("%s/%s" % c for c in cleared)
-                if rep_p is None or rep_p <= noise["alpha"]:
+                                      _count_exposure(prev, key),
+                                      _count_exposure(cur, key))
+                held = ", ".join(held)
+                comp = comp.replace("; round-wide p = ",
+                                    "; first-draw round-wide p = ")
+                if rep_p <= noise["alpha"]:
                     reasons.append(
-                        "REJECT: %s lost (%d -> %d) round-wide at p = %.4f "
-                        "with %s at the replicated count (%d -> %d); no "
-                        "other risen cell is testable at these reps, so the "
-                        "round-wide count is what carries them (#526)%s"
-                        % (label, prev[key], cur[key], rep_p, names,
-                           prev[key], rep_k, comp))
+                        "REJECT: %s lost (%d -> %d); counting %s after the "
+                        "replication, the round-wide count is %d -> %d at "
+                        "p = %.4f, and it is what carries the risen cells too "
+                        "small to test at these reps (#526)%s"
+                        % (label, prev[key], cur[key], held, prev[key], rep_k,
+                           rep_p, comp))
                     fatal = True
                 else:
                     reasons.append(
                         "%s rise (%d -> %d) cleared by replication: %s did not "
-                        "reproduce, and at the replicated count the round-wide "
-                        "count (%d -> %d, p = %.4f) is inside its sampling "
-                        "noise; no other risen cell is testable at these reps "
+                        "reproduce; counting %s, the round-wide count that "
+                        "carries the risen cells too small to test at these "
+                        "reps is %d -> %d, p = %.4f, inside its sampling noise "
                         "(#526)%s"
-                        % (label, prev[key], cur[key], names, prev[key], rep_k,
-                           rep_p, comp))
+                        % (label, prev[key], cur[key],
+                           ", ".join("%s/%s" % c for c in cleared), held,
+                           prev[key], rep_k, rep_p, comp))
                 continue
             if not blocked:
                 reasons.append("%s rise (%d -> %d) cleared by replication: "

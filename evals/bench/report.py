@@ -6,6 +6,7 @@ when a gate fails, so a rules regression fails a command instead of waiting
 for somebody to notice a number moved.
 """
 import argparse
+import functools
 import json
 import math
 import random
@@ -429,6 +430,68 @@ def _cell_testable(cur_runs, prev_runs):
     rules, and rules_cksum cannot see a calendar.
     """
     return cur_runs >= CELL_TEST_MIN_RUNS and prev_runs >= CELL_TEST_MIN_RUNS
+
+
+@functools.lru_cache(maxsize=None)
+def _condemned_pairs(n1, n2, alpha):
+    """Every (round, control) count pair the per-cell screen condemns (#451).
+
+    Condemned is what the gate does to a testable cell: risen, and not cleared
+    by `_sample_covers`. Built from that function rather than restated, so the
+    disclosure cannot drift from the screen it describes.
+    """
+    return tuple((k1, k2) for k1 in range(n1 + 1)
+                 for k2 in range(min(k1, n2 + 1))
+                 if not _sample_covers(k1, n1, k2, n2, alpha))
+
+
+def _null_cell_reject_p(rate, n1, n2, alpha):
+    """P(the per-cell screen condemns a cell that did not move), exactly (#451).
+
+    Both sides drawn at `rate`, n1 in the round and n2 in the control. At 20 a
+    side that is 0.0226 at a 20% rate and 0.0265 at 30%, so eight such cells
+    put at least one false cell rejection at 17-19%. The fatal screens are
+    uncorrected on purpose (see `_target_alpha`); this is the disclosure.
+    """
+    if rate <= 0:
+        return 0.0
+
+    def pmf(k, n):
+        return math.comb(n, k) * rate ** k * (1 - rate) ** (n - k)
+    return sum(pmf(k1, n1) * pmf(k2, n2)
+               for k1, k2 in _condemned_pairs(n1, n2, alpha))
+
+
+def _cell_screen_null(prev, cur, alpha):
+    """The verdict's line on the per-cell screen's own false rejections (#451).
+
+    Over every cell testable at these reps, on the three counters the screen
+    reads, at the control's observed rate for the cell. A cell the control
+    never failed contributes nothing, so the figure is a floor. None when no
+    cell is testable, which keeps every 5-rep round's verdict as it was.
+    """
+    prev_runs, cur_runs = prev.get("cell_runs") or {}, cur.get("cell_runs") or {}
+    parts, probs = [], []
+    for key, label in FATAL:
+        if key == "violations_total":
+            continue
+        prev_cells = (prev.get("cells") or {}).get(key) or {}
+        prev_exp, cur_exp = _cell_exposure(prev, key), _cell_exposure(cur, key)
+        ps = [_null_cell_reject_p(prev_cells[c] / prev_exp[c], cur_exp.get(c, 0),
+                                  prev_exp[c], alpha)
+              for c in sorted(set(prev_runs) & set(cur_runs))
+              if _cell_testable(cur_runs[c], prev_runs[c])
+              and prev_cells.get(c) and prev_exp.get(c)]
+        if ps:
+            parts.append("%s %.2f over %d" % (label, sum(ps), len(ps)))
+            probs += ps
+    if not probs:
+        return None
+    none = math.prod(1 - p for p in probs)
+    return ("per-cell screen under a null at the control's own rates: false "
+            "cell rejections expected, %s cells; at least one in %.1f%% of "
+            "rounds. Uncorrected by design (#451)"
+            % (", ".join(parts), 100 * (1 - none)))
 
 
 def load_cell_rates(path=None):
@@ -1515,7 +1578,14 @@ def accept_verdict(prev, cur, target, noise=None, target_cases=None,
         # Disclosed rather than dropped: a rise inside the noise prints, with
         # its p, and does not reject. A rise the bootstrap can distinguish is
         # fatal exactly as before.
-        if key == "violations_total":
+        #
+        # The bootstrap is this counter's only significance test (#451). Its
+        # cells hold violation sums, not failed runs, so the two clearing
+        # screens below, which are binomial, would read 5 violations as 5 of
+        # 20 runs failed: at 20 runs a side they cleared every cell of a rise
+        # this test put at p = 0.0002, and the round accepted.
+        clustered = key == "violations_total"
+        if clustered:
             p_rise = _cluster_count_p(cur.get("violation_runs") or {},
                                       prev.get("violation_runs") or {})
             if p_rise is not None and p_rise > noise["alpha"]:
@@ -1541,7 +1611,7 @@ def accept_verdict(prev, cur, target, noise=None, target_cases=None,
         # real rise read as sampling.
         cur_runs = _cell_exposure(cur, key)
         prev_runs = _cell_exposure(prev, key)
-        if risen and cell_rates:
+        if risen and cell_rates and not clustered:
             rates = cell_rates.get(key) or {}
             covered_by_rate = [
                 c for c in risen
@@ -1553,9 +1623,10 @@ def accept_verdict(prev, cur, target, noise=None, target_cases=None,
         # side this covers nothing and the cell keeps the count comparison.
         covered_by_sample = [
             c for c in risen
-            if _sample_covers(cur_cells.get(c, 0), cur_runs.get(c, 0),
-                              prev_cells.get(c, 0), prev_runs.get(c, 0),
-                              noise["alpha"])]
+            if not clustered
+            and _sample_covers(cur_cells.get(c, 0), cur_runs.get(c, 0),
+                               prev_cells.get(c, 0), prev_runs.get(c, 0),
+                               noise["alpha"])]
         risen = [c for c in risen if c not in covered_by_sample]
         # A risen cell that neither screen can reach was scored, until #259, by
         # comparing two integers out of five. Round 53 measured what that does:
@@ -1667,15 +1738,17 @@ def accept_verdict(prev, cur, target, noise=None, target_cases=None,
             # At or below the control clears, as it always has. A
             # replication that is nominally higher but inside sampling also
             # clears now, because "0 in the control" is otherwise unclearable
-            # however many runs the replication has (#133).
+            # however many runs the replication has (#133). Not for the
+            # clustered count, whose sums that test cannot read (#451).
             cleared = [c for c in risen
                        if c in covered
                        and (not_worse(c)
-                            or _sample_covers(arb_cells.get(c, 0),
-                                              arb_runs.get(c, 0),
-                                              prev_cells.get(c, 0),
-                                              prev_runs.get(c, 0),
-                                              noise["alpha"]))]
+                            or (not clustered
+                                and _sample_covers(arb_cells.get(c, 0),
+                                                   arb_runs.get(c, 0),
+                                                   prev_cells.get(c, 0),
+                                                   prev_runs.get(c, 0),
+                                                   noise["alpha"])))]
             blocked = [c for c in risen if c not in cleared]
             if not blocked:
                 reasons.append("%s rise (%d -> %d) cleared by replication: "
@@ -1732,6 +1805,9 @@ def accept_verdict(prev, cur, target, noise=None, target_cases=None,
         reasons.append("REJECT: %s lost (%d -> %d)%s"
                        % (label, prev[key], cur[key], comp))
         fatal = True
+    screen_null = _cell_screen_null(prev, cur, noise["alpha"])
+    if screen_null:
+        reasons.append(screen_null)
 
     # The fifth fatal condition, and the only one that is not a count (#49).
     # Laconic bounds prose and nothing else, so an edit can buy shorter answers

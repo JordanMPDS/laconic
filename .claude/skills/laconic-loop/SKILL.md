@@ -432,7 +432,11 @@ round 26 read 8 of 8 at p = 0.008, which 10 reps would very likely also have
 read. The one thing that genuinely needs 20 a side is [#133]'s rate screen, and
 that only matters when a counter rises, which is exactly the case where you
 extend. Round 26 generated and judged 800 calls; staged, it would have opened
-with 320.
+with 320. The screen reads the three one-event-per-run counters only, since a
+readability cell holds clustered violations and [#103]'s bootstrap is that
+counter's sole test, and it is uncorrected: at 20 a side a null cell is
+condemned about 2% of the time, so the verdict prints the false cell
+rejections to expect at the control's own rates (#451).
 
 **Declare the looks in the registration preamble, before the first one.** A
 staged buy that scores at 10 and scores again at 25 has tested one hypothesis

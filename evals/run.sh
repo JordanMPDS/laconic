@@ -24,7 +24,10 @@ command -v claude >/dev/null || { printf 'claude CLI not on PATH\n' >&2; exit 2;
 # what ships rather than a copy that can drift.
 tmp_cfg=$(mktemp -d)
 printf '%s' "$LEVEL" > "$tmp_cfg/.laconic-level"
-RULES=$(CLAUDE_CONFIG_DIR="$tmp_cfg" bash "$ROOT/hooks/laconic.sh" start </dev/null)
+# Pin the project side too, as tools/build-rules.sh does: the hook reads
+# ${CLAUDE_PROJECT_DIR:-$PWD}/.claude/.laconic-level first (#442).
+RULES=$(CLAUDE_CONFIG_DIR="$tmp_cfg" CLAUDE_PROJECT_DIR="$tmp_cfg" \
+  bash "$ROOT/hooks/laconic.sh" start </dev/null)
 rm -rf "$tmp_cfg"
 [ -n "$RULES" ] || { printf 'hook produced no rules for level %s\n' "$LEVEL" >&2; exit 1; }
 RULES_CKSUM=$(printf '%s' "$RULES" | cksum | cut -d' ' -f1)

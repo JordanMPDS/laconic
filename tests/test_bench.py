@@ -727,22 +727,57 @@ check("laconic rules carry the thesis sentinel", "fewer claims" in rules)
 # implementation) with the same level and compare byte-for-byte; then prove
 # the function isn't just a fixed string at all by checking two different
 # levels produce different output.
-with tempfile.TemporaryDirectory() as hook_direct_dir:
-    (Path(hook_direct_dir) / ".laconic-level").write_text("full")
-    hook_direct_env = dict(os.environ, CLAUDE_CONFIG_DIR=hook_direct_dir)
-    hook_direct_env.pop("LACONIC_DEFAULT", None)
-    hook_direct_out = subprocess.run(
-        ["bash", str(ROOT / "hooks" / "laconic.sh"), "start"],
-        capture_output=True, text=True, env=hook_direct_env, stdin=subprocess.DEVNULL,
-    )
+def hook_direct(level, cwd=None, pin_project=True):
+    with tempfile.TemporaryDirectory() as hook_direct_dir:
+        (Path(hook_direct_dir) / ".laconic-level").write_text(level)
+        hook_direct_env = dict(os.environ, CLAUDE_CONFIG_DIR=hook_direct_dir)
+        hook_direct_env.pop("LACONIC_DEFAULT", None)
+        hook_direct_env.pop("CLAUDE_PROJECT_DIR", None)
+        if pin_project:
+            hook_direct_env["CLAUDE_PROJECT_DIR"] = hook_direct_dir
+        return subprocess.run(
+            ["bash", str(ROOT / "hooks" / "laconic.sh"), "start"],
+            capture_output=True, text=True, env=hook_direct_env, cwd=cwd,
+            stdin=subprocess.DEVNULL,
+        ).stdout
+
+
 check("laconic_rules output matches invoking the hook directly for the same level",
-      rules == hook_direct_out.stdout)
+      rules == hook_direct("full"))
 
 rules_lite = bench_run.laconic_rules(ROOT, "lite")
 rules_ultra = bench_run.laconic_rules(ROOT, "ultra")
 check("laconic rules differ between lite and ultra levels "
       "(a hardcoded constant could not do this)",
       rules_lite != rules_ultra)
+
+# #442: the hook reads a project flag from ${CLAUDE_PROJECT_DIR:-$PWD}/.claude
+# before the config-dir flag laconic_rules() writes, so pinning the config dir
+# alone lets a `/laconic ultra project` run in the checkout a round starts from
+# build every treatment arm at ultra under the requested label, with a
+# rules_cksum that is plausible and wrong. tools/build-rules.sh pins both.
+with tempfile.TemporaryDirectory() as flagged:
+    (Path(flagged) / ".claude").mkdir()
+    (Path(flagged) / ".claude" / ".laconic-level").write_text("ultra")
+    check("the project-flag fixture is live: the hook unpinned from there reads ultra",
+          hook_direct("lite", cwd=flagged, pin_project=False) == hook_direct("ultra"))
+    _cwd = os.getcwd()
+    _saved = os.environ.pop("CLAUDE_PROJECT_DIR", None)
+    try:
+        os.chdir(flagged)
+        _from_cwd = bench_run.laconic_rules(ROOT, "lite")
+        os.chdir(_cwd)
+        os.environ["CLAUDE_PROJECT_DIR"] = flagged
+        _from_env = bench_run.laconic_rules(ROOT, "lite")
+    finally:
+        os.chdir(_cwd)
+        os.environ.pop("CLAUDE_PROJECT_DIR", None)
+        if _saved is not None:
+            os.environ["CLAUDE_PROJECT_DIR"] = _saved
+check("a project flag in the cwd does not change the level laconic_rules builds",
+      _from_cwd == hook_direct("lite"))
+check("nor does one under an inherited CLAUDE_PROJECT_DIR",
+      _from_env == hook_direct("lite"))
 
 # Test resolve_claude_bin: bare names must not resolve to nonexistent <cwd>/claude
 resolved_bare = bench_run.resolve_claude_bin("claude")

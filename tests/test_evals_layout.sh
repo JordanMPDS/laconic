@@ -39,6 +39,34 @@ else
   fail "gitignore excludes evals/scratch"
 fi
 
+# #442: the hook reads a project flag from ${CLAUDE_PROJECT_DIR:-$PWD}/.claude
+# before the config-dir flag run.sh writes the level to, so run.sh has to pin
+# the project side as tools/build-rules.sh does. A copy of the tree, because
+# run.sh writes into its own evals/scratch and a developer's graded output may
+# sit there; a stub claude, because only the recorded checksum is under test.
+t=$(mktemp -d)
+mkdir -p "$t/tree/evals/cases/decision" "$t/tree/hooks" "$t/tree/rules" \
+  "$t/bin" "$t/cwd/.claude" "$t/cfg"
+cp "$ROOT/evals/run.sh" "$t/tree/evals/"
+cp "$ROOT/hooks/laconic.sh" "$t/tree/hooks/"
+cp "$ROOT/rules/laconic.md" "$t/tree/rules/"
+cp "$ROOT/evals/cases/decision/prompt.md" "$t/tree/evals/cases/decision/"
+printf '#!/bin/sh\ncat >/dev/null\necho answer\n' > "$t/bin/claude"
+chmod +x "$t/bin/claude"
+printf 'ultra' > "$t/cwd/.claude/.laconic-level"
+printf 'lite' > "$t/cfg/.laconic-level"
+want=$(printf '%s' "$(CLAUDE_CONFIG_DIR="$t/cfg" CLAUDE_PROJECT_DIR="$t/cfg" \
+  bash "$ROOT/hooks/laconic.sh" start </dev/null)" | cksum | cut -d' ' -f1)
+(cd "$t/cwd" && unset CLAUDE_PROJECT_DIR && PATH="$t/bin:$PATH" \
+  bash "$t/tree/evals/run.sh" lite decision >/dev/null 2>&1)
+got=$(sed -n 's/^Rules checksum: //p' "$t/tree/evals/scratch/lite/decision.md" 2>/dev/null)
+if [ -n "$got" ] && [ "$got" = "$want" ]; then
+  ok "run.sh builds the requested level whatever project flag sits in the cwd"
+else
+  fail "run.sh builds the requested level whatever project flag sits in the cwd (got '$got', want '$want')"
+fi
+rm -rf "$t"
+
 if grep -qx 'evals/results/' "$ROOT/.gitignore"; then
   fail "gitignore no longer excludes evals/results"
 else

@@ -200,7 +200,11 @@ def laconic_rules(root, level):
     tmp = tempfile.mkdtemp()
     try:
         (Path(tmp) / ".laconic-level").write_text(level)
-        env = dict(os.environ, CLAUDE_CONFIG_DIR=tmp)
+        # Both sides, as tools/build-rules.sh does: the hook reads a project
+        # flag from ${CLAUDE_PROJECT_DIR:-$PWD}/.claude first, so a stray
+        # `/laconic ultra project` in the cwd would otherwise build every arm
+        # at ultra under the requested label (#442).
+        env = dict(os.environ, CLAUDE_CONFIG_DIR=tmp, CLAUDE_PROJECT_DIR=tmp)
         env.pop("LACONIC_DEFAULT", None)
         out = subprocess.run(
             ["bash", str(root / "hooks" / "laconic.sh"), "start"],

@@ -226,5 +226,60 @@ not quote. The `#113` families barely move: `laconic` `drift-service` stays
 the first two passes and is not recomputed here; its laconic rate is a floor by
 more than the recall sample suggested.
 
+## A fourth pass: the confirmation worded with the other openers
+
+[#471]: the third pass's carve-out covered "say the word" only, so the same
+confirmation worded with "want me to" or "would you like me to" still counted.
+`holdout-destructive` asks for `./deploy.sh --reset`, which drops a shared
+database, and its stored answers end the way Never cut tells them to: *"Do you
+want me to run it as written?"* That was scored as the ceremony `lite` forbids.
+
+Both openers now skip a following "proceed", or a "run" or "execute" whose
+object points back at what is already on the table: "it", "this", "that", "all
+of it" or "the whole thing", with no "instead" after it. An optional colon and
+list marker cover *"Do you want me to: 1. Run it as-is"*.
+
+The line is drawn there because the other shapes are offers. A named object
+can be anything, so *"run the full reset"* stays counted along with *"Want me
+to run the full test suite?"*. "instead" brings in a command the user did not
+ask for, as in *"Want me to run that instead?"* over a TRUNCATE on
+`destructive`. Bare "go ahead" stays counted because *"Want me to go ahead and
+implement this?"* is the commonest offer on the design cases. "proceed" is
+carved out whatever follows it, so the detector now misses *"Want me to proceed
+with implementing the rest?"* and, through "run it", *"run it for the other two
+services as well"*. Neither shape is in the archive.
+
+| | |
+|---|--:|
+| distinct responses in the archive, holdout included | 85,786 |
+| responses that lose a hit | 102 |
+| responses that gain one, or whose match changes | 0 |
+| `holdout-destructive` answers with a hit | 170 of 430 to 69 |
+| carved-out holdout answers hand-read at seed 471 | **30 of 30 confirm or narrow the requested reset** |
+| genuine offers lost elsewhere | 1, on `design-upload` |
+
+The lost offer is *"happy to implement this ... if you want me to proceed"*.
+Of the 69 left on the holdout, 66 are the confirmation in words the carve-out
+does not reach: 43 name the object (*"run the full reset"*, *"run the whole
+script"*), and the rest are *"Should I go ahead?"*, *"want me to wipe the
+shared staging database"* and the like. Two are *"I can help with that, but
+first I need to confirm"*, and one is the genuine offer the rule itself names:
+*"If you'd like, I can also read the script first"*. The production shapes
+[`production-turns-283.md`](production-turns-283.md) found, a merge authorised
+by "Want me to merge #99 and #100" and the phrase inside a quotation, are not
+reached either.
+
+**No stored verdict moves.** `report.py` discloses closing offers and gates
+nothing on them, and no round document quotes a holdout count. The one gate
+that reads them is the benchmark Stop hook: `stop_hook.decide()` blocks when
+`metrics.decisions()` is non-empty, and closing offers are among those
+decisions. None of the 510 stored Stop-hook texts changes, so the hook rounds
+stand, though the hook now lets the carved-out confirmations through. The
+published benchmark snapshot, `benchmark-2026-09-24.json`, holds none of the
+102, so `docs/benchmark.md` and the README are unchanged. 101 of the 102 are
+laconic answers to `holdout-destructive`, and the other is `word-compression`'s
+offer above.
+
 [#113]: https://github.com/JordanMPDS/laconic/issues/113
 [#155]: https://github.com/JordanMPDS/laconic/issues/155
+[#471]: https://github.com/JordanMPDS/laconic/issues/471

@@ -7115,19 +7115,21 @@ with tempfile.TemporaryDirectory() as td_reg:
           _c6.returncode == 0 and _c6p.exists()
           and "terse-control" not in json.loads(_c6p.read_text())["arms"])
 
-    # The reminder reached the carried laconic-ponytail's later turns.
+    # The reminder reached the carried laconic-ponytail's later turns, and is
+    # disclosed beside the source's rules_cksum rather than refused, so a
+    # round that edits the reminder can still carry a derived arm.
     _edit_snap(_sp, lambda s: s["metadata"].update(reminder_cksum="1"))
     _c7 = _run_delivery(td_reg, "plugin", "--arms", "laconic",
                         "--carry-arms-from", str(_sp), snap="c7.json")
-    check("subprocess: a carry refuses a reminded arm generated under "
-          "another reminder",
-          _c7.returncode != 0 and "reminder" in _c7.stderr
-          and "laconic-ponytail" in _c7.stderr
-          and not (Path(td_reg) / "c7.json").exists())
-    _c8 = _carry("c8.json")
-    check("subprocess: and carries the controls from it, which the reminder "
-          "never reached",
-          _c8.returncode == 0)
+    _c7p = Path(td_reg) / "c7.json"
+    _c7m = json.loads(_c7p.read_text())["metadata"] if _c7p.exists() else {}
+    check("subprocess: a carry records the reminder its source's reminded "
+          "arms were sent, beside the file's own (#522)",
+          _c7.returncode == 0
+          and _c7m.get("carried_arms_from", {}).get("reminder_cksum") == "1"
+          and "laconic-ponytail" in _c7m["carried_arms_from"].get("arms", [])
+          and _c7m["reminder_cksum"]
+          == str(zlib.crc32(bench_run.REMINDER.encode())))
 
 
 # --- the edit stratum (#209) ---------------------------------------------

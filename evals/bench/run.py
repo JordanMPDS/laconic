@@ -812,6 +812,11 @@ def carry_arms(snap, source, keep_arms, cells=None):
     snap["metadata"]["carried_arms_from"] = {
         "path": source.get("__path", ""),
         "rules_cksum": source.get("metadata", {}).get("rules_cksum"),
+        # Disclosed beside rules_cksum rather than refused, for the same
+        # reason: a carried laconic arm's later turns had the source's
+        # reminder, and this file's own stamp describes only what it
+        # generates (#522).
+        "reminder_cksum": source.get("metadata", {}).get("reminder_cksum"),
         "arms": carried_arms,
         "missing_arms": sorted(set(ARMS) - set(keep_arms) - set(carried_arms)),
     }
@@ -1584,16 +1589,6 @@ def main():
                          "%s, so its runs are not the control this round "
                          "would compare against (#522). Generate the arms"
                          % (args.carry_arms_from, src_meta["effort"], EFFORT))
-            reminded = sorted({r["arm"] for r in snap["runs"]
-                               if plugin_reminded(r["arm"])
-                               and delivery_modes([r]) == ["plugin"]})
-            if reminded and reminder_changed(src_meta):
-                sys.exit("%s holds plugin-delivery runs of %s, whose later "
-                         "turns carried a different reminder (reminder_cksum "
-                         "%s, %s now), and this file records one. Generate "
-                         "the arm instead (#522)"
-                         % (args.carry_arms_from, ", ".join(reminded),
-                            src_meta["reminder_cksum"], REMINDER_CKSUM))
             # Carried runs bring their own stamps, so a fresh file is only
             # per-run-stamped if the file it actually took runs from was (#272).
             if snap["runs"] and not (

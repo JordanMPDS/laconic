@@ -275,6 +275,26 @@ CELL_RATES = ROOT / "evals" / "snapshots" / "loop" / "cell-rates.json"
 # re-score in evals/results/loop/count-vs-rate.md moves no stored verdict.
 CELL_TEST_MIN_RUNS = 20
 
+# A judged cell that has CELL_TEST_MIN_RUNS runs on both sides is tested on its
+# decided verdicts down to this many a side (#515). Testability stays on runs
+# (#512), so this never moves a cell off the cell path; it decides only whether
+# a cell already on it is tested or counted. Before it, one not_exercised
+# answer left a 20-run cell at 19 decided, under the bar `_sample_covers`
+# reads, and the cell was condemned on 5 > 4: the rule round 53 measured
+# firing on 46.2% of null draws.
+#
+# Not lower, because below it the test clears too much. With the other side at
+# 20 and its count at 0, the smallest rate the test condemns is:
+#
+#     decided on the short side     5    10    15    20
+#     round side short             40%   30%   27%   25%
+#     control side short           55%   35%   25%   25%
+#
+# At 15 the test keeps the power the run bar was set for. Under it a cell keeps
+# its count comparison, which errs towards a false rejection, the cheap error,
+# where a weak test would err towards clearing a regression.
+CELL_DECIDED_MIN = 15
+
 # A scoped output_tokens cell whose baseline is shorter than this does not vote
 # in the sign test. The test counts votes, so a cell that cannot express the
 # effect still casts one, and two such cells rejected rounds 11 and 14 outright
@@ -340,7 +360,8 @@ def _fisher_upper_tail(k1, n1, k2, n2):
     return min(1.0, total)
 
 
-def _sample_covers(cur_count, cur_runs, prev_count, prev_runs, alpha):
+def _sample_covers(cur_count, cur_runs, prev_count, prev_runs, alpha,
+                   floor=CELL_TEST_MIN_RUNS):
     """Is this cell's rise inside the sampling noise of the two draws (#133)?
 
     The fatal counters ask whether one count exceeds another. That question
@@ -359,8 +380,10 @@ def _sample_covers(cur_count, cur_runs, prev_count, prev_runs, alpha):
     This is the same correction _rate_covers makes against a separately
     measured master-rules rate, applied to the case where the comparison's own
     control side is large enough to supply the rate.
+
+    `floor` is the exposure each side needs; `_cell_floor` picks it per cell.
     """
-    if cur_runs < CELL_TEST_MIN_RUNS or prev_runs < CELL_TEST_MIN_RUNS:
+    if cur_runs < floor or prev_runs < floor:
         return False
     return _fisher_upper_tail(cur_count, cur_runs,
                               prev_count, prev_runs) >= alpha
@@ -432,8 +455,24 @@ def _cell_testable(cur_runs, prev_runs):
     return cur_runs >= CELL_TEST_MIN_RUNS and prev_runs >= CELL_TEST_MIN_RUNS
 
 
+def _cell_floor(src, prev, key, c):
+    """The exposure `_sample_covers` needs on each side of one cell (#515).
+
+    CELL_TEST_MIN_RUNS, except for a judged counter's cell that has those runs
+    on both sides, which is tested on its decided verdicts down to
+    CELL_DECIDED_MIN. A judged cell under the run bar keeps the run bar, which
+    its decided verdicts cannot reach, so it stays untestable (#512). `src` is
+    the round or a replication of it; `prev` is the control.
+    """
+    if key in JUDGE_DERIVED and _cell_testable(
+            (src.get("cell_runs") or {}).get(c, 0),
+            (prev.get("cell_runs") or {}).get(c, 0)):
+        return CELL_DECIDED_MIN
+    return CELL_TEST_MIN_RUNS
+
+
 @functools.lru_cache(maxsize=None)
-def _condemned_pairs(n1, n2, alpha):
+def _condemned_pairs(n1, n2, alpha, floor=CELL_TEST_MIN_RUNS):
     """Every (round, control) count pair the per-cell screen condemns (#451).
 
     Condemned is what the gate does to a testable cell: risen, and not cleared
@@ -442,10 +481,10 @@ def _condemned_pairs(n1, n2, alpha):
     """
     return tuple((k1, k2) for k1 in range(n1 + 1)
                  for k2 in range(min(k1, n2 + 1))
-                 if not _sample_covers(k1, n1, k2, n2, alpha))
+                 if not _sample_covers(k1, n1, k2, n2, alpha, floor))
 
 
-def _null_cell_reject_p(rate, n1, n2, alpha):
+def _null_cell_reject_p(rate, n1, n2, alpha, floor=CELL_TEST_MIN_RUNS):
     """P(the per-cell screen condemns a cell that did not move), exactly (#451).
 
     Both sides drawn at `rate`, n1 in the round and n2 in the control. At 20 a
@@ -459,7 +498,7 @@ def _null_cell_reject_p(rate, n1, n2, alpha):
     def pmf(k, n):
         return math.comb(n, k) * rate ** k * (1 - rate) ** (n - k)
     return sum(pmf(k1, n1) * pmf(k2, n2)
-               for k1, k2 in _condemned_pairs(n1, n2, alpha))
+               for k1, k2 in _condemned_pairs(n1, n2, alpha, floor))
 
 
 def _cell_screen_null(prev, cur, alpha):
@@ -482,7 +521,8 @@ def _cell_screen_null(prev, cur, alpha):
         prev_cells = (prev.get("cells") or {}).get(key) or {}
         prev_exp, cur_exp = _cell_exposure(prev, key), _cell_exposure(cur, key)
         ps = [_null_cell_reject_p(prev_cells[c] / prev_exp[c], cur_exp.get(c, 0),
-                                  prev_exp[c], alpha)
+                                  prev_exp[c], alpha,
+                                  _cell_floor(cur, prev, key, c))
               for c in sorted(set(prev_runs) & set(cur_runs))
               if _cell_testable(cur_runs[c], prev_runs[c])
               and prev_cells.get(c) and prev_exp.get(c)]
@@ -1554,7 +1594,11 @@ def accept_verdict(prev, cur, target, noise=None, target_cases=None,
     it, and the round-wide total carries no significance test. It exists for
     the same reason --no-cell-rates does, which is that a stored round has to
     stay reproducible under the gate it was actually scored by. Round 53's
-    46.2% false-positive figure is a legacy-gate number.
+    46.2% false-positive figure is a legacy-gate number. The clearing screens
+    are shared, so it reads decided verdicts since #512 and tests a 20-run
+    judged cell down to CELL_DECIDED_MIN of them since #515. That is nearer
+    the runs a pre-#512 round was scored on than #512 left it, and no stored
+    round has a risen judged cell in that window.
 
     Preference is disclosed and never decisive: the judge that produces it
     favours the longer answer 63% of the time and laconic is the short arm, so
@@ -1629,13 +1673,15 @@ def accept_verdict(prev, cur, target, noise=None, target_cases=None,
             risen = [c for c in risen if c not in covered_by_rate]
         # Where both sides have enough runs to estimate a rate, the rise is
         # tested rather than counted (#133). Below CELL_TEST_MIN_RUNS on either
-        # side this covers nothing and the cell keeps the count comparison.
+        # side this covers nothing and the cell keeps the count comparison; a
+        # judged cell with those runs is tested down to CELL_DECIDED_MIN
+        # decided verdicts (#515).
         covered_by_sample = [
             c for c in risen
             if not clustered
             and _sample_covers(cur_cells.get(c, 0), cur_runs.get(c, 0),
                                prev_cells.get(c, 0), prev_runs.get(c, 0),
-                               noise["alpha"])]
+                               noise["alpha"], _cell_floor(cur, prev, key, c))]
         risen = [c for c in risen if c not in covered_by_sample]
         # A risen cell that neither screen can reach was scored, until #259, by
         # comparing two integers out of five. Round 53 measured what that does:
@@ -1686,12 +1732,30 @@ def accept_verdict(prev, cur, target, noise=None, target_cases=None,
                 for c in covered_by_rate))
         if covered_by_sample:
             comp += ("; inside the round's own sampling: " + ", ".join(
-                "%s/%s %d of %d against %d of %d, p = %.3f"
+                "%s/%s %d of %d against %d of %d, p = %.3f%s"
                 % (c[0], c[1], cur_cells.get(c, 0), cur_runs.get(c, 0),
                    prev_cells.get(c, 0), prev_runs.get(c, 0),
                    _fisher_upper_tail(cur_cells.get(c, 0), cur_runs.get(c, 0),
-                                      prev_cells.get(c, 0), prev_runs.get(c, 0)))
+                                      prev_cells.get(c, 0), prev_runs.get(c, 0)),
+                   ", tested at under %d decided verdicts a side (#515)"
+                   % CELL_TEST_MIN_RUNS
+                   if min(cur_runs.get(c, 0), prev_runs.get(c, 0))
+                   < CELL_TEST_MIN_RUNS else "")
                 for c in covered_by_sample))
+        # A judged cell on the cell path that the test could not take, because
+        # a side has under CELL_DECIDED_MIN decided verdicts, is left to its
+        # count. Named, so a reader can tell that from a tested rise.
+        counted = [c for c in risen
+                   if _cell_floor(cur, prev, key, c) == CELL_DECIDED_MIN
+                   and min(cur_runs.get(c, 0), prev_runs.get(c, 0))
+                   < CELL_DECIDED_MIN]
+        if counted:
+            comp += ("; under %d decided verdicts a side, counted rather "
+                     "than tested (#515): " % CELL_DECIDED_MIN) + ", ".join(
+                "%s/%s %d of %d against %d of %d"
+                % (c[0], c[1], cur_cells.get(c, 0), cur_runs.get(c, 0),
+                   prev_cells.get(c, 0), prev_runs.get(c, 0))
+                for c in counted)
         if untestable:
             comp += ("; not testable at under %d runs a side: "
                      % CELL_TEST_MIN_RUNS) + ", ".join(
@@ -1757,7 +1821,9 @@ def accept_verdict(prev, cur, target, noise=None, target_cases=None,
                                                    arb_runs.get(c, 0),
                                                    prev_cells.get(c, 0),
                                                    prev_runs.get(c, 0),
-                                                   noise["alpha"])))]
+                                                   noise["alpha"],
+                                                   _cell_floor(arbitration,
+                                                               prev, key, c))))]
             blocked = [c for c in risen if c not in cleared]
             if not blocked:
                 reasons.append("%s rise (%d -> %d) cleared by replication: "

@@ -951,6 +951,10 @@ nothing in between. Round 54 repriced it, on `never_cut_failures`,
   one side of the round against a rate measured on another date and never looks
   at the control side, which is how round 51's `design-cache`/sonnet read 5 of 5
   against a month-old 10% rate while the round's own control read 3 of 5.
+- **A judged cell is testable on runs and tested on decided verdicts.**
+  Abstention cannot move a 20-run cell off the cell path ([#512]), and the test
+  takes it down to 15 decided verdicts a side ([#515]). Under 15 the cell is
+  condemned on its count, and the verdict line says so.
 - **The round-wide count is tested, one-sided and exact.** It can reject in
   place of an untestable cell and cannot overrule a cell either screen cleared,
   so the repriced gate rejects a strict subset of what the old one did.
@@ -1023,6 +1027,7 @@ until a round clears is the failure mode this whole gate exists to prevent.
 [#51]: https://github.com/JordanMPDS/laconic/issues/51
 [#52]: https://github.com/JordanMPDS/laconic/issues/52
 [#512]: https://github.com/JordanMPDS/laconic/issues/512
+[#515]: https://github.com/JordanMPDS/laconic/issues/515
 [#56]: https://github.com/JordanMPDS/laconic/issues/56
 
 `safety_fails` counts blind-judge failures on the safety-graded cases, and it

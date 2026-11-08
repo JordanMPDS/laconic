@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 """Validates harness logic against stubs - no live model calls."""
 import glob
+import itertools
 import json
 import math
 import pathlib
@@ -9092,6 +9093,53 @@ for kw, label in (("nc", "never-cut"), ("viol", "readability")):
 
 # --- optional oracle: the hand-rolled tests against scipy ---
 #
+# #467: a precheck bar's fire probability. The convolution drops the mass under
+# a cell's minimum without renormalising it, and brute-force enumeration of a
+# small design is the check that it did; the round-121 figures are the issue's.
+import precheck as bench_precheck  # noqa: E402
+
+_cells, _rates = [(3, 1), (4, 0), (2, 2)], [0.3, 0.55, 0.7]
+_brute = [0.0] * 10
+for _xs in itertools.product(*(range(n + 1) for n, _ in _cells)):
+    if all(x >= lo for x, (_, lo) in zip(_xs, _cells)):
+        _pr = math.prod(math.comb(n, x) * p ** x * (1 - p) ** (n - x)
+                        for x, (n, _), p in zip(_xs, _cells, _rates))
+        for _k in range(sum(_xs) + 1):
+            _brute[_k] += _pr
+check("precheck.tails matches brute-force enumeration with per-cell minima and rates",
+      max(abs(a - b) for a, b in zip(bench_precheck.tails(_cells, _rates), _brute)) < 1e-12)
+check("precheck.fire_probability with no minimum is the pooled binomial tail",
+      abs(bench_precheck.fire_probability([(10, 0)] * 3, 9, [0.3] * 3)
+          - (1 - bench_report._binom_cdf(8, 30, 0.3))) < 1e-12)
+_r121 = [(10, 3), (10, 0), (10, 0)]
+check("round 121's 9-of-30 bar with recall-index at 3 of 10 fires on 0.446 at 30%",
+      round(bench_precheck.fire_probability(_r121, 9, [0.3] * 3), 3) == 0.446)
+
+
+def _precheck_cli(*args):
+    p = subprocess.run([sys.executable, str(ROOT / "evals" / "bench" / "precheck.py"), *args],
+                       capture_output=True, text=True)
+    return p.returncode, p.stdout + p.stderr
+
+
+_rc, _out = _precheck_cli("--cells", "10:3,10,10", "--fire-at", "0.30", "--quiet-at", "0.10",
+                          "--bar", "9")
+check("precheck.py exits 1 on round 121's bar at its own rate, naming the miss",
+      _rc == 1 and "bar 9 misses the pair" in _out)
+_rc, _out = _precheck_cli("--cells", "30", "--fire-at", "14/30", "--quiet-at", "0.10",
+                          "--bar", "6")
+check("precheck.py exits 0 on a 6-of-30 bar at the observed 14/30, which meets the pair",
+      _rc == 0 and "bar 6 meets the pair" in _out)
+_rc, _out = _precheck_cli("--cells", "10:3,10,10", "--fire-at", "0.30", "--quiet-at", "0.10")
+check("precheck.py names a cell minimum that caps P(fire) below the power",
+      _rc == 1 and "the cell minima alone fire on 0.617" in _out)
+_rc, _out = _precheck_cli("--cells", "10,10,10", "--fire-at", "0.25", "--quiet-at", "0.10")
+check("precheck.py names the smallest multiple of the reps at which a bar meets the pair",
+      _rc == 1 and "at 2x (cells 20:0,20:0,20:0) bars 10 to 11 of 60 do" in _out)
+_rc, _out = _precheck_cli("--cells", "10,10", "--fire-at", "0.3,0.4,0.5", "--quiet-at", "0.1")
+check("precheck.py refuses a rate list that does not match the cells",
+      _rc == 2 and "3 rates for 2 cells" in _out)
+
 # This repo implements every statistic from `math` and `statistics` on purpose:
 # the plugin ships no Python, CI has no install step, and a contributor needs
 # nothing. None of that is worth giving up for functions this size - exact

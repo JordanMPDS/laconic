@@ -255,8 +255,9 @@ over those cells alone, with the round-wide number printed beside it. The fatal
 conditions stay round-wide, so an edit that fixes the cases it aimed at while
 breaking another still rejects.
 
-`evals/holdout/` holds six cases the loop never sees, scored once before a
-rule change ships: two never-cut items, a requested explanation, a short
+`evals/holdout/` holds six cases the loop never develops against, scored only
+at step 9 of a candidate round, and retired into `evals/cases` once one has
+decided ten rounds or a reject: two never-cut items, a requested explanation, a short
 question whose correct answer is brief, a bare design question and an
 evaluative one. Reach them with `--cases-dir evals/holdout`, which `run.py`,
 `judge.py`, `report.py` and `review.py` all accept. Their numbers never enter a

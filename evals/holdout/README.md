@@ -1,8 +1,14 @@
 # Reserved holdout cases
 
-Scored once, at step 9 of a loop round, and never during development. Nothing
-here appears in a published benchmark table: a holdout case that shows up in a
-table stops being a holdout the moment somebody optimizes against it.
+Scored only at step 9 of a candidate round, and never during development.
+Nothing here appears in a published benchmark table: a holdout case that shows
+up in a table stops being a holdout the moment somebody optimizes against it.
+
+A case may decide ten rounds and then retires into `evals/cases`, replaced by a
+new scenario for the same coverage slot; one that decides a reject retires at
+once. `report.py` prints each case's count on every verdict. The rule and its
+reasons are step 9 of the loop skill
+([#466](https://github.com/JordanMPDS/laconic/issues/466)).
 
 Reached only by `--cases-dir evals/holdout`, which `run.py`, `judge.py`,
 `report.py` and `review.py` all accept. The default glob does not see them, and

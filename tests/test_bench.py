@@ -9190,6 +9190,44 @@ check("attempts are counted by candidate-due.sh's own marker",
            .glob("round-*.md")
            if re.search(r"(?mi)^## The edit", f.read_text())]))
 
+# The holdout's wear, counted per case from the runs (#466).
+with tempfile.TemporaryDirectory() as _t:
+    _t = Path(_t)
+    for _c in ("holdout-a", "holdout-b"):
+        (_t / "holdout" / _c).mkdir(parents=True)
+        (_t / "holdout" / _c / "prompt.md").write_text("q\n")
+    (_t / "holdout" / "README.md").write_text("not a case\n")
+    (_t / "snaps").mkdir()
+    def _hsnap(name, cases):
+        (_t / "snaps" / name).write_text(json.dumps(
+            {"runs": [{"case": c, "ok": True} for c in cases]}))
+    _hsnap("round-15-holdout.json", ["holdout-a", "holdout-b"])
+    _hsnap("round-15-holdout-master.json", ["holdout-a"])
+    _hsnap("round-20-holdout-edit-shard0.json", ["holdout-a", "holdout-gone"])
+    _hsnap("round-20-holdout-edit-judgments.json", ["holdout-b"])
+    _hsnap("round-21.json", ["holdout-b"])
+    (_t / "snaps" / "round-22-holdout.json").write_text("{not json")
+    _hc = bench_report._holdout_consultations(_t / "snaps", _t / "holdout")
+check("holdout consultations are distinct rounds per case, read from the runs",
+      _hc == {"holdout-a": [15, 20], "holdout-b": [15]})
+check("a holdout tree with no case counts nothing",
+      bench_report._holdout_consultations(_t, _t) is None)
+_hl = bench_report._holdout_line(_hc, budget=1)
+check("the holdout line names each case's count against the budget",
+      "budget of 1: holdout-a 2, holdout-b 1;" in _hl)
+check("a case past its budget makes the refresh owed",
+      "1 of 2 past it" in _hl and "refresh is owed" in _hl)
+check("a holdout within budget says so",
+      "none past it" in bench_report._holdout_line(_hc, budget=2))
+check("no count means no holdout claim", bench_report._holdout_line(None) is None)
+_, why = bench_report.accept_verdict(worse, _summary(tokens=TEN_CELLS(100)),
+                                     "output_tokens", holdout=_hc)
+check("the verdict prints the holdout's wear", any("holdout:" in r for r in why))
+check("every reserved case is counted on master",
+      set(bench_report._holdout_consultations() or {}) ==
+      {d.name for d in (bench_report.ROOT / "evals" / "holdout").iterdir()
+       if d.is_dir()})
+
 # Judge noise. Measured always, acted on only when asked.
 check("a +1 rise over 100 judged runs is squarely inside judge noise",
       bench_report._judge_noise_p(1, 100) > 0.05)

@@ -784,6 +784,58 @@ def _count_attempts():
     return n or None
 
 
+# Rounds a reserved case may decide before it retires, by step 9's refresh
+# rule (#466). An exposure cap chosen from cost, not derived: see the skill.
+HOLDOUT_BUDGET = 10
+
+
+def _holdout_consultations(snapdir=None, holdout=None):
+    """{case: rounds} for every case now in evals/holdout: the distinct round
+    numbers whose `round-N-holdout*.json` result snapshots hold a run of it.
+
+    Read from the runs rather than the file names, so a replacement case
+    starts at zero however the files are split. Returns None when no reserved
+    case is readable, so a missing tree prints nothing instead of a clean
+    count.
+    """
+    snapdir = Path(snapdir) if snapdir else ROOT / "evals" / "snapshots" / "loop"
+    holdout = Path(holdout) if holdout else ROOT / "evals" / "holdout"
+    if not holdout.is_dir():
+        return None
+    out = {d.name: set() for d in holdout.iterdir()
+           if (d / "prompt.md").is_file()}
+    for f in snapdir.glob("round-*-holdout*.json"):
+        m = re.match(r"round-(\d+)-holdout", f.name)
+        if not m or f.name.endswith("judgments.json"):
+            continue
+        try:
+            runs = json.loads(f.read_text()).get("runs") or []
+        except (OSError, ValueError):
+            continue
+        for r in runs:
+            if r.get("case") in out:
+                out[r["case"]].add(int(m.group(1)))
+    return {c: sorted(v) for c, v in out.items()} or None
+
+
+def _holdout_line(consulted, budget=HOLDOUT_BUDGET):
+    """The holdout's wear, beside the campaign line that prices the dev set's.
+
+    The set the loop calls fatal had decided fifteen rounds before anything
+    counted it (#466). A pass on a case past its budget is weak evidence, so
+    the line says when a holdout pass would rest on worn cases.
+    """
+    if not consulted:
+        return None
+    counts = ", ".join("%s %d" % (c, len(r)) for c, r in sorted(consulted.items()))
+    worn = [c for c, r in consulted.items() if len(r) > budget]
+    tail = ("none past it" if not worn else
+            "%d of %d past it, so a holdout pass rests on worn cases and step "
+            "9's refresh is owed" % (len(worn), len(consulted)))
+    return ("holdout: rounds consulted per reserved case, against a budget of "
+            "%d: %s; %s (#466)" % (budget, counts, tail))
+
+
 def _count_p(prev_count, cur_count, prev_runs, cur_runs):
     """One-sided p for "the rate fell", comparing two counts of rare events.
 
@@ -1602,11 +1654,14 @@ def _counterfactual_line(prev, cur, cells):
 def accept_verdict(prev, cur, target, noise=None, target_cases=None,
                    arbitration=None, cell_rates=None, target_models=None,
                    legacy_count_gate=False, looks=None, attempts=None,
-                   judge_noise_gate=False, judge_model=None):
+                   judge_noise_gate=False, judge_model=None, holdout=None):
     """(verdict, reasons) for one round against the round before it.
 
     judge_model is the setup that graded both sides, which picks the judge
     self-disagreement figure a judged rise is read against (#558).
+
+    holdout is `_holdout_consultations()`'s count, printed beside the campaign
+    line and never fatal (#466).
 
     arbitration, when given, is a round_summary over one fresh replication of
     disputed cells, generated at the same reps under the round's rules (#52).
@@ -2466,6 +2521,9 @@ def accept_verdict(prev, cur, target, noise=None, target_cases=None,
     camp = _campaign_line(attempts, noise["alpha"], looks or LOOKS_DEFAULT)
     if camp:
         reasons.append(camp)
+    worn = _holdout_line(holdout)
+    if worn:
+        reasons.append(worn)
 
     # Last, and never fatal. A flat quality count is exactly when the
     # cancellation hides, so the line prints whether the round passed or
@@ -3364,7 +3422,8 @@ def main():
             looks=args.looks, judge_noise_gate=args.judge_noise_gate,
             judge_model=(judg.get("metadata") or {}).get("judge_model"),
             attempts=(args.attempts if args.attempts is not None
-                      else _count_attempts()))
+                      else _count_attempts()),
+            holdout=_holdout_consultations())
         print("verdict: %s (target %s%s%s, against %s)"
               % (verdict, args.target,
                  (" on %s" % ", ".join(target_cases)) if target_cases else "",

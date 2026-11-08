@@ -6831,6 +6831,10 @@ _expected_concurrent = {
     # trees; each side's shards are merged into one snapshot.
     "round-125-control.json", "round-125-edit.json",
     "round-125-rep-control.json", "round-125-rep-edit.json",
+    # Round 126's first sample and replication: the same four-shard design as
+    # round 125's, merged into one snapshot a side.
+    "round-126-control.json", "round-126-edit.json",
+    "round-126-rep-control.json", "round-126-rep-edit.json",
 }
 _found = set()
 for _p in sorted((ROOT / "evals" / "snapshots").rglob("*.json")):

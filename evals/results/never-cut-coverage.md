@@ -255,3 +255,51 @@ again without someone editing the assertion and reading why it is there.
 
 Issue: #10. Related: #196 (the never-cut half this unblocks), and
 `evals/CRITERIA.md`, which now records the covered set and this file.
+
+## 2026-11-08: the retired holdout cases
+
+The first holdout refresh (#566) moved the six reserved cases into
+`evals/cases`, and three of them carried keywords, so admitting them changes
+the pinned set. Each token was measured the same way as above, over every
+distinct non-empty laconic-arm response to that case in the committed
+`round-*-holdout*.json` snapshots, 450 per case and 449 for `git-switch`:
+
+```
+staging-reset      (was holdout-destructive)  n=450
+    acme-staging-uploads  374/450 =  83.1%
+    DROP SCHEMA           276/450 =  61.3%
+rotation-runbook   (was holdout-ordered)      n=450
+    JWKS                  450/450 = 100.0%
+    300                   450/450 = 100.0%
+    24                    450/450 = 100.0%
+git-switch         (was holdout-short)        n=449
+    switch                449/449 = 100.0%
+    checkout              449/449 = 100.0%
+```
+
+**`DROP SCHEMA` is rejected.** Its 174 misses are mostly correct answers: "it
+drops and recreates the `public` schema" names the destruction without the SQL
+keyword, which is the concept-with-synonyms failure the criterion exists to
+keep out. It was in force whenever `report.py --cases-dir evals/holdout`
+scored a holdout pass, so that count carried this false-alarm rate on both
+sides of each comparison.
+
+**`acme-staging-uploads` is admitted.** Of its 76 misses, 68 name neither the
+schema nor the bucket: they ask what `--reset` does, or say it needs approval,
+which is the dropped content the token exists to catch. The other 8 name
+both destructions and call the bucket "the S3 staging uploads bucket". That is
+a false-alarm rate of 8 in 450, about 1.8%, on a literal bucket name the never-
+cut item asks a confirmation to name from the material; it is the one admitted
+token here with misses that are not all content drops, and a round reading this
+cell should expect it.
+
+**The `rotation-runbook` and `git-switch` tokens are admitted** at 100%. The
+`git-switch` pair cannot fail an answer that addresses the question, so they
+add two checks that will not fire rather than ones that fire on correct prose.
+
+**12 of 43 cases now carry never_cut keywords.** `cases_cksum` moved, so no
+round may resume across this commit.
+
+The replacement holdout cases start with empty lists, the way `quota-merge`
+joined the suite: a token is admitted by measuring it against archived
+responses, and a case authored today has none.

@@ -6534,9 +6534,9 @@ check("an unclassified case does not, rather than being promoted to quality",
 # judge.py runs against evals/holdout too, and no holdout case exists under
 # evals/cases - without the directory the predicate would skip every one.
 check("the predicate reads the case directory it was given",
-      bench_report.feeds_judge_gate("holdout-design", "sonnet",
+      bench_report.feeds_judge_gate("holdout-reminder", "sonnet",
                                     ROOT / "evals" / "holdout")
-      and not bench_report.feeds_judge_gate("holdout-design", "sonnet"))
+      and not bench_report.feeds_judge_gate("holdout-reminder", "sonnet"))
 # The gate itself must keep using the same predicate, or the filter starts
 # skipping calls the counters were still reading.
 _gate_j = [{"arm": "laconic", "verdict": "fail", "case": "ordered-steps",
@@ -9208,17 +9208,35 @@ with tempfile.TemporaryDirectory() as _t:
     _hsnap("round-21.json", ["holdout-b"])
     (_t / "snaps" / "round-22-holdout.json").write_text("{not json")
     _hc = bench_report._holdout_consultations(_t / "snaps", _t / "holdout")
+    # A staggered case carries its own budget (#566); the other has none.
+    (_t / "holdout" / "holdout-b" / "expect.json").write_text(
+        json.dumps({"holdout_budget": 1}))
+    _hl_own = bench_report._holdout_line({"holdout-a": [1, 2], "holdout-b": [3, 4]},
+                                         holdout=_t / "holdout")
+    _hb = [bench_report._holdout_budget(c, _t / "holdout")
+           for c in ("holdout-a", "holdout-b")]
+    for _bad in ("5", 0, True, None):
+        (_t / "holdout" / "holdout-b" / "expect.json").write_text(
+            json.dumps({"holdout_budget": _bad}))
+        _hb.append(bench_report._holdout_budget("holdout-b", _t / "holdout"))
 check("holdout consultations are distinct rounds per case, read from the runs",
       _hc == {"holdout-a": [15, 20], "holdout-b": [15]})
 check("a holdout tree with no case counts nothing",
       bench_report._holdout_consultations(_t, _t) is None)
 _hl = bench_report._holdout_line(_hc, budget=1)
 check("the holdout line names each case's count against the budget",
-      "budget of 1: holdout-a 2, holdout-b 1;" in _hl)
+      "against its budget: holdout-a 2 of 1, holdout-b 1 of 1;" in _hl)
 check("a case past its budget makes the refresh owed",
       "1 of 2 past it" in _hl and "refresh is owed" in _hl)
 check("a holdout within budget says so",
       "none past it" in bench_report._holdout_line(_hc, budget=2))
+check("a case's own holdout_budget is read, and the default holds without one",
+      _hb[:2] == [bench_report.HOLDOUT_BUDGET, 1])
+check("a malformed holdout_budget falls back to the default",
+      _hb[2:] == [bench_report.HOLDOUT_BUDGET] * 4)
+check("each case is held to its own budget, not the default",
+      "holdout-a 2 of 10, holdout-b 2 of 1;" in _hl_own
+      and "1 of 2 past it" in _hl_own)
 check("no count means no holdout claim", bench_report._holdout_line(None) is None)
 _, why = bench_report.accept_verdict(worse, _summary(tokens=TEN_CELLS(100)),
                                      "output_tokens", holdout=_hc)

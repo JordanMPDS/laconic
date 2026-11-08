@@ -10,6 +10,16 @@ once. `report.py` prints each case's count on every verdict. The rule and its
 reasons are step 9 of the loop skill
 ([#466](https://github.com/JordanMPDS/laconic/issues/466)).
 
+The set here is the second generation, authored on 2026-11-08 at the first
+refresh ([#566](https://github.com/JordanMPDS/laconic/issues/566)). The first
+six decided seventeen rounds each and now sit in `evals/cases` as
+`staging-reset`, `rotation-runbook`, `retry-storm`, `git-switch`,
+`checkout-flag` and `retention-policy`. Three of this generation carry
+`"holdout_budget": 5` (`holdout-namespace`, `holdout-pool`,
+`holdout-drplan`), so they retire at the halfway point and each refresh after
+it replaces three cases authored apart rather than six authored together,
+which would share blind spots and wear out on the same round.
+
 Reached only by `--cases-dir evals/holdout`, which `run.py`, `judge.py`,
 `report.py` and `review.py` all accept. The default glob does not see them, and
 `tests/test_evals_layout.sh` fails if one appears under `evals/cases/`.

@@ -31,17 +31,28 @@ LABEL=rules
 # "**This round proposes no rule edit.**" (rounds 32 to 37, 42, 43, 53, 54, 56,
 # 57, 63) or "**Registered 2026-09-09, before any run. No rule edit.**" (58 to
 # 62). A candidate round carries the edit itself under a "## The edit" heading
-# (rounds 44 to 52 and 55, and as far back as round 01). No document in the
-# archive has both, and no instrument round has ever had an edit section.
+# (rounds 44 to 52 and 55, and as far back as round 01).
 #
-# The preamble is everything above the first `##`. A disclaimer further down is
-# not a declaration: round 41 says "No rule edit" in its results section, where
-# it is a finding rather than a registration, and reads as undeclared here. That
-# is the safe direction — an undeclared round blocks and asks, rather than being
-# guessed into resetting the cap.
+# A document with both is a withdrawn candidate, and the disclaimer wins, which
+# is why it is tested first. Rounds 89, 92, 99, 109, 110, 117 and 121 each
+# registered an edit behind a precheck that did not fire, kept the section, and
+# added the disclaimer to the preamble; round 121 states the rule, "If it
+# withdraws, the round is recorded as measuring". Testing the edit section first
+# would re-read all seven as candidates and reset the cap on rounds that shipped
+# nothing.
+#
+# The preamble is everything above the first `##`, and the disclaimer counts
+# only inside a bold span. A disclaimer further down is not a declaration: round
+# 41 says "No rule edit" in its results section, where it is a finding rather
+# than a registration, and reads as undeclared here. Neither is plain prose in
+# the preamble: a candidate that says "round 127 proposed no rule edit" is
+# quoting its predecessor. The spans are paired in order with `grep -o` on the
+# joined preamble, so a wrapped span still matches and the text between two
+# spans is not one.
 round_kind() { # <path to round-N.md> -> instrument|candidate|undeclared
   local f=$1
-  if awk '/^## /{exit} {print}' "$f" | grep -qi 'no rule edit'; then
+  if awk '/^## /{exit} {print}' "$f" | tr '\n' ' ' \
+      | grep -oE '\*\*[^*]+\*\*' | grep -qi 'no rule edit'; then
     printf 'instrument'
   elif grep -qi '^## The edit' "$f"; then
     printf 'candidate'
@@ -140,6 +151,27 @@ No rule edit is proposed.'
   out=$(due)
   check "a companion document is not a round" 'round 59' "$out"
   check "and round 9 does not outrank round 58" 'no candidate owed' "$out"
+
+  # A withdrawn candidate keeps its edit section and disclaims it in the
+  # preamble, here in a span that wraps. The disclaimer has to win: read the
+  # other way, this round would reset the cap.
+  doc 60 '**This round proposes no rule
+edit.** Its candidate was withdrawn unrun.' '## The edit'
+  check "a withdrawn candidate is an instrument round" '^instrument$' \
+    "$(cd "$r" && round_kind "$ROUNDS/round-60.md")"
+  out=$(due); st=$?
+  check "and spends the allowance" 'candidate owed: round 60 measured' "$out"
+  checkst "and exits 1" 1 "$st"
+
+  # A candidate quoting its predecessor's declaration in plain prose, between
+  # two bold spans, has not declared itself an instrument round.
+  doc 61 '**Registration.** Round 60 proposed no rule edit, so this round carries **one**.' \
+    '## The edit'
+  check "a disclaimer quoted in plain prose does not declare a kind" '^candidate$' \
+    "$(cd "$r" && round_kind "$ROUNDS/round-61.md")"
+  out=$(due); st=$?
+  check "and the candidate settles it" 'no candidate owed' "$out"
+  checkst "and exits 0" 0 "$st"
 
   [ "$failed" -eq 0 ] && echo "candidate-due.sh selftest: $total/$total passed" \
     || echo "candidate-due.sh selftest: $failed of $total failed"

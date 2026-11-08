@@ -351,7 +351,10 @@ its own design before any generation. An instrument round disclaims the edit in
 its registration preamble — "**This round proposes no rule edit.**" — and a
 candidate round carries the edit under a `## The edit` heading. Write one or the
 other; a round that does neither is undeclared and the script refuses to guess,
-since guessing wrong resets the cap.
+since guessing wrong resets the cap. A candidate withdrawn by its precheck keeps
+its edit section and adds the disclaimer to its preamble, and the disclaimer
+wins. It counts only in bold, so a candidate can mention in plain prose that
+the previous round proposed no rule edit.
 
 When it exits 1, the round comes from an open issue labelled `rules`. [#116] and
 [#46] both carry user-visible failure reports, which is the strongest kind of

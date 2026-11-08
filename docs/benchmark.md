@@ -658,37 +658,17 @@ no level is clean, and the gap between levels is smaller than the earlier
 "12 at `lite` against 0 at `full`" suggested. See
 [`evals/results/2026-07-31-levels.md`](../evals/results/2026-07-31-levels.md).
 
-Reproduce:
+Reproduce with the commands in
+[`docs/development.md`](development.md#reproducing-the-benchmark), which also
+name the `kimi` CLI the judge panel needs. This page's benchmark ran as four
+shards of that generation command, one rep of every case each
+(`--reps 1 --rep-offset K --concurrency 4`), merged with
+`python3 evals/bench/merge.py` and judged with `judge.py --judge-all`. Its
+2,775 cells are 37 cases; the six retired holdout cases joined `evals/cases`
+afterwards ([#566]), so the same command now generates more, and the budget
+line `run.py` prints before its first call says how many.
 
-```bash
-python3 evals/bench/run.py \
-  --arms baseline,terse-control,word-compression,concise-style,laconic \
-  --turn-delivery plugin      # 2,775 cells over today's 37 cases and three models
-python3 evals/bench/judge.py    # blind trap grading
-python3 evals/bench/report.py   # offline tables; exits 1 if a gate fails
-```
+The three-level run is in
+[`docs/development.md`](development.md#the-three-level-run) too.
 
-This page's benchmark ran as four shards of that command, one rep of every case
-each (`--reps 1 --rep-offset K --concurrency 4`), merged with
-`python3 evals/bench/merge.py` and judged with `judge.py --judge-all`. Read the
-cost line `run.py` prints before it makes a call.
-
-The three-level run, and its offline report:
-
-```bash
-for L in lite full ultra; do
-  python3 evals/bench/run.py --level "$L" --arms laconic \
-    --snapshot "evals/snapshots/levels-$L.json"
-done
-python3 evals/bench/levels.py   # ladder verdicts, never-cut and readability per level
-```
-
-`levels.py` exits non-zero when the cross-level run is incomplete - a level with
-no usable snapshot, or a model with no usable run at one of them - and zero
-otherwise. The length ladder verdict (`monotonic`, `flat`, `broken`) never
-decides the exit code: it reports what a generation run measured, and on the
-committed snapshots it reads `broken` for both models. What is gated instead is
-decision monotonicity, which is a property of the code rather than of a run:
-`metrics.decisions(text, level)` returns the findings in force at one level, and
-`tests/test_metrics.py` and `tests/test_bench.py` assert that those sets nest
-across `lite`, `full` and `ultra`.
+[#566]: https://github.com/JordanMPDS/laconic/issues/566

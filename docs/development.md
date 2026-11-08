@@ -84,31 +84,37 @@ For the project flag, in a repository you do not mind writing a file into:
 
 ## Reproducing the benchmark
 
+The judge is a panel of sonnet, opus and kimi, so `judge.py` needs the `kimi`
+CLI on `PATH`, logged in to the Kimi Code subscription with `kimi login`. It
+refuses at startup without it.
+
 ```bash
 python3 evals/bench/run.py \
   --arms baseline,terse-control,word-compression,concise-style,laconic \
-  --turn-delivery plugin                   # generate (~2,950 calls)
+  --turn-delivery plugin                   # generate
 python3 evals/bench/judge.py --judge-all   # blind trap grading, every case
 python3 evals/bench/report.py              # offline tables; exits 1 if a gate fails
 ```
 
-**`run.py` with no `--arms` does not run.** The default is all sixteen arms,
-two of which carry a Stop hook and refuse without `--no-safe-mode`, and the
-suite now holds multi-turn cases, so `--turn-delivery` is refused-on-absence
-too. Name the five arms the published tables use, as above. `run.py` prints the
-call count and the cost before it makes a call, so check that line rather than
-this one: ten of the forty-three cases are multi-turn, and a five-turn case at
-5 reps across 5 arms is 250 calls where a single-turn one is 50.
+**`run.py` with no `--arms` does not run.** The default is every arm in
+`run.ARMS`, two of which carry a Stop hook and refuse without `--no-safe-mode`,
+and the suite holds multi-turn cases, so `--turn-delivery` is refused-on-absence
+too. Name the five arms the published tables use, as above.
 
-`run.py` and `judge.py` both print what the pass will cost before making a call,
-and both stop themselves after eight consecutive failures — a usage limit or an
-outage otherwise fails every remaining key at two calls each. Re-run the same
-command to resume; neither a failed key nor a failed judgment is recorded as
-done.
+`run.py` and `judge.py` each print a budget line before their first call: the
+calls to make, the cells or runs they cover, how many are already done, and the
+ceiling once every failed call is retried. Neither prints a cost. Read the
+count there rather than estimating it, because multi-turn cases make calls
+outnumber cells: a five-turn case at 5 reps across 5 arms is 250 calls where a
+single-turn one is 50. Both stop themselves after eight consecutive failures —
+a usage limit or an outage otherwise fails every remaining key at two calls
+each. Re-run the same command to resume; neither a failed key nor a failed
+judgment is recorded as done.
 
 `--judge-all` because the published tables report every case, including the
 three graded `rule-adherence`. The default grades only the cells a fatal counter
-can read, which is what a loop round wants and 35 fewer calls at n=5.
+can read, which is what a loop round wants; its budget line counts the runs it
+skips.
 
 **Sharding the pass across processes is allowed, and must be declared.** One
 `run.py` is sequential, so a snapshot merged from five of them describes a
@@ -134,7 +140,7 @@ Each refusal names the round that bought it:
 
 | Guard | Refuses when | Override |
 |---|---|---|
-| `--turn-delivery` | the pass has multi-turn work left and no delivery mode was named. `plugin` reproduces the shipped hook wiring; `repeat` re-appends the whole slice every turn and is what every snapshot below round 40 holds | name one; there is no default |
+| `--turn-delivery` | the pass has multi-turn work left and no delivery mode was named. `plugin` reproduces the shipped hook wiring; `repeat` re-appends the whole slice every turn and is what every snapshot below round 40 holds. Also when a resume or carry would put multi-turn runs of a second mode beside the first | name one; there is no default. For a second mode, a new snapshot |
 | `--allow-opus '<why>'` | `judge.py --model` names an opus, in single-judge compatibility mode. The default panel includes opus, and `run.py` refuses nothing | `--allow-opus` with a reason, recorded as `metadata.opus_justification` |
 | `--max-shards` | that many `run.py` processes are already running. Five shards plus the supervisor's own child took the loop for low memory on a 7.6 GiB machine | `--max-shards N`, `LACONIC_MAX_SHARDS=N` per machine, or `--max-shards 0` |
 | `--cells` | it is passed alongside `--cases` or `--models`, or a resume names a different cell set | drop the other two flags |
@@ -142,6 +148,11 @@ Each refusal names the round that bought it:
 | `--allow-case-change` | `cases_cksum` moved since the snapshot was started | the flag, which stamps the fact into the snapshot |
 | `--no-safe-mode` | an arm carries a Stop hook, which `CLAUDE_CODE_SAFE_MODE=1` would disable outright — the arm would generate as a second copy of laconic; or a resume or carry would put runs of the other safe mode beside the file's | the flag, which drops safe mode for every arm in the pass; for a resume or carry, a new snapshot |
 | rules checksum | a resume finds `rules/laconic.md` has moved | none; move the snapshot aside |
+| arm text | a resume finds the text of a requested arm changed since the snapshot was started: a file under `evals/arms/`, an in-code control, or the vendored ponytail text ([#441]) | none; restore the text, or generate into a new snapshot |
+| effort | a resume or carry would put runs generated at a different `EFFORT` beside the file's ([#522]) | none; a new snapshot |
+| plugin reminder | a resume would send a changed `REMINDER` to the later turns of an arm that gets it ([#522]) | none; restore it, or generate into a new snapshot |
+| pre-#439 controls | a `plugin` carry or resume would mix control runs generated before [#439], when laconic's reminder reached every arm with a system prompt, with runs generated without it | none; generate the arm |
+| delivery probes | the `Concise` output style, or a Stop hook, does not reach the model on this CLI, so the arm would generate as a copy of baseline or of laconic ([#268]). These run after the budget line, so each spends a call before refusing | none; check the CLI release |
 
 `--concurrency` refuses nothing. It is a declaration, and `concurrency.py`
 audits it. `--max-consecutive-failures` defaults to 8 and stops a pass that an
@@ -178,10 +189,11 @@ python3 evals/bench/release.py evals/snapshots/loop/round-70.json
 With no arguments it sweeps the archive and reports only what it cannot read.
 Balance testing runs when snapshots are named explicitly. Seventeen committed
 snapshots predate the per-run stamp and carry a label that is wrong for part of
-their runs — `round-21.json`, the one the published benchmark tables come from,
-is among them. They are listed in
+their runs — `round-21.json`, the previous publication, is among them. They
+are listed in
 [`evals/results/loop/release-audit.md`](../evals/results/loop/release-audit.md),
-and the field may not be stratified on for those files.
+and the field may not be stratified on for those files. The current
+publication, `benchmark-2026-09-24.json`, carries the per-run stamp.
 
 ### The rest of the harness
 
@@ -195,6 +207,9 @@ and the field may not be stratified on for those files.
 [#268]: https://github.com/JordanMPDS/laconic/issues/268
 [#6]: https://github.com/JordanMPDS/laconic/issues/6
 [#566]: https://github.com/JordanMPDS/laconic/issues/566
+[#439]: https://github.com/JordanMPDS/laconic/issues/439
+[#441]: https://github.com/JordanMPDS/laconic/issues/441
+[#522]: https://github.com/JordanMPDS/laconic/issues/522
 
 ## Tools
 
@@ -295,15 +310,22 @@ at or above 50% the result is position bias rather than preference. What a
 preference verdict may and may not support is in
 [`evals/CRITERIA.md`](../evals/CRITERIA.md).
 
-The three-level run, and its offline report:
+## The three-level run
+
+The committed `evals/snapshots/levels-*.json` were generated on 2026-07-31 from
+rules that no longer ship, so `run.py` refuses to resume them. Generate into
+new paths and point `levels.py` at them:
 
 ```bash
 for L in lite full ultra; do
-  python3 evals/bench/run.py --level "$L" --arms laconic \
-    --snapshot "evals/snapshots/levels-$L.json"
+  python3 evals/bench/run.py --level "$L" --arms laconic --turn-delivery plugin \
+    --snapshot "evals/snapshots/levels-plugin-$L.json"
 done
-python3 evals/bench/levels.py   # ladder verdicts, never-cut and readability per level
+python3 evals/bench/levels.py --prefix levels-plugin-   # ladder verdicts, never-cut and readability per level
 ```
+
+The committed ladder is haiku and sonnet only; `--models haiku,sonnet` generates
+that design, and the default adds opus.
 
 `levels.py` exits non-zero when the cross-level run is incomplete - a level with
 no usable snapshot, or a model with no usable run at one of them - and zero

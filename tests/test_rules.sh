@@ -119,9 +119,9 @@ esac
 # whole file — scoped the same way the level blocks above are (lite_block,
 # full_block, ultra_block). A whole-file grep would still pass if the keyword
 # survives elsewhere: the word "destructive" also appears in the closing-offer
-# carve-out under "Level: lite" ("Asking permission before a destructive action
-# is not a closing offer..."), so an unscoped check would not notice the actual
-# never-cut bullet being deleted. The other two files carry no such
+# carve-out under "Level: lite" ("Asking the user to confirm a destructive
+# action is never a closing offer..."), so an unscoped check would not notice
+# the actual never-cut bullet being deleted. The other two files carry no such
 # collision, so they keep the simpler whole-file check.
 never_cut_ln=$(grep -n "^## Never cut" "$RULES" | head -1 | cut -d: -f1)
 next_heading_ln=$(sed -n "$((never_cut_ln + 1)),\$p" "$RULES" | grep -n "^## " | head -1 | cut -d: -f1)
@@ -144,6 +144,16 @@ for kw in "code" "config" "command" "error string" "ecurity warning" "estructive
     else fail "$f dropped never-cut item: $kw"; fi
   done
 done
+
+# README.md restates the length rule in its own words, and a rewrite of the
+# rules once left it promising "full detail" long after the rules moved on
+# (#435). The keyword checks above cannot see that, so pin the clause the rules
+# and README share.
+if grep -q "no claim in it twice" "$RULES" && grep -q "no claim in it twice" "$ROOT/README.md"; then
+  ok "README.md keeps the rules' length clause"
+else
+  fail "README.md and rules/laconic.md no longer share \"no claim in it twice\""
+fi
 
 # --- skills/laconic/SKILL.md must point at the rules, not repeat them ---
 # It is the instruction the model follows on /laconic, so a stale copy here is

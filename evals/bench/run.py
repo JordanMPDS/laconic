@@ -278,6 +278,10 @@ def sibling_shards(proc_root="/proc", me=None):
     the documented way to run both sides of a round at once. `run.py` is a
     common filename, so the two parent directories are part of the match rather
     than the basename alone.
+
+    The process also has to be a Python interpreter (#445). Without that, a
+    `less` or `tail -f` open on the file counted as a shard, and so did the
+    wrapper around one: `timeout 3600 python3 evals/bench/run.py` was two.
     """
     root = Path(proc_root)
     if not root.is_dir():
@@ -291,8 +295,9 @@ def sibling_shards(proc_root="/proc", me=None):
             argv = (entry / "cmdline").read_bytes().split(b"\0")
         except OSError:
             continue  # exited between the listing and the read, or not ours
-        if any(a.replace(b"\\", b"/").endswith(b"evals/bench/run.py")
-               for a in argv):
+        if (os.path.basename(argv[0]).startswith(b"python")
+                and any(a.replace(b"\\", b"/").endswith(b"evals/bench/run.py")
+                        for a in argv[1:])):
             found.append(int(entry.name))
     return found
 
@@ -1795,8 +1800,13 @@ def main():
         meta["cli_versions_per_run"] = True
     else:
         meta.setdefault("cli_versions_per_run", False)
+    # "unknown" is a failed probe, not a release (#445): the run keeps it as
+    # its stamp, so the gap stays visible, but it is not one of the releases
+    # the file lists, or a failed startup probe followed by a good one would be
+    # announced as a pass that spanned two of them.
     seen_versions = {r.get("claude_cli_version") for r in snap["runs"]
-                     if r.get("claude_cli_version")}
+                     if r.get("claude_cli_version")
+                     and r.get("claude_cli_version") != "unknown"}
     # Like the concurrency declaration, this describes the file rather than one
     # invocation: once a snapshot holds opus runs, it holds them for good, so a
     # later resume must not drop the reason they were bought.
@@ -2048,7 +2058,8 @@ def main():
                                 "generated_at": _now(),
                                 "claude_cli_version": cli_version,
                                 "generator": GENERATOR})
-                    seen_versions.add(cli_version)
+                    if cli_version != "unknown":
+                        seen_versions.add(cli_version)
                     meta["cli_versions"] = sorted(seen_versions)
                     # Replace the failed record for this cell rather than
                     # appending beside it (#61): a resume is a second attempt

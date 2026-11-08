@@ -58,9 +58,16 @@ ALPHA = 0.05
 
 
 def version(run):
-    """The release stamp, normalised: `2.1.263 (Claude Code)` is `2.1.263`."""
+    """The release stamp, normalised: `2.1.263 (Claude Code)` is `2.1.263`.
+
+    `unknown` is what run.py stamps when `claude --version` failed, which names
+    no release, so the run cannot be placed on either side of a boundary and is
+    left out like an unstamped one (#445).
+    """
     v = run.get("claude_cli_version")
-    return v.split()[0] if isinstance(v, str) and v.strip() else None
+    if not isinstance(v, str) or not v.strip() or v.strip() == "unknown":
+        return None
+    return v.split()[0]
 
 
 def per_run_stamped(snap):

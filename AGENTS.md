@@ -97,7 +97,12 @@ one that catches stale generated files, and it is the easiest to skip by acciden
   limit instead of starting. `--max-shards N` raises it for one round and
   `LACONIC_MAX_SHARDS=N` for a machine that has the memory; `--max-shards 0`
   disables it. This is a different thing from `--concurrency`, which records
-  the fan-out and refuses nothing.
+  the fan-out and refuses nothing. The bound counts `run.py` interpreters and
+  nothing else, because generation shards are what the OOM was observed with:
+  `judge.py`, `prefer.py` and `subagent.py` each run `--jobs` CLI sessions at
+  once (six by default) and are not counted, so a judging pass beside running
+  shards is outside what the ceiling was measured against, not known to be
+  safe.
 - **Every round generates on opus, and a round is spent from a person's usage
   window.** These harnesses shell out to the `claude` binary, so every
   generation and every judgment is a CLI session drawing on the operator's

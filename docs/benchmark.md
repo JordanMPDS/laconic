@@ -56,7 +56,10 @@ control arms from a run eleven days and eleven CLI patch releases older than
 its laconic arm; this benchmark carries nothing. The five arms were interleaved
 cell by cell, four `run.py` processes each owning one rep of every case (the
 fifth rep split across the same four by case), declared as
-`--concurrency 4` and recorded as such in the snapshot metadata.
+`--concurrency 4` and recorded as 4 in each of the eight shard files, with
+`max_runs_in_flight` 4. The merged snapshot reads `concurrency_declared: 8`
+because `evals/bench/merge.py` never lets the declaration fall below the number
+of shards it merged; no more than four processes ran at once.
 
 **The batch spans one CLI release, and the arms are balanced across it.**
 Generations ran on Claude Code 2.1.281 and 2.1.282; each run is stamped with its
@@ -649,7 +652,8 @@ rather than standing in for a conjunction.
 
 **This is a `full`-level result.** The three-level snapshots checksum to
 `lite` 1146585023, `full` 1830906901 and `ultra` 823082683. None of the three
-is what ships any more; the shipped `full` slice is 288018845. The design-question licence and the asking-permission edit
+is what ships any more, and neither is the 288018845 this page's benchmark ran
+at: every accepted rule edit moves the shipped slice. The design-question licence and the asking-permission edit
 landed in the `Level: full` section, which the `lite` slice does not carry;
 round 55's pre-action check landed in the shared opening checks, which all
 three carry, which is why `lite` moved too. Across it,

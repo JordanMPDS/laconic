@@ -41,6 +41,27 @@
 #      keeping them would hold the memory this script exists to free.
 #   5. Its HEAD is an ancestor of origin/master, so it carries no commit that
 #      has not landed.
+#
+# It then sweeps the CLI sessions the benchmark leaves behind (#444). run.py and
+# judge.py make every call in a fresh tempfile.mkdtemp() directory and delete
+# it afterwards, but both CLIs keep the session elsewhere: claude a transcript
+# directory under ${CLAUDE_CONFIG_DIR:-~/.claude}/projects named for the cwd,
+# kimi a session directory and an index line under ${KIMI_CODE_HOME:-~/.kimi-code}.
+# By 2026-10-26 that was 37,467 directories (4.9 GB) and 2.1 GB of kimi
+# sessions, read by nothing. Only the shape mkdtemp makes under /tmp is
+# touched, never mktemp -d's tmp.XXXXXXXXXX, which a person might work in:
+#
+#   - a claude directory named -tmp-tmp plus eight characters, in which
+#     nothing was modified for a day. A multi-turn case resumes its session by
+#     id minutes later, while the workspace is alive; an age test is used
+#     rather than mapping the name back to /tmp, because the CLI's encoding of
+#     the path is lossy and not ours to pin.
+#   - a kimi session whose indexed workDir is /tmp/tmp plus eight characters
+#     and no longer exists. It is deleted the way kimi 0.38.0's own
+#     SessionStore.delete() does it: remove the session directory, then append
+#     {"sessionId":...,"deleted":true} to session_index.jsonl, which its index
+#     reader honours. The index is appended to, one write per record, and never
+#     rewritten, because a judging pass may have kimi appending to it too.
 set -uo pipefail
 
 # Resolved, because git reports worktrees by physical path and macOS's /tmp is
@@ -107,6 +128,116 @@ reclaimable() { # <path> -> 0 if safe to remove; prints the reason when not
   return 0
 }
 
+sweep_sessions() { # <claude projects dir> <kimi home> <dry: 1 or empty>
+  if ! command -v python3 >/dev/null 2>&1; then
+    echo "sessions: kept every CLI session — python3 is not on PATH"
+    return 0
+  fi
+  python3 -I - "$1" "$2" "$3" <<'PY'
+import json, os, re, shutil, sys, time
+
+projects, kimi, dry = sys.argv[1], os.path.normpath(sys.argv[2]), sys.argv[3] == "1"
+now, DAY = time.time(), 86400
+
+
+def walk(p):  # -> (newest mtime, bytes) of a tree, symlinks not followed
+    newest, size = os.lstat(p).st_mtime, 0
+    for root, dirs, files in os.walk(p):
+        for n in dirs + files:
+            try:
+                st = os.lstat(os.path.join(root, n))
+            except OSError:
+                continue
+            newest = max(newest, st.st_mtime)
+            if n in files:
+                size += st.st_size
+    return newest, size
+
+
+gone = {"claude": 0, "kimi": 0}
+kept = {"claude": 0, "kimi": 0}
+freed = 0
+
+if os.path.isdir(projects):
+    for name in sorted(os.listdir(projects)):
+        p = os.path.join(projects, name)
+        if (not re.fullmatch(r"-tmp-tmp[a-z0-9-]{8}", name)
+                or os.path.islink(p) or not os.path.isdir(p)):
+            continue
+        newest, size = walk(p)
+        if now - newest < DAY:
+            kept["claude"] += 1
+            continue
+        if not dry:
+            try:
+                shutil.rmtree(p)
+            except OSError as e:
+                print("  kept %s — %s" % (p, e))
+                continue
+        gone["claude"] += 1
+        freed += size
+
+index = os.path.join(kimi, "session_index.jsonl")
+sessions = os.path.join(kimi, "sessions")
+live = {}  # read the way kimi's readSessionIndex reads it
+try:
+    with open(index, encoding="utf-8") as f:
+        lines = f.read().splitlines()
+except OSError:
+    lines = []
+for line in lines:
+    try:
+        r = json.loads(line)
+    except ValueError:
+        continue
+    if not isinstance(r, dict) or not isinstance(r.get("sessionId"), str):
+        continue
+    if r.get("deleted") is True:
+        live.pop(r["sessionId"], None)
+    elif isinstance(r.get("sessionDir"), str) and isinstance(r.get("workDir"), str):
+        live[r["sessionId"]] = r
+
+fd = None
+for sid, r in live.items():
+    sd, wd = os.path.normpath(r["sessionDir"]), r["workDir"]
+    if (not re.fullmatch(r"/tmp/tmp[a-z0-9_]{8}", wd)
+            or os.path.basename(sd) != sid
+            or os.path.dirname(os.path.dirname(sd)) != sessions
+            or os.path.islink(sd) or not os.path.isdir(sd)):
+        continue
+    if os.path.exists(wd):
+        kept["kimi"] += 1
+        continue
+    size = walk(sd)[1]
+    if not dry:
+        try:
+            shutil.rmtree(sd)
+        except OSError as e:
+            print("  kept %s — %s" % (sd, e))
+            continue
+        if fd is None:
+            fd = os.open(index, os.O_WRONLY | os.O_APPEND)
+        # One write per record, so an append kimi makes meanwhile lands
+        # between two lines rather than inside one.
+        os.write(fd, (json.dumps({"sessionId": sid, "deleted": True},
+                                 separators=(",", ":")) + "\n").encode())
+        try:
+            os.rmdir(os.path.dirname(sd))  # the wd_ directory, once empty
+        except OSError:
+            pass
+    gone["kimi"] += 1
+    freed += size
+if fd is not None:
+    os.close(fd)
+
+print("sessions: %s %d claude transcript dir(s) and %d kimi session(s), %d MiB;"
+      " kept %d claude dir(s) modified in the last day and %d kimi session(s)"
+      " whose workspace still exists."
+      % ("would reclaim" if dry else "reclaimed", gone["claude"], gone["kimi"],
+         freed // 2**20, kept["claude"], kept["kimi"]))
+PY
+}
+
 if [ "${1:-}" = "--selftest" ]; then
   failed=0 total=0
   check() { # name, expected-grep, actual
@@ -131,13 +262,17 @@ if [ "${1:-}" = "--selftest" ]; then
   # Resolved, because the script reports physical paths and macOS's /var is a
   # symlink to /private/var.
   tmp=$(cd "$(mktemp -d)" && pwd -P) || exit 1
-  trap 'rm -rf "$tmp"' EXIT
+  kimi_live=
+  trap 'rm -rf "$tmp" ${kimi_live:+"$kimi_live"}' EXIT
   # The scratch root is a directory inside the fixture, so one mktemp -d holds
   # trees on both sides of it, and the end-to-end runs below inherit it.
   s=$tmp/scratch
   mkdir "$s" || exit 1
   export LACONIC_SCRATCH_ROOT=$s
   scratch_root=$s
+  # Both CLI homes too, exported before anything runs the script, so no run of
+  # this selftest can sweep the operator's own sessions.
+  export CLAUDE_CONFIG_DIR=$tmp/claude KIMI_CODE_HOME=$tmp/kimi
 
   # A real repository with a real origin, because every predicate here is a git
   # question and a stub would only test the stub.
@@ -239,6 +374,49 @@ if [ "${1:-}" = "--selftest" ]; then
   check "a tree outside the scratch root is kept" 'outside the scratch root' "$out"
   checkno "and it is not reclaimed, edit or no edit" 'YES' "$out"
 
+  # #444's sessions, in the shapes the machine holds. Claude: a spent mkdtemp
+  # transcript directory, one touched today, an old one whose subagent file is
+  # fresh, and three that are not mkdtemp's at all.
+  pj=$CLAUDE_CONFIG_DIR/projects
+  for p in -tmp-tmpab-cd123 -tmp-tmpfresh123 -tmp-tmpsubdir12 \
+           -tmp-tmp-AbCdEfGhIj -home-t-proj -tmp-remember-x; do
+    mkdir -p "$pj/$p" && echo '{}' > "$pj/$p/s.jsonl"
+  done
+  touch -t 202001010000 "$pj"/*/s.jsonl
+  touch "$pj/-tmp-tmpfresh123/s.jsonl"
+  mkdir "$pj/-tmp-tmpsubdir12/s" && echo '{}' > "$pj/-tmp-tmpsubdir12/s/a.jsonl"
+  touch -t 202001010000 "$pj"/*
+  # Kimi: workspaces mkdtemp made under /tmp, one already removed and one
+  # alive, because the shape test reads the literal path.
+  kh=$KIMI_CODE_HOME
+  mkdir -p "$kh/sessions"
+  wd_gone=$(python3 -I -c 'import os, tempfile
+d = tempfile.mkdtemp(dir="/tmp"); os.rmdir(d); print(d)')
+  kimi_live=$(python3 -I -c 'import tempfile; print(tempfile.mkdtemp(dir="/tmp"))')
+  ks() { # <id> <workDir> [sessionDir] -> a session directory and its index line
+    local sd=${3:-$kh/sessions/wd_x_$1/session_$1}
+    mkdir -p "$sd" && echo '{}' > "$sd/state.json"
+    printf '{"sessionId":"session_%s","sessionDir":"%s","workDir":"%s"}\n' \
+      "$1" "$sd" "$2" >> "$kh/session_index.jsonl"
+  }
+  ks spent "$wd_gone"
+  ks live "$kimi_live"
+  ks spent2 "$wd_gone" "$kh/sessions/wd_x_live/session_spent2"
+  ks person /home/t/proj
+  ks mktemp /tmp/tmp.AbCdEfGhIj
+  ks outside "$wd_gone" "$tmp/elsewhere/wd_y/session_outside"
+  ks already "$wd_gone"
+  printf '{"sessionId":"session_already","deleted":true}\nnot json\n' \
+    >> "$kh/session_index.jsonl"
+  index_before=$(cat "$kh/session_index.jsonl")
+
+  out=$(PROCESS_CWDS_STUB="$s/live" bash tools/reclaim-scratch.sh --dry-run 2>&1)
+  check "--dry-run counts the spent sessions" \
+    'would reclaim 1 claude transcript dir\(s\) and 2 kimi session\(s\)' "$out"
+  checkst "and removes no transcript" 0 "$([ -d "$pj/-tmp-tmpab-cd123" ]; echo $?)"
+  checkst "and no kimi session" 0 "$([ -d "$kh/sessions/wd_x_spent/session_spent" ]; echo $?)"
+  checkst "and leaves the index alone" "$index_before" "$(cat "$kh/session_index.jsonl")"
+
   # End to end, which is where the failure that matters would show: a script
   # that reclaims nothing because it enumerated nothing reads exactly like one
   # with nothing to reclaim.
@@ -256,8 +434,43 @@ if [ "${1:-}" = "--selftest" ]; then
   checkst "the live tree survived" 0 "$([ -d "$s/live" ]; echo $?)"
   checkst "the untracked tree survived" 0 "$([ -d "$s/untracked" ]; echo $?)"
 
+  check "it counts the sessions it removed" \
+    'reclaimed 1 claude transcript dir\(s\) and 2 kimi session\(s\)' "$out"
+  check "and the ones it kept" \
+    'kept 2 claude dir\(s\) modified in the last day and 1 kimi session\(s\)' "$out"
+  checkst "the spent transcript is gone" 1 "$([ -d "$pj/-tmp-tmpab-cd123" ]; echo $?)"
+  for p in -tmp-tmpfresh123 -tmp-tmpsubdir12 -tmp-tmp-AbCdEfGhIj -home-t-proj \
+           -tmp-remember-x; do
+    checkst "the transcript $p survived" 0 "$([ -d "$pj/$p" ]; echo $?)"
+  done
+  checkst "the spent kimi session is gone" 1 \
+    "$([ -d "$kh/sessions/wd_x_spent/session_spent" ]; echo $?)"
+  checkst "with its emptied workspace directory" 1 \
+    "$([ -d "$kh/sessions/wd_x_spent" ]; echo $?)"
+  checkst "a spent session beside a live one is gone" 1 \
+    "$([ -d "$kh/sessions/wd_x_live/session_spent2" ]; echo $?)"
+  for sd in "$kh/sessions/wd_x_live/session_live" \
+            "$kh/sessions/wd_x_person/session_person" \
+            "$kh/sessions/wd_x_mktemp/session_mktemp" \
+            "$tmp/elsewhere/wd_y/session_outside" \
+            "$kh/sessions/wd_x_already/session_already"; do
+    checkst "the kimi session ${sd##*/} survived" 0 "$([ -d "$sd" ]; echo $?)"
+  done
+  n=$(( $(printf '%s\n' "$index_before" | wc -l) ))
+  checkst "the index kept every line it had" "$index_before" \
+    "$(head -n "$n" "$kh/session_index.jsonl")"
+  checkst "and gained one deletion record per session, in kimi's own form" \
+    '{"sessionId":"session_spent","deleted":true}
+{"sessionId":"session_spent2","deleted":true}' \
+    "$(tail -n +$((n + 1)) "$kh/session_index.jsonl")"
+  index_before=$(cat "$kh/session_index.jsonl")
+
   out=$(PROCESS_CWDS_STUB="$s/live" bash tools/reclaim-scratch.sh 2>&1); st=$?
   check "a second run has nothing left to reclaim" 'nothing to reclaim' "$out"
+  check "among the sessions either" \
+    'reclaimed 0 claude transcript dir\(s\) and 0 kimi session\(s\)' "$out"
+  checkst "and appends nothing to the index" "$index_before" \
+    "$(cat "$kh/session_index.jsonl")"
   checkst "and still exits 0" 0 "$st"
 
   # --dry-run is the flag a person runs first, so it must not be the flag that
@@ -323,4 +536,7 @@ else
   echo "$n scratch worktree(s), $verb $freed MiB."
   echo "On this machine /tmp is tmpfs, so that is memory rather than disk."
 fi
+
+sweep_sessions "${CLAUDE_CONFIG_DIR:-$HOME/.claude}/projects" \
+  "${KIMI_CODE_HOME:-$HOME/.kimi-code}" "$dry"
 exit 0

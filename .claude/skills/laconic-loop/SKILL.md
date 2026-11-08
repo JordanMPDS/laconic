@@ -616,7 +616,9 @@ the supervisor's tidy step, removes every registered worktree under `/tmp` that
 no process is working inside, that holds no untracked file, and whose HEAD has
 already landed on `origin/master`. It keeps a live one — it is the round in
 flight that is the most expensive thing in this repository to destroy — and
-prints why it kept it.
+prints why it kept it. It also sweeps the claude transcripts and kimi sessions
+each benchmark call leaves under `~/.claude/projects/-tmp-tmp*` and
+`~/.kimi-code/sessions` once they are spent (#444).
 Run it by hand with `--dry-run` to see what would go.
 Round 38's two sides tracked within two runs of each other for 90 runs a side.
 

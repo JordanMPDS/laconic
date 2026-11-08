@@ -220,10 +220,11 @@ you generated appearing in the list is the signal, not the exit code alone.
 ## Improving the rules
 
 `.claude/skills/laconic-loop/SKILL.md` holds the procedure: benchmark, review
-the failures, propose one rule edit, confirm it, and open a PR or throw it
-away. A round ends in a pull request either way — the repository refuses a
-direct push to master — and the round document lands whether the edit shipped
-or reverted. The design and the reasoning behind every threshold are in
+the failures, propose one rule edit, confirm it, and ship it or throw it
+away. A round ends in a merged pull request and, on an accept, a release — the
+repository refuses a direct push to master — and the round document lands
+whether the edit shipped or reverted. The original design, from before the loop
+merged its own work, is
 [`docs/superpowers/specs/2026-08-01-rules-loop-design.md`](superpowers/specs/2026-08-01-rules-loop-design.md).
 
 The read step runs offline over snapshots you already have:

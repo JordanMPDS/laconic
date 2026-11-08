@@ -1,7 +1,8 @@
 # Laconic benchmark — design
 
 **Date:** 2026-07-30
-**Status:** Approved design, ready for implementation planning
+**Status:** Historical — implemented and since superseded. The live description is
+[`docs/benchmark.md`](../../benchmark.md) and [`docs/development.md`](../../development.md).
 **Applies to:** `laconic` v0.1.1 and later
 **Resolves:** the n=1 and gitignored-results entries in [`v0.1.0-known-limits.md`](../../v0.1.0-known-limits.md)
 

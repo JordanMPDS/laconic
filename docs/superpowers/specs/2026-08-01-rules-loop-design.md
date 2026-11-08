@@ -1,7 +1,11 @@
 # Rules improvement loop — design
 
 **Date:** 2026-08-01
-**Status:** approved, not implemented
+**Status:** Historical — implemented and since superseded. The live procedure is
+[`.claude/skills/laconic-loop/SKILL.md`](../../../.claude/skills/laconic-loop/SKILL.md),
+and where the two disagree the skill holds. Since 2026-09-01 the loop merges its
+own pull requests and cuts its own releases, so "a human merges" below no
+longer describes it.
 
 A closed loop over `rules/laconic.md`: benchmark, review the failures, propose
 one rule edit, confirm it, and either open a PR or throw it away. The loop

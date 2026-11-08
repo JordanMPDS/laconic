@@ -1,5 +1,10 @@
 # Rules Improvement Loop Implementation Plan
 
+**Status:** Historical — implemented and since superseded. Its boxes were never
+ticked, so an unticked box is not outstanding work, and the sub-skill line
+below is not an instruction to execute it. The live description is
+[`.claude/skills/laconic-loop/SKILL.md`](../../../.claude/skills/laconic-loop/SKILL.md).
+
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
 **Goal:** Build the offline half of a benchmark → review → propose → confirm loop over `rules/laconic.md`, so a rule edit is accepted only when it beats a measured noise floor and breaks no gate.

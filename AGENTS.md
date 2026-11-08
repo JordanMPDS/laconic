@@ -209,6 +209,10 @@ one that catches stale generated files, and it is the easiest to skip by acciden
   deterministic detectors are, so a pooled disagreement figure may withhold a
   rejection but must never grant an acceptance. The gate produces a third verdict,
   `undecided` (exit 2), meaning "buy a second grading pass", not "pass".
+- **The rules loop merges its own pull requests and cuts its own releases**, since
+  2026-09-01: a round ends in a merged pull request and, on an accept, a release
+  (steps 10 and 11 of `.claude/skills/laconic-loop/SKILL.md`). Every change still
+  reaches master through a pull request whose checks passed.
 
 ## Out of bounds
 

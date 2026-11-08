@@ -3,7 +3,7 @@
 set -uo pipefail
 
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
-RULES="$ROOT/rules/laconic.md"
+RULES="$ROOT/plugin/rules/laconic.md"
 fails=0
 
 fail() { printf 'FAIL %s\n' "$1"; fails=$((fails + 1)); }
@@ -139,7 +139,7 @@ for kw in "code" "config" "command" "error string" "ecurity warning" "estructive
   else
     fail "rules/laconic.md dropped never-cut item: $kw"
   fi
-  for f in skills/laconic-help/SKILL.md README.md; do
+  for f in plugin/skills/laconic-help/SKILL.md README.md; do
     if grep -qi -- "$kw" "$ROOT/$f"; then ok "$f keeps never-cut: $kw"
     else fail "$f dropped never-cut item: $kw"; fi
   done
@@ -161,7 +161,7 @@ fi
 # to the file it contradicts. These checks used to guard a Gemini-format TOML
 # command that Claude Code never loaded, while this skill, which is what
 # /laconic actually runs, went unchecked (#434).
-SKILL="$ROOT/skills/laconic/SKILL.md"
+SKILL="$ROOT/plugin/skills/laconic/SKILL.md"
 if grep -q 'rules/laconic\.md' "$SKILL"; then
   ok "skills/laconic/SKILL.md points at rules/laconic.md"
 else
@@ -220,7 +220,7 @@ else
     dir=${cfg:-$SL_HOME/.claude}
     mkdir -p "$dir"
     printf 'full' > "$dir/.laconic-level"
-    sl_env "$cfg" bash "$ROOT/hooks/laconic.sh" start </dev/null >/dev/null 2>&1
+    sl_env "$cfg" bash "$ROOT/plugin/hooks/laconic.sh" start </dev/null >/dev/null 2>&1
     case "$(sl_env "$cfg" sh -c "$cmd" </dev/null 2>/dev/null)" in
       *'[LACONIC]'*)
         ok "the documented statusline command renders the installed badge (CLAUDE_CONFIG_DIR $label)" ;;
@@ -231,7 +231,7 @@ else
   rm -rf "$SL_TMP"
   # The badge script's header repeats the line for whoever reads the copy in
   # their configuration directory; it must not drift from the doc.
-  if grep -qF -- "\"command\": $cmd_json" "$ROOT/hooks/laconic-statusline.sh"; then
+  if grep -qF -- "\"command\": $cmd_json" "$ROOT/plugin/hooks/laconic-statusline.sh"; then
     ok "hooks/laconic-statusline.sh repeats the documented statusline command"
   else
     fail "hooks/laconic-statusline.sh header differs from the documented statusline command: $cmd_json"
@@ -265,10 +265,10 @@ fi
 DIST_TMP=$(mktemp -d)
 if bash "$ROOT/tools/build-rules.sh" "$DIST_TMP" >/dev/null 2>&1; then
   for level in lite full ultra; do
-    if cmp -s "$DIST_TMP/laconic-$level.md" "$ROOT/rules/dist/laconic-$level.md"; then
-      ok "rules/dist/laconic-$level.md is current"
+    if cmp -s "$DIST_TMP/laconic-$level.md" "$ROOT/plugin/rules/dist/laconic-$level.md"; then
+      ok "plugin/rules/dist/laconic-$level.md is current"
     else
-      fail "rules/dist/laconic-$level.md is stale — run tools/build-rules.sh"
+      fail "plugin/rules/dist/laconic-$level.md is stale — run tools/build-rules.sh"
     fi
   done
 else

@@ -273,7 +273,7 @@ pattern to three shapes it had missed. The rates are floors.
 
 Every case declares in a `grading` field where its criteria came from, and that
 field decides what the row supports. Only `quality` rows compare arms: their
-criteria come from the fixture rather than from `rules/laconic.md`, so no arm
+criteria come from the fixture rather than from `plugin/rules/laconic.md`, so no arm
 was instructed toward them. Verdicts are the panel's majority. A three-way split
 is recorded as `not_exercised` and left out of the rate. So are the 14
 judgments the panel could not finish: sonnet and opus disagreed on them, and
@@ -625,7 +625,7 @@ rows — on the reasoning that the rule forbids arrows "in running prose" and a
 bullet is markdown structure rather than prose.
 
 That reasoning was wrong, and wrong in the direction that flattered the result.
-`rules/laconic.md` bans arrows "after a bold label", "in a 'quick runbook'
+`plugin/rules/laconic.md` bans arrows "after a bold label", "in a 'quick runbook'
 line" and "inside a quoted flow": three structural positions, and between them
 the most common places the forbidden arrow actually appears. The detector was
 blind to the rule's own worked example, `**Request A**: calls

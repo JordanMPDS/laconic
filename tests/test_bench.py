@@ -525,7 +525,7 @@ for _min_arm, _fname in bench_run.ARM_FILES.items():
     if _min_arm.startswith("laconic-min-"):
         check("%s is actually minimal against the full slice" % _min_arm,
               len(_disk.split()) * 2
-              < len((ROOT / "rules" / "dist" / "laconic-full.md").read_text().split()))
+              < len((ROOT / "plugin" / "rules" / "dist" / "laconic-full.md").read_text().split()))
     _low = _disk.lower()
     for _probe in _NEVER_CUT_PROBES:
         check("%s keeps the never-cut contract: %r" % (_min_arm, _probe),
@@ -812,7 +812,7 @@ def hook_direct(level, cwd=None, pin_project=True):
         if pin_project:
             hook_direct_env["CLAUDE_PROJECT_DIR"] = hook_direct_dir
         return subprocess.run(
-            ["bash", str(ROOT / "hooks" / "laconic.sh"), "start"],
+            ["bash", str(ROOT / "plugin" / "hooks" / "laconic.sh"), "start"],
             capture_output=True, text=True, env=hook_direct_env, cwd=cwd,
             stdin=subprocess.DEVNULL,
         ).stdout
@@ -2431,7 +2431,7 @@ check("arrow_rows counts that response's structure", _rows[0]["structure"] == 3)
 # AGENTS.md says it stays. A subset rather than an equality, because no
 # detector's rule lives in the full or ultra block today and requiring one
 # would mean inventing a detector to satisfy a test.
-_hook_src = (ROOT / "hooks" / "laconic.sh").read_text()
+_hook_src = (ROOT / "plugin" / "hooks" / "laconic.sh").read_text()
 _marker_ranks = {m.group(1): int(m.group(2)) for m in re.finditer(
     r"/\^<!-- level:(\w+) -->\$/\s*\{ rank = (\d+);", _hook_src)}
 _flag_ranks = {m.group(1): int(m.group(2)) for m in re.finditer(
@@ -2447,7 +2447,7 @@ check("every detector rank is one the hook's slicer emits",
 # is what stops POLICY_RANK from being an unanchored assertion: a rank checked
 # only against itself would let `closing_offers` move to the full block while
 # its rule stayed in the lite one, and every other check here would still pass.
-_rules_lines = (ROOT / "rules" / "laconic.md").read_text().splitlines()
+_rules_lines = (ROOT / "plugin" / "rules" / "laconic.md").read_text().splitlines()
 _rank_of_line, _r = [], 0
 for _line in _rules_lines:
     _m = re.match(r"^<!-- level:(\w+) -->$", _line)
@@ -7901,7 +7901,7 @@ check("and keeps a declared rep that produced no record",
 # The reminder is a second copy of a string that lives in hooks/laconic.sh, and
 # a copy that drifts is the failure this repo's sync convention exists to stop.
 # Pin them together rather than trusting them to stay equal.
-_hook_src = (ROOT / "hooks" / "laconic.sh").read_text()
+_hook_src = (ROOT / "plugin" / "hooks" / "laconic.sh").read_text()
 check("run.py's REMINDER is the line hooks/laconic.sh actually emits",
       bench_run.REMINDER in _hook_src)
 # rules_cksum covers the turn-1 slice only. Round 48 makes the reminder the

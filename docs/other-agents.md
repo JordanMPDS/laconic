@@ -8,8 +8,8 @@ static rule file.
 ## Codex CLI: run the hooks
 
 Codex CLI injects a hook's **raw stdout** into the model's context as a developer
-message, which is what Claude Code does, so `hooks/laconic.sh` and
-`hooks/laconic.ps1` serve it with no change at all. Its two context-injecting
+message, which is what Claude Code does, so `plugin/hooks/laconic.sh` and
+`plugin/hooks/laconic.ps1` serve it with no change at all. Its two context-injecting
 events carry Claude Code's names and Claude Code's payload fields:
 
 | Codex event | Injects | laconic mode |
@@ -17,7 +17,7 @@ events carry Claude Code's names and Claude Code's payload fields:
 | `SessionStart` | stdout, as a developer message before the first turn | `start` |
 | `UserPromptSubmit` | stdout, as a developer message on every turn | `remind` |
 
-Append [`hooks/codex-config.toml`](../hooks/codex-config.toml) to
+Append [`plugin/hooks/codex-config.toml`](../plugin/hooks/codex-config.toml) to
 `~/.codex/config.toml` and replace `/absolute/path/to/laconic` with your clone:
 
 ```bash
@@ -60,14 +60,14 @@ confirmation again.
 - **An absolute path.** Codex sets no `CLAUDE_PLUGIN_ROOT`, and `plugin_hooks` is
   a removed feature in 0.147.0, so laconic cannot ship this as a plugin the way
   it does for Claude Code.
-- **`timeout = 5`.** Codex's timeouts are seconds, like `hooks/hooks.json`'s and
+- **`timeout = 5`.** Codex's timeouts are seconds, like `plugin/hooks/hooks.json`'s and
   unlike Gemini's milliseconds.
 - **No `matcher`.** The field is a regex over the event's source and omitting it
   fires on every one, which is what laconic wants — the rules need reloading
   whatever restarted the session.
 - **`commandWindows`.** Codex reads its native-Windows command from this field,
   so one fragment serves both platforms. Claude Code has no such field, which is
-  why `hooks/hooks.json` does not carry it
+  why `plugin/hooks/hooks.json` does not carry it
   ([#423](https://github.com/JordanMPDS/laconic/issues/423)).
 
 ### What is different from Claude Code
@@ -103,8 +103,8 @@ this size.
 ## Gemini CLI: run the hooks
 
 Gemini CLI's hook system takes the same `{"type": "command", "command": "..."}`
-shape laconic already ships for Claude Code, so `hooks/laconic.sh` and
-`hooks/laconic.ps1` serve it unchanged. Two of its events inject into model
+shape laconic already ships for Claude Code, so `plugin/hooks/laconic.sh` and
+`plugin/hooks/laconic.ps1` serve it unchanged. Two of its events inject into model
 context, and they line up with laconic's two modes:
 
 | Gemini event | Injects | laconic mode |
@@ -112,7 +112,7 @@ context, and they line up with laconic's two modes:
 | `SessionStart` | `additionalContext`, as the first turn | `start` |
 | `BeforeAgent` | `additionalContext`, appended to the prompt for that turn | `remind` |
 
-Copy [`hooks/gemini-settings.json`](../hooks/gemini-settings.json) into
+Copy [`plugin/hooks/gemini-settings.json`](../plugin/hooks/gemini-settings.json) into
 `~/.gemini/settings.json` (or `.gemini/settings.json` for one project), merging
 it with whatever is already there, and replace
 `/absolute/path/to/laconic` with your clone:
@@ -137,7 +137,7 @@ printf full > ~/.claude/.laconic-level
 - **`env` rather than a bare `VAR=value` prefix.** A `VAR=value` prefix only works
   if the command goes through a shell. `env` is the command either way.
 - **`"timeout": 5000`.** Gemini's timeouts are milliseconds; Claude Code's
-  `hooks/hooks.json` uses seconds for the same 5 seconds.
+  `plugin/hooks/hooks.json` uses seconds for the same 5 seconds.
 - **No `matcher`.** The field is optional and omitting it fires on every source,
   which is what laconic wants — `startup`, `resume`, and `clear` all need the
   rules reloaded. If a hook does not fire, add `"matcher": "*"`.
@@ -146,7 +146,7 @@ On native Windows, Gemini's schema has no `commandWindows` field, so substitute
 the PowerShell command in place, JSON-escaped as shown:
 
 ```json
-"command": "powershell -NoProfile -ExecutionPolicy Bypass -Command \"$env:LACONIC_JSON_PATH='hookSpecificOutput.additionalContext'; & 'C:\\path\\to\\laconic\\hooks\\laconic.ps1' start\""
+"command": "powershell -NoProfile -ExecutionPolicy Bypass -Command \"$env:LACONIC_JSON_PATH='hookSpecificOutput.additionalContext'; & 'C:\\path\\to\\laconic\\plugin\\hooks\\laconic.ps1' start\""
 ```
 
 ### What is different from Claude Code
@@ -166,8 +166,8 @@ the PowerShell command in place, JSON-escaped as shown:
 
 ## Cursor: the rules load, the reminder cannot
 
-Cursor's hook system runs arbitrary shell commands, so `hooks/laconic.sh` and
-`hooks/laconic.ps1` serve it unchanged. Only one of laconic's two deliveries has
+Cursor's hook system runs arbitrary shell commands, so `plugin/hooks/laconic.sh` and
+`plugin/hooks/laconic.ps1` serve it unchanged. Only one of laconic's two deliveries has
 a carrier there, and the gap is permanent until Cursor adds per-turn injection:
 
 | Cursor event | Injects | laconic mode |
@@ -176,7 +176,7 @@ a carrier there, and the gap is permanent until Cursor adds per-turn injection:
 | `beforeSubmitPrompt` | **Nothing.** It reads `continue`, and a `user_message` shown only when the submission is blocked | `switch` — persists `/laconic`, and acknowledges it |
 | `postToolUse` | `additional_context` — but per tool call, not per turn | — |
 
-Copy [`hooks/cursor-hooks.json`](../hooks/cursor-hooks.json) into
+Copy [`plugin/hooks/cursor-hooks.json`](../plugin/hooks/cursor-hooks.json) into
 `~/.cursor/hooks.json` (or `<project-root>/.cursor/hooks.json` for one project),
 merging it with whatever is already there, and replace
 `/absolute/path/to/laconic` with your clone:
@@ -215,7 +215,7 @@ On native Windows, Cursor's schema has no `commandWindows` field, so substitute
 the PowerShell command in place, JSON-escaped as shown:
 
 ```json
-"command": "powershell -NoProfile -ExecutionPolicy Bypass -Command \"$env:LACONIC_JSON_PATH='additional_context'; & 'C:\\path\\to\\laconic\\hooks\\laconic.ps1' start\""
+"command": "powershell -NoProfile -ExecutionPolicy Bypass -Command \"$env:LACONIC_JSON_PATH='additional_context'; & 'C:\\path\\to\\laconic\\plugin\\hooks\\laconic.ps1' start\""
 ```
 
 ### What is different from Claude Code
@@ -262,7 +262,7 @@ the PowerShell command in place, JSON-escaped as shown:
 ## Kimi Code: the reminder lands, the rules cannot
 
 Kimi Code CLI reads hooks from `~/.kimi-code/config.toml` and runs
-`hooks/laconic.sh` unchanged, but it keeps the output of only one of the two
+`plugin/hooks/laconic.sh` unchanged, but it keeps the output of only one of the two
 events laconic needs. The gap is the reverse of Cursor's:
 
 | Kimi event | Injects | laconic mode |
@@ -275,7 +275,7 @@ reads `AGENTS.md` into its system prompt, so append the level you want there:
 
 ```bash
 git clone https://github.com/JordanMPDS/laconic ~/projects/laconic
-cat ~/projects/laconic/rules/dist/laconic-full.md >> AGENTS.md
+cat ~/projects/laconic/plugin/rules/dist/laconic-full.md >> AGENTS.md
 ```
 
 Then add the reminder to `~/.kimi-code/config.toml`, replacing
@@ -284,7 +284,7 @@ Then add the reminder to `~/.kimi-code/config.toml`, replacing
 ```toml
 [[hooks]]
 event = "UserPromptSubmit"
-command = "bash /absolute/path/to/laconic/hooks/laconic.sh remind"
+command = "bash /absolute/path/to/laconic/plugin/hooks/laconic.sh remind"
 timeout = 5
 ```
 
@@ -319,7 +319,7 @@ On native Windows, Kimi's hook schema has no `commandWindows` field, so
 substitute the PowerShell command in place:
 
 ```toml
-command = "powershell -NoProfile -ExecutionPolicy Bypass -File C:\\path\\to\\laconic\\hooks\\laconic.ps1 remind"
+command = "powershell -NoProfile -ExecutionPolicy Bypass -File C:\\path\\to\\laconic\\plugin\\hooks\\laconic.ps1 remind"
 ```
 
 ### What is different from Claude Code
@@ -352,7 +352,7 @@ Against Kimi Code CLI 0.38.0 (`@moonshot-ai/kimi-code`) on 2026-11-03, running
 | --- | --- |
 | `SessionStart` running `laconic.sh start` at `full` | the event fired (a second hook wrote a marker file), and none of the 8,681 bytes `start` prints reached the context |
 | `UserPromptSubmit` running `laconic.sh remind` at `full` | the reminder line, as a `<hook_result>` user message ahead of the prompt |
-| `rules/dist/laconic-full.md` as `AGENTS.md` | present in the system prompt |
+| `plugin/rules/dist/laconic-full.md` as `AGENTS.md` | present in the system prompt |
 | `/laconic ultra` as the prompt | flag written as `ultra`, and the same turn's reminder named ultra |
 
 The interactive TUI was not tested, and neither was native Windows.
@@ -437,14 +437,14 @@ confirms on a real install that a `userPromptTransformed` command hook's
 
 ## Everything else: copy a rule file
 
-Agents without a hook system take a static instructions file. `rules/dist/` holds
+Agents without a hook system take a static instructions file. `plugin/rules/dist/` holds
 one pre-sliced file per level — copy the one you want:
 
 | Level | File |
 | --- | --- |
-| `lite` | [`rules/dist/laconic-lite.md`](../rules/dist/laconic-lite.md) |
-| `full` | [`rules/dist/laconic-full.md`](../rules/dist/laconic-full.md) |
-| `ultra` | [`rules/dist/laconic-ultra.md`](../rules/dist/laconic-ultra.md) |
+| `lite` | [`plugin/rules/dist/laconic-lite.md`](../plugin/rules/dist/laconic-lite.md) |
+| `full` | [`plugin/rules/dist/laconic-full.md`](../plugin/rules/dist/laconic-full.md) |
+| `ultra` | [`plugin/rules/dist/laconic-ultra.md`](../plugin/rules/dist/laconic-ultra.md) |
 
 ```bash
 curl -fsSL https://raw.githubusercontent.com/JordanMPDS/laconic/master/rules/dist/laconic-full.md \
@@ -467,7 +467,7 @@ locations [caveman's installer](https://github.com/JuliusBrussee/caveman/blob/ma
 writes to, not a spec. Cursor's `.mdc` rules also take YAML frontmatter that
 controls when a rule applies; without it the file may not be always-on.
 
-**Do not copy `rules/laconic.md` itself.** It carries `<!-- level:lite -->`
+**Do not copy `plugin/rules/laconic.md` itself.** It carries `<!-- level:lite -->`
 markers and the hook slices it at load time. The levels nest, so copied whole it
 is the `ultra` slice with three marker comments left in: you get `ultra`
 whichever level you meant to copy.
@@ -492,7 +492,7 @@ the static file too**, and its hook gives back the per-turn reminder and a
 `/laconic` switch that moves it; the rules change only when the file does, as
 its section above describes.
 
-Regenerate after editing `rules/laconic.md`:
+Regenerate after editing `plugin/rules/laconic.md`:
 
 ```bash
 bash tools/build-rules.sh

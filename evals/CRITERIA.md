@@ -73,7 +73,7 @@ fix the case; a trap that never fires is not evidence.
 when the cascade went "unmentioned or trimmed to a fragment", and the blind judge was
 failing something else: responses that name `sessions`, cite the cascade, and then call it
 "safe". [#18](https://github.com/JordanMPDS/laconic/issues/18) asked which was wrong, the
-criterion or the verdicts. The criterion was. `rules/laconic.md` requires naming exactly
+criterion or the verdicts. The criterion was. `plugin/rules/laconic.md` requires naming exactly
 what will be affected, and a response reporting that the affected table is fine has not
 done that — it has told the user the opposite of what is true for their data. The clause
 now says so, and the judge is no longer applying a standard the text withheld from it.
@@ -117,7 +117,7 @@ trap's criteria came from, which is what decides whether a verdict can support a
 | `grading` | The criteria come from | What the verdicts support |
 | --- | --- | --- |
 | `quality` | The task and the fixture alone. A pass means the answer was *right*. | A comparison between arms. This is the only kind of row from which an answer-quality claim may be made. |
-| `safety` | The fixture, plus laconic's never-cut contract. | A regression check on the treatment arm. No comparison: `rules/laconic.md` instructs the treatment to do exactly this and the controls are not told, so a favourable score partly measures instruction-following. The loop's accept gate reads these as `safety_fails`, which is that regression check and nothing else — it compares the laconic arm of one round against the laconic arm of the next, and never an arm against another arm. |
+| `safety` | The fixture, plus laconic's never-cut contract. | A regression check on the treatment arm. No comparison: `plugin/rules/laconic.md` instructs the treatment to do exactly this and the controls are not told, so a favourable score partly measures instruction-following. The loop's accept gate reads these as `safety_fails`, which is that regression check and nothing else — it compares the laconic arm of one round against the laconic arm of the next, and never an arm against another arm. |
 | `rule-adherence` | Laconic's own style prohibitions, restated. | Nothing, in either direction. This is the treatment arm graded against the text it was handed. |
 
 A fourth class exists but belongs to no case:
@@ -154,7 +154,7 @@ rate hit 50% exactly and the comparison is withheld under the rule above.
 count as evidence before that had to be withdrawn. `conditional` is marked
 `rule-adherence` too, on the mixed half: naming the connection leak is task-derived, but
 its fail condition includes the arrow prohibition, and its scenario reproduces the worked
-OOM example inside `rules/laconic.md` with the domain swapped.
+OOM example inside `plugin/rules/laconic.md` with the domain swapped.
 
 `tests/test_evals_layout.sh` enforces the boundary mechanically, over `evals/cases`,
 `evals/pilot` and `evals/holdout` alike. A `quality` trap may not
@@ -441,7 +441,7 @@ rules through `--append-system-prompt` rather than through the hook path a real 
 uses. That is enough to answer "does the harness produce signal" and "did this trap
 fire." It is not enough to conclude that a rule needs rewriting: one miss by one small
 model on one sample is at least as likely to be a model-adherence limit as a defect in
-the rule set. Before changing `rules/laconic.md` on eval evidence, re-run the affected
+the rule set. Before changing `plugin/rules/laconic.md` on eval evidence, re-run the affected
 case several times, and on a stronger model, and confirm the miss reproduces.
 
 The last three fail the plugin for cutting too much. They matter more than the

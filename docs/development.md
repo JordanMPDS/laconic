@@ -7,13 +7,13 @@ bash tests/test_rules.sh && bash tests/test_laconic.sh \
   && claude plugin validate . --strict
 ```
 
-No framework, bash 3.2-safe. Covers the marker contract in `rules/laconic.md`
+No framework, bash 3.2-safe. Covers the marker contract in `plugin/rules/laconic.md`
 and the hook script's level whitelist, off switch, and write guard against a
 symlinked flag file; `tests/test_laconic.sh` also parses both manifests and
 each skill's frontmatter, so CI catches a release bump that breaks
 `plugin.json`. `claude plugin validate .` reads the marketplace manifest and
 then the plugin it lists, including `plugin.json`, the skills and
-`hooks/hooks.json`. It reports problems that do not stop the plugin loading
+`plugin/hooks/hooks.json`. It reports problems that do not stop the plugin loading
 as warnings and exits 0; `--strict` makes them exit 1. CI does not run it,
 because the CLI is not installed there. The repository's own `CLAUDE.md` lives
 at `.claude/CLAUDE.md` for this reason: the repository root is the plugin root,
@@ -21,7 +21,7 @@ and `--strict` fails on a `CLAUDE.md` there because Claude Code never loads a
 plugin's.
 
 The PowerShell hook has its own suite, running the same numbered cases against
-`hooks/laconic.ps1`. It needs a Windows host, so CI is the normal place to see
+`plugin/hooks/laconic.ps1`. It needs a Windows host, so CI is the normal place to see
 it; on Windows you can run it directly:
 
 ```powershell
@@ -147,7 +147,7 @@ Each refusal names the round that bought it:
 | `--allow-stale-arm` | a requested arm under `evals/arms/` was built from a different rules slice than this tree carries | rebuild the arm and update `evals/arms/BUILT-FROM.json`, or pass the flag deliberately |
 | `--allow-case-change` | `cases_cksum` moved since the snapshot was started | the flag, which stamps the fact into the snapshot |
 | `--no-safe-mode` | an arm carries a Stop hook, which `CLAUDE_CODE_SAFE_MODE=1` would disable outright — the arm would generate as a second copy of laconic; or a resume or carry would put runs of the other safe mode beside the file's | the flag, which drops safe mode for every arm in the pass; for a resume or carry, a new snapshot |
-| rules checksum | a resume finds `rules/laconic.md` has moved | none; move the snapshot aside |
+| rules checksum | a resume finds `plugin/rules/laconic.md` has moved | none; move the snapshot aside |
 | arm text | a resume finds the text of a requested arm changed since the snapshot was started: a file under `evals/arms/`, an in-code control, or the vendored ponytail text ([#441]) | none; restore the text, or generate into a new snapshot |
 | effort | a resume or carry would put runs generated at a different `EFFORT` beside the file's ([#522]) | none; a new snapshot |
 | plugin reminder | a resume would send a changed `REMINDER` to the later turns of an arm that gets it ([#522]) | none; restore it, or generate into a new snapshot |
@@ -200,7 +200,7 @@ publication, `benchmark-2026-09-24.json`, carries the per-run stamp.
 | Script | What it is |
 |---|---|
 | `evals/bench/metrics.py` | the deterministic detectors, `decisions()` and `score()`. A library, not a command; both graders and both test suites route through it |
-| `evals/bench/stop_hook.py` | the [#268] enforcement arm: a `Stop` hook that asks for one revision when the completed turn broke a rule already in context. **Benchmark-only — nothing under `hooks/` registers it**, and [`production-turns-283.md`](../evals/results/loop/production-turns-283.md) is why: over 1,429 real turns it blocks 6.5% against a 5% bar, and half the blocks are wrong |
+| `evals/bench/stop_hook.py` | the [#268] enforcement arm: a `Stop` hook that asks for one revision when the completed turn broke a rule already in context. **Benchmark-only — nothing under `plugin/hooks/` registers it**, and [`production-turns-283.md`](../evals/results/loop/production-turns-283.md) is why: over 1,429 real turns it blocks 6.5% against a 5% bar, and half the blocks are wrong |
 | `evals/bench/transcripts.py` | runs the shipped detectors over real session transcripts, which is how that cost was measured |
 | `evals/bench/subagent.py` | the subagent relay arm ([#6]): hands one arm's response to a parent model as a subagent report and grades the parent's answer |
 
@@ -215,7 +215,7 @@ publication, `benchmark-2026-09-24.json`, carries the per-run stamp.
 
 | Script | What it answers |
 |---|---|
-| `bash tools/build-rules.sh` | regenerates `rules/dist/*.md` by driving the hook itself, so the marker contract is never reimplemented. Required whenever `rules/laconic.md` changes; `tests/test_rules.sh` fails on a stale copy |
+| `bash tools/build-rules.sh` | regenerates `plugin/rules/dist/*.md` by driving the hook itself, so the marker contract is never reimplemented. Required whenever `plugin/rules/laconic.md` changes; `tests/test_rules.sh` fails on a stale copy |
 | `bash tools/release-due.sh` | is a release owed? Diffs the shipped surface against the newest `laconic--v*` tag, names every file that moved, and recommends patch or minor. `README.md` and `docs/` are deliberately outside that surface |
 | `bash tools/candidate-due.sh` | must the next round carry a rule candidate? Exits 1 when two measuring rounds would run back to back, reading the declaration each round document already makes |
 | `bash tools/reclaim-scratch.sh` | removes spent scratch worktrees. On this machine `/tmp` is tmpfs, so a worktree left behind is held RAM. It removes one only when it sits under `/tmp` (`LACONIC_SCRATCH_ROOT` names another root), nothing is working inside it, it holds no untracked file, and its HEAD has already landed on `origin/master`. A host where it cannot see process working directories, as on macOS, keeps every tree. It also removes the CLI sessions the benchmark leaves (#444): a claude `projects/-tmp-tmp????????` transcript directory untouched for a day, and a kimi session whose `/tmp/tmp????????` workDir is gone. `--dry-run` says what would go |
@@ -251,7 +251,7 @@ python3 evals/bench/review.py evals/snapshots/results.json \
 ```
 
 Every failure comes back with its excerpt verbatim and the line of
-`rules/laconic.md` that governs it. A failure with **no** governing rule ranks
+`plugin/rules/laconic.md` that governs it. A failure with **no** governing rule ranks
 first — the rule set is silent where the benchmark checks, which points at
 writing a rule rather than editing one.
 

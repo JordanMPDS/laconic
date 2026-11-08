@@ -45,18 +45,18 @@ fi
 # run.sh writes into its own evals/scratch and a developer's graded output may
 # sit there; a stub claude, because only the recorded checksum is under test.
 t=$(mktemp -d)
-mkdir -p "$t/tree/evals/cases/decision" "$t/tree/hooks" "$t/tree/rules" \
+mkdir -p "$t/tree/evals/cases/decision" "$t/tree/plugin/hooks" "$t/tree/plugin/rules" \
   "$t/bin" "$t/cwd/.claude" "$t/cfg"
 cp "$ROOT/evals/run.sh" "$t/tree/evals/"
-cp "$ROOT/hooks/laconic.sh" "$t/tree/hooks/"
-cp "$ROOT/rules/laconic.md" "$t/tree/rules/"
+cp "$ROOT/plugin/hooks/laconic.sh" "$t/tree/plugin/hooks/"
+cp "$ROOT/plugin/rules/laconic.md" "$t/tree/plugin/rules/"
 cp "$ROOT/evals/cases/decision/prompt.md" "$t/tree/evals/cases/decision/"
 printf '#!/bin/sh\ncat >/dev/null\necho answer\n' > "$t/bin/claude"
 chmod +x "$t/bin/claude"
 printf 'ultra' > "$t/cwd/.claude/.laconic-level"
 printf 'lite' > "$t/cfg/.laconic-level"
 want=$(printf '%s' "$(CLAUDE_CONFIG_DIR="$t/cfg" CLAUDE_PROJECT_DIR="$t/cfg" \
-  bash "$ROOT/hooks/laconic.sh" start </dev/null)" | cksum | cut -d' ' -f1)
+  bash "$ROOT/plugin/hooks/laconic.sh" start </dev/null)" | cksum | cut -d' ' -f1)
 (cd "$t/cwd" && unset CLAUDE_PROJECT_DIR && PATH="$t/bin:$PATH" \
   bash "$t/tree/evals/run.sh" lite decision >/dev/null 2>&1)
 got=$(sed -n 's/^Rules checksum: //p' "$t/tree/evals/scratch/lite/decision.md" 2>/dev/null)

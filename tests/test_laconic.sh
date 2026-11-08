@@ -3,7 +3,7 @@
 set -uo pipefail
 
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
-SCRIPT="$ROOT/hooks/laconic.sh"
+SCRIPT="$ROOT/plugin/hooks/laconic.sh"
 CLAUDE_CONFIG_DIR="$(mktemp -d)"
 export CLAUDE_CONFIG_DIR
 FLAG="$CLAUDE_CONFIG_DIR/.laconic-level"
@@ -328,7 +328,7 @@ clear_project
 # manifest, so the settings.json edit cannot be automated. Owning the script can
 # be, and that is what removes the versioned plugin path from the user's
 # settings. These asserts cover the part the plugin is responsible for.
-BADGE_SRC="$ROOT/hooks/laconic-statusline.sh"
+BADGE_SRC="$ROOT/plugin/hooks/laconic-statusline.sh"
 BADGE_DST="$CLAUDE_CONFIG_DIR/laconic-statusline.sh"
 
 # 33. start installs the badge while a level is active, byte for byte.
@@ -404,7 +404,7 @@ if [ -f "$BADGE_DST" ]; then fail "remind must not install the badge"; else ok "
 CRLFDIR="$(mktemp -d)"
 mkdir -p "$CRLFDIR/hooks" "$CRLFDIR/rules"
 cp "$SCRIPT" "$CRLFDIR/hooks/laconic.sh"
-sed 's/$/\r/' "$ROOT/rules/laconic.md" > "$CRLFDIR/rules/laconic.md"
+sed 's/$/\r/' "$ROOT/plugin/rules/laconic.md" > "$CRLFDIR/rules/laconic.md"
 set_level lite
 out=$(bash "$CRLFDIR/hooks/laconic.sh" start </dev/null 2>/dev/null)
 assert_has "CRLF rules: lite slice is delivered" "## Level: lite" "$out"
@@ -657,7 +657,7 @@ clear_project
 # a parser error several functions later. Checked from the Linux job because it
 # is a property of the committed bytes, and because a Windows-only check would
 # not run on the commit that strips the BOM.
-for ps1 in "$ROOT"/hooks/*.ps1 "$ROOT"/tests/*.ps1; do
+for ps1 in "$ROOT"/plugin/hooks/*.ps1 "$ROOT"/tests/*.ps1; do
   [ -f "$ps1" ] || continue
   name=$(basename "$ps1")
   if [ "$(head -c 3 "$ps1" | od -An -tx1 | tr -d ' \n')" = "efbbbf" ]; then
@@ -675,7 +675,7 @@ done
 # alone cannot see a deleted .gitattributes; the attribute check can.
 in_git=no
 git -C "$ROOT" rev-parse --is-inside-work-tree >/dev/null 2>&1 && in_git=yes
-for f in "$ROOT"/hooks/*.sh "$ROOT/rules/laconic.md"; do
+for f in "$ROOT"/plugin/hooks/*.sh "$ROOT/plugin/rules/laconic.md"; do
   rel=${f#"$ROOT"/}
   if grep -q $'\r' "$f"; then fail "$rel contains a carriage return"; else ok "$rel has LF endings"; fi
   [ "$in_git" = yes ] || continue
@@ -688,7 +688,7 @@ done
 [ "$in_git" = yes ] || ok "eol attribute checks skipped: not a git checkout"
 
 # --- hooks.json ---
-HOOKS="$ROOT/hooks/hooks.json"
+HOOKS="$ROOT/plugin/hooks/hooks.json"
 if [ -f "$HOOKS" ]; then ok "hooks.json exists"; else fail "hooks.json exists"; fi
 if python3 -c "import json,sys;json.load(open('$HOOKS'))" 2>/dev/null; then
   ok "hooks.json is valid JSON"
@@ -758,13 +758,13 @@ fi
 
 # --- plugin manifests and skill frontmatter (#465) ---
 #
-# .claude-plugin/plugin.json is the one shipped file edited by hand at every
+# plugin/.claude-plugin/plugin.json is the one shipped file edited by hand at every
 # release, and tools/release-due.sh reads its version with sed, which succeeds
 # on a file that does not parse. Claude Code refuses to load a plugin whose
 # manifest does not parse, so a stray comma in a version bump would ship a
 # plugin that loads for nobody, and before this block nothing in CI read the
 # file. The plugin is found through the marketplace entry rather than at a fixed
-# path, so moving it into a subdirectory (#475) needs no edit here. These files
+# path, so this block reads whatever directory an install would copy. These files
 # are platform-independent, so the bash suite owns them and the PowerShell suite
 # does not repeat them. The checks run from a file rather than inside $( ),
 # because bash 3.2 misparses a heredoc nested in a command substitution.
@@ -819,6 +819,20 @@ for d in names:
     # The name is the command a user types: /laconic and /laconic-help.
     check("skills/%s/SKILL.md names itself %s" % (d, d), fields.get("name") == d)
     check("skills/%s/SKILL.md carries a description" % d, "description" in fields)
+
+# An install copies the plugin directory whole into the plugin cache (#475).
+# While the entry named the repository root, that copy was 352 MB, nearly all
+# of it evals/snapshots, for 84 KB of plugin.
+size = sum(os.path.getsize(os.path.join(d, f))
+           for d, _, fs in os.walk(plugin_root) for f in fs)
+check("the plugin directory an install copies is under 1 MB (%d bytes)" % size,
+      size < 1000000)
+# A stale instruction ("edit rules/laconic.md") would recreate the old layout at
+# the repository root, where no install and no hook reads it.
+if os.path.normpath(plugin_root) != os.path.normpath(root):
+    for old in ("hooks", "rules", "skills", os.path.join(".claude-plugin", "plugin.json")):
+        check("%s is absent from the repository root, which ships nothing" % old,
+              not os.path.exists(os.path.join(root, old)))
 EOF
 manifest_rc=$?
 while IFS=$'\t' read -r verdict name; do
@@ -903,7 +917,7 @@ rm -f "$FLAG"
 # fragment is only useful if it sets LACONIC_JSON_PATH to the exact path Gemini
 # looks in. A fragment that dropped the variable would still be valid JSON, would
 # still run the hook, and would inject nothing at all.
-GEMINI="$ROOT/hooks/gemini-settings.json"
+GEMINI="$ROOT/plugin/hooks/gemini-settings.json"
 if [ -f "$GEMINI" ]; then ok "gemini-settings.json exists"; else fail "gemini-settings.json exists"; fi
 if python3 -c "import json,sys;json.load(open('$GEMINI'))" 2>/dev/null; then
   ok "gemini-settings.json is valid JSON"
@@ -984,7 +998,7 @@ rm -f "$FLAG"
 # LACONIC_JSON_PATH. Copying the variable across from gemini-settings.json would
 # still run the hook and still deliver something — a JSON object, rendered
 # literally into the model's context instead of the rules.
-CODEX="$ROOT/hooks/codex-config.toml"
+CODEX="$ROOT/plugin/hooks/codex-config.toml"
 if [ -f "$CODEX" ]; then ok "codex-config.toml exists"; else fail "codex-config.toml exists"; fi
 if python3 -c "import tomllib;tomllib.load(open('$CODEX','rb'))" 2>/dev/null; then
   ok "codex-config.toml is valid TOML"
@@ -1094,7 +1108,7 @@ COPILOT_BAD=$(python3 -c "
 import glob, json, sys
 dropped = {'sessionstart', 'userpromptsubmitted', 'userpromptsubmit'}
 bad = []
-for path in sorted(glob.glob('$ROOT/hooks/copilot*.json')
+for path in sorted(glob.glob('$ROOT/plugin/hooks/copilot*.json')
                    + glob.glob('$ROOT/.github/hooks/*.json')):
     try:
         events = json.load(open(path)).get('hooks', {})
@@ -1119,7 +1133,7 @@ fi
 # A fragment carrying Gemini's path across would be valid JSON, would load, and
 # would inject nothing. There is no per-turn injection to wire at all, so the
 # second hook is the switch acknowledgment rather than remind.
-CURSOR="$ROOT/hooks/cursor-hooks.json"
+CURSOR="$ROOT/plugin/hooks/cursor-hooks.json"
 if [ -f "$CURSOR" ]; then ok "cursor-hooks.json exists"; else fail "cursor-hooks.json exists"; fi
 if python3 -c "import json,sys;json.load(open('$CURSOR'))" 2>/dev/null; then
   ok "cursor-hooks.json is valid JSON"
@@ -1231,7 +1245,7 @@ assert_has "the fragment's own beforeSubmitPrompt command acknowledges a switch"
 rm -f "$FLAG"
 
 # --- statusline ---
-BADGE="$ROOT/hooks/laconic-statusline.sh"
+BADGE="$ROOT/plugin/hooks/laconic-statusline.sh"
 rm -f "$FLAG"
 out=$(bash "$BADGE" 2>/dev/null)
 assert_empty "badge silent with no flag" "$out"

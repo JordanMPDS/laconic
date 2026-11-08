@@ -360,7 +360,7 @@ def adjudicate(sample_path, model, claude_bin, jobs):
     """
     import judge as bench_judge
     from concurrent.futures import ThreadPoolExecutor
-    rules = (ROOT / "rules" / "dist" / "laconic-full.md").read_text()
+    rules = (ROOT / "plugin" / "rules" / "dist" / "laconic-full.md").read_text()
     records = json.loads(Path(sample_path).read_text())
     for r in records:
         r["named"] = stop_hook.choose(r["detectors"])

@@ -20,18 +20,21 @@
 #   bash tools/release-due.sh            # exit 1 if a release is owed
 #   bash tools/release-due.sh --selftest
 #
-# Shipped means what a user installs and runs: rules/, hooks/, skills/ and
-# the manifest. README.md and docs/ are deliberately outside it.
+# Shipped means what a user installs and runs: plugin/, which is the plugin
+# directory the marketplace entry names (#475), and the marketplace manifest
+# beside it. README.md and docs/ are deliberately outside it.
 # Prose about the plugin is not the plugin, and a signal that fires on every
 # typo is a signal that gets ignored — which is the failure this replaces, not
 # a different one.
 set -uo pipefail
 
-SHIPPED=(rules hooks skills .claude-plugin)
+SHIPPED=(plugin .claude-plugin)
+RULES=plugin/rules/laconic.md
+MANIFEST=plugin/.claude-plugin/plugin.json
 TAG_GLOB='laconic--v*'
 
 # A shipped file added or removed is a new surface — a platform, a hook, a
-# skill — and that is a minor. So is any change to rules/laconic.md:
+# skill — and that is a minor. So is any change to $RULES:
 # the rules are what the plugin delivers, and a rule edit changes what every
 # user's model writes. Hooks and skills edited in place are a patch.
 # The rule edit used to read as a patch too, and 0.3.1 through 0.3.11 were
@@ -41,7 +44,7 @@ bump_kind() { # reads `git diff --name-status` on stdin
   local status path rest kind=patch
   while read -r status path rest; do
     case "$status" in A*|D*|R*) kind=minor ;; esac
-    [ "$path" = rules/laconic.md ] && kind=minor
+    [ "$path" = "$RULES" ] && kind=minor
   done
   printf '%s' "$kind"
 }
@@ -63,7 +66,7 @@ next_version() { # <current> <patch|minor> -> next
 # not going to become one for this, and the description field carries an escaped
 # em dash that a naive whole-file parse has mangled before.
 plugin_version() { # <ref>
-  git show "$1:.claude-plugin/plugin.json" \
+  git show "$1:$MANIFEST" \
     | sed -n 's/.*"version"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p' | head -1
 }
 
@@ -100,15 +103,15 @@ if [ "${1:-}" = "--selftest" ]; then
   }
 
   check "an added shipped file is a minor" '^minor$' \
-    "$(printf 'M\thooks/laconic.sh\nA\thooks/cursor-hooks.json\n' | bump_kind)"
+    "$(printf 'M\tplugin/hooks/laconic.sh\nA\tplugin/hooks/cursor-hooks.json\n' | bump_kind)"
   check "a removed shipped file is a minor too" '^minor$' \
-    "$(printf 'D\thooks/gemini-settings.json\n' | bump_kind)"
+    "$(printf 'D\tplugin/hooks/gemini-settings.json\n' | bump_kind)"
   check "a rule edit is a minor" '^minor$' \
-    "$(printf 'M\trules/laconic.md\nM\trules/dist/laconic-full.md\n' | bump_kind)"
+    "$(printf 'M\tplugin/rules/laconic.md\nM\tplugin/rules/dist/laconic-full.md\n' | bump_kind)"
   check "hooks and skills modified in place are a patch" '^patch$' \
-    "$(printf 'M\thooks/laconic.sh\nM\tskills/laconic/SKILL.md\n' | bump_kind)"
+    "$(printf 'M\tplugin/hooks/laconic.sh\nM\tplugin/skills/laconic/SKILL.md\n' | bump_kind)"
   check "a rename carries its similarity score and still reads as a minor" '^minor$' \
-    "$(printf 'R100\thooks/old.json\thooks/new.json\n' | bump_kind)"
+    "$(printf 'R100\tplugin/hooks/old.json\tplugin/hooks/new.json\n' | bump_kind)"
   check "a minor resets the patch component" '^0\.4\.0$' "$(next_version 0.3.7 minor)"
   check "a patch increments the last component" '^0\.3\.1$' "$(next_version 0.3.0 patch)"
   # Version components are numbers. A string sort would put 0.9 above 0.10.
@@ -118,14 +121,14 @@ if [ "${1:-}" = "--selftest" ]; then
   tmp=$(mktemp -d) || exit 1
   trap 'rm -rf "$tmp"' EXIT
   r=$tmp/repo
-  mkdir -p "$r/tools" "$r/rules/dist" "$r/hooks" "$r/skills" \
-           "$r/.claude-plugin"
+  mkdir -p "$r/tools" "$r/plugin/rules/dist" "$r/plugin/hooks" "$r/plugin/skills" \
+           "$r/plugin/.claude-plugin"
   cp "$0" "$r/tools/release-due.sh"
   printf '{\n  "name": "laconic",\n  "version": "0.3.0"\n}\n' \
-    > "$r/.claude-plugin/plugin.json"
-  echo 'rule text' > "$r/rules/laconic.md"
-  echo 'generated' > "$r/rules/dist/laconic-full.md"
-  echo 'hook' > "$r/hooks/laconic.sh"
+    > "$r/$MANIFEST"
+  echo 'rule text' > "$r/$RULES"
+  echo 'generated' > "$r/plugin/rules/dist/laconic-full.md"
+  echo 'hook' > "$r/plugin/hooks/laconic.sh"
   echo 'prose about the plugin' > "$r/README.md"
   git -C "$r" init -q -b master
   git -C "$r" config user.email selftest@example.invalid
@@ -147,14 +150,14 @@ if [ "${1:-}" = "--selftest" ]; then
   # A round branch carries its candidate edit until every bar passes. Checked
   # out, it is HEAD, and it is not shipped.
   git -C "$r" checkout -qb round-99
-  echo 'the unaccepted candidate' >> "$r/rules/laconic.md"
+  echo 'the unaccepted candidate' >> "$r/$RULES"
   git -C "$r" commit -qam 'round 99 registration'
   out=$(due); st=$?
   check "an unmerged round branch owes nothing" 'no release owed' "$out"
   checkst "and exits 0 with the candidate checked out" 0 "$st"
   git -C "$r" checkout -q master
 
-  echo 'a hook fix' >> "$r/hooks/laconic.sh"
+  echo 'a hook fix' >> "$r/plugin/hooks/laconic.sh"
   git -C "$r" commit -qam 'hook fix'
   out=$(due); st=$?
   check "a hook fixed in place recommends a patch" \
@@ -162,20 +165,20 @@ if [ "${1:-}" = "--selftest" ]; then
   checkst "and owes a release" 1 "$st"
 
   # The case this whole script exists for: an accepted edit merged to master.
-  echo 'the accepted edit' >> "$r/rules/laconic.md"
-  echo 'regenerated' >> "$r/rules/dist/laconic-full.md"
+  echo 'the accepted edit' >> "$r/$RULES"
+  echo 'regenerated' >> "$r/plugin/rules/dist/laconic-full.md"
   git -C "$r" add -A && git -C "$r" commit -qm 'round 55 accept'
   out=$(due); st=$?
   check "a merged rule edit owes a release" 'release owed' "$out"
-  check "and names the file that moved" 'rules/laconic\.md' "$out"
+  check "and names the file that moved" 'plugin/rules/laconic\.md' "$out"
   check "and recommends a minor" 'recommended bump: minor, 0\.3\.0 to 0\.4\.0' "$out"
   checkst "and exits 1 so a caller can branch on it" 1 "$st"
 
   # Half a release: the version bumped, the tag never cut. The diff alone reads
   # this as an ordinary patch, so it is tested separately from the diff.
   # A suffix, because BSD sed reads a bare -i as taking the next argument as one.
-  sed -i.bak 's/0\.3\.0/0.4.0/' "$r/.claude-plugin/plugin.json"
-  rm "$r/.claude-plugin/plugin.json.bak"
+  sed -i.bak 's/0\.3\.0/0.4.0/' "$r/$MANIFEST"
+  rm "$r/$MANIFEST.bak"
   git -C "$r" commit -qam 'release 0.4.0'
   out=$(due); st=$?
   check "a bump with no tag says to tag it, not to bump again" \

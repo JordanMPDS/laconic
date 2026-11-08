@@ -10,7 +10,7 @@ dependency step and adding one is a design change, not a detail.
 ## Commands
 
 ```sh
-# build (regenerates rules/dist/*.md — required whenever rules/laconic.md changes)
+# build (regenerates plugin/rules/dist/*.md — required whenever plugin/rules/laconic.md changes)
 bash tools/build-rules.sh
 
 # test — all five suites, same as CI
@@ -28,16 +28,16 @@ one that catches stale generated files, and it is the easiest to skip by acciden
 
 ## Conventions
 
-- **`rules/dist/*.md` is generated. Never edit it by hand.** Edit `rules/laconic.md`,
+- **`plugin/rules/dist/*.md` is generated. Never edit it by hand.** Edit `plugin/rules/laconic.md`,
   then run `bash tools/build-rules.sh`. `tests/test_rules.sh` fails with
-  "rules/dist/laconic-$level.md is stale" if you forget.
-- **The level-slicing marker contract lives in `hooks/laconic.sh`, and only there.**
+  "plugin/rules/dist/laconic-$level.md is stale" if you forget.
+- **The level-slicing marker contract lives in `plugin/hooks/laconic.sh`, and only there.**
   `tools/build-rules.sh` deliberately shells out to the hook rather than
   reimplementing the slicing — a second awk pass would be a second thing to keep in
   sync, and drift would ship a rule file that does not match what the plugin
   delivers. Do not add a parallel implementation.
-- **The bash and PowerShell paths must stay in sync.** `hooks/laconic.sh` and
-  `hooks/laconic.ps1` implement the same behavior, as do the two statusline scripts.
+- **The bash and PowerShell paths must stay in sync.** `plugin/hooks/laconic.sh` and
+  `plugin/hooks/laconic.ps1` implement the same behavior, as do the two statusline scripts.
   A change to one needs the same change in the other. CI tests PowerShell 5.1
   specifically, not `pwsh`, because 5.1 is what ships with Windows and is therefore
   what a user without a Unix environment actually runs.
@@ -50,7 +50,7 @@ one that catches stale generated files, and it is the easiest to skip by acciden
   elsewhere, or raise the budget deliberately, never past the cap.
 - **A new deterministic detector names the rule it implements and the level that
   rule enters at.** `metrics.POLICY_RANK` holds the rank and `metrics.POLICY_RULE`
-  holds a verbatim line of `rules/laconic.md`; `tests/test_bench.py` locates that
+  holds a verbatim line of `plugin/rules/laconic.md`; `tests/test_bench.py` locates that
   line between the level markers and fails if the two disagree, so a rank cannot
   drift from the rule it claims. A key added to `score()` that is neither a ranked
   finding nor listed in `metrics.MEASUREMENTS` fails `tests/test_metrics.py`. This
@@ -161,7 +161,7 @@ one that catches stale generated files, and it is the easiest to skip by acciden
   run back to back.** A round that measures the instrument always produces a
   publishable number and never rejects, so it is always the easier round to
   justify: rounds 56 through 63 were eight of them in a row, every one worth
-  running, over which `rules/laconic.md` did not move at all.
+  running, over which `plugin/rules/laconic.md` did not move at all.
   `bash tools/candidate-due.sh` exits 1 when the next round has to carry a
   candidate, reading the last round document for the declaration each round
   already makes — an instrument round disclaims the edit in its registration
@@ -191,7 +191,7 @@ one that catches stale generated files, and it is the easiest to skip by acciden
   directory, then a `deleted` record appended to `session_index.jsonl`). Only
   the names `tempfile.mkdtemp()` makes under `/tmp` are touched.
 
-- **A benchmark round reads the working tree for hours, so editing `rules/laconic.md`
+- **A benchmark round reads the working tree for hours, so editing `plugin/rules/laconic.md`
   or anything under `evals/cases/` while one is running corrupts it.** Both are
   checksummed into every snapshot (`rules_cksum`, `cases_cksum`), and `run.py`,
   `judge.py` and `prefer.py` all refuse to resume across a change rather than
@@ -220,13 +220,13 @@ one that catches stale generated files, and it is the easiest to skip by acciden
 
 Do not modify without being asked explicitly:
 
-- `.claude-plugin/plugin.json` — the version there is released; bumping it is a
+- `plugin/.claude-plugin/plugin.json` — the version there is released; bumping it is a
   release decision, not part of a code change. Cutting a release *is* that
   decision, and is the one context in which the file may be edited without
   asking: `bash tools/release-due.sh` says whether one is owed, names every
   shipped file that moved since the last `laconic--v*` tag, and recommends
   patch or minor. Never bump it alongside unrelated work.
-- `rules/dist/` by hand — regenerate it instead, per the convention above.
+- `plugin/rules/dist/` by hand — regenerate it instead, per the convention above.
 - `.github/workflows/` — CI configuration.
 - `evals/snapshots/` — recorded benchmark runs. They are evidence, not code, and
   rewriting them invalidates comparisons against earlier rounds.
@@ -234,8 +234,8 @@ Do not modify without being asked explicitly:
 ## Definition of done
 
 - All five test suites above pass.
-- If `rules/laconic.md` changed, `tools/build-rules.sh` was run and the regenerated
-  `rules/dist/*.md` is included in the diff.
+- If `plugin/rules/laconic.md` changed, `tools/build-rules.sh` was run and the regenerated
+  `plugin/rules/dist/*.md` is included in the diff.
 - No unrelated files changed.
 - No new dependency added. This project has none by design; if a task seems to need
   one, stop and say so rather than adding it.

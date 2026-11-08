@@ -1558,6 +1558,42 @@ check("judge call failures and unparseable replies both counted separately "
       "from genuine not_exercised",
       "| floor | rule-adherence | laconic | 1 | 0 | 1 | 2 |" in md_mixed)
 
+# #455: the published page read 144 verdicts from 29 cases as independent.
+# The saving interval resamples whole cases; the quality p swaps the two arms
+# case by case. Tallies are (a_pass, a_n, b_pass, b_n) per case.
+_same = [(100 + 37 * i % 211, 100 + 37 * i % 211) for i in range(20)]
+_lo, _hi = bench_report._case_interval(_same, bench_report._saving_stat)
+check("#455: the saving interval between two identical arms contains zero",
+      _lo <= 0 <= _hi)
+_halved = [(b // 2, b) for _, b in _same]
+_lo, _hi = bench_report._case_interval(_halved, bench_report._saving_stat)
+check("#455: an arm half baseline's length on every case excludes zero",
+      0.45 < _lo <= _hi < 0.55)
+check("#455: the case swap gives p = 1 between two identical arms",
+      bench_report._case_swap_p([(3, 5, 3, 5), (1, 5, 1, 5)] * 5) == 1.0)
+# Four cases one verdict apart, all one way, and 25 ties: the exact two-sided
+# p is 2/16. A case bootstrap cannot cross zero here and read 0.024 on
+# opus/terse-control, the benchmark cell with exactly this shape.
+check("#455: four one-way discordant cases among ties read p near 0.125, not 0.02",
+      0.10 < bench_report._case_swap_p([(5, 5, 4, 5)] * 4 + [(4, 5, 4, 5)] * 25) < 0.15)
+# The same 15 failed verdicts, clustered three cases deep or spread one per
+# case: the clustered reading is the weak one (exact 2/8), the spread one is not.
+check("#455: verdicts clustered in a few cases are weaker evidence than spread ones",
+      bench_report._case_swap_p([(0, 5, 5, 5)] * 3 + [(5, 5, 5, 5)] * 7) > 0.2
+      and bench_report._case_swap_p([(0, 1, 1, 1)] * 15 + [(1, 1, 1, 1)] * 35) < 0.01)
+_judg455 = {"judgments": [
+    {"case": c, "arm": arm, "model": "haiku", "rep": r, "verdict": v}
+    for c in ("design-cache", "design-retry")
+    for arm, v in (("laconic", "pass"), ("baseline", "fail"))
+    for r in range(3)]}
+_md455 = bench_report.render(synthetic, _judg455, 0.70)
+# Two one-way cases: the exact p is 2/4, and 0.503 is the seeded estimate.
+check("#455: render prints laconic's quality difference by case, with its p",
+      "| baseline | +100.0 (2 / 0 / 0), p = 0.503 | +100.0 (2 / 0 / 0), p = 0.503 |"
+      in _md455)
+check("#455: the quality-difference render is seeded",
+      _md455 == bench_report.render(synthetic, _judg455, 0.70))
+
 # The grading column is what stops a rule-adherence row being read as evidence
 # about answer quality, so it has to carry the case's real classification, not
 # a default. floor is the case whose pass count was read that way once.

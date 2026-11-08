@@ -977,6 +977,139 @@ def _cluster_count_p(prev_runs, cur_runs, draws=CLUSTER_BOOTSTRAP_DRAWS):
     return worse / draws
 
 
+INTERVAL_DRAWS = 10000
+
+
+def _case_interval(per_case, stat, draws=INTERVAL_DRAWS):
+    """(lo, hi): a 95% percentile interval for `stat`, resampling cases (#455).
+
+    A cell's reps are answers to one prompt, so they move together, and an
+    interval that counts them as independent draws is too narrow. This
+    resamples whole cases with replacement and keeps each case's reps as they
+    are: resampling the reps inside each drawn case as well would count the
+    within-case variance a second time, which the case-level value already
+    carries (Davison and Hinkley 1997, section 3.8). `per_case` holds one
+    entry per case with both arms in it, so the arms stay paired by case.
+
+    For token savings only, whose per-case values never tie. On verdict
+    tallies most cases tie, and when the few that differ all point one way no
+    resample can cross zero: opus laconic against terse-control in the
+    2026-09-24 benchmark differs on 4 of 29 cases, all in laconic's favour,
+    and reads [+0.7, +5.6] points where `_case_swap_p` gives p = 0.12.
+    Seeded, so a stored snapshot renders the same interval every time. None
+    below two cases.
+    """
+    if len(per_case) < 2:
+        return None
+    rng = random.Random(CLUSTER_BOOTSTRAP_SEED)
+    q = statistics.quantiles(
+        [stat(rng.choices(per_case, k=len(per_case))) for _ in range(draws)], n=40)
+    return q[0], q[-1]
+
+
+def _saving_stat(sample):
+    """1 - median(arm) / median(baseline) over (arm, baseline) case medians."""
+    return 1 - _median([a for a, _ in sample]) / _median([b for _, b in sample])
+
+
+def _pass_diff_stat(sample):
+    """Pass-rate difference over (a_pass, a_n, b_pass, b_n) case tallies."""
+    return (sum(s[0] for s in sample) / sum(s[1] for s in sample)
+            - sum(s[2] for s in sample) / sum(s[3] for s in sample))
+
+
+def _case_swap_p(per_case, draws=INTERVAL_DRAWS):
+    """Two-sided p that two arms' pass rates differ, swapping arms by case.
+
+    A randomization test over (a_pass, a_n, b_pass, b_n) case tallies: if the
+    arm makes no difference, each case's two tallies could have carried
+    either label, so each draw swaps them case by case with probability one
+    half and recomputes the pooled difference. The case is the unit swapped,
+    which is what keeps five reps of one prompt from counting as five pieces
+    of evidence (#455). A tied case contributes nothing either way, which is
+    where a case bootstrap goes wrong on verdicts (see `_case_interval`).
+    The p is the share of draws at least as far from zero as the observed
+    difference. Seeded. None below two cases.
+    """
+    if len(per_case) < 2:
+        return None
+    obs = abs(_pass_diff_stat(per_case))
+    rng = random.Random(CLUSTER_BOOTSTRAP_SEED)
+    hits = 0
+    for _ in range(draws):
+        drawn = [e if rng.random() < 0.5 else (e[2], e[3], e[0], e[1])
+                 for e in per_case]
+        # A float tolerance, so a draw that equals the observed difference
+        # by a different summation order is not missed.
+        hits += abs(_pass_diff_stat(drawn)) >= obs - 1e-12
+    return hits / draws
+
+
+def _saving_intervals(agg, arms, models):
+    """Markdown table: each arm's token saving vs baseline with its interval."""
+    rows = ["| arm | " + " | ".join(models) + " |",
+            "|---|" + "|".join("--:" for _ in models) + "|"]
+    for arm in arms:
+        if arm == "baseline":
+            continue
+        cells = []
+        for m in models:
+            pairs = [(v["output_tokens"], agg[(k[0], "baseline", m)]["output_tokens"])
+                     for k, v in sorted(agg.items())
+                     if k[1] == arm and k[2] == m and (k[0], "baseline", m) in agg]
+            # A resample's baseline median is positive only if every case's is.
+            iv = (_case_interval(pairs, _saving_stat)
+                  if pairs and all(b > 0 for _, b in pairs) else None)
+            cells.append("%.0f%% [%.0f%%, %.0f%%]"
+                         % (100 * _saving_stat(pairs), 100 * iv[0], 100 * iv[1])
+                         if iv else "-")
+        rows.append("| %s | %s |" % (arm, " | ".join(cells)))
+    return "\n".join(rows)
+
+
+def _quality_differences(judgments, arms, models):
+    """Markdown table: laconic's quality pass rate minus each other arm's.
+
+    Quality-graded cases and decided verdicts only, as the published rates
+    are. Each cell gives the difference in points, the cases on which laconic
+    passes a larger share, a smaller one, or the same, and `_case_swap_p`.
+    The pooled column takes a case's verdicts from every model as one unit,
+    because the models answered the same prompt. None when laconic has none.
+    """
+    tally = defaultdict(lambda: [0, 0])
+    for j in judgments:
+        if j.get("verdict") in ("pass", "fail") and case_grading(j["case"]) == "quality":
+            for scope in (j["model"], "pooled"):
+                t = tally[(j["case"], j["arm"], scope)]
+                t[0] += j["verdict"] == "pass"
+                t[1] += 1
+    if not any(k[1] == "laconic" for k in tally):
+        return None
+    cases = sorted({k[0] for k in tally})
+    scopes = list(models) + ["pooled"]
+    rows = ["| laconic minus | " + " | ".join(scopes) + " |",
+            "|---|" + "|".join("--:" for _ in scopes) + "|"]
+    for arm in arms:
+        if arm == "laconic":
+            continue
+        cells = []
+        for s in scopes:
+            per_case = [tuple(tally[(c, "laconic", s)] + tally[(c, arm, s)])
+                        for c in cases
+                        if (c, "laconic", s) in tally and (c, arm, s) in tally]
+            p = _case_swap_p(per_case)
+            if p is None:
+                cells.append("-")
+                continue
+            side = [(e[0] * e[3] > e[2] * e[1]) - (e[0] * e[3] < e[2] * e[1])
+                    for e in per_case]
+            cells.append("%+.1f (%d / %d / %d), p = %.3f"
+                         % (100 * _pass_diff_stat(per_case), side.count(1),
+                            side.count(-1), side.count(0), p))
+        rows.append("| %s | %s |" % (arm, " | ".join(cells)))
+    return "\n".join(rows)
+
+
 def _rate_count_p(rates, cells, count, runs):
     """One-sided p for "the rate fell", against the measured rates, or None.
 
@@ -3043,6 +3176,13 @@ def render(snap, judg, threshold, prefs=()):
         rows.append("| %s | %s |" % (arm, " | ".join(cells)))
     out.append("\n".join(rows) + "\n")
 
+    out.append("### Saving vs baseline, with a 95% interval by case (#455)\n")
+    out.append("The median of per-case medians, as above, with an interval "
+               "from resampling whole cases, the arms paired by case and each "
+               "case keeping its reps: five answers to one prompt are not five "
+               "independent draws. %d draws, seeded.\n" % INTERVAL_DRAWS)
+    out.append(_saving_intervals(agg, arms, models) + "\n")
+
     out.append("### Readability violations (median per response)\n")
     out.append(_by_arm_model(agg, "violations", arms, models, "%.1f") + "\n")
     out.append("### Readability violations (total across responses; this is what gates)\n")
@@ -3132,6 +3272,17 @@ def render(snap, judg, threshold, prefs=()):
                            "verdicts appear above but are excluded from the "
                            "loop's fatal judge-verdict counters (#45).\n"
                            % (case, model))
+        quality = _quality_differences(judg.get("judgments", []), arms, models)
+        if quality:
+            out.append("### Quality pass rate, laconic minus each arm, by case (#455)\n")
+            out.append("Points of pass rate over decided verdicts on "
+                       "quality-graded cases; in brackets, the cases on which "
+                       "laconic passes more, fewer and the same. p is a "
+                       "two-sided randomization test that swaps the two arms "
+                       "case by case, %d draws, seeded, uncorrected for the "
+                       "number of cells. The pooled column swaps a case's "
+                       "models together.\n" % INTERVAL_DRAWS)
+            out.append(quality + "\n")
 
     # The same split accept_verdict discloses, for a single snapshot. Printed
     # here too because a round is read one snapshot at a time before it is ever

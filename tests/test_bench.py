@@ -7410,6 +7410,11 @@ _expected_concurrent = {
     # round 125's, merged into one snapshot a side.
     "round-126-control.json", "round-126-edit.json",
     "round-126-rep-control.json", "round-126-rep-edit.json",
+    # Round 127: four simultaneous shards declaring --concurrency 4, two a
+    # record split at rep 5, each running the pilot cells then wide-index;
+    # each record's two shards are merged into one snapshot per case set.
+    "round-127-old.json", "round-127-new.json",
+    "round-127-old-wide.json", "round-127-new-wide.json",
     # #558's rate measurement: four simultaneous shards declaring
     # --concurrency 4, one per model and opus split by rep, then two more
     # haiku shards over reps 24 to 39 once opus finished; merged into one.

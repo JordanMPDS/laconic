@@ -15,6 +15,8 @@ The two snapshots are the two records, generated at once from one harness:
 
     python3 evals/pilot/score_record.py OLD.json NEW.json \\
         [--judgments OLD-J.json NEW-J.json] [--seed 127]
+
+A side may be several files joined by "+", snapshots and judgments alike.
     python3 evals/pilot/score_record.py --archive SNAPSHOT.json...
     python3 evals/pilot/score_record.py --selftest
 
@@ -172,8 +174,9 @@ def verdicts(path):
     out = {}
     if not path:
         return out
-    for j in json.loads(Path(path).read_text())["judgments"]:
-        out[(j["case"], j["model"], j["arm"], j["rep"])] = j.get("verdict")
+    for part in path.split("+"):
+        for j in json.loads(Path(part).read_text())["judgments"]:
+            out[(j["case"], j["model"], j["arm"], j["rep"])] = j.get("verdict")
     return out
 
 

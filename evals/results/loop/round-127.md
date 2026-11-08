@@ -217,6 +217,125 @@ sentence cues anyway.
 
 ## Results
 
+100 runs, 0 failed, all on CLI 2.1.319, generated 21:45 to 22:42 UTC on
+2026-11-08: 50 a side, the two sides inside the same hour. `release.py`
+reports no span and no imbalance on either pair. The first launch was
+stopped by the wrapper around it after about nine minutes; the 16 runs it
+had finished were kept and the four shards resumed by key, so the sessions in
+flight at the stop were spent without a record. Both sides carry
+`rules_cksum` 2442620433; `cases_cksum` is 2123160817 and 747730386 on the old
+record, 2652659225 and 1828772765 on the new.
+
+```sh
+OUT=evals/snapshots/loop
+python3 evals/pilot/score_record.py "$OUT/round-127-old.json+$OUT/round-127-old-wide.json" \
+    "$OUT/round-127-new.json+$OUT/round-127-new-wide.json" \
+    --judgments "$OUT/round-127-old-judgments.json+$OUT/round-127-old-wide-judgments.json" \
+                "$OUT/round-127-new-judgments.json+$OUT/round-127-new-wide-judgments.json"
+python3 evals/pilot/score_reexplain.py --told fullexplain $OUT/round-127-{old,new}.json 127
+```
+
+### 1. The manipulation worked
+
+| turn-3 answers with a charge | old record | new record | Fisher p |
+|---|--:|--:|--:|
+| `deep-metric` | 8 / 10 | 0 / 10 | 0.0007 |
+| `register-metric` | 8 / 10 | 0 / 10 | 0.0007 |
+| `fullexplain-metric` | 8 / 10 | 1 / 10 | 0.0055 |
+| pooled | **24 / 30** | **1 / 30** | < 0.0001 |
+
+The hand read overturns the one new-record flag. `fullexplain-metric` rep 1
+says "The result is about 9,600 sessions per arm, which the document rounds
+to 'roughly 10,000'", which agrees with the record; the cue that fired is
+"no ... gives", reached through "the no-effect assumption, gives about
+9,600". So the new record reads **0 of 30** after the hand read and the old
+record 24 of 30, past both registered bars.
+
+The detector undercounts the old side, which is the conservative direction.
+The six old-record answers it does not flag all recompute the figure to
+about 9,600 to 10,200, and at least four of them say in words the cues do not
+reach that the record's figure is wrong ("doesn't come out at 34,000", "34,000
+per arm matches a difference of about 0.15 points, half the observed one").
+On the old record every turn-3 answer, 30 of 30, recomputed the figure.
+
+### 2. Primary: the graded turn did not move
+
+| graded-turn prose words, median | old record | new record | ratio | p |
+|---|--:|--:|--:|--:|
+| `deep-metric` turn 5 | 44.5 | 44.5 | 1.000 | 0.4337 |
+| `register-metric` turn 5 | 50.0 | 46.5 | 0.930 | 1.0000 |
+| `fullexplain-metric` turn 5 | 33.5 | 32.0 | 0.955 | 0.8144 |
+| `explain-metric` turn 1 | 72.0 | 79.5 | 1.104 | 0.3185 |
+| `wide-index` turn 2 | 51.0 | 46.5 | 0.912 | 0.1582 |
+
+Pooled over the three five-turn cells, the geometric ratio new over old is
+**1.006, 90% interval [0.928, 1.092], p = 0.9129**, inside the 0.80 to 1.25
+margin. Over all five cells it is 0.995, [0.921, 1.074], p = 0.9150. On
+opus, a turn 3 that disputed the record did not change how long turn 5 ran
+by more than about 8% either way.
+
+Turn 3 itself did not move either, which the registration expected it to:
+pooled ratio 0.979, [0.914, 1.050], p = 0.6192 (`deep-metric` 129.0 to
+121.0, `register-metric` 242.5 to 211.5, `fullexplain-metric` 227.5 to
+239.0). Opus spent about as many words confirming the corrected figure as it
+had spent refuting the wrong one.
+
+### 3. Verdicts did not separate
+
+| graded turn, panel pass / decided | old record | new record | Fisher p |
+|---|--:|--:|--:|
+| `deep-metric` | 10 / 10 | 10 / 10 | 1.0000 |
+| `register-metric` | 8 / 10 | 10 / 10 | 0.4737 |
+| `fullexplain-metric` | 10 / 10 | 10 / 10 | 1.0000 |
+| `explain-metric` | 10 / 10 | 10 / 10 | 1.0000 |
+| `wide-index` | 10 / 10 | 10 / 10 | 1.0000 |
+| pooled | 48 / 50 | 50 / 50 | 0.4949 |
+
+Both old-record fails trace to the record, and only one of them to the figure
+#582 corrected. In `register-metric` rep 7 the answer, carrying its own
+turn-3 recomputation, ends "With roughly 10,000 sessions per arm, either
+metric would be usable", and all three judges failed it, the majority reason
+citing "well below the 34,000 needed": the old criterion states the wrong
+figure as the fixture's fact, so a correct answer was graded against it. In
+rep 3 the answer disputes a different claim in ANALYSIS.md, that lift cannot
+carry an interval, and opus and sonnet failed it for treating lift as usable.
+Two fails in 50 do not separate, so this is disclosed and decides nothing.
+
+`panel_agreement.py`: every record decided, no three-way split, kimi cast no
+vote on one new-record judgment, so sonnet and opus decided it. Agreement
+with the majority is 39 or 40 of 40 per member on both pilot files, and opus
+dissented on 2 of 10 new-record `wide-index` answers.
+
+### 4. Told/cold stays under 1 on both records
+
+| | `fullexplain-metric` (told) | `explain-metric` (cold) | told/cold |
+|---|--:|--:|--:|
+| old record | 33.5 | 72.0 | **0.465** (p = 0.0004) |
+| new record | 32.0 | 79.5 | **0.403** |
+
+The correction's effect on the told answer net of its effect on the cold
+one is a ratio of ratios of 0.848, p = 0.3428, and 0.3318 under #298's
+corrected null. Round 100 read 0.377 on opus pooled over three stems; on the
+metric stem alone the told answer is under half the cold one on either
+record.
+
+Disclosed: no `wide-index` turn-1 answer on either side repeats 15.7 million
+as pages (0 of 10 each), so that half of #582 changed nothing a turn-1 answer
+said.
+
+## Result: the corrected record moves nothing the earlier rounds read
+
+The second registered reading obtains. The dispute was real and is gone, 24
+of 30 against 0 of 30, and with it gone the graded turn's length sits within
+about 8% of the old record's on opus, inside the registered margin, while
+verdicts do not separate. So [round 100](round-100.md), which read opus,
+stands as measured and takes no correction. [Round 67](round-67.md) read
+sonnet, which this round did not regenerate: opus's null is a reason to
+expect none there, not a reading of it, and its document takes no note on
+that basis alone. #583 closes with the bound. #298's parking also stands, because the told
+answer stays under half the cold one on the corrected record. Round 128
+owes a rule candidate.
+
 [#136]: https://github.com/JordanMPDS/laconic/issues/136
 [#255]: https://github.com/JordanMPDS/laconic/issues/255
 [#298]: https://github.com/JordanMPDS/laconic/issues/298

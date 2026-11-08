@@ -91,6 +91,17 @@ against them, and rounds 03 and 04 were re-judged on `stale-cache` as well. No o
 trap changed and no other case was re-judged — re-grading unchanged criteria would only
 have added judge sampling noise to the baseline.
 
+**Three scored traps carry their fixture since 2026-11-08.** Since
+[#411](https://github.com/JordanMPDS/laconic/issues/411) a judge sees the question, the
+trap and the response, and no file, so `badnews`'s "names them", `verdict-schema`'s "any
+one of the three money columns" and `walkthrough`'s "the whole flow" had nothing to be
+checked against, and an answer naming three wrong tests could pass `badnews`.
+[#468](https://github.com/JordanMPDS/laconic/issues/468) appended each fixture verbatim
+through `evals/pilot/fixture_facts.py`, the block [#414](https://github.com/JordanMPDS/laconic/issues/414)
+wrote for the pilots, which adds evidence and no pass or fail condition. No verdict was
+re-judged: `judge.py`'s `criteria_cksum` covers the traps, so a carry across the change
+is refused rather than mixed.
+
 ## What a verdict may be used for: the `grading` field
 
 Every `expect.json` carries a `grading` and a `criteria_source`. They record where the
@@ -139,7 +150,8 @@ count as evidence before that had to be withdrawn. `conditional` is marked
 its fail condition includes the arrow prohibition, and its scenario reproduces the worked
 OOM example inside `rules/laconic.md` with the domain swapped.
 
-`tests/test_evals_layout.sh` enforces the boundary mechanically. A `quality` trap may not
+`tests/test_evals_layout.sh` enforces the boundary mechanically, over `evals/cases`,
+`evals/pilot` and `evals/holdout` alike. A `quality` trap may not
 contain the vocabulary of form — `terse`, `concise`, `brief`, `length`, `preamble`,
 `unrequested`, `survey`, `padded`, `arrow`, `article`, and the rest of that list. A
 criterion reaching for any of it is grading how the answer was written rather than whether

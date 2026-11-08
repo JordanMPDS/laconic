@@ -19,6 +19,12 @@ eye, its row count, its rows per combination and how many rows the special
 case changes. The code is run with `runpy`, which writes no `__pycache__`
 into the fixture (#411's other half). `tests/test_evals_layout.sh` runs
 `--check`, so a fixture edit that leaves its trap behind fails the suite.
+
+#468 found the same gap in three scored cases and three dormant pilots, each a
+small record the trap names a fact from: `badnews` the three failing tests in
+its log, `verdict-schema` the three money columns, `walkthrough` the flow of
+auth.js, and `cited-*` whether a quote is in the record. Those traps end with
+the record verbatim, from wherever the case lives.
 """
 import csv
 import json
@@ -55,7 +61,11 @@ NOTES = {
 }
 CASES = (["%s-%s" % (f, s) for f in ("simplify", "verify") for s in STEMS]
          + ["%s-%s" % (f, s) for f in ("subset", "deepsubset")
-            for s in ("ledger", "gateway", "scheduler")])
+            for s in ("ledger", "gateway", "scheduler")]
+         + ["cited-%s" % s for s in ("retention", "failover", "rounding")])
+SCORED = ("badnews", "verdict-schema", "walkthrough")
+DIRS = {**{c: PILOT / c for c in CASES},
+        **{c: PILOT.parent / "cases" / c for c in SCORED}}
 
 
 def _fenced(name, text):
@@ -142,8 +152,8 @@ def record_block(fx):
 
 
 def block(case):
-    fam, stem = case.split("-", 1)
-    fx = PILOT / case / "fixture"
+    stem = case.split("-", 1)[-1]
+    fx = DIRS[case] / "fixture"
     return code_block(stem, fx) if stem in STEMS else record_block(fx)
 
 
@@ -154,16 +164,16 @@ def base(trap):
 
 def check():
     stale = []
-    for c in CASES:
-        trap = json.loads((PILOT / c / "expect.json").read_text())["trap"]
+    for c in DIRS:
+        trap = json.loads((DIRS[c] / "expect.json").read_text())["trap"]
         if trap != base(trap) + block(c):
             stale.append(c)
     return stale
 
 
 def write():
-    for c in CASES:
-        p = PILOT / c / "expect.json"
+    for c in DIRS:
+        p = DIRS[c] / "expect.json"
         raw = p.read_text()
         d = json.loads(raw)
         d["trap"] = base(d["trap"]) + block(c)
@@ -180,6 +190,6 @@ if __name__ == "__main__":
         if stale:
             sys.exit("stale fixture facts in %s; run "
                      "python3 evals/pilot/fixture_facts.py --write" % ", ".join(stale))
-        print("%d traps carry their fixture's facts" % len(CASES))
+        print("%d traps carry their fixture's facts" % len(DIRS))
     else:
         print(block(arg))

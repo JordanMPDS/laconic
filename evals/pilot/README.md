@@ -279,13 +279,16 @@ Since [#411] no judge can open a file, and these traps fail an answer the
 fixture contradicts. So since [#414] each `simplify-*` and `verify-*` trap ends
 with a block `fixture_facts.py` writes from the fixture: the small files
 verbatim, what the code gives for every combination, and the data file's
-counts. `subset-*` and `deepsubset-*` carry their `STATUS.md` the same way.
+counts. `subset-*` and `deepsubset-*` carry their `STATUS.md` the same way,
+and since [#468] so do `cited-*` their decision record and three scored cases
+their fixture: `badnews`, `verdict-schema` and `walkthrough`.
 `tests/test_evals_layout.sh` fails a trap whose block is stale. Round 119
 tested the blocks before they were relied on; see
 [`../results/loop/round-119.md`](../results/loop/round-119.md).
 
 [#411]: https://github.com/JordanMPDS/laconic/issues/411
 [#414]: https://github.com/JordanMPDS/laconic/issues/414
+[#468]: https://github.com/JordanMPDS/laconic/issues/468
 
 ## `built-trial` and `explain-trial`
 

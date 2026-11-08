@@ -143,22 +143,52 @@ def carried_runs(snap, root=ROOT):
     maintainer's, which is a difference between what CI sees and what the
     author sees.
 
+    An assembled snapshot names a source per run instead (#464): round 119's
+    two files were drawn by `evals/pilot/score_facts.py build` from rounds 96,
+    97 and 118, and each run's `source` names the snapshot, arm and rep it was
+    copied from. Those count as carried once the named run is found there.
+
     An unresolvable source yields the empty set, so a run is charged to the
     snapshot holding it rather than quietly excused.
     """
+    out = _copied_runs(snap, root)
     c = (snap.get("metadata") or {}).get("carried_arms_from") or {}
     path = c.get("path")
     if not path:
-        return set()
+        return out
     src = _resolve_source(path, root)
     if src is None:
-        return set()
+        return out
     try:
         source = json.loads(src.read_text())
     except (OSError, ValueError):
-        return set()
-    return {_cell(r) for r in source.get("runs", [])
-            if isinstance(r, dict)}
+        return out
+    return out | {_cell(r) for r in source.get("runs", [])
+                  if isinstance(r, dict)}
+
+
+def _copied_runs(snap, root=ROOT):
+    """Cell keys of the runs whose own `source` record is found where it points."""
+    out, cells = set(), {}
+    for r in snap.get("runs", []):
+        s = r.get("source") if isinstance(r, dict) else None
+        if not isinstance(s, dict) or not isinstance(s.get("snapshot"), str):
+            continue
+        name = s["snapshot"]
+        if name not in cells:
+            # score_facts.py names a source by its stem under evals/snapshots/loop.
+            src = _resolve_source(
+                name if name.endswith(".json")
+                else "evals/snapshots/loop/%s.json" % name, root)
+            try:
+                runs = json.loads(src.read_text()).get("runs", []) if src else []
+            except (OSError, ValueError):
+                runs = []
+            cells[name] = {_cell(x) for x in runs if isinstance(x, dict)}
+        if (r.get("case"), s.get("arm"), r.get("model"), s.get("rep"),
+                r.get("generated_at")) in cells[name]:
+            out.add(_cell(r))
+    return out
 
 
 def _resolve_source(path, root=ROOT):

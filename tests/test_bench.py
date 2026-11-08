@@ -7106,6 +7106,17 @@ with tempfile.TemporaryDirectory() as td_carry:
                 "arms": {}, "runs": _over}
     check("an unreadable carry source excuses nothing",
           bench_conc.carried_runs(_missing) == set())
+    # #464: an assembled snapshot names a source per run, as score_facts.py's
+    # round 119 does, and only a run found in that source is excused.
+    _copied = [dict(r, rep=10 + i, arm="drawn",
+                    source={"snapshot": str(_src), "arm": r["arm"], "rep": r["rep"]})
+               for i, r in enumerate(_over[:3])]
+    _forged = dict(_over[3], source={"snapshot": str(_src), "arm": "laconic", "rep": 0})
+    _drawn = bench_conc.carried_runs({"metadata": {}, "runs": _copied + [_forged]})
+    check("a run whose own source holds it is carried",
+          all(bench_conc._cell(r) in _drawn for r in _copied))
+    check("and one its source does not hold is charged to the file holding it",
+          bench_conc._cell(_forged) not in _drawn)
 
 # round-24.json records its carry source as an absolute path from the machine
 # that generated it, so on any other checkout the source does not exist and the
@@ -7386,8 +7397,7 @@ _expected_concurrent = {
     "round-118-rep-control.json", "round-118-rep-edit.json",
     # Round 119 generated nothing: `score_facts.py build` drew its two
     # snapshots from round 118's shards and rounds 96 and 97, and each run
-    # keeps the regime it was generated in.
-    "round-119-source.json", "round-119-mutants.json",
+    # names its source, so both read as carried and are absent here (#464).
     # Round 124's whole-benchmark pass: four simultaneous shards declaring
     # --concurrency 4, one per model and opus split by rep, merged into one.
     "round-124.json",

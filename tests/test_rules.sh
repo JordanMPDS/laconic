@@ -364,11 +364,23 @@ fi
 # Each of these ships a --selftest and until now nothing ran any of them. An
 # enforcement script that is never exercised is the same failure as a rule that
 # is never shipped: it passes by not being looked at.
-for tool in release-due candidate-due reclaim-scratch; do
-  if out=$(bash "$ROOT/tools/$tool.sh" --selftest 2>&1); then
-    ok "tools/$tool.sh --selftest passes"
+# loop.sh and consult.sh drive this machine's loop, which runs on GNU tools:
+# where those are missing, as on a stock macOS, they are skipped by name (#464).
+for tool in release-due candidate-due reclaim-scratch loop consult \
+            post-merge-stop; do
+  run=bash file=$ROOT/tools/$tool.sh need=
+  case $tool in
+    post-merge-stop) run=python3 file=$ROOT/.claude/hooks/$tool.py ;;
+    loop)    [ "$(date -d @0 +%s 2>/dev/null)" = 0 ] || need="GNU date -d" ;;
+    consult) command -v timeout >/dev/null 2>&1 || need="timeout" ;;
+  esac
+  name="${file#"$ROOT"/} --selftest"
+  if [ -n "$need" ]; then
+    printf 'skip %s: needs %s\n' "$name" "$need"
+  elif out=$("$run" "$file" --selftest 2>&1); then
+    ok "$name passes"
   else
-    fail "tools/$tool.sh --selftest passes"
+    fail "$name passes"
     printf '%s\n' "$out" | sed 's/^/     /'
   fi
 done

@@ -66,10 +66,15 @@ In a fresh session:
 1. Run `/laconic full`.
 2. `cat ~/.claude/.laconic-level` → prints `full`.
 3. Ask something ordinary — the response should come back with no preamble
-   and no closing offer.
+   and no closing offer. The per-turn reminder is injected for the model and
+   never displayed, so count it in the session transcript, the newest file
+   under `~/.claude/projects/`:
+   `grep -c 'LACONIC MODE ACTIVE' "$(ls -t ~/.claude/projects/*/*.jsonl | head -1)"`
+   prints at least 1.
 4. Run `/laconic off`.
 5. `cat ~/.claude/.laconic-level` → prints `off`.
-6. Ask something else — no `LACONIC MODE ACTIVE` line on that turn or after.
+6. Ask something else, then run step 3's `grep -c` again — it prints the same
+   count as step 3 did.
 
 For the project flag, in a repository you do not mind writing a file into:
 
@@ -132,6 +137,14 @@ nothing:
 ```bash
 python3 evals/bench/concurrency.py   # exits non-zero on an undeclared snapshot
 ```
+
+**It exits 1 on the archive as it stands**, because snapshots generated before
+the flag existed have their regime reconstructed from timestamps rather than
+declared. Those are documented in
+[`evals/results/loop/concurrency-audit.md`](../evals/results/loop/concurrency-audit.md),
+which also bounds what the regime does to a measurement: nothing detectable on
+`output_tokens`. Read the command as a diff against that known set — a snapshot
+you generated appearing in the list is the signal, not the exit code alone.
 
 ### What a generation pass refuses to do
 
@@ -222,15 +235,10 @@ publication, `benchmark-2026-09-24.json`, carries the per-run stamp.
 | `bash tools/consult.sh "<question>"` | asks the delegate targets one question and prints what they say. Creates no worktree and edits nothing: codex runs in a read-only sandbox, deepseek with only Read, Grep and Glob, and kimi with no tools. A dead target is named rather than failing the caller |
 | `bash tools/loop.sh` | the backlog supervisor: one `claude` process per issue, so each gets a genuinely empty context. It runs `reclaim-scratch.sh` at the top of every iteration |
 
-Each of the five with a `--selftest` is exercised by `tests/test_rules.sh`.
-
-**It exits 1 on the archive as it stands**, because snapshots generated before
-the flag existed have their regime reconstructed from timestamps rather than
-declared. Those are documented in
-[`evals/results/loop/concurrency-audit.md`](../evals/results/loop/concurrency-audit.md),
-which also bounds what the regime does to a measurement: nothing detectable on
-`output_tokens`. Read the command as a diff against that known set — a snapshot
-you generated appearing in the list is the signal, not the exit code alone.
+`tests/test_rules.sh` runs the `--selftest` of the five scripts above that have
+one, and of `.claude/hooks/post-merge-stop.py`. `loop.sh`'s needs GNU `date -d`
+and `consult.sh`'s needs `timeout`, so a host without them, as on a stock
+macOS, prints a `skip` line for each instead of passing it.
 
 ## Improving the rules
 

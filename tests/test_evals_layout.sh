@@ -373,6 +373,42 @@ else
   fail "holdout covers at least 2 never-cut cases (found $hsafety)"
 fi
 
+# The scored session families hold their copies of a fixture as plain files,
+# not symlinks, so nothing but this keeps them identical (#470). `confirm-*`,
+# `recall-*` and `deep-*` share a fixture per stem, `wide-*` enlarges it by
+# design, and all four share the trap; `cold-service` and `drift-service` share
+# both. One edited copy turns a session contrast into a fixture contrast, which
+# is why #388's fix had to touch all four `*-rollback` INCIDENT.md files.
+if python3 - "$ROOT/evals/cases" <<'PYEOF'
+import json, sys
+from pathlib import Path
+cases = Path(sys.argv[1])
+def files(name):
+    d = cases / name / "fixture"
+    return {p.relative_to(d).as_posix(): p.read_bytes()
+            for p in d.rglob("*") if p.is_file()}
+def expect(name):
+    return json.loads((cases / name / "expect.json").read_text())
+groups = [(["%s-%s" % (f, s) for f in ("confirm", "recall", "deep")],
+           ["%s-%s" % (f, s) for f in ("confirm", "recall", "deep", "wide")])
+          for s in ("index", "metric", "rollback")]
+groups.append((["cold-service", "drift-service"], ["cold-service", "drift-service"]))
+for same_fixture, same_trap in groups:
+    first = files(same_fixture[0])
+    assert first, "%s has no fixture" % same_fixture[0]
+    for name in same_fixture[1:]:
+        assert files(name) == first, "%s's fixture differs from %s's" % (name, same_fixture[0])
+    e0 = expect(same_trap[0])
+    for name in same_trap[1:]:
+        for k in ("trap", "never_cut"):
+            assert expect(name)[k] == e0[k], "%s's %s differs from %s's" % (name, k, same_trap[0])
+PYEOF
+then
+  ok "the session families' shared fixtures and traps are identical"
+else
+  fail "the session families' shared fixtures and traps are identical"
+fi
+
 # Two pilot families are matched pairs against `deep-*` and may differ from it
 # only in turns 2 to 4: `register-*` for #136, which lengthens those turns, and
 # `work-*` for round 67, which moves their deliverable into the fixture file. If
@@ -1151,10 +1187,13 @@ done
 # The ledger is one line per attempt, including rejected ones, and a round
 # that merges without its row is invisible to the attempt count. Rounds 71,
 # 76, 77 and 78 all did (#340). A round document that says it "takes no
-# ledger row" (round 13) is exempt; round-28-composition.md is a sub-document.
+# ledger row" (round 13) is exempt, and a hyphenated name such as
+# round-28-composition.md is a sub-document. The glob was two digits until
+# #470, so rounds 100 onward went unchecked.
 LOOP="$ROOT/evals/results/loop"
-for doc in "$LOOP"/round-[0-9][0-9].md; do
+for doc in "$LOOP"/round-[0-9]*.md; do
   name="$(basename "$doc")"
+  case "$name" in round-*-*) continue ;; esac
   grep -q 'takes no ledger row' "$doc" && continue
   if grep -qF "](${name})" "$LOOP/LEDGER.md"; then
     ok "LEDGER.md has a row for $name"

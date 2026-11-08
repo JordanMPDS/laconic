@@ -36,15 +36,15 @@ inventory or promotion logic differs between arms. The two arms share a build;
 the flow is selected at render time from the assignment cookie.
 
 Traffic during the window was ordinary. Daily sessions ranged 108 to 167 with no
-day below 100, and the 2026-08-11 marketing send lifted sessions 41% for one day
-without changing arm balance (67 treatment, 64 control that day).
+day below 100, and the 2026-08-11 marketing send lifted sessions 29% for one day
+without changing arm balance (84 treatment, 83 control that day).
 
 ## 2. Why the headline number should not be used
 
 The ticket currently reports this as **+70% lift**. Lift here is
 `(treatment_rate / control_rate) - 1`, and the denominator of that ratio is
 four purchases. Moving a single control purchase in either direction moves the
-reported lift from +36% to +125%. The number is a statement about which side
+reported lift from +36% to +127%. The number is a statement about which side
 four coin flips landed on, not about the checkout flow.
 
 This is not a matter of adding a confidence interval to the lift figure. A
@@ -54,7 +54,7 @@ to report — the interval is wide enough to include both "no effect" and
 
 The instability is not a rounding artifact and it is not fixed by more decimal
 places. Enumerating the control arm's plausible purchase counts at the observed
-base rate gives reported lifts of +125% (3 purchases), +70% (4), +36% (5) and
+base rate gives reported lifts of +127% (3 purchases), +70% (4), +36% (5) and
 +14% (6). All four of those outcomes are ordinary draws from the same underlying
 rate. The reported figure is picking one of them and printing it as a finding.
 
@@ -63,10 +63,10 @@ rate. The reported figure is picking one of them and printing it as a finding.
 The obvious move is to report the absolute difference instead: 0.75% − 0.44% =
 **+0.31 percentage points**. That estimator is better behaved — it does not
 divide by a small count, so a single purchase moves it by about 0.11 points
-rather than by 89 points of lift.
+rather than by 34 to 57 points of lift.
 
 It does not make the experiment readable. At these rates, detecting a 0.3-point
-difference at 80% power needs roughly 34,000 sessions per arm. This experiment
+difference at 80% power needs roughly 10,000 sessions per arm. This experiment
 has 912 and 934. The absolute difference is a well-behaved estimator of a
 quantity this sample cannot resolve, and reporting it with an interval makes
 the uncertainty visible rather than removing it. **Neither metric supports a
@@ -81,27 +81,27 @@ quietly uninformative one. It does not add information to the sample.
 
 ## 4. Power, in detail
 
-The 34,000-per-arm figure comes from a two-proportion test at the observed
+The 10,000-per-arm figure comes from a two-proportion test at the observed
 control rate of 0.44%, targeting an absolute difference of 0.31 points, alpha
 0.05 two-sided, power 0.80. Varying the assumptions does not change the verdict:
 
 | Target effect | Power | Sessions per arm |
 | --- | --- | --- |
-| +0.31 pp (observed) | 0.80 | ~34,000 |
-| +0.31 pp (observed) | 0.90 | ~45,000 |
-| +0.50 pp | 0.80 | ~13,500 |
-| +1.00 pp | 0.80 | ~3,900 |
-| +2.00 pp | 0.80 | ~1,200 |
+| +0.31 pp (observed) | 0.80 | ~9,700 |
+| +0.31 pp (observed) | 0.90 | ~12,900 |
+| +0.50 pp | 0.80 | ~4,300 |
+| +1.00 pp | 0.80 | ~1,500 |
+| +2.00 pp | 0.80 | ~560 |
 
 At the traffic this surface actually receives — roughly 950 sessions per arm per
-fortnight — reaching 34,000 per arm takes about 72 weeks. Reaching the 3,900 per
-arm that a full percentage point would need takes about eight weeks, which is
+fortnight — reaching 10,000 per arm takes about 21 weeks. Reaching the 1,500 per
+arm that a full percentage point would need takes about three weeks, which is
 feasible; but a full point is more than triple the effect observed, and powering
 for an effect that large means the experiment can only detect a change nobody is
 predicting.
 
-Put the other way round: this experiment had roughly 8% power against the effect
-it went looking for. An experiment with 8% power that returns a positive result
+Put the other way round: this experiment had roughly 14% power against the effect
+it went looking for. An experiment with 14% power that returns a positive result
 is more likely to be reporting noise than signal, regardless of which estimator
 prints the number.
 
@@ -177,15 +177,15 @@ prompt's removal is what freed the layout room the treatment uses.
 
 ## 9. Proxy outcomes considered
 
-If the decision needs to be made before 72 weeks of traffic accumulate, a
+If the decision needs to be made before 21 weeks of traffic accumulate, a
 higher-frequency proxy is the only route. Three were evaluated against the
 event stream for this window:
 
 | Proxy | Control rate | Treatment rate | Sessions/arm for 80% power |
 | --- | --- | --- | --- |
-| reached payment step | 18.2% | 21.4% | ~2,800 |
-| completed address fields | 31.6% | 36.9% | ~1,900 |
-| any checkout interaction | 44.1% | 45.0% | ~40,000 |
+| reached payment step | 18.2% | 21.4% | ~2,400 |
+| completed address fields | 31.6% | 36.9% | ~1,300 |
+| any checkout interaction | 44.1% | 45.0% | ~48,000 |
 
 The first two are resolvable at this traffic within three to five weeks. Neither
 is the outcome the business cares about, and using one requires accepting that a

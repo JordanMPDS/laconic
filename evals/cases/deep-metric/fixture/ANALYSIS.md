@@ -20,7 +20,7 @@ Session counts at close:
 The ticket currently reports this as **+70% lift**. Lift here is
 `(treatment_rate / control_rate) - 1`, and the denominator of that ratio is
 four purchases. Moving a single control purchase in either direction moves the
-reported lift from +36% to +125%. The number is a statement about which side
+reported lift from +36% to +127%. The number is a statement about which side
 four coin flips landed on, not about the checkout flow.
 
 This is not a matter of adding a confidence interval to the lift figure. A
@@ -33,10 +33,10 @@ to report — the interval is wide enough to include both "no effect" and
 The obvious move is to report the absolute difference instead: 0.75% − 0.44% =
 **+0.31 percentage points**. That estimator is better behaved — it does not
 divide by a small count, so a single purchase moves it by about 0.11 points
-rather than by 89 points of lift.
+rather than by 34 to 57 points of lift.
 
 It does not make the experiment readable. At these rates, detecting a 0.3-point
-difference at 80% power needs roughly 34,000 sessions per arm. This experiment
+difference at 80% power needs roughly 10,000 sessions per arm. This experiment
 has 912 and 934. The absolute difference is a well-behaved estimator of a
 quantity this sample cannot resolve, and reporting it with an interval makes
 the uncertainty visible rather than removing it. **Neither metric supports a

@@ -2,7 +2,7 @@ read ANALYSIS.md — what is wrong with how this experiment is being reported? D
 <!-- turn -->
 how confident are you in the assignment and the instrumentation here? Don't edit anything.
 <!-- turn -->
-walk me through how the 34,000-sessions-per-arm figure is arrived at. Don't edit anything.
+walk me through how the 10,000-sessions-per-arm figure is arrived at. Don't edit anything.
 <!-- turn -->
 is the time-to-purchase movement worth anything? Don't edit anything.
 <!-- turn -->

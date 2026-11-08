@@ -2023,6 +2023,37 @@ with tempfile.TemporaryDirectory() as td_blind:
           and json.loads(_old_path.read_text())["judgments"][0]["reason"]
           == "graded with tools")
 
+    # #447: the panel on that same pre-panel file used to be told to pass
+    # --model sonnet, which dies on the #411 refusal above. The kimi stub only
+    # gets the panel past its preflight; no judge is called.
+    (Path(td_blind) / "kimi").write_text("#!/usr/bin/env bash\nexit 1\n")
+    (Path(td_blind) / "kimi").chmod(0o755)
+    _penv = dict(env, PATH=td_blind + os.pathsep + env["PATH"])
+    proc_pp = subprocess.run(
+        [sys.executable, str(ROOT / "evals" / "bench" / "judge.py"),
+         "--claude-bin", str(cwd_stub), "--results", str(snap_path),
+         "--out", str(_old_path), "--judge-all"],
+        capture_output=True, text=True, env=_penv)
+    check("the panel on a pre-panel file is refused on tools, with no "
+          "--model hint it cannot follow (#447)",
+          proc_pp.returncode != 0 and "#411" in proc_pp.stderr
+          and "pass --model" not in proc_pp.stderr)
+
+    # A single judge on a panel-graded file is told to drop --model, not to
+    # pass the panel's stamp as a model name.
+    _pan = json.loads(out_path.read_text())
+    _pan["metadata"]["judge_model"] = "panel:sonnet,opus,kimi"
+    _pan_path = Path(td_blind) / "panel-judgments.json"
+    _pan_path.write_text(json.dumps(_pan))
+    proc_pan = subprocess.run(
+        [sys.executable, str(ROOT / "evals" / "bench" / "judge.py"), "--model", "sonnet",
+         "--claude-bin", str(cwd_stub), "--results", str(snap_path),
+         "--out", str(_pan_path), "--judge-all"],
+        capture_output=True, text=True, env=env)
+    check("a single judge on a panel file is told to drop --model (#447)",
+          proc_pan.returncode != 0 and "drop --model" in proc_pan.stderr
+          and "pass --model panel" not in proc_pan.stderr)
+
 # --- #411: a judge has no tools, and that is confirmed rather than assumed ---
 # The scratch cwd above was the whole of the judge's blindness, and it was not
 # a boundary: the operator's settings allow Read, auto mode approves Bash, and

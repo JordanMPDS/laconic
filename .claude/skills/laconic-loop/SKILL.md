@@ -190,7 +190,8 @@ afford, and expect a round to pause at a usage limit and resume, which
 costs about three calls per verdict. A judgments file holds one judge setup:
 a round whose baseline was graded before the panel re-judges that baseline
 rather than comparing across judges, which `report.py` refuses. `--model
-<name>` exists only to resume or reproduce a pre-panel file. Print
+<name>` exists only to reproduce a pre-panel setup into a new `--out`; a
+pre-panel file itself cannot be resumed, because its judges had tools. Print
 `python3 evals/bench/panel_agreement.py <judgments>` in the round document.
 
 Size the round before buying it. The staged rule below already says to open at

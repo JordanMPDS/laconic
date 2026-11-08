@@ -88,10 +88,13 @@ def case_saturated_models(case, cases_dir=None):
       PostgreSQL 16 in #18.
     - **Stuck at a coin flip.** The cell's own master-rules rate is near 50%,
       where a binomial's variance is largest, so its per-round count swings
-      several counts under no treatment. ordered-steps/haiku is that cell, at
-      29 of 60 (#78). The measured-rate screen handles its own rise but not the
-      round-wide total it feeds, and that total is what decides whether the
-      fatal check runs at all.
+      several counts under no treatment. ordered-steps/haiku was that cell, at
+      29 of 60 (#78), until #561 retired it at 0 of 40. The measured-rate
+      screen handles its own rise but not the round-wide total it feeds, and
+      that total is what decides whether the fatal check runs at all.
+
+    No committed case carries the field since #561; cell_rates.py names any
+    gate-read cell whose re-measured rate is a coin flip.
 
     A saturated cell stays generated, judged and displayed; it leaves only the
     fatal judge-verdict counters, where at small reps a stray flip is
@@ -105,9 +108,8 @@ def feeds_judge_gate(case, model, cases_dir=None):
 
     Only quality_fails and safety_fails read judgments at all, and both filter
     on the case's grading and skip saturated cells - so `conditional`,
-    `decision`, `floor` and `ordered-steps`/haiku are graded every round and
-    cannot move any gate. That is 35 of the 220 judge calls a round buys at
-    n=5. judge.py skips them by default and _judge_fail_cells
+    `decision` and `floor` are graded every round and cannot move any gate.
+    judge.py skips them by default and _judge_fail_cells
     below reads it too, so the filter and the gate cannot come apart.
 
     What is given up by skipping them is disclosure, not scoring: those
@@ -2328,8 +2330,9 @@ def accept_verdict(prev, cur, target, noise=None, target_cases=None,
         # is what every stored round was scored by, so none of them move.
         # A judged count skips cells of another grading and saturated ones
         # (_judge_fail_cells), so the measured baseline it is scored against
-        # has to skip them too: ordered-steps/haiku's 29 of 60 would otherwise
-        # sit in the rate and never in the count (#453).
+        # has to skip them too: a saturated cell's rate, as ordered-steps/
+        # haiku's 29 of 60 was, would otherwise sit in the rate and never in
+        # the count (#453).
         judged = {"quality_fails": "quality", "safety_fails": "safety"}.get(target)
         scope_cells = sorted(
             c for c in (cur.get("cell_runs") or {})

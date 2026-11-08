@@ -337,8 +337,15 @@ Two different problems were being covered by one field:
 PostgreSQL 16 verification behind
 [#18](https://github.com/JordanMPDS/laconic/issues/18) shows is wrong. **Its
 marking was retired** in favour of a measured 53 of 55, re-scored across 15
-stored rounds with 0 verdicts moved. `ordered-steps`/haiku is the one cell that
-now carries the field, at a measured 48.3%.
+stored rounds with 0 verdicts moved. `ordered-steps`/haiku carried the field
+for the variance reason, at a measured 48.3% under 1830906901, until
+[#561](https://github.com/JordanMPDS/laconic/issues/561) counted it again on
+2026-11-08: it fails 0 of 40 at 2442620433 under the panel, so the coin flip
+the field was for is gone
+([`ordered-steps-haiku.md`](results/loop/ordered-steps-haiku.md)). No committed
+case carries the field now. `evals/bench/cell_rates.py` names any cell a gate
+reads whose re-measured rate falls between 25% and 75%, so a cell becoming a
+coin flip again is seen at the re-measure that follows the edit.
 
 Marking a cell saturated to make a round pass is the same contamination as
 tuning a criterion. The bar is a measured rate at n ≥ 30 showing the cell is a

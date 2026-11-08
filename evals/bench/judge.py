@@ -222,9 +222,8 @@ def gate_split(runs, cases_dir):
     """(feeds a fatal counter, does not), for the runs this pass would grade.
 
     Only quality_fails and safety_fails read verdicts, and both skip
-    rule-adherence cases and saturated cells, so `conditional`, `decision`,
-    `floor` and `ordered-steps`/haiku are graded every round and can reject
-    nothing: 35 of the 220 judge calls a round buys at n=5.
+    rule-adherence cases and saturated cells, so `conditional`, `decision`
+    and `floor` are graded every round and can reject nothing.
 
     report is imported here rather than at the top of the module because
     report imports *this* module for INFRA_REASONS. The predicate lives there,

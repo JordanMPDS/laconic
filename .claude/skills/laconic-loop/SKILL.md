@@ -839,6 +839,38 @@ not a rejection, and it enters no count. [#26] reopens if the run of weak-idea
 rejections the script prints at the end of the archive exceeds six, the longest
 it had recorded when the issue closed.
 
+**A precheck registers how often its bar fires, not only the bar.** A Stage 1
+precheck runs master on the target cells and withdraws the edit unrun below a
+bar, so the bar decides whether the edit is measured at all. Round 121's "9 of
+30, with `recall-index` contributing 3 of 10" fires on 0.91 of draws at the 47%
+its benchmark read, on 0.45 at the 30% it names, and on 0.25 at 25%, a rate
+still worth a round ([#467]). Rounds 105 to 124 registered seven such bars and
+none stated its fire probability. So the registration declares two rates and
+prints the curve before the precheck runs:
+
+- `--fire-at`: the lowest rate the edit is still worth a round at, no higher
+  than the benchmark's observed rate, and one per cell when the cells read
+  differently. The bar has to fire there on at least 0.9 of draws.
+- `--quiet-at`: a rate at which the defect counts as gone. The bar may fire
+  there on at most 0.1 of draws.
+
+```sh
+python3 evals/bench/precheck.py --cells 10:3,10,10 --fire-at 0.30 --quiet-at 0.10 \
+  --rate 14/30 --bar 9
+```
+
+A cell written `n:minimum` carries a per-cell clause. Paste the output into the
+registration, and choose the bar from the range of bars it says meet the pair.
+When there is none it names the multiple of the reps at which one would, or
+that a cell minimum alone caps the fire probability (round 121's
+`recall-index` clause fires on 0.617 at 30% before any pooled bar), and the
+round buys the reps or lowers the minimum rather than registering a bar that
+misses. A clause comparing master with another arm, such as round 124's Fisher
+test against no-rules, is not modelled: the printed figure is an upper bound on
+such a bar, and the registration says so.
+
+[#467]: https://github.com/JordanMPDS/laconic/issues/467
+
 [#26]: https://github.com/JordanMPDS/laconic/issues/26
 
 **Where a rule lives outranks what it says about where it lives.** When a new

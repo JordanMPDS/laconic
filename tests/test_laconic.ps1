@@ -9,7 +9,7 @@ $Utf8NoBom = New-Object System.Text.UTF8Encoding $false
 try { [Console]::OutputEncoding = $Utf8NoBom } catch {}
 
 $Root   = Split-Path -Parent $PSScriptRoot
-$Script = Join-Path $Root 'hooks\laconic.ps1'
+$Script = Join-Path $Root 'plugin\hooks\laconic.ps1'
 
 # Windows PowerShell 5.1 is the shipped-with-the-OS target, so prefer it; fall
 # back to pwsh so the suite is runnable on a machine that only has PowerShell 7.
@@ -397,7 +397,7 @@ Clear-Project
 # manifest, so the settings.json edit cannot be automated. Owning the script can
 # be, and that is what removes the versioned plugin path from the user's
 # settings. These asserts cover the part the plugin is responsible for.
-$BadgeSrc = Join-Path $Root 'hooks\laconic-statusline.ps1'
+$BadgeSrc = Join-Path $Root 'plugin\hooks\laconic-statusline.ps1'
 $BadgeDst = Join-Path $env:CLAUDE_CONFIG_DIR 'laconic-statusline.ps1'
 
 function Test-SameBytes([string]$A, [string]$B) {
@@ -483,7 +483,7 @@ if (Test-Path -LiteralPath $BadgeDst) { Fail 'remind must not install the badge'
 $crlfDir = New-TempDir
 New-Item -ItemType Directory -Path (Join-Path $crlfDir 'hooks'), (Join-Path $crlfDir 'rules') -Force | Out-Null
 Copy-Item -LiteralPath $Script -Destination (Join-Path $crlfDir 'hooks\laconic.ps1')
-$lfRules = [System.IO.File]::ReadAllText((Join-Path $Root 'rules\laconic.md'), $Utf8NoBom) -replace "`r", ''
+$lfRules = [System.IO.File]::ReadAllText((Join-Path $Root 'plugin\rules\laconic.md'), $Utf8NoBom) -replace "`r", ''
 [System.IO.File]::WriteAllText((Join-Path $crlfDir 'rules\laconic.md'), ($lfRules -replace "`n", "`r`n"), $Utf8NoBom)
 $savedScript = $Script
 $Script = Join-Path $crlfDir 'hooks\laconic.ps1'
@@ -710,7 +710,7 @@ if ($null -ne $savedInput) { try { [Console]::InputEncoding = $savedInput } catc
 # --- hooks.json ---
 # The TOML asserts the bash suite runs stay there: PowerShell 5.1 has no TOML
 # parser, and the ubuntu job covers them on the same commit.
-$Hooks = Join-Path $Root 'hooks\hooks.json'
+$Hooks = Join-Path $Root 'plugin\hooks\hooks.json'
 if (Test-Path -LiteralPath $Hooks) { Ok 'hooks.json exists' } else { Fail 'hooks.json exists' }
 $manifest = $null
 try { $manifest = ConvertFrom-Json ([System.IO.File]::ReadAllText($Hooks)) } catch {}
@@ -742,7 +742,7 @@ if ($null -ne $manifest) {
 }
 
 # --- statusline ---
-$Badge = Join-Path $Root 'hooks\laconic-statusline.ps1'
+$Badge = Join-Path $Root 'plugin\hooks\laconic-statusline.ps1'
 function Invoke-Badge {
   $outFile = Join-Path $env:CLAUDE_CONFIG_DIR '.badge-out'
   $p = Start-Process -FilePath $Host_ `
@@ -797,7 +797,7 @@ if ($null -eq $bash) {
   }
 } else {
   # MSYS bash reads C:/path but not C:\path.
-  $shScript  = (Join-Path $Root 'hooks\laconic.sh') -replace '\\', '/'
+  $shScript  = (Join-Path $Root 'plugin\hooks\laconic.sh') -replace '\\', '/'
   $shConfig  = $env:CLAUDE_CONFIG_DIR -replace '\\', '/'
   $shProject = $env:CLAUDE_PROJECT_DIR -replace '\\', '/'
 
@@ -935,7 +935,7 @@ Remove-Item Env:\LACONIC_JSON_PATH -ErrorAction SilentlyContinue
 # stdout, so the fragment is only useful if it sets LACONIC_JSON_PATH to the
 # exact path Gemini looks in. One that dropped the variable would still be valid
 # JSON, would still run the hook, and would inject nothing at all.
-$Gemini = Join-Path $Root 'hooks\gemini-settings.json'
+$Gemini = Join-Path $Root 'plugin\hooks\gemini-settings.json'
 if (Test-Path -LiteralPath $Gemini) { Ok 'gemini-settings.json exists' } else { Fail 'gemini-settings.json exists' }
 $gem = $null
 try { $gem = ConvertFrom-Json ([System.IO.File]::ReadAllText($Gemini)) } catch {}
@@ -1008,7 +1008,7 @@ Remove-Item -LiteralPath $Flag -Force -ErrorAction SilentlyContinue
 # claim a Windows machine can actually settle: that the commandWindows line
 # Codex would run does deliver the rules. Codex reads a hook's raw stdout, so
 # the assert is on the text itself rather than on a JSON field.
-$Codex = Join-Path $Root 'hooks\codex-config.toml'
+$Codex = Join-Path $Root 'plugin\hooks\codex-config.toml'
 if (Test-Path -LiteralPath $Codex) { Ok 'codex-config.toml exists' } else { Fail 'codex-config.toml exists' }
 
 if (Test-Path -LiteralPath $Codex) {

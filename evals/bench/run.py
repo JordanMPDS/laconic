@@ -209,7 +209,7 @@ def laconic_rules(root, level):
         env = dict(os.environ, CLAUDE_CONFIG_DIR=tmp, CLAUDE_PROJECT_DIR=tmp)
         env.pop("LACONIC_DEFAULT", None)
         out = subprocess.run(
-            ["bash", str(root / "hooks" / "laconic.sh"), "start"],
+            ["bash", str(root / "plugin" / "hooks" / "laconic.sh"), "start"],
             capture_output=True, text=True, env=env, stdin=subprocess.DEVNULL,
         )
         return out.stdout

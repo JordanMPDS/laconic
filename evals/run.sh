@@ -27,7 +27,7 @@ printf '%s' "$LEVEL" > "$tmp_cfg/.laconic-level"
 # Pin the project side too, as tools/build-rules.sh does: the hook reads
 # ${CLAUDE_PROJECT_DIR:-$PWD}/.claude/.laconic-level first (#442).
 RULES=$(CLAUDE_CONFIG_DIR="$tmp_cfg" CLAUDE_PROJECT_DIR="$tmp_cfg" \
-  bash "$ROOT/hooks/laconic.sh" start </dev/null)
+  bash "$ROOT/plugin/hooks/laconic.sh" start </dev/null)
 rm -rf "$tmp_cfg"
 [ -n "$RULES" ] || { printf 'hook produced no rules for level %s\n' "$LEVEL" >&2; exit 1; }
 RULES_CKSUM=$(printf '%s' "$RULES" | cksum | cut -d' ' -f1)

@@ -26,7 +26,7 @@ import report as bench_report  # noqa: E402
 
 ROOT = Path(__file__).resolve().parents[2]
 CASES = ROOT / "evals" / "cases"
-RULES = ROOT / "rules" / "laconic.md"
+RULES = ROOT / "plugin" / "rules" / "laconic.md"
 
 CLASS_ORDER = ("unruled", "never-cut", "quality", "readability", "preference")
 

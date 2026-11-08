@@ -1,6 +1,6 @@
 ---
 name: laconic-loop
-description: Use when improving rules/laconic.md against the benchmark — running a loop round, reviewing what failed, proposing a rule edit, or deciding whether an edit earned its keep. Project-local maintainer procedure, not shipped in the plugin.
+description: Use when improving plugin/rules/laconic.md against the benchmark — running a loop round, reviewing what failed, proposing a rule edit, or deciding whether an edit earned its keep. Project-local maintainer procedure, not shipped in the plugin.
 ---
 
 # The rules improvement loop
@@ -145,7 +145,7 @@ built from two different case sets. Since [#69] a snapshot records a
 `--allow-case-change` as the deliberate override, which stamps the fact into the
 metadata.
 
-The guard does not cover the harness source or `rules/laconic.md`. `rules_cksum`
+The guard does not cover the harness source or `plugin/rules/laconic.md`. `rules_cksum`
 covers the rules, and `run.py` resolves the system prompt once at startup, so an
 in-flight generation keeps the text it began with. **A `git rebase` mid-round
 still moved the tree under a live round on 2026-08-12** and nothing was
@@ -626,7 +626,7 @@ preference pass (step 7).
 Read the inventory top down. The classes are ranked, and the ranking is the
 advice:
 
-- **unruled** — the benchmark checks something `rules/laconic.md` never
+- **unruled** — the benchmark checks something `plugin/rules/laconic.md` never
   mentions. This points at writing a rule, not editing one, and it outranks
   everything else.
 - **never-cut** — a safety item was dropped. Fix before anything about length.
@@ -662,7 +662,7 @@ arm comparisons unusable from round 16 reaches a registered baseline too.
 
 [#36]: https://github.com/JordanMPDS/laconic/issues/36
 
-Then edit `rules/laconic.md`. One edit per round. A hypothesis written
+Then edit `plugin/rules/laconic.md`. One edit per round. A hypothesis written
 afterwards is indistinguishable from a story about whatever happened to move,
 and the ledger timestamps it against the round it predicted.
 
@@ -1206,7 +1206,7 @@ removed shipped file; hooks, skills and commands edited in place are a patch.
 The recommendation is not the decision — 0.3.0 was argued in its own commit
 body — but the exit status is.
 
-1. Bump `version` in `.claude-plugin/plugin.json`. A release is the one context
+1. Bump `version` in `plugin/.claude-plugin/plugin.json`. A release is the one context
    in which that file may be edited, and `AGENTS.md` says so there.
 2. Write the release commit body saying what ships and what measured it.
    `git show 1b88c47` is the shape to copy: the edit, the endpoint, the number,

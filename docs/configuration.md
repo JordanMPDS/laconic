@@ -90,7 +90,7 @@ The path names your configuration directory the way the hook does, so it still
 finds the script when `CLAUDE_CONFIG_DIR` moves that directory away from
 `~/.claude`. The same line serves Windows: Claude Code runs a status line
 command through Git Bash, as it runs the hook, and there `$HOME` is your Windows
-profile. The PowerShell badge script is installed only by `hooks/laconic.ps1`,
+profile. The PowerShell badge script is installed only by `plugin/hooks/laconic.ps1`,
 which Claude Code never runs
 ([#423](https://github.com/JordanMPDS/laconic/issues/423)).
 

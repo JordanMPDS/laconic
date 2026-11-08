@@ -1,6 +1,6 @@
 # Benchmark-only arms
 
-Rule texts that exist to be measured against `rules/laconic.md`, never to ship.
+Rule texts that exist to be measured against `plugin/rules/laconic.md`, never to ship.
 `evals/bench/run.py` loads each file at import and exposes it as an arm, so an
 arm here is delivered through exactly the same `--append-system-prompt` path as
 the `laconic` arm and the comparison is treatment against treatment.
@@ -63,7 +63,7 @@ anywhere in it. So `abl-shown` moving while `abl-arrow` does not separates
 
 `tests/test_bench.py` holds both to pure deletion: every line has to be a line
 of the shipped slice, in order, and the removed word count has to be exactly
-the figure round 59 registered. An edit to `rules/laconic.md` retires that
+the figure round 59 registered. An edit to `plugin/rules/laconic.md` retires that
 check rather than failing it, because the arm would no longer isolate what it
 was built to isolate — see **Staleness** below.
 
@@ -103,7 +103,7 @@ something this ladder had to design out rather than argue away.
 `laconic-abl-shown.md` must appear in it, in order, so nothing the floor keeps
 can be dropped or reworded, and the arm must land within 20 words of the shipped
 slice. Because the floor is itself checked against the live hook output, an edit
-to `rules/laconic.md` that moves the block retires all five arms at once — see
+to `plugin/rules/laconic.md` that moves the block retires all five arms at once — see
 **Staleness** below.
 
 ## `laconic-precheck-off.md`, `laconic-precheck-read.md`, `laconic-precheck-scoped.md` — the [#264] arms
@@ -118,7 +118,7 @@ These three arms are the narrowest construction in this directory. **Each is the
 shipped `full` slice with the opening numbered list swapped and every other
 byte identical**, so `tests/test_bench.py` checks them by exact equality
 against the live hook output rather than structurally. Any edit to
-`rules/laconic.md`, inside the block or outside it, retires all three — see
+`plugin/rules/laconic.md`, inside the block or outside it, retires all three — see
 **Staleness** below.
 
 | arm | words | the list it carries |
@@ -205,7 +205,7 @@ of the shipped `full` slice, so each one means what the section above says it
 means only against the slice it was cut from. `BUILT-FROM.json` records that
 slice's `rules_cksum` per arm.
 
-When `rules/laconic.md` moves, those arms go **stale**, and stale is a third
+When `plugin/rules/laconic.md` moves, those arms go **stale**, and stale is a third
 state rather than a synonym for wrong. The text still reads as a plausible
 rules file and would go on producing numbers; what it no longer is, is a
 transformation of the file on disk. `laconic-abl-shown` is "the slice minus its

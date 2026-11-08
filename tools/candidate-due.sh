@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Is a rule candidate owed?
 #
-# The loop's job is rules/laconic.md, and it can go a long time without touching
+# The loop's job is plugin/rules/laconic.md, and it can go a long time without touching
 # it. A round that measures the instrument is cheaper to justify than a round
 # that proposes an edit: it always produces a publishable number, it never
 # rejects, and it always suggests the next measurement. So the loop drifts into
@@ -227,7 +227,7 @@ fi
 echo
 echo "At most one measuring round sits between two candidates. Take an open issue"
 echo "labelled \`$LABEL\`, register round $next against it, and put an edit to"
-echo "rules/laconic.md under a \"## The edit\" heading that the round can accept or"
+echo "plugin/rules/laconic.md under a \"## The edit\" heading that the round can accept or"
 echo "reject. Every measuring round in that streak was worth running, which is why"
 echo "the loop needs a cap rather than an argument."
 exit 1

@@ -318,7 +318,7 @@ master, pull, and go on.
 Then run `bash tools/release-due.sh` before you look at anything else. If it
 exits non-zero a release is owed, and cutting it is the whole of this iteration:
 not a round, not a backlog issue. Bump the version in
-.claude-plugin/plugin.json, write a release commit that says what ships and what
+plugin/.claude-plugin/plugin.json, write a release commit that says what ships and what
 measured it, open the pull request, wait for the checks, merge, and then tag the
 merge commit `laconic--v<version>` and push the tag. An accepted rule edit that
 is merged and unreleased has reached nobody, so shipping it outranks measuring
@@ -331,7 +331,7 @@ take an open issue labelled `rules`, register the round against it, and carry th
 edit under a "## The edit" heading. At most one round that proposes no rule edit
 sits between two that do. A measuring round always produces a number and never
 rejects, so it is always the easier round to justify, and rounds 56 through 63
-were eight of them in a row while rules/laconic.md did not move. Do not register
+were eight of them in a row while plugin/rules/laconic.md did not move. Do not register
 a second one.
 
 Take issues only from `gh issue list --author @me`, which lists the ones opened

@@ -21,6 +21,15 @@ Inside Claude Code:
 `/plugin install` opens the plugin panel so you can choose a scope; the plugin
 installs from there.
 
+The marketplace keeps a clone of this repository, and most of the repository is
+the benchmark archive. An install copies only `plugin/`, but the clone holds
+the archive too. To clone only what an install reads, add the marketplace from
+a shell instead of the first line above:
+
+```bash
+claude plugin marketplace add JordanMPDS/laconic --sparse .claude-plugin plugin
+```
+
 From a clone, which is also how you develop against it, clone in a shell:
 
 ```bash
@@ -82,7 +91,7 @@ find ~ -path '*/.claude/.laconic-level'
 ## Levels
 
 Cumulative. All three keep complete sentences, real articles, and real
-conjunctions — see [Never do this](rules/laconic.md#never-do-this) in the rules.
+conjunctions — see [Never do this](plugin/rules/laconic.md#never-do-this) in the rules.
 
 | Level | Cuts |
 | --- | --- |
@@ -171,36 +180,36 @@ reminder. Kimi Code gets the other half: the reminder runs as a hook, and the
 rules come from `AGENTS.md`. GitHub Copilot CLI's hooks cannot carry laconic at all; see
 [`docs/other-agents.md`](docs/other-agents.md#github-copilot-cli-the-hooks-cannot-carry-it).
 
-- **Codex CLI** — append [`hooks/codex-config.toml`](hooks/codex-config.toml) to
+- **Codex CLI** — append [`plugin/hooks/codex-config.toml`](plugin/hooks/codex-config.toml) to
   `~/.codex/config.toml` and point it at your clone. Codex will not run a new
   hook until you trust it once from an interactive session, which is the one
   thing that makes a correct setup look broken:
   [`docs/other-agents.md`](docs/other-agents.md#codex-cli-run-the-hooks).
-- **Gemini CLI** — copy [`hooks/gemini-settings.json`](hooks/gemini-settings.json)
+- **Gemini CLI** — copy [`plugin/hooks/gemini-settings.json`](plugin/hooks/gemini-settings.json)
   into `~/.gemini/settings.json` and point it at your clone. Details and the two
   behavioral differences are in
   [`docs/other-agents.md`](docs/other-agents.md#gemini-cli-run-the-hooks).
-- **Cursor** — copy [`hooks/cursor-hooks.json`](hooks/cursor-hooks.json) into
+- **Cursor** — copy [`plugin/hooks/cursor-hooks.json`](plugin/hooks/cursor-hooks.json) into
   `~/.cursor/hooks.json` and point it at your clone. **There is no per-turn
   reminder**: Cursor injects at `sessionStart` and nowhere else, so the rules
   arrive once and nothing reinforces them. `/laconic` still switches the level,
   and says so by blocking that one submission, because the switch would
   otherwise be silent until the next session:
   [`docs/other-agents.md`](docs/other-agents.md#cursor-the-rules-load-the-reminder-cannot).
-- **Kimi Code** — append [`rules/dist/laconic-full.md`](rules/dist/laconic-full.md),
+- **Kimi Code** — append [`plugin/rules/dist/laconic-full.md`](plugin/rules/dist/laconic-full.md),
   or the level you want, to `AGENTS.md`, and add a `UserPromptSubmit` hook
   running `laconic.sh remind` to `~/.kimi-code/config.toml`. **The rules do not
   come from the hook**: Kimi discards `SessionStart` output, so `/laconic` moves
   the flag and the reminder but not the rules in `AGENTS.md`:
   [`docs/other-agents.md`](docs/other-agents.md#kimi-code-the-reminder-lands-the-rules-cannot).
 
-Agents without a hook system take a static instructions file. `rules/dist/` holds
+Agents without a hook system take a static instructions file. `plugin/rules/dist/` holds
 one pre-sliced file per level — copy
-[`laconic-lite.md`](rules/dist/laconic-lite.md),
-[`laconic-full.md`](rules/dist/laconic-full.md), or
-[`laconic-ultra.md`](rules/dist/laconic-ultra.md) into your agent's rules path.
+[`laconic-lite.md`](plugin/rules/dist/laconic-lite.md),
+[`laconic-full.md`](plugin/rules/dist/laconic-full.md), or
+[`laconic-ultra.md`](plugin/rules/dist/laconic-ultra.md) into your agent's rules path.
 
-Do not copy `rules/laconic.md` itself. It carries level markers the hook slices
+Do not copy `plugin/rules/laconic.md` itself. It carries level markers the hook slices
 at load time, so copied whole it delivers all three levels at once.
 
 Destinations per agent, and what a static file gives up against the hook, are in
@@ -214,7 +223,7 @@ Destinations per agent, and what a static file gives up against the hook, are in
   Git Bash gets no rules ([#423](https://github.com/JordanMPDS/laconic/issues/423)).
 - No `jq`, no node, no `pwsh` install.
 
-`hooks/laconic.ps1` is a Windows PowerShell 5.1 port of the hook for agents that
+`plugin/hooks/laconic.ps1` is a Windows PowerShell 5.1 port of the hook for agents that
 call it directly: Codex, and the manual Gemini, Cursor and Kimi Code wiring in
 [`docs/other-agents.md`](docs/other-agents.md).
 

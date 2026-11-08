@@ -997,6 +997,23 @@ if ($null -ne $gem) {
       Fail "$mode fills additionalContext where Gemini reads it"
     }
   }
+
+  # Gemini sends an unknown slash command on as an ordinary prompt, and
+  # BeforeAgent carries it as a top-level "prompt" string (#478), so /laconic
+  # switches the shared flag there and that turn's reminder names the new level.
+  # The payload is the shape Gemini's hookEventHandler.ts builds. Prose naming
+  # the command writes nothing, as everywhere else.
+  $geminiPayload = '{"session_id":"s","transcript_path":"","cwd":"/w","hook_event_name":"BeforeAgent","timestamp":"2026-11-06T00:00:00.000Z","prompt":"{0}"}'
+  Clear-Project
+  Set-Level 'lite'
+  Invoke-Hook 'remind' ($geminiPayload.Replace('{0}', '/laconic ultra'))
+  $value = ''
+  try { $value = [string](ConvertFrom-Json $script:out).hookSpecificOutput.additionalContext } catch {}
+  Assert-Has 'Gemini BeforeAgent: /laconic ultra writes the flag' 'ultra' (Get-FlagText $Flag)
+  Assert-Has 'Gemini BeforeAgent: additionalContext names the new level' 'LACONIC MODE ACTIVE (ultra)' $value
+  Set-Level 'lite'
+  Invoke-Hook 'remind' ($geminiPayload.Replace('{0}', 'does /laconic off work?'))
+  Assert-Has 'Gemini BeforeAgent: prose naming /laconic writes nothing' 'lite' (Get-FlagText $Flag)
   Remove-Item Env:\LACONIC_JSON_PATH -ErrorAction SilentlyContinue
 }
 Remove-Item -LiteralPath $Flag -Force -ErrorAction SilentlyContinue

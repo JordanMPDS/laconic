@@ -1285,9 +1285,41 @@ sys.exit(0 if got == want else 1)
 else
   fail "backslashes, quotes and tabs survive the JSON round-trip"
 fi
+
+# Control characters with no short escape go out as \u00XX, read from a table
+# of the bytes 1 to 31. Building it from 0 put sprintf("%c", 0) first, which
+# gawk makes a NUL and Apple's awk makes the empty string, so on macOS every
+# code came out one too low (#430). This is the check the macos job runs.
+printf 'a\001b\013c\037d\n' > "$ESCDIR/rules/laconic.md"
+LACONIC_JSON_PATH=v bash "$ESCDIR/hooks/laconic.sh" start </dev/null \
+  > "$ESCDIR/ctrl.json" 2>/dev/null
+if python3 -c '
+import json, sys
+got = json.load(open(sys.argv[1]))["v"]
+sys.exit(0 if got == "a\x01b\x0bc\x1fd" else 1)
+' "$ESCDIR/ctrl.json" 2>/dev/null; then
+  ok "control characters below a tab are escaped as their own code points"
+else
+  fail "control characters below a tab are escaped as their own code points — got: $(cat "$ESCDIR/ctrl.json")"
+fi
 rm -rf "$ESCDIR"
 rm -f "$FLAG"
 printf 'full' > "$FLAG"
+
+# The key path is the variable's bytes, as laconic.ps1 takes them. awk -v would
+# turn a backslash sequence into the character it names, and warn on stderr
+# about one it does not know (#430).
+for key in 'a\nb' 'a\qb' 'a\'; do
+  err=$(LACONIC_JSON_PATH="$key" bash "$SCRIPT" remind </dev/null 2>&1 >"$CLAUDE_CONFIG_DIR/key.json")
+  if [ -z "$err" ] && python3 -c '
+import json, sys
+sys.exit(0 if list(json.load(open(sys.argv[1]))) == [sys.argv[2]] else 1)
+' "$CLAUDE_CONFIG_DIR/key.json" "$key" 2>/dev/null; then
+    ok "the key path $key is used verbatim"
+  else
+    fail "the key path $key is used verbatim — got: $(cat "$CLAUDE_CONFIG_DIR/key.json") $err"
+  fi
+done
 
 # The level whitelist still gates it. JSON mode must not become a way to emit
 # something when no level is active.

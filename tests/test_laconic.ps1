@@ -905,6 +905,21 @@ if ($deep.StartsWith('LACONIC MODE ACTIVE')) {
   Fail "a dotted path nests every segment — got: $($script:out)"
 }
 
+# The key path is the variable's bytes. laconic.sh read it through awk -v,
+# which turned a backslash sequence into the character it names (#430); both
+# sides now take it verbatim, and this pins the PowerShell half of that.
+foreach ($key in @('a\nb', 'a\qb', 'a\')) {
+  $env:LACONIC_JSON_PATH = $key
+  Invoke-Hook 'remind'
+  $names = ''
+  try { $names = @((ConvertFrom-Json $script:out).PSObject.Properties.Name) -join '|' } catch {}
+  if ($names -ceq $key) {
+    Ok "the key path $key is used verbatim"
+  } else {
+    Fail "the key path $key is used verbatim — got: $($script:out)"
+  }
+}
+
 # The level whitelist still gates it. JSON mode must not become a way to emit
 # something when no level is active.
 $env:LACONIC_JSON_PATH = 'hookSpecificOutput.additionalContext'

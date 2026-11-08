@@ -56,12 +56,15 @@ RULES="$(cd "$(dirname "$0")/.." && pwd)/rules/laconic.md"
 # handled quotes would ship malformed JSON the moment a rule mentioned `\n` or a
 # quoted example. awk does it here rather than jq, which is not a dependency this
 # project has, or python, which a shell hook has no business requiring.
+#
+# The path comes from ENVIRON, not -v: -v processes backslash escapes, so the
+# key would differ from the variable's bytes, which laconic.ps1 uses as-is.
 laconic_emit() {
   if [ -z "${LACONIC_JSON_PATH:-}" ]; then
     cat
     return
   fi
-  awk -v path="$LACONIC_JSON_PATH" '
+  awk '
     function esc(s,   out, i, c, n) {
       out = ""
       n = length(s)
@@ -74,14 +77,18 @@ laconic_emit() {
         else if (c == "\n")  out = out "\\n"
         else if (c == "\r")  out = out "\\r"
         else if (c == "\t")  out = out "\\t"
-        else if (c < " ")     out = out sprintf("\\u%04x", index(CTRL, c) - 1)
+        else if (c < " ")     out = out sprintf("\\u%04x", index(CTRL, c))
         else                  out = out c
       }
       return out
     }
     BEGIN {
+      path = ENVIRON["LACONIC_JSON_PATH"]
+      # From 1, because sprintf("%c", 0) is a NUL in gawk and empty in Apple
+      # awk, which shifted every code by one there (#430). A NUL is not in the
+      # table, so index() gives it 0, which is its code.
       CTRL = ""
-      for (i = 0; i < 32; i++) CTRL = CTRL sprintf("%c", i)
+      for (i = 1; i < 32; i++) CTRL = CTRL sprintf("%c", i)
       body = ""
     }
     { body = body (NR > 1 ? "\n" : "") $0 }

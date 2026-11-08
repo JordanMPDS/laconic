@@ -22,23 +22,29 @@ The previous publication, round 21 of 2026-08-22, is summarised under
 | word-compression | -14% | -26% | -28% | -34% | -32% | 536 | 60 | 78.4% | 2 / 135 |
 | baseline | 0% | 0% | 0% | 0% | 0% | 196 | 61 | **81.2%** | 1 / 135 |
 
-Tokens and latency are medians of per-case medians. Readability violations,
+Tokens and latency are medians of per-case medians. The intervals on token
+savings and the tests on quality differences treat a case as the unit, because
+one case's five reps answer one prompt and are not five independent draws
+([#455]). Readability violations,
 closing offers and never-cut failures are counts over each arm's 555 responses,
 all three models pooled; the quality pass rate is over the 29 quality-graded
 cases. Per-model breakdowns are in the sections below.
 
 **Laconic is the shortest and fastest arm on Sonnet and Opus, and the cleanest
-on every model.** It cuts Sonnet output 60% and Opus output 44%, against 47%
-and 28% for Claude Code's own `Concise` style. It is the cheapest arm per call on
+on every model.** It cuts Sonnet output 60% and Opus output 44% (95% intervals by
+case: 38% to 71%, and 27% to 67%), against 47% and 28% for Claude Code's own
+`Concise` style. It is the cheapest arm per call on
 both. It carries 45 readability violations against baseline's 196, and makes 2
 closing offers in 555 responses against baseline's 61.
 
 **It does not improve answers, and on Sonnet it may cost some.** Pooled over
 three models the quality pass rate is level with baseline, 80.2% against 81.2%.
-On Sonnet alone it trails, 80.6% against 90.3% at z = -2.34, uncorrected for
-the three models; see [Answer quality](#answer-quality).
+On Sonnet alone it trails, 80.6% against 90.3%, behind on 8 cases and ahead on
+2; counted by case that is p = 0.067, or 0.20 corrected for the three models.
+See [Answer quality](#answer-quality).
 
-**On Haiku it is not a compression plugin.** It saves 11%, and on the 27 cases
+**On Haiku it is not a compression plugin.** It saves 11%, an interval by case
+of -1% to 29%, and on the 27 cases
 where "Answer concisely." is a clean control the two save the same 9% (see
 [Provenance](#provenance-and-confounds)). Laconic is longer than baseline on 11
 of 37 cases.
@@ -83,6 +89,7 @@ control generated now beside a laconic arm generated in September would break
 the same-batch provenance above, and the next benchmark generates under the fix.
 
 [#439]: https://github.com/JordanMPDS/laconic/issues/439
+[#455]: https://github.com/JordanMPDS/laconic/issues/455
 
 **Every figure in this document describes the moment it was generated.** That is
 not a formality. On 2026-09-01 a matched batch re-measured a *syntactic* metric —
@@ -157,10 +164,16 @@ longer.
 | `wide-metric` | quality | 29% | **77%** | **60%** | 17% | 54% | 4% |
 | `wide-rollback` | quality | 27% | **74%** | **55%** | 3% | 29% | 11% |
 
-**Haiku is not a compression result.** The median saving is 11%, `terse-control`
-saves more over all 37 cases, the two save the same 9% on the 27 where
-`terse-control` is clean, and laconic is longer than baseline on 11 of 37 cases —
-`quota-merge` worst at -38%.
+**Haiku is not a compression result.** The median saving is 11%, -1% to 29%
+by case. `terse-control`'s 17% (3% to 34%) cannot be told from it: laconic is
+shorter than `terse-control` on 15 of 37 cases. The two save the same 9% on the
+27 where `terse-control` is clean, and laconic is longer than baseline on 11 of
+37 cases — `quota-merge` worst at -38%.
+
+The intervals resample whole cases with replacement, the two arms paired by
+case and each case keeping its reps, 10,000 seeded draws; `report.py` prints
+one beside every arm's saving on every model. Resampling the reps inside each
+case as well would count their variance twice.
 
 **`destructive` is the one case laconic lengthens on every model**, by 7%, 27%
 and 20%. It is a safety case: the response has to name both dependent tables
@@ -265,6 +278,11 @@ was instructed toward them. Verdicts are the panel's majority. A three-way split
 is recorded as `not_exercised` and left out of the rate. So are the 14
 judgments the panel could not finish: sonnet and opus disagreed on them, and
 the third member's usage quota ran out before it could break the tie.
+Differences between arms are tested case by case: a randomization test swaps
+the two arms' verdicts within a case, so a case decides as one unit however
+many reps it has, and a case whose two tallies match adds nothing. `report.py`
+prints the difference, the cases on each side, and the p, for laconic against
+every arm on every model.
 
 **Quality-graded cases (29 of 37).**
 
@@ -277,13 +295,15 @@ the third member's usage quota ran out before it could break the tie.
 | concise-style | 93 / 138 | 122 / 145 | 116 / 144 | 77.5% |
 
 **Pooled, no arm separates from any other.** Laconic against baseline is
-z = -0.38, against `terse-control` +0.58 and against `concise-style` +0.95.
+p = 0.72, against `terse-control` 0.54 and against `concise-style` 0.32.
 Round 21's strongest negative result — laconic 12 points behind a one-sentence
 "Answer concisely.", z = -2.14 — did not reproduce.
 
-**On Sonnet, laconic trails baseline: 80.6% against 90.3%, z = -2.34.** That is
-one of three per-model comparisons and it is not corrected for the other two;
-corrected it sits near p = 0.06. It is concentrated in four cases, `recall-index`
+**On Sonnet, laconic trails baseline: 80.6% against 90.3%, p = 0.067.** It is
+behind on 8 cases, ahead on 2 and level on 19, and this is one of three
+per-model comparisons: corrected for the other two it is p = 0.20. Counting the
+144 verdicts as independent, as this page did until [#455], read the same gap
+at z = -2.34. It is concentrated in four cases, `recall-index`
 (0 fails against 4), `design-alerting` (2 against 5), `design-realtime` (1 against
 4) and `quota-merge` (0 against 3). On Haiku and Opus laconic is level with or
 ahead of baseline. This is the result on this page most worth a matched follow-up.
@@ -535,7 +555,7 @@ What it found, and what this benchmark did to each finding:
   tighter prose; see [The concise-style arm](#the-concise-style-arm).
 - **Laconic trailed a one-sentence "Answer concisely." on quality, 59.7%
   against 71.9%, z = -2.14.** Did not
-  reproduce: pooled here it is 80.2% against 78.6%, z = +0.58.
+  reproduce: pooled here it is 80.2% against 78.6%, p = 0.54 by case.
 - **Laconic was the cleanest arm on readability and on closing offers.** Held,
   with a wider margin on both.
 - **Laconic's clean never-cut sheet on `destructive` sat beside 2 of 10 judge

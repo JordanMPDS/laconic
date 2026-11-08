@@ -71,14 +71,42 @@ DOTTED_IDENTIFIER = re.compile(r"^[A-Za-z0-9_/-]+\.[A-Za-z0-9_-]+")
 # an internal capital marks one ("v7", "p50", "request_hash", "iPhones"); no
 # English word carries any of them. LOWERCASE_NAMES holds the plain lowercase
 # words that are names. Keep it to names a stored response has opened with.
+# `idle` is the `conditional` fixture's field (`pool.log`: `idle=0
+# waiting=7`), and "idle stays at 0 while waiting climbs" names two fields: a
+# bare field is the bare `pool.max` that DOTTED_IDENTIFIER already lets open a
+# sentence, without the dot (#472). Capitalising it would rewrite the name.
 NAME_MARK = re.compile(r"[0-9_]|[a-z][A-Z]")
-LOWERCASE_NAMES = {"nginx"}
+LOWERCASE_NAMES = {"nginx", "idle"}
+# A math variable is a name too: one letter, Latin or Greek, with any
+# subscripts, superscripts, primes or combining marks ("n", "δ²", "p̄", "p₂"),
+# and no letter or hyphen after them. The only one-letter English words are
+# "a" and "I", so "a" is left out and "i" with it, and the hyphen keeps
+# "e-mail" and "x-ray" counted (#472).
+MATH_VAR = re.compile(
+    r"[b-hj-z\u03b1-\u03c9][\u0300-\u036f\u00b2\u00b3\u00b9\u2032\u2070-\u209f]*"
+    r"(?![^\W\d_]|-)")
+# A display formula: a paragraph opening with a variable and holding a
+# relation ("n = (z_α/2 + z_β)² × ... / δ²", "n per arm ≈ ..."). Like a fenced
+# block it interrupts a sentence rather than ending it, so when it ends without
+# a full stop, the next paragraph's "where p̄ is ..." continues that sentence.
+RELATION = re.compile(r"[=≈≤≥<>]")
+# The tail of a parenthesis whose opening sentence SENTENCE_SPLIT cut at a
+# question mark inside it: "(Postgres? something else?) and how many SKUs?"
+# leaves "something else?) and how many SKUs?" (#472).
+PAREN_TAIL = re.compile(r"[^(]*\)")
 
 
 def _opens_with_name(sentence):
     first = sentence.split()[0]
     word = re.match(r"[a-z]*", first).group()
-    return bool(NAME_MARK.search(first)) or word in LOWERCASE_NAMES
+    return (bool(NAME_MARK.search(first)) or word in LOWERCASE_NAMES
+            or bool(MATH_VAR.match(first)))
+
+
+def _is_formula(para):
+    core = para.strip("*$` ")
+    return (bool(MATH_VAR.match(core)) and bool(RELATION.search(core))
+            and not core.endswith((".", "!", "?")))
 # Lines that are structural markdown, not paragraph flow. Bullets legitimately
 # start lowercase, so checking them would fire on correct writing.
 # -, *, +, # and an ordered-list digit only count as structural when followed
@@ -126,17 +154,20 @@ def split_text(text):
 
 def _lowercase_starts(sentences_src):
     hits = []
+    after_formula = False
     for para in _paragraph_prose(sentences_src):
         # Mask abbreviation periods to prevent false-positive sentence boundaries
         masked = ABBREV_DOT.sub(lambda m: m.group(0).replace(".", "\x00"), para)
-        for sentence in SENTENCE_SPLIT.split(masked):
+        for i, sentence in enumerate(SENTENCE_SPLIT.split(masked)):
             # Restore masked periods
             s = sentence.replace("\x00", ".").strip()
             if (not s or s.startswith("`") or DOTTED_IDENTIFIER.match(s)
-                    or _opens_with_name(s)):
+                    or _opens_with_name(s) or PAREN_TAIL.match(s)
+                    or (i == 0 and after_formula)):
                 continue
             if s[0].islower():
                 hits.append(s[:40])
+        after_formula = _is_formula(para)
     return hits
 
 

@@ -238,6 +238,36 @@ genuine_lowercase_start = metrics.score(
 check("a genuine lowercase sentence start (not a filename) is still caught",
       genuine_lowercase_start["sentence_initial_lowercase"] >= 1)
 
+# #472: three more classes that are not dropped capitals. The question inside
+# a parenthesis is the fork question the rules ask for, and a sentence split at
+# its question mark leaves the tail; `idle` is the conditional fixture's field;
+# a math variable is a name, and a display formula interrupts its sentence the
+# way a fenced block does.
+for text in (
+    "What's the stack (Postgres? something else?) and how many SKUs?",
+    "The pool is exhausted. idle stays at 0 while waiting climbs steadily.",
+    "The rates give it. n per arm ≈ 9,600, not 34,000.",
+    "That is the difference. δ² = 0.0031² = 0.00000961.",
+    "Pool them first. p̄ = (p₁+p₂)/2 = 0.594%.",
+):
+    check(f"#472: not a lowercase sentence start: {text[:40]!r}",
+          metrics.score(text)["sentence_initial_lowercase"] == 0)
+formula_472 = ("The sample size comes from the standard two-proportion formula:\n\n"
+               "n = (z_α/2 + z_β)² × [p₁(1−p₁) + p₂(1−p₂)] / δ²\n\n"
+               "where p̄ = (p₁+p₂)/2 = 0.594% and δ = 0.003.")
+check("#472: a display formula and its where-gloss fire nothing at lite",
+      metrics.decisions(formula_472, "lite") == frozenset())
+# And each skip stays narrow: a dropped capital after a closed parenthesis, a
+# formula that ends its sentence, a hyphenated word and the article still count.
+for text in (
+    "Pick it (why? see below). then go.",
+    "n = 17,000.\n\nthat is too many.",
+    "Write to them. e-mail is fine.",
+    "That was the plan. a second one never came.",
+):
+    check(f"#472: still a lowercase sentence start: {text[:40]!r}",
+          metrics.score(text)["sentence_initial_lowercase"] == 1)
+
 # B3: FENCE.sub(" ", text) leaves the removed fenced block as a lone
 # whitespace-only line, which _paragraph_prose reads as a paragraph break -
 # turning the grammatical continuation after the fence into a false "new

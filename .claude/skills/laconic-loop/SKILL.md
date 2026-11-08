@@ -717,6 +717,12 @@ No cell's rate moves (every McNemar p ≥ 0.75), so a headline is not biased; wh
 runs pass is. **Self-disagreement is a property of the criterion, not of the
 judge**, so a noisy cell is a criterion that can be rewritten — and a 20-run
 gate-relevant cell carries roughly 3 verdicts of grading noise, not 1.
+**The panel is steadier than its members.** Re-judged whole, a master-rules
+batch of 600 flipped 6 majorities (1.0%), all six in the five cells off a
+ceiling (6 of 200), while kimi alone moved 25 of its own votes
+([`cell-rates-2442620433.md`](../../../evals/results/loop/cell-rates-2442620433.md)).
+`report.JUDGE_DISAGREEMENT` is keyed by `judge_model`, so a panel file is read
+against 1% and a pre-panel file against sonnet's 15%.
 
 **Two detectors reached the same conclusion by different routes on the same
 day.** The `restates` detector re-runs 20% of its own verdicts, and the flips
@@ -981,7 +987,7 @@ with the cases, for the same reason: a scope chosen once the numbers are in
 scores whatever moved. Narrowing to a model you have not measured is how round
 16 read "5 → 2, established on sonnet" off a single n = 10 baseline draw; the
 same 2 of 30 against the measured 22 of 120 is p = 0.165 ([#96]). Where every
-cell in the scope has a rate in `cell-rates.json`, `report.py` now scores the
+cell in the scope has a rate in the control's rates file, `report.py` scores the
 count against the pooled rate rather than the draw, and prints which cells the
 scope actually reports on.
 
@@ -1050,7 +1056,7 @@ baseline is one draw — n = 5 since round 21, where it was n = 10 through round
 21's predecessor. For a cell that fails at 8% under master rules an n = 10 draw
 is 0 about 43% of the time and an n = 5 draw about 66% of the time, so "0 to 1"
 was the gate reporting a coin flip as a regression, and at n = 5 it is a
-likelier coin flip. `evals/snapshots/loop/cell-rates.json` holds rates
+likelier coin flip. `evals/snapshots/loop/cell-rates*.json` hold rates
 measured under master rules at n ≥ 30; where one exists, a risen cell is a loss
 only if its count is higher than that rate predicts at the same alpha. Every
 screened cell is named in the reason line, and the metrics the screen can speak
@@ -1065,11 +1071,18 @@ control's judgments, or it drops `quality_fails` and `safety_fails` and keeps
 the deterministic `never_cut_failures`. An unstamped `judge_tools` means graded
 with tools. Either drop prints one `measured-rate screen off` line, and
 `--allow-stale-rates` keeps the sections, which is how a round scored before
-#454 at other rules reproduces. The committed file was measured at
-1830906901 by the single sonnet judge, so it applies to no current round. A
-re-measured file stamps all three fields.
+#454 at other rules reproduces. A re-measure is a new file, never an
+overwrite: `evals/bench/cell_rates.py` writes `cell-rates-<rules_cksum>.json`
+stamped with all three fields, and `report.py` reads the file named for the
+control's rules, else `cell-rates.json`, which holds 1830906901's rates by the
+single sonnet judge. `cell-rates-2442620433.json` is round 126's rules by the
+panel, all 30 cells at n = 40 on all three models
+([`cell-rates-2442620433.md`](../../../evals/results/loop/cell-rates-2442620433.md),
+[#558]). An accepted edit makes it stale, and the next re-measure is the same
+command over a fresh batch.
 
 [#454]: https://github.com/JordanMPDS/laconic/issues/454
+[#558]: https://github.com/JordanMPDS/laconic/issues/558
 
 Measuring a new cell costs about 40 calls and is worth it for any cell that has
 rejected a round on a single flip. `destructive`/haiku runs at 5 of 65 and

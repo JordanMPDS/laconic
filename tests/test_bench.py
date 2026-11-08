@@ -7368,6 +7368,15 @@ with tempfile.TemporaryDirectory() as td_merge:
           m5.get("cli_versions") == ["2.1.haiku", "2.1.sonnet"])
     check("merge calls the file per-run stamped only when every shard is",
           m5.get("cli_versions_per_run") is False)
+    _unk_shard = _stamped("sonnet", rep_offset=0)
+    _unk_shard["runs"][0]["claude_cli_version"] = "unknown"
+    out6 = str(td / "merged6.json")
+    proc6 = _merge_cli([_write("unk.json", _unk_shard), pl, "--out", out6,
+                        "--cases-dir", str(ROOT / "evals" / "cases")])
+    check("merge does not list a failed probe's 'unknown' as a release (#445)",
+          proc6.returncode == 0
+          and (bench_run.load_snapshot(out6) or {}).get("metadata", {}).get(
+              "cli_versions") == ["2.1.haiku", "2.1.sonnet"])
     check("each shard entry records its own delivery, safe mode and rep offset",
           [(s.get("turn_delivery"), s.get("safe_mode"), s.get("rep_offset"))
            for s in m5.get("shards", [])]
@@ -8338,6 +8347,16 @@ with tempfile.TemporaryDirectory() as td_shard:
         104: ["python3", "evals/bench/judge.py", "--jobs", "6"],
         105: ["python3", "/home/x/some-other-project/run.py"],
         106: ["bash", "tools/loop.sh"],
+        # Not shards either, though each names the file (#445): a pager, a
+        # tail and an editor open on it, and the wrapper around a real shard,
+        # whose interpreter is a process of its own and counts once as that.
+        107: ["less", "evals/bench/run.py"],
+        108: ["tail", "-f", "/home/x/projects/laconic/evals/bench/run.py"],
+        109: ["vim", "evals/bench/run.py"],
+        110: ["timeout", "3600", "python3", "evals/bench/run.py"],
+        111: ["bash", "-c", "cd /x && python3 evals/bench/run.py"],
+        # A kernel thread has an empty cmdline.
+        112: [""],
     })
     _sibs = bench_run.sibling_shards(_proc, me=999)
     check("sibling_shards counts a relative and an absolute run.py",
@@ -8346,6 +8365,10 @@ with tempfile.TemporaryDirectory() as td_shard:
           103 in _sibs)
     check("sibling_shards ignores judge.py and an unrelated run.py",
           104 not in _sibs and 105 not in _sibs and 106 not in _sibs)
+    check("sibling_shards ignores a pager, a tail or an editor open on run.py "
+          "(#445)", not {107, 108, 109} & set(_sibs))
+    check("and a wrapper around a shard, so one shard is not counted twice",
+          110 not in _sibs and 111 not in _sibs)
     check("sibling_shards does not count itself",
           bench_run.sibling_shards(_proc, me=101) == [102, 103])
     check("sibling_shards skips a /proc entry that is not a pid",
@@ -8542,6 +8565,57 @@ exec "$STUB" "$@"
           {r["claude_cli_version"] for r in _doc_unk["runs"]}
           == {"2.1.100 (Claude Code)"})
 
+# The case the boundary guard does not cover (#445): every probe up to the
+# first run's fails (the new file's metadata stamp, the startup probe and the
+# run's own), so that run can only be stamped "unknown", and the next succeeds. The stamp stays, so the gap is visible in the file,
+# but "unknown" is not a release, and listing it beside the real one used to
+# announce a pass that spanned two.
+with tempfile.TemporaryDirectory() as _td_unk2:
+    _snap_unk2 = Path(_td_unk2) / "snap.json"
+    _wrap_unk2 = Path(_td_unk2) / "late.sh"
+    _wrap_unk2.write_text("""#!/usr/bin/env bash
+if [ "$1" = "--version" ]; then
+  n=$(( $(cat "$COUNT" 2>/dev/null || echo 0) + 1 ))
+  echo "$n" > "$COUNT"
+  [ "$n" -le 3 ] && exit 1
+  printf '2.1.100 (Claude Code)\\n'
+  exit 0
+fi
+exec "$STUB" "$@"
+""")
+    _wrap_unk2.chmod(0o755)
+    _r_unk2 = subprocess.run(
+        [sys.executable, str(ROOT / "evals" / "bench" / "run.py"),
+         "--claude-bin", str(_wrap_unk2), "--models", "haiku", "--reps", "2",
+         "--cases", "floor", "--arms", "laconic",
+         "--snapshot", str(_snap_unk2)],
+        capture_output=True, text=True, cwd=str(ROOT),
+        env=dict(os.environ, STUB=str(ROOT / "tests" / "stubs" / "claude-stub.sh"),
+                 COUNT=str(Path(_td_unk2) / "count")))
+    _doc_unk2 = json.loads(_snap_unk2.read_text())
+    check("a run generated before any probe succeeded keeps the 'unknown' stamp",
+          _r_unk2.returncode == 0
+          and sorted(r["claude_cli_version"] for r in _doc_unk2["runs"])
+          == ["2.1.100 (Claude Code)", "unknown"])
+    check("but the file lists only the release a probe actually named (#445)",
+          _doc_unk2["metadata"]["cli_versions"] == ["2.1.100 (Claude Code)"])
+    check("and the pass does not warn that it spanned two releases",
+          "claude release(s)" not in _r_unk2.stdout)
+    # A resume reads the releases back out of the runs already in the file.
+    _r_unk3 = subprocess.run(
+        [sys.executable, str(ROOT / "evals" / "bench" / "run.py"),
+         "--claude-bin", str(_wrap_unk2), "--models", "haiku", "--reps", "2",
+         "--cases", "floor", "--arms", "laconic",
+         "--snapshot", str(_snap_unk2)],
+        capture_output=True, text=True, cwd=str(ROOT),
+        env=dict(os.environ, STUB=str(ROOT / "tests" / "stubs" / "claude-stub.sh"),
+                 COUNT=str(Path(_td_unk2) / "count")))
+    check("nor does a resume of that file",
+          _r_unk3.returncode == 0
+          and json.loads(_snap_unk2.read_text())["metadata"]["cli_versions"]
+          == ["2.1.100 (Claude Code)"]
+          and "claude release(s)" not in _r_unk3.stdout)
+
 # A snapshot that never spanned a release cannot be mislabelled by the old
 # per-pass stamp, so the flag is about what the file may be stratified on and
 # nothing else.
@@ -8604,6 +8678,12 @@ check("a version stamp is normalised to its number",
       == "2.1.263")
 check("a run with no stamp has no release",
       bench_release.version({}) is None)
+check("a failed probe's 'unknown' stamp is not a release (#445)",
+      bench_release.version({"claude_cli_version": "unknown"}) is None)
+check("so a run stamped 'unknown' enters no balance group",
+      dict(bench_release.groups(
+          _rel_snap({"2.1.263": 3, "unknown": 2}), "a.json"))
+      == {("a.json", "laconic"): {"2.1.263": 3}})
 
 _bal = {}
 for _i, _a in enumerate("abc"):

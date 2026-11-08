@@ -168,8 +168,10 @@ def merge(paths, cases_dir=None):
     meta["rep_offset"] = min(ids) if ids else 0
     if modes:
         meta["turn_delivery"] = modes[0]
+    # A failed probe's "unknown" is not a release, as in run.py (#445).
     versions = sorted({r["claude_cli_version"] for r in runs
-                       if r.get("claude_cli_version")})
+                       if r.get("claude_cli_version")
+                       and r["claude_cli_version"] != "unknown"})
     if versions:
         meta["cli_versions"] = versions
     meta["cli_versions_per_run"] = all(

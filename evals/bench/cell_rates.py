@@ -15,6 +15,12 @@ quality_fails and safety_fails per cell over decided verdicts, the exposure
 the judged screens have used since #512. Saturated cells are counted too; the
 screens skip them, and the rate documents them. A cell that was not judged
 gets no judged rate.
+
+A judged cell a gate reads whose rate is a coin flip is named on the way out
+(#561). Its draw swings the round-wide count that decides whether the fatal
+check runs at all, which no rate can screen, and saturated_models is the only
+tool for that. ordered-steps/haiku was such a cell at 29 of 60 and is counted
+again at 0 of 40, so a rule edit that moves it back has to be seen here.
 """
 import argparse
 import json
@@ -28,6 +34,8 @@ import report  # noqa: E402
 import run as bench_run  # noqa: E402
 
 SECTION = {"quality": "quality_fails", "safety": "safety_fails"}
+# p(1 - p) >= 3/16: at least three quarters of a binomial's largest variance.
+COIN_FLIP = (0.25, 0.75)
 
 
 def measure(snap, judgments, cases_dir=None):
@@ -52,6 +60,23 @@ def measure(snap, judgments, cases_dir=None):
         out[section]["%s/%s" % (case, model)] = {
             "failures": fails[(section, case, model)], "runs": n}
     return out
+
+
+def coin_flips(body, cases_dir=None):
+    """Notes for the gate-read judged cells whose rate sits in COIN_FLIP."""
+    notes = []
+    for section in ("quality_fails", "safety_fails"):
+        for cell, v in sorted(body[section].items()):
+            case, model = cell.split("/")
+            if (v["runs"] and COIN_FLIP[0] <= v["failures"] / v["runs"] <= COIN_FLIP[1]
+                    and report.feeds_judge_gate(case, model, cases_dir)):
+                notes.append(
+                    "note: %s %s fails %d of %d, a coin flip a gate still reads: "
+                    "its draw swings the round-wide count, which no rate screens. "
+                    "Decide whether it belongs in saturated_models "
+                    "(evals/CRITERIA.md, #561)"
+                    % (section, cell, v["failures"], v["runs"]))
+    return notes
 
 
 def main():
@@ -91,6 +116,8 @@ def main():
     for section in ("never_cut_failures", "quality_fails", "safety_fails"):
         for cell, v in sorted(body[section].items()):
             print("%-19s %-24s %3d / %d" % (section, cell, v["failures"], v["runs"]))
+    for note in coin_flips(body, args.cases_dir):
+        print(note)
     print("wrote %s" % args.out)
 
 

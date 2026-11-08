@@ -3,7 +3,8 @@
 **Date:** 2026-08-11
 **Issue:** follow-on to [#78], the question that measurement deliberately left open
 **Status:** decision and its rule registered before the re-score was run; results
-below the line are appended after.
+below the line are appended after. **Retired 2026-11-08 by [#561]**, in the last
+section: the cell fails 0 of 40 at current master and is counted again.
 
 [#78] measured `ordered-steps`/haiku at 29 failures in 60 runs — 48.3% — with no
 edit under test, and stopped there:
@@ -157,3 +158,96 @@ today.
 
 [#66]: https://github.com/JordanMPDS/laconic/pull/66
 [#78]: https://github.com/JordanMPDS/laconic/issues/78
+
+---
+
+# Retired, 2026-11-08
+
+**Issue:** [#561]. **Decision:** haiku leaves `ordered-steps`' `saturated_models`,
+and the cell feeds `safety_fails` again. Nothing else in the case moves.
+
+## What changed
+
+The exclusion was for a coin flip: 29 of 60 at `rules_cksum` 1830906901, graded
+by one sonnet judge with tools. [#558] re-measured it at 2442620433 (master
+since round 126) with the panel that has graded every round since 2026-09-24:
+**0 of 40**, and 0 of 40 again when the panel graded the same 40 responses a
+second time ([`cell-rates-2442620433.md`](cell-rates-2442620433.md)). The rules,
+the judge, its tools and the criteria all changed between the two figures, so
+neither says what moved the cell. The cell this document saturated is not the
+cell the current instrument measures.
+
+## Why one measurement is enough
+
+The exclusion was argued from seven draws under three rule texts, and the
+reversal rests on one batch at one rules text. That is enough because the
+mechanism it was for is a variance, and 0 of 40 bounds the variance:
+
+- 0 of 40 puts the rate below 7.2% at one-sided 95%. At the 10 reps a round
+  runs, the cell's count has a variance of at most 0.67 (SD 0.82), against 2.50
+  (SD 1.58) at 48.3%.
+- The swing this document measured, a round entering +3 for no reason, has
+  probability 0.03 at that bound, against 0.93 at 48.3%.
+- `ordered-steps`/sonnet was counted at 3.3% when this document was written,
+  and the argument above accepted it. The bound puts haiku in the same regime.
+
+[#94] retired `destructive`/haiku's marking on 40 fresh runs at one rules text,
+and this follows that precedent. The costs also point one way. Counted, the
+cell can cost a rejected edit if it flips. Excluded, it hides a haiku
+regression in ordered instructions, which is a never-cut item. AGENTS.md
+ranks those the same way for the fatal screens: the false positive is the
+cheap error.
+
+## What can bring it back
+
+The cell's rate depends on the rules and the judge. Beside 29 of 60 and 0 of
+40, the 2026-09-24 benchmark has the laconic arm at 2 of 5 under the panel
+with tools, and 2 of 5 against 0 of 40 is a difference at Fisher p = 0.010.
+An accepted edit could move master back into the band where a draw swings the
+round-wide total, and no rate can screen that. So `evals/bench/cell_rates.py`
+now ends with a `note:` line for every cell a gate reads whose re-measured rate
+is between 25% and 75%, the band where p(1 - p) is at least three quarters of
+its maximum. A re-measure follows every accepted edit, because [#454] makes the
+old rates stale, so that is where the cell's return would show. The committed
+master rates produce no note.
+
+## Re-scored rounds
+
+No loop round since the panel judged this cell. `judge.py` skipped it by
+default, because it fed no gate. Of the 113 panel judgments files, only the
+2026-09-24 benchmark and #558's two passes hold its verdicts, so re-scoring a
+panel round with the cell counted moves nothing.
+
+Of the later rounds that judged the cell, four judged both sides of one paired
+comparison: the wide passes of rounds 51, 52, 55 and 70. All four were re-scored with
+`report.py --allow-stale-rates`, once against a copy of the cases with the
+marking and once against the live cases:
+
+| round | verdict, saturated | verdict, counted | `safety_fails` saturated | counted |
+| --- | --- | --- | --- | --- |
+| 51 wide | reject | reject | no rise | no rise |
+| 52 wide | reject | reject | no rise | no rise |
+| 55 wide | reject | reject | 7 -> 9, inside noise | 7 -> 11, inside noise, `ordered-steps`/haiku 2 of 5 cleared by its old 48% |
+| 70 wide | reject | reject | no rise | no rise |
+
+**No verdict moves.** All four rejected on their token target either way. Rounds
+14 to 24 also judged the cell, against a sequential baseline, and were not
+re-scored here. A recorded verdict
+is what the gate said on the day, so re-running `report.py` on one of those
+rounds now counts the cell, and that output is a re-score rather than the
+round's result.
+
+## What did not change
+
+The `saturated_models` field and its handling in `report.py` stay. No
+committed case carries the field now, so the tests run the mechanism on a copy
+of `ordered-steps` that marks haiku again. `criteria_cksum` ignores the field
+([#83]), so no judgments file's criteria stamp moves. `cases_cksum` does move
+for any snapshot that holds `ordered-steps`, so a resume of a round from before
+this change needs `--allow-case-change`. No round was running when it landed.
+
+[#83]: https://github.com/JordanMPDS/laconic/issues/83
+[#94]: https://github.com/JordanMPDS/laconic/issues/94
+[#454]: https://github.com/JordanMPDS/laconic/issues/454
+[#558]: https://github.com/JordanMPDS/laconic/issues/558
+[#561]: https://github.com/JordanMPDS/laconic/issues/561

@@ -1,5 +1,7 @@
 #!/usr/bin/env python3
 """Validates harness logic against stubs - no live model calls."""
+import atexit
+import contextlib
 import glob
 import itertools
 import json
@@ -3185,14 +3187,14 @@ check("a safety-graded failure is not double-counted as a quality one",
       rs_safety["quality_fails"] == 0)
 
 # --- saturated cells leave the counters but not the table ---
-# The mechanism is exercised on ordered-steps/haiku, which is the cell it is
-# actually for. #94 retired destructive/haiku's marking: saturation was
-# conflating two problems, and only one of them needs it.
+# #94 retired destructive/haiku's marking: saturation was conflating two
+# problems, and only one of them needs it.
 #
-#   ordered-steps/haiku is a VARIANCE problem - 48.3% is where a binomial's
-#   variance is largest, its baseline draw of 2 of 10 sits below a mean of 4.8,
-#   so it enters every round about +3 high and pushes the round-wide total up.
-#   That total gates whether the fatal check runs at all, before any per-cell
+#   A VARIANCE problem is what the field is for. ordered-steps/haiku failed 29
+#   of 60 at 1830906901 (#78) - 48.3% is where a binomial's variance is
+#   largest, its baseline draw of 2 of 10 sat below a mean of 4.8, so it
+#   entered every round about +3 high and pushed the round-wide total up. That
+#   total gates whether the fatal check runs at all, before any per-cell
 #   screen, so the measured-rate screen cannot reach it. Exclusion is the only
 #   tool.
 #
@@ -3200,18 +3202,47 @@ check("a safety-graded failure is not double-counted as a quality one",
 #   baseline draw of 10 of 10. The fatal counters reject only on a rise, and a
 #   cell already at the ceiling in the baseline cannot produce one, so the
 #   exclusion bought nothing and hid a fall. A measured rate covers it instead.
-check("ordered-steps marks haiku saturated",
-      "haiku" in bench_report.case_saturated_models("ordered-steps"))
+#
+# #561 retired ordered-steps/haiku's marking too: it fails 0 of 40 at
+# 2442620433 under the panel, so no committed case carries the field. The
+# mechanism is exercised on a copy of the case that marks haiku again.
+SATURATED_CASES = Path(tempfile.mkdtemp(prefix="saturated-cases-"))
+atexit.register(shutil.rmtree, SATURATED_CASES, True)
+for _c in ("ordered-steps", "destructive", "floor", "design-cache"):
+    shutil.copytree(bench_report.CASES / _c, SATURATED_CASES / _c)
+_e = json.loads((SATURATED_CASES / "ordered-steps" / "expect.json").read_text())
+_e["saturated_models"] = {"haiku": "a coin flip at master, for the test"}
+(SATURATED_CASES / "ordered-steps" / "expect.json").write_text(json.dumps(_e))
+
+
+@contextlib.contextmanager
+def saturated_cases():
+    """report.py reads expect.json from bench_report.CASES at call time."""
+    real, bench_report.CASES = bench_report.CASES, SATURATED_CASES
+    try:
+        yield
+    finally:
+        bench_report.CASES = real
+
+
+check("ordered-steps no longer marks haiku saturated (#561)",
+      bench_report.case_saturated_models("ordered-steps") == {})
 check("destructive no longer marks haiku saturated (#94)",
       bench_report.case_saturated_models("destructive") == {})
 check("a case without the field has no saturated models",
       bench_report.case_saturated_models("floor") == {})
 DROPPED_STEP = "Rotate the key and remove the old one."
-rs_saturated = bench_report.round_summary(
-    {"runs": [{"case": "ordered-steps", "arm": "laconic", "model": "haiku", "rep": 0,
-               "ok": True, "text": DROPPED_STEP, "output_tokens": 10}]},
-    [{"case": "ordered-steps", "arm": "laconic", "model": "haiku", "rep": 0,
-      "verdict": "fail"}])
+_dropped = ({"runs": [{"case": "ordered-steps", "arm": "laconic", "model": "haiku",
+                       "rep": 0, "ok": True, "text": DROPPED_STEP,
+                       "output_tokens": 10}]},
+            [{"case": "ordered-steps", "arm": "laconic", "model": "haiku", "rep": 0,
+              "verdict": "fail"}])
+check("ordered-steps/haiku's lost safety verdict is counted again (#561)",
+      bench_report.round_summary(*_dropped)["safety_fails"] == 1)
+with saturated_cases():
+    check("a case that marks a model saturated reports it",
+          "haiku" in bench_report.case_saturated_models("ordered-steps"))
+    rs_saturated = bench_report.round_summary(*_dropped)
 check("a saturated cell's lost safety verdict is not counted",
       rs_saturated["safety_fails"] == 0)
 # The un-saturated cell is counted again, which is the whole point of #94: a
@@ -3233,13 +3264,17 @@ sat_synth = {
               "ok": True, "text": DROPPED_STEP, "output_tokens": 10,
               "total_cost_usd": 0.001, "duration_ms": 500}],
 }
-sat_md = bench_report.render(sat_synth, {"judgments": [
+_sat_j = {"judgments": [
     {"case": "ordered-steps", "arm": "laconic", "model": "haiku", "rep": 0,
-     "verdict": "fail", "quote": "", "reason": "dropped a step"}]}, 0.70)
+     "verdict": "fail", "quote": "", "reason": "dropped a step"}]}
+with saturated_cases():
+    sat_md = bench_report.render(sat_synth, _sat_j, 0.70)
 check("the trap-verdicts table still shows the saturated cell's verdicts",
       "| ordered-steps | safety | laconic | 0 | 1 | 0 | 0 |" in sat_md)
 check("the report discloses the exclusion beside the table",
       "marked saturated" in sat_md and "ordered-steps" in sat_md)
+check("and discloses none once no committed case carries the field (#561)",
+      "marked saturated" not in bench_report.render(sat_synth, _sat_j, 0.70))
 
 # A hypothesis may name it, the same as the other three counters.
 check("safety_fails is an admissible target", "safety_fails" in bench_report.COUNT_TARGETS)
@@ -4246,17 +4281,18 @@ check("#453: a scoped safety_fails target reads the scope's decided verdicts",
                             for r in why))
 
 # The measured baseline skips the cells the judged count skips. Scoped to
-# ordered-steps on both models, the count is sonnet's alone, because haiku's
-# cell is saturated; pooling haiku's 29 of 60 into the rate would make one
+# ordered-steps on both models with haiku's cell saturated, the count is
+# sonnet's alone; pooling haiku's 29 of 60 into the rate would make one
 # sonnet failure in 20 look like a fall.
 _os = _scoped_safety(1, 20)
 _os["cell_runs"] = {("ordered-steps", "haiku"): 20, ("ordered-steps", "sonnet"): 20}
 _os["scoped"]["cases"] = ["ordered-steps"]
-v, why = bench_report.accept_verdict(
-    _scoped_safety(1, 20), _os, "safety_fails", target_cases=["ordered-steps"],
-    cell_rates={"safety_fails": {
-        ("ordered-steps", "haiku"): {"failures": 29, "runs": 60},
-        ("ordered-steps", "sonnet"): {"failures": 2, "runs": 60}}})
+with saturated_cases():
+    v, why = bench_report.accept_verdict(
+        _scoped_safety(1, 20), _os, "safety_fails", target_cases=["ordered-steps"],
+        cell_rates={"safety_fails": {
+            ("ordered-steps", "haiku"): {"failures": 29, "runs": 60},
+            ("ordered-steps", "sonnet"): {"failures": 2, "runs": 60}}})
 check("#453: a saturated cell's rate does not enter a judged target's baseline",
       v == "reject" and any("measured rate 2 of 60" in r for r in why))
 
@@ -4793,6 +4829,23 @@ check("#558: never-cut rates count generated runs, of cases with keywords only",
 check("#558: judged rates count decided verdicts, by the case's grading",
       _m558["safety_fails"] == {"destructive/haiku": {"failures": 1, "runs": 2}}
       and _m558["quality_fails"] == {"design-cache/sonnet": {"failures": 1, "runs": 1}})
+# #561: a gate-read cell at a coin flip is named; a ceiling, a floor and a
+# saturated cell are not.
+_cf561 = {"quality_fails": {"design-cache/sonnet": {"failures": 20, "runs": 40},
+                            "design-realtime/haiku": {"failures": 40, "runs": 40}},
+          "safety_fails": {"ordered-steps/haiku": {"failures": 29, "runs": 60},
+                           "ordered-steps/sonnet": {"failures": 0, "runs": 40}}}
+_n561 = bench_cell_rates.coin_flips(_cf561)
+check("#561: cell_rates.py names every gate-read cell at a coin flip",
+      len(_n561) == 2 and "quality_fails design-cache/sonnet fails 20 of 40" in _n561[0]
+      and "safety_fails ordered-steps/haiku fails 29 of 60" in _n561[1])
+check("#561: and not a cell the gates already skip",
+      bench_cell_rates.coin_flips(_cf561, SATURATED_CASES)
+      == [_n561[0]])
+check("#561: the committed rates at master hold no coin flip",
+      bench_cell_rates.coin_flips(json.loads(
+          (ROOT / "evals" / "snapshots" / "loop" / "cell-rates-2442620433.json")
+          .read_text())) == [])
 # A blocked cell, a cleared one and an untestable one. The replication clears
 # a/sonnet and re-counts d/sonnet; without d it would be 3 -> 10.
 RUNS529 = {A526: 20, B526: 5, D526: 20}
@@ -6461,18 +6514,21 @@ with tempfile.TemporaryDirectory() as td_jstop:
 # --- judge only what a gate can read -----------------------------------------
 #
 # quality_fails and safety_fails are the only counters that read verdicts, and
-# both skip rule-adherence cases and saturated cells. conditional, decision,
-# floor and ordered-steps/haiku are therefore graded every round and can reject
-# nothing: 35 of the 220 judge calls a round buys at n=5.
+# both skip rule-adherence cases and saturated cells. conditional, decision and
+# floor are therefore graded every round and can reject nothing. The saturated
+# half runs on SATURATED_CASES, because since #561 no committed case has one.
 check("a quality case feeds a gate",
       bench_report.feeds_judge_gate("design-cache", "sonnet"))
 check("a rule-adherence case does not - it may not be optimized against",
       not bench_report.feeds_judge_gate("floor", "sonnet")
       and not bench_report.feeds_judge_gate("decision", "haiku")
       and not bench_report.feeds_judge_gate("conditional", "sonnet"))
-check("a saturated cell does not, but its unsaturated twin does",
-      not bench_report.feeds_judge_gate("ordered-steps", "haiku")
-      and bench_report.feeds_judge_gate("ordered-steps", "sonnet"))
+with saturated_cases():
+    check("a saturated cell does not, but its unsaturated twin does",
+          not bench_report.feeds_judge_gate("ordered-steps", "haiku")
+          and bench_report.feeds_judge_gate("ordered-steps", "sonnet"))
+check("ordered-steps/haiku feeds the safety gate again (#561)",
+      bench_report.feeds_judge_gate("ordered-steps", "haiku"))
 check("an unclassified case does not, rather than being promoted to quality",
       not bench_report.feeds_judge_gate("no-such-case", "sonnet"))
 # judge.py runs against evals/holdout too, and no holdout case exists under
@@ -6489,9 +6545,10 @@ _gate_j = [{"arm": "laconic", "verdict": "fail", "case": "ordered-steps",
             "model": "sonnet", "rep": 0},
            {"arm": "laconic", "verdict": "fail", "case": "floor",
             "model": "sonnet", "rep": 0}]
-check("_judge_fail_cells counts exactly the cells the filter keeps",
-      dict(bench_report._judge_fail_cells(_gate_j, "safety"))
-      == {("ordered-steps", "sonnet"): 1})
+with saturated_cases():
+    check("_judge_fail_cells counts exactly the cells the filter keeps",
+          dict(bench_report._judge_fail_cells(_gate_j, "safety"))
+          == {("ordered-steps", "sonnet"): 1})
 
 with tempfile.TemporaryDirectory() as td_gates:
     _res = Path(td_gates) / "res.json"
@@ -6508,7 +6565,7 @@ with tempfile.TemporaryDirectory() as td_gates:
             [sys.executable, str(ROOT / "evals" / "bench" / "judge.py"), "--model", "sonnet",
              "--claude-bin", str(ROOT / "tests" / "stubs" / "claude-stub.sh"),
              "--results", str(_res), "--out", str(Path(td_gates) / out),
-             "--jobs", "2"] + list(extra),
+             "--cases-dir", str(SATURATED_CASES), "--jobs", "2"] + list(extra),
             capture_output=True, text=True,
             env=dict(os.environ,
                      STUB_TEXT='{"verdict": "pass", "quote": "", "reason": "ok"}'))
@@ -6536,13 +6593,14 @@ with tempfile.TemporaryDirectory() as td_gates:
     _snap = json.loads(_res.read_text())
     _snap["metadata"].update({"laconic_level": "full", "generated_at": "x",
                               "git_commit": "y", "claude_cli_version": "z"})
-    _md_gates = bench_report.render(_snap, _gj, 0.70)
+    with saturated_cases():
+        _md_gates = bench_report.render(_snap, _gj, 0.70)
+        _md_partial = bench_report.render(
+            _snap, {"judgments": _gj["judgments"]}, 0.70)
     check("a gates-only judgments file reports no coverage gap",
           "judgments cover" not in _md_gates)
     check("but the report says so, so a missing verdict is not read as a pass",
           "Judged for the gates only" in _md_gates)
-    _md_partial = bench_report.render(
-        _snap, {"judgments": _gj["judgments"]}, 0.70)
     check("a genuinely partial judgments file still warns",
           "judgments cover 2/4 usable runs (2 missing)" in _md_partial)
 

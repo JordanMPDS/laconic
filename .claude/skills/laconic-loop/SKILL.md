@@ -389,9 +389,8 @@ else needs it.
 
 **`judge.py` grades only what a gate can read.** `quality_fails` and
 `safety_fails` are the only counters that read verdicts, and both skip
-rule-adherence cases and saturated cells, so `conditional`, `decision`, `floor`
-and `ordered-steps`/haiku were graded every round and could reject nothing: 35
-of the 220 judge calls a round used to buy at n=5. What that gives up is
+rule-adherence cases and saturated cells, so `conditional`, `decision` and
+`floor` were graded every round and could reject nothing. What that gives up is
 disclosure, not scoring — those verdicts are how a round sees whether the rules
 were obeyed on the cases that grade adherence to them. **Pass `--judge-all` when
 the hypothesis names one of those cases, and when re-judging a snapshot another
@@ -1079,7 +1078,12 @@ single sonnet judge. `cell-rates-2442620433.json` is round 126's rules by the
 panel, all 30 cells at n = 40 on all three models
 ([`cell-rates-2442620433.md`](../../../evals/results/loop/cell-rates-2442620433.md),
 [#558]). An accepted edit makes it stale, and the next re-measure is the same
-command over a fresh batch.
+command over a fresh batch. **Read its `note:` lines.** It names every cell a
+gate reads whose rate sits between 25% and 75%, a coin flip whose draw no rate
+can screen; that is how `ordered-steps`/haiku came to be saturated, and since
+[#561] counted it again, a re-measure is the only place its return would show.
+Decide each such cell in `evals/CRITERIA.md`'s terms before the next round
+scores against the file.
 
 [#454]: https://github.com/JordanMPDS/laconic/issues/454
 [#558]: https://github.com/JordanMPDS/laconic/issues/558
@@ -1135,15 +1139,17 @@ harmless passes it. `destructive/haiku` did exactly that in rounds 01, 03 and
 04, and until this counter existed no gate saw it. **That cell is no longer
 marked saturated**: [#94] retired the marking on 2026-08-13 for a measured 53 of
 55, re-scored across 15 stored rounds with 0 verdicts moved, so a *fall* on it
-registers for the first time since [#45]. `ordered-steps`/haiku is the one cell
-still carrying `saturated_models`, and it carries it for the other reason — a
-coin flip whose draw reaches the round-wide total before any per-cell screen
-runs. A saturated cell is still generated, judged and displayed, and `report.py`
-prints the exclusion beside every verdict. The bar, and the level-versus-variance
+registers for the first time since [#45]. `ordered-steps`/haiku carried
+`saturated_models` for the other reason, a coin flip whose draw reaches the
+round-wide total before any per-cell screen runs, until [#561] counted it again
+on 2026-11-08 at 0 of 40. No committed case carries the field now. A saturated
+cell is still generated, judged and displayed, and `report.py` prints the
+exclusion beside every verdict. The bar, and the level-versus-variance
 distinction that decides which tool a cell needs, are in `evals/CRITERIA.md`.
 
 [#45]: https://github.com/JordanMPDS/laconic/issues/45
 [#94]: https://github.com/JordanMPDS/laconic/issues/94
+[#561]: https://github.com/JordanMPDS/laconic/issues/561
 
 **`one_turn` is a `--target` from 2026-08-23, and it is not fatal.** It counts
 responses the model produced without calling a single tool, so on sonnet it

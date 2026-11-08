@@ -31,9 +31,10 @@
 #      `git worktree remove --force` discards the edit. Under /tmp nothing is
 #      durable anyway: on this machine it is tmpfs, which a reboot empties.
 #   3. No process has its working directory inside it. This is the liveness
-#      check and it is exact: a round generating from a control worktree has a
-#      run.py cwd'd there for hours, and that round is the thing most expensive
-#      to destroy in this repository.
+#      check and it is exact where /proc is readable: a round generating from a
+#      control worktree has a run.py cwd'd there for hours, and that round is
+#      the thing most expensive to destroy in this repository. Where it is not,
+#      as on macOS, no cwd is visible and every tree is kept (#460).
 #   4. It holds no untracked files, the one thing a round leaves in a scratch
 #      tree that may exist nowhere else. Edited tracked files do not keep a
 #      tree: a round's arm worktrees carry their rules edit uncommitted, and
@@ -61,9 +62,15 @@ in_scratch_root() { # <path> -> 0 if its physical path is under the scratch root
 # process that died left no cwd, which is exactly the tree we want to reclaim.
 process_cwds() { readlink -f /proc/*/cwd 2>/dev/null; }
 
-tree_is_live() { # <absolute path> -> 0 if some process sits inside it
+tree_is_live() { # <absolute path> -> 0 if some process sits inside it, 1 if
+  #                none does, 2 if the probe saw no process at all
   local d=$1 cwds
   cwds=$(process_cwds)
+  # Where /proc is readable the list holds at least this script's own shell, so
+  # an empty one means the probe sees nothing, as on macOS, never that nothing
+  # is running. Read as idle, it would hand a live round's control worktree to
+  # `git worktree remove --force` (#460).
+  [ -n "$cwds" ] || return 2
   printf '%s\n' "$cwds" | grep -qxF -- "$d" && return 0
   printf '%s\n' "$cwds" | grep -qF -- "$d/" && return 0
   return 1
@@ -83,10 +90,12 @@ reclaimable() { # <path> -> 0 if safe to remove; prints the reason when not
     echo "  kept $d — it is outside the scratch root ${scratch_root:-(none)}"
     return 1
   fi
-  if tree_is_live "$d"; then
-    echo "  kept $d — a process is working inside it"
-    return 1
-  fi
+  tree_is_live "$d"
+  case $? in
+    0) echo "  kept $d — a process is working inside it"; return 1 ;;
+    2) echo "  kept $d — no process working directory is visible here, so a live tree cannot be told from a spent one"
+       return 1 ;;
+  esac
   if [ -n "$(git -C "$d" ls-files --others --exclude-standard 2>/dev/null)" ]; then
     echo "  kept $d — it holds untracked files, which may exist nowhere else"
     return 1
@@ -180,6 +189,27 @@ if [ "${1:-}" = "--selftest" ]; then
   checkst "a scratch root of / matches nothing" 1 "$st"
   scratch_root=$s
   rm "$s/link"
+
+  # The real probe, before anything replaces it. The subshell cd'd into the
+  # fixture is itself the live process, so no `sleep` is needed. Where this
+  # shell can read its own cwd from /proc the probe must see it, which is what
+  # catches a broken probe line; elsewhere, as on macOS, it must say it cannot
+  # tell (#460).
+  ( cd "$s/live" && tree_is_live "$s/live" ); st=$?
+  if readlink /proc/self/cwd >/dev/null 2>&1; then want=0; else want=2; fi
+  checkst "the real probe sees a shell inside the tree, or says it cannot tell" \
+    "$want" "$st"
+  out=$( (cd "$s/live" && reclaimable "$s/live" && echo YES) 2>&1 )
+  checkno "so the real probe never reclaims a tree a shell is in" 'YES' "$out"
+
+  # An empty cwd list is a probe that sees nothing, never a host with nothing
+  # running: where /proc is readable the list holds this script's own shell.
+  process_cwds() { :; }
+  tree_is_live "$s/spent" && st=0 || st=$?
+  checkst "an empty cwd list cannot tell, rather than reading idle" 2 "$st"
+  out=$( (reclaimable "$s/spent" && echo YES) 2>&1 )
+  check "so the tree is kept, saying why" 'cannot be told from a spent one' "$out"
+  checkno "and it is not reclaimed" 'YES' "$out"
 
   # The liveness check, driven directly. `sleep` in a selftest is a flake
   # waiting to happen, so the source of cwds is a function the test replaces.

@@ -177,7 +177,14 @@ one that catches stale generated files, and it is the easiest to skip by acciden
   inside it, it holds no untracked file, and its HEAD has already landed on
   `origin/master`; it prints why it kept each of the others, and `--dry-run`
   says what would go. Remove your own worktree when a round is scored rather
-  than waiting for it.
+  than waiting for it. The same script sweeps the CLI sessions every
+  generation and judgment leaves behind (#444), which by 2026-10-26 were 4.9 GB
+  of claude transcripts and 2.1 GB of kimi sessions that nothing reads: a
+  `projects/-tmp-tmp????????` directory under `${CLAUDE_CONFIG_DIR:-~/.claude}`
+  once nothing in it has changed for a day, and a kimi session whose indexed
+  `/tmp/tmp????????` workDir is gone, deleted the way kimi deletes one (the
+  directory, then a `deleted` record appended to `session_index.jsonl`). Only
+  the names `tempfile.mkdtemp()` makes under `/tmp` are touched.
 
 - **A benchmark round reads the working tree for hours, so editing `rules/laconic.md`
   or anything under `evals/cases/` while one is running corrupts it.** Both are

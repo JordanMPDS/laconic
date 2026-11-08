@@ -404,7 +404,8 @@ while :; do
     # machine and this supervisor was killed for low memory with no generation
     # shard running. A killed round runs no trap, so the reclaim has to belong
     # to the next iteration rather than the last one. It keeps any worktree a
-    # process is still working inside.
+    # process is still working inside. It also sweeps the spent claude and kimi
+    # sessions the benchmark's calls leave behind (#444).
     bash tools/reclaim-scratch.sh
   fi
 

@@ -155,6 +155,11 @@ check("an arrow inside a quoted flow counts",
 numeric_progression = metrics.score("The queue climbed (7 -> 11 -> 14) over the hour.")
 check("numeric progression arrows score 0 symbol connectors",
       numeric_progression["symbol_connectors"] == 0)
+# The exemption needs a digit immediately on each side of the arrow (#473). A
+# unit between them is not trimmed, so "5% -> 7%" is an arrow showing one
+# value becoming another, which the rule forbids, and it counts.
+check("an arrow between a unit and a number still counts (#473)",
+      metrics.score("Latency went 5% -> 7% over the hour.")["symbol_connectors"] == 1)
 running_prose_arrow = metrics.score("Deploy failed -> restart.")
 check("genuine running-prose arrow still scores 1",
       running_prose_arrow["symbol_connectors"] == 1)
@@ -386,6 +391,13 @@ check("closing_offers finds a would-you-like-to offer",
 check("closing_offers still ignores a question asking for information",
       metrics.closing_offers(
           "What is your current token lifetime and infrastructure setup?") == [])
+# Code is not prose here either (#473): a closer inside a fenced block is
+# quoted material, such as a log line or a template, while the same words in
+# the prose after it are still an offer.
+check("closing_offers ignores a closer inside a fenced block (#473)",
+      metrics.closing_offers("```\nLet me know if this persists.\n```\nDone.") == [])
+check("closing_offers still finds a closer after a fenced block (#473)",
+      metrics.closing_offers("```\nmake test\n```\nLet me know if it fails.") != [])
 
 # The third pass (round 117): the shapes the first two samples could not hold.
 check("closing_offers finds say-the-word without just",

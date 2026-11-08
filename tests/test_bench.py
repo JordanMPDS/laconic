@@ -2457,19 +2457,42 @@ for _line in _rules_lines:
         continue
     _rank_of_line.append(_r)
 
+def _anchor_rank(anchor):
+    hits = [_rank_of_line[i] for i, _line in enumerate(_rules_lines)
+            if anchor in _line]
+    return hits[0] if len(hits) == 1 else None
+
+
 _derived = {}
 for _name, _anchor in sorted(bench_metrics.POLICY_RULE.items()):
-    _hits = [_rank_of_line[i] for i, _line in enumerate(_rules_lines)
-             if _anchor in _line]
+    _rank = _anchor_rank(_anchor)
     check("%s's rule is found exactly once in rules/laconic.md" % _name,
-          len(_hits) == 1)
-    if len(_hits) == 1:
-        _derived[_name] = _hits[0]
+          _rank is not None)
+    if _rank is not None:
+        _derived[_name] = _rank
 
 check("every detector names the rule it implements",
       set(bench_metrics.POLICY_RULE) == set(bench_metrics.POLICY_RANK))
 check("every detector's rank is the block its rule is actually in",
       _derived == bench_metrics.POLICY_RANK)
+
+# A detector that implements a second rule names it too, and that rule has to
+# sit in the same block (#473). Equality, not the higher of the two ranks: a
+# detector ranked at its higher rule would stop firing at the lower level,
+# where the other rule is already in force. Two rules in two blocks need two
+# detectors.
+check("every extra anchor belongs to a ranked detector",
+      set(bench_metrics.POLICY_RULE_ALSO) <= set(bench_metrics.POLICY_RANK))
+for _name, _anchors in sorted(bench_metrics.POLICY_RULE_ALSO.items()):
+    for _anchor in _anchors:
+        check("%s's extra rule %r is found once, in the block of its rank"
+              % (_name, _anchor),
+              _anchor_rank(_anchor) == bench_metrics.POLICY_RANK[_name])
+
+# The witness the extra anchor exists for: the preamble detector fires on a
+# pleasantry, which the preamble line itself does not forbid.
+check("preamble fires on a bare pleasantry, the rule POLICY_RULE_ALSO names",
+      bench_metrics.preamble("Sure! The limit is 512Mi.") is not None)
 
 # The sweep over archived responses. It cannot fail while every detector is a
 # pure function of text - which is the point, and why tests/test_metrics.py

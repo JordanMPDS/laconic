@@ -6,8 +6,11 @@ and never touches this module. Readability is measured with the heuristics
 below, which are validated by tests/test_metrics.py - they are proxies for
 degraded grammar, not a parser.
 
-Every detector runs on code-stripped prose: `->` in Rust and `impl` in a
-command are correct usage, and counting them would make the metric worthless.
+The readability detectors and closing_offers run on code-stripped prose:
+`->` in Rust and `impl` in a command are correct usage, and counting them
+would make the metric worthless. Two read more than that by design: preamble
+reads the opening with backticked spans blanked, and never_cut_missing reads
+the whole text, because a command the answer must keep is code.
 """
 import math
 import random
@@ -177,9 +180,10 @@ def _lowercase_starts(sentences_src):
 
 
 def _is_numeric_progression(line, start, end):
-    """True when the arrow at line[start:end] has a digit on both sides once
-    surrounding whitespace/punctuation is trimmed, e.g. '7 -> 11'. That is a
-    quoted progression, not a conjunction standing in for a word."""
+    """True when the arrow at line[start:end] has a digit immediately on each
+    side once whitespace is trimmed, e.g. '7 -> 11'. That is a quoted
+    progression, not a conjunction standing in for a word. Nothing else is
+    trimmed, so '5% -> 7%' counts (#473): the exemption is for bare numbers."""
     before = line[:start].rstrip()
     after = line[end:].lstrip()
     return bool(before) and before[-1].isdigit() and bool(after) and after[0].isdigit()
@@ -550,9 +554,16 @@ def closing_offers(text):
     the confirmation in words the carve-out does not reach, 43 of them with a
     named object ("run the full reset").
 
+    A fifth pass [#473] matches on code-stripped prose, as the module
+    docstring says every readability detector does, so a closer quoted inside
+    a fenced block is not an offer. Over 91,078 distinct stored texts none
+    loses a hit and two gain one, both genuine offers ("I can draft a revised
+    `schema.sql` / DDL if you") whose inline code had pushed `if you` past the
+    40-character window.
+
     Returns the matched strings, so a caller can count them or show them.
     """
-    return [m.group(0) for m in CLOSING_OFFER.finditer(text)]
+    return [m.group(0) for m in CLOSING_OFFER.finditer(split_text(text)[0])]
 
 
 _BACKTICKED = re.compile(r"`[^`]*`")
@@ -698,6 +709,16 @@ POLICY_RULE = {
     "never_cut_missing": "## Never cut (every level, including ultra)",
     "closing_offers": "No closing offers and no offers to do more work",
     "preamble": "No preamble. Do not restate the question",
+}
+
+# A second rule a detector implements, anchored the same way. POLICY_RULE stays
+# one line per detector because stop_hook.py and transcripts.py quote it
+# verbatim; this holds the rest. tests/test_bench.py requires each line here to
+# sit in the same block as the detector's rank, so a detector cannot straddle
+# two levels (#473).
+POLICY_RULE_ALSO = {
+    # The `sure|great question|...` branch of PREAMBLE.
+    "preamble": ("No pleasantries or performative agreement",),
 }
 
 # Keys score() returns that are measurements, not findings against a rule. They

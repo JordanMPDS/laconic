@@ -91,7 +91,8 @@ nothing at all, including this.
 
 Wiring it into `settings.json` is the one step that cannot be automated, because
 Claude Code reads `statusLine` from your settings and a plugin cannot register
-one. `claude plugin validate` rejects the field outright:
+one. `claude plugin validate` warns that Claude Code ignores the field, and
+fails on it under `--strict`:
 
 ```
 ❯ statusLine: Unknown field 'statusLine'. Claude Code ignores it at load time.

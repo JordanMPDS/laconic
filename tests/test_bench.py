@@ -5100,7 +5100,7 @@ check("a snapshot written before per-run stamps falls back to metadata",
       ("2026-08-06T19:24:03Z", "2.1.223 (Claude Code)"))
 check("the report header prints the run-derived provenance, not metadata's",
       "2026-08-09T01:00:00Z to 2026-08-10T04:00:00Z" in
-      bench_report.render(_prov, {"judgments": []}, bench_report.NOISE))
+      bench_report.render(_prov, {"judgments": []}, 0.70))
 
 # --- #83: judge.py carries the carried arms' verdicts instead of buying them
 # again. Round 14 spent $25.05 of its $41.37 judging bill re-grading 510

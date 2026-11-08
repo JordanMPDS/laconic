@@ -602,3 +602,69 @@ edit came within 0.018 of a readability loss made entirely of the fixture's
 own names.
 
 [#406]: https://github.com/JordanMPDS/laconic/issues/406
+
+## A question in parentheses, a fixture's field and a formula
+
+[#472]: after #396, #403 and #404, `sentence_initial_lowercase` still found
+117 spans on graded text over the committed snapshots, 62,394 distinct
+responses, and 115 of them were on a laconic-family arm. It found 1,025 more
+on the 32,959 stored turn texts. Three classes made up nearly all of both:
+
+- **The tail of a question in parentheses: 32.** `SENTENCE_SPLIT` cuts at a
+  question mark whether or not a parenthesis is open, so "the stack (Postgres?
+  something else?) and how many SKUs?" left "something else?) and how many
+  SKUs?" to open a sentence. That is the fork question `full` asks for. A
+  sentence that closes a parenthesis before it opens one is now skipped.
+- **The `conditional` fixture's field: 71.** "idle stays at 0 while waiting
+  climbs steadily" names two fields of `pool.log`'s `idle=0 waiting=7`. A bare
+  field is the bare `pool.max` that `DOTTED_IDENTIFIER` already lets open a
+  sentence, without the dot, so `idle` joins `nginx` in `LOWERCASE_NAMES`.
+  Baseline backticks it 66 times and capitalises it 4, so backticks may read
+  better; the rule this detector implements is about dropped capitals, and
+  capitalising a field rewrites its name.
+- **Display formulas: 971 on turn texts, none on graded text.** The `*-metric`
+  cases' power calculations open paragraphs with "n = (z_α/2 + z_β)² × ...",
+  "δ² = 0.00000961" or "n per arm ≈ ...", and gloss them with "where p̄ =
+  ...". A variable of one letter, Latin or Greek, with its subscripts and
+  marks, is now a name, and a formula paragraph that ends without a full stop
+  does not end its sentence, as a fenced block does not. `a` and `i` are not
+  variables, and a hyphen after the letter keeps "e-mail" counted. Graded text
+  is the last turn and carries no formula, but `stop_hook.py` and
+  `transcripts.py` score every turn, so the Stop hook arm blocked on these.
+
+Graded findings fall from 117 to 14 and turn findings from 1,025 to 54. None
+are added. I read all 103 removed graded spans, and none is a dropped capital.
+On turns, one removal is: "wait — let me state it correctly:" after an
+unfinished formula in `round-70-rep-edit-10.json`, which the formula rule now
+hides. What remains on graded text is mostly genuine ("then connections
+accumulate.", "and only then transition the state"), plus two code lines
+outside a fence and `z-test`, which the hyphen keeps. On turns, 40 of the 54
+open with the package names `node-postgres`, `pg` and `pg-pool` on
+`drift-service` and `edit-service`, which is the next class of this kind.
+
+`docs/benchmark.md` is not re-scored. Its readability table describes the
+detector of 2026-09-24 and already predates #396; this fix moves one
+terse-control finding in it.
+
+Re-scored on the pair each round's document names, for every round that lost a
+finding and read readability:
+
+| round | what moves | verdict |
+| --- | --- | --- |
+| [28](round-28.md) | stage 3's readability 27 to 42 at p = 0.063 becomes 26 to 41 at p = 0.061, still inside the noise | **accept, as recorded** |
+| [22](round-22.md) | 58 to 69 at p = 0.253 becomes 56 to 69 at p = 0.214; at n = 10, 119 to 124 becomes 117 to 123 | unchanged |
+| [31](round-31.md) | round-wide 59 to 61 becomes 58 to 61; the scoped `walkthrough` target does not move | unchanged |
+| [71](round-71.md) | the holdout's 11 to 18 at p = 0.263, cited as agreeing, becomes 10 to 18 at p = 0.226 | unchanged |
+
+The rest move by at most two findings a side and stay falls: rounds 08, 09,
+12, 15 and 20 against their own baselines, round 24 against round 21, and the
+gated pairs of rounds 26, 51, 52, 56 and 85. Round 55's round-wide rise, 23
+to 26, becomes 23 to 25 at p = 0.453. Rounds 50, 53, 58, 59, 63,
+65, 66, 76, 77, 78 and 79 lose findings too, but by their own documents none
+read readability: each used a scoped scorer or stopped before the round-wide
+step. That list is longer than the earlier notes' (53, 57, 63, 77, 78, 102),
+which named only the rounds that compared arms inside one snapshot. Round 65's
+two arms would have read 0 to 7 at p = 0.001, and round 52's step 1 0 to 3 at
+p = 0.046, every finding `idle`.
+
+[#472]: https://github.com/JordanMPDS/laconic/issues/472

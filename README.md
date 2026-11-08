@@ -145,7 +145,8 @@ Every level, including `ultra`:
 ```
 
 The flag file keeps `off`, and both hooks — `SessionStart` and
-`UserPromptSubmit` — emit nothing until you set a level again.
+`UserPromptSubmit` — emit nothing until you set a level again. A
+`LACONIC_DEFAULT` you set does not bring it back.
 
 `/laconic status` reports the active level and which flag file it came from,
 and `/laconic-help` prints a reference card for the levels and commands.
@@ -217,10 +218,12 @@ Destinations per agent, and what a static file gives up against the hook, are in
 call it directly: Codex, and the manual Gemini, Cursor and Kimi Code wiring in
 [`docs/other-agents.md`](docs/other-agents.md).
 
-Both implementations share one flag file, so a machine used from both WSL and
-native Windows keeps a single level. CI runs the bash suites on `ubuntu-latest`
-and `macos-latest` and the PowerShell suite on `windows-latest`, including a check that each
-implementation reads a flag the other wrote.
+On Windows, Git Bash and PowerShell both resolve `C:\Users\<user>\.claude` by
+default, so the two implementations share one flag file and keep a single level.
+WSL has its own home directory, so an install there keeps its own level. CI runs
+the bash suites on `ubuntu-latest` and `macos-latest` and the PowerShell suite on
+`windows-latest`, including a check that each implementation reads a flag the
+other wrote.
 
 ## Benchmark
 

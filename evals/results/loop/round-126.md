@@ -230,6 +230,143 @@ stop #500. I give the estimate moving against the direction little weight.
 
 <!-- Nothing below this line was computed at the registration commit. -->
 
+### Stage 1: the precheck fires on every answer
+
+30 runs, 0 failed, all CLI 2.1.319, `rules_cksum` 3709657771 (master),
+generated from the control worktree at `9a4dc48`.
+
+| cell | median prose words | range | median list items | median relayed | min relayed |
+|---|--:|--:|--:|--:|--:|
+| `relay-rollout`/opus | 646 | 581 to 715 | 20.5 | 19.0 of 20 | 8 |
+| `relay-migration`/opus | 466 | 403 to 493 | 10.0 | 11.0 of 18 | 9 |
+| `relay-retention`/opus | 440 | 346 to 521 | 9.0 | 19.5 of 20 | 17 |
+
+Condition 1: **30 of 30** answers run 300 prose words or more. Condition 2:
+**30 of 30** carry 2 or more planted identifiers, and the fewest any answer
+carries is 8. Both clear the bar of 15 at the widest margin the bar allows.
+`relay-rollout` reproduces [#500] at its own size: a median 646 words against
+#500's 620, against a 163-word reference answer that carries the caveat. Its
+rep 0 walks the spec under a heading per stage and names the sidecar, the
+Kafka topic, both tables and the nightly job before the first pass
+criterion. Stage 2 was bought.
+
+### Stage 2, first sample
+
+Control from `laconic-r126-control` (`9a4dc48`, `rules_cksum` 3709657771),
+edit from `laconic-r126-edit` (`35bcf95`, `rules_cksum` 2442620433), four
+shards at once, 130 runs a side, 0 failed, all CLI 2.1.319. `release.py`:
+no unreadable span, no arm imbalanced across a release.
+
+**Primary: passes.** Mean log ratio −0.096 (factor 0.909), one-sided
+**p = 0.00001**.
+
+| cell | control prose words | edit prose words | control relayed | edit relayed |
+|---|--:|--:|--:|--:|
+| `relay-rollout`/opus | 610 | 546 | 19.0 | 12.0 |
+| `relay-migration`/opus | 468 | 422 | 13.0 | 10.5 |
+| `relay-retention`/opus | 412 | 384 | 19.0 | 17.0 |
+
+Medians over 20 runs a cell. The edit moved the cut the registration aimed
+it at, planted identifiers before anything else, but by about a tenth of the
+answer: every edit cell is still more than twice the 163-word reference.
+
+Disclosed, deciding nothing, medians over 10 runs:
+
+| cell | control prose | edit prose | control items | edit items |
+|---|--:|--:|--:|--:|
+| `relay-rollout`/sonnet | 490 | 516 | 13.0 | 18.0 |
+| `relay-migration`/sonnet | 410 | 394 | 11.0 | 11.0 |
+| `relay-retention`/sonnet | 338 | 308 | 11.0 | 12.0 |
+| `explain-index`/opus | 101 | 101 | 2.0 | 2.0 |
+| `explain-metric`/opus | 72 | 72 | 0.0 | 0.0 |
+| `explain-rollback`/opus | 136 | 139 | 0.0 | 0.0 |
+| `walkthrough`/opus | 491 | 464 | 10.5 | 8.0 |
+
+**Bounds: all hold.** Every one of the 260 verdicts passes, 130 a side, so
+each of the ten cells reads one-sided p = 1.0. The panel decided all 260
+with no split, and every member agreed with the majority on every run. At a
+100% control rate a bound can register a fall and nothing else; what it says
+here is that the shortened answers kept both parts and the caveat on every
+run, on both models.
+
+### Replication
+
+A fresh 130 runs a side from the same two trees, reps 20 to 39 on the
+target cells and 10 to 19 on the bounds, 0 failed, all CLI 2.1.319.
+`release.py`: no unreadable span, no arm imbalanced.
+
+**Primary: passes, by less.** Mean log ratio −0.057 (factor 0.945),
+one-sided **p = 0.00174**.
+
+| cell | control prose words | edit prose words | control relayed | edit relayed |
+|---|--:|--:|--:|--:|
+| `relay-rollout`/opus | 608 | 557 | 18.0 | 14.0 |
+| `relay-migration`/opus | 480 | 460 | 13.0 | 13.0 |
+| `relay-retention`/opus | 407 | 392 | 18.0 | 18.0 |
+
+All three cells fall again, and the controls reproduce the first sample's
+within 12 words a cell. The relayed-identifier fall does not replicate
+outside `relay-rollout`.
+
+**Bounds: all hold again.** Every one of the 260 verdicts passes, so each
+cell reads one-sided p = 1.0, and the panel decided all 130 records a side
+with no split. The judging pass that began this sample stopped with 107 and
+106 records written and was resumed by key from the same command; the 32
+and 33 judgments the resume made also all pass.
+
+Disclosed, deciding nothing, medians over 10 runs:
+
+| cell | control prose | edit prose | control items | edit items |
+|---|--:|--:|--:|--:|
+| `relay-rollout`/sonnet | 482 | 506 | 15.0 | 18.0 |
+| `relay-migration`/sonnet | 392 | 394 | 11.0 | 11.0 |
+| `relay-retention`/sonnet | 326 | 332 | 10.5 | 11.0 |
+| `explain-index`/opus | 114 | 97 | 2.0 | 2.0 |
+| `explain-metric`/opus | 76 | 80 | 0.0 | 0.0 |
+| `explain-rollback`/opus | 145 | 135 | 0.0 | 0.0 |
+| `walkthrough`/opus | 506 | 508 | 13.0 | 10.0 |
+
+### Holdout
+
+All six reserved cases, sonnet and opus, 5 reps, from both trees at once:
+60 runs a side, 0 failed, CLI 2.1.319, `cases_cksum` 374866881 on both.
+The panel decided all 60 records a side with no split. Every case passed
+10 of 10 on both sides, so no reserved case is worse under the edit.
+
+### Disclosed, deciding nothing
+
+- **The edit is small and does not fix #500.** It moves opus by a factor
+  of 0.909 and then 0.945, and every edit cell in both samples still runs
+  more than twice the 163-word reference answer: `relay-rollout` 546 and
+  557 against #500's 620. What it cuts first is the planted identifiers on
+  `relay-rollout` (19 to 12, then 18 to 14), and that is the only cell
+  where the cut replicates.
+- **Sonnet does not move.** Its three `relay-*` cells read 490 to 516, 410
+  to 394 and 338 to 308 in the first sample and 482 to 506, 392 to 394 and
+  326 to 332 in the replication, with no consistent direction. The
+  question-scoped bounds, `explain-*`/opus, and the fixed-scope bound,
+  `walkthrough`/opus, do not move either.
+- **Panel.** `panel_agreement.py` decided every record in all six judged
+  files, with no three-way splits. Every member that voted agreed with the
+  majority on every record of both samples. On the holdout one vote a side
+  was outvoted: sonnet's on one control record, and on the edit side
+  sonnet's on one record and kimi's on another. The replication control has
+  two records without an opus vote and two without a kimi vote, and the
+  replication edit one record without each member's vote; the two members
+  who voted decided those.
+- **Release audit.** `release.py` is clean on all three pairs, and every
+  run in the round, the precheck included, is CLI 2.1.319.
+- **Cost.** $58.58 of generation across the 670 runs (precheck $3.72, the
+  two samples $24.24 and $23.69, the holdout $6.93), and the panel's
+  judging on top.
+
+## Result: accepted
+
+The primary passed twice (p = 0.00001, then 0.00174), every fatal bound
+held on both samples, and the holdout held. The edit ships at every level.
+[#500] stays open: the answers it reports are shorter under the edit and
+still relay most of their source.
+
 [#298]: https://github.com/JordanMPDS/laconic/issues/298
 [#411]: https://github.com/JordanMPDS/laconic/issues/411
 [#500]: https://github.com/JordanMPDS/laconic/issues/500

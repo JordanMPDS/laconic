@@ -171,8 +171,15 @@ fi
 # edit in 10 against `conditional`'s 39 of 80. Both traps graded 10/10 in
 # both arms, so it was saturated as well as inert. Snapshots kept. See
 # evals/results/loop/volunteered-work-cases.md.
+#
+# 43 since 2026-11-08: the six reserved cases, retired from evals/holdout at
+# the first refresh (#566) after deciding seventeen rounds each against a
+# budget of ten. Each keeps its prompt, fixture and trap; staging-reset drops
+# "DROP SCHEMA" from its never_cut list, which correct answers paraphrase. The
+# names stay out of every family glob, so `design-*` and `verdict-*` still
+# select the scopes the loop measured.
 count=$(ls -d "$ROOT"/evals/cases/*/ 2>/dev/null | wc -l | tr -d ' ')
-if [ "$count" = "37" ]; then ok "37 cases present"; else fail "37 cases present (found $count)"; fi
+if [ "$count" = "43" ]; then ok "43 cases present"; else fail "43 cases present (found $count)"; fi
 
 design=$(ls -d "$ROOT"/evals/cases/design-*/ 2>/dev/null | wc -l | tr -d ' ')
 if [ "$design" -ge 5 ]; then
@@ -250,6 +257,12 @@ done
 # before being admitted; every other candidate for the multi-turn families was
 # rejected by the same sweep. See evals/results/never-cut-coverage.md. Changing
 # this list means doing that measurement, not editing the line below.
+#
+# git-switch, rotation-runbook and staging-reset joined on 2026-11-08 with the
+# lists they carried as holdout cases, measured against their 450 archived
+# laconic responses each; the same sweep removed "DROP SCHEMA", present in
+# only 61% because correct answers write "drops the public schema". See the
+# 2026-11-08 section of never-cut-coverage.md.
 covered=$(python3 - "$ROOT" <<'PY'
 import json
 from pathlib import Path
@@ -260,9 +273,9 @@ names = sorted(d.name for d in root.iterdir()
 print(" ".join(names))
 PY
 )
-expected="badnews code-fidelity conditional confirm-index deep-index destructive recall-index walkthrough wide-index"
+expected="badnews code-fidelity conditional confirm-index deep-index destructive git-switch recall-index rotation-runbook staging-reset walkthrough wide-index"
 if [ "$covered" = "$expected" ]; then
-  ok "9 of 37 cases carry never_cut keywords, and they are the measured set"
+  ok "12 of 43 cases carry never_cut keywords, and they are the measured set"
 else
   fail "never_cut coverage changed: expected [$expected], found [$covered]"
 fi
@@ -374,6 +387,32 @@ if [ "$hsafety" -ge 2 ]; then
 else
   fail "holdout covers at least 2 never-cut cases (found $hsafety)"
 fi
+
+# A reserved case may carry its own holdout_budget, which staggers a
+# generation so the next refresh replaces three cases rather than six (#566).
+# report.py falls back to HOLDOUT_BUDGET on a malformed value, so this is what
+# keeps a typo from silently restoring the default; and a budget above the
+# default would let one case outlast the cap the skill sets for all of them.
+budget_report=$(python3 - "$ROOT" <<'PY'
+import json, sys
+from pathlib import Path
+root = Path(sys.argv[1])
+sys.path.insert(0, str(root / "evals" / "bench"))
+import report
+for e in sorted((root / "evals" / "holdout").glob("*/expect.json")):
+    d = json.loads(e.read_text())
+    if "holdout_budget" not in d:
+        continue
+    b = d["holdout_budget"]
+    good = (isinstance(b, int) and not isinstance(b, bool)
+            and 1 <= b <= report.HOLDOUT_BUDGET)
+    print(("ok   " if good else "FAIL ")
+          + "holdout case %s's holdout_budget is a whole number from 1 to %d (%r)"
+          % (e.parent.name, report.HOLDOUT_BUDGET, b))
+PY
+)
+printf '%s\n' "$budget_report"
+fails=$((fails + $(printf '%s\n' "$budget_report" | grep -c '^FAIL ')))
 
 # The scored session families hold their copies of a fixture as plain files,
 # not symlinks, so nothing but this keeps them identical (#470). `confirm-*`,

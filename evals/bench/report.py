@@ -787,6 +787,22 @@ def _count_attempts():
 # Rounds a reserved case may decide before it retires, by step 9's refresh
 # rule (#466). An exposure cap chosen from cost, not derived: see the skill.
 HOLDOUT_BUDGET = 10
+HOLDOUT = ROOT / "evals" / "holdout"
+
+
+def _holdout_budget(case, holdout=None):
+    """A reserved case's own budget: its expect.json's holdout_budget when that
+    is a positive integer, else HOLDOUT_BUDGET.
+
+    A smaller one staggers a generation (#566). Six cases authored together
+    share blind spots and would all wear out on the same round, so half of the
+    second generation retires at five, and every refresh after it replaces
+    three cases rather than six. tests/test_evals_layout.sh refuses a malformed
+    value, so falling back here never hides one.
+    """
+    b = _expect(case, holdout or HOLDOUT).get("holdout_budget")
+    ok = isinstance(b, int) and not isinstance(b, bool) and b > 0
+    return b if ok else HOLDOUT_BUDGET
 
 
 def _holdout_consultations(snapdir=None, holdout=None):
@@ -799,7 +815,7 @@ def _holdout_consultations(snapdir=None, holdout=None):
     count.
     """
     snapdir = Path(snapdir) if snapdir else ROOT / "evals" / "snapshots" / "loop"
-    holdout = Path(holdout) if holdout else ROOT / "evals" / "holdout"
+    holdout = Path(holdout) if holdout else HOLDOUT
     if not holdout.is_dir():
         return None
     out = {d.name: set() for d in holdout.iterdir()
@@ -818,22 +834,26 @@ def _holdout_consultations(snapdir=None, holdout=None):
     return {c: sorted(v) for c, v in out.items()} or None
 
 
-def _holdout_line(consulted, budget=HOLDOUT_BUDGET):
+def _holdout_line(consulted, budget=None, holdout=None):
     """The holdout's wear, beside the campaign line that prices the dev set's.
 
     The set the loop calls fatal had decided fifteen rounds before anything
     counted it (#466). A pass on a case past its budget is weak evidence, so
-    the line says when a holdout pass would rest on worn cases.
+    the line says when a holdout pass would rest on worn cases. Each case is
+    held to its own budget (#566) unless `budget` overrides them all.
     """
     if not consulted:
         return None
-    counts = ", ".join("%s %d" % (c, len(r)) for c, r in sorted(consulted.items()))
-    worn = [c for c, r in consulted.items() if len(r) > budget]
+    cap = {c: budget if budget is not None else _holdout_budget(c, holdout)
+           for c in consulted}
+    counts = ", ".join("%s %d of %d" % (c, len(r), cap[c])
+                       for c, r in sorted(consulted.items()))
+    worn = [c for c, r in consulted.items() if len(r) > cap[c]]
     tail = ("none past it" if not worn else
             "%d of %d past it, so a holdout pass rests on worn cases and step "
             "9's refresh is owed" % (len(worn), len(consulted)))
-    return ("holdout: rounds consulted per reserved case, against a budget of "
-            "%d: %s; %s (#466)" % (budget, counts, tail))
+    return ("holdout: rounds consulted per reserved case, against its budget: "
+            "%s; %s (#466)" % (counts, tail))
 
 
 def _count_p(prev_count, cur_count, prev_runs, cur_runs):

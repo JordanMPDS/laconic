@@ -32,7 +32,7 @@ powershell -NoProfile -ExecutionPolicy Bypass -File tests\test_laconic.ps1
 ./evals/run.sh full
 ```
 
-Runs every case in `evals/cases/` — thirty-seven as of 2026-09-16 — with and
+Runs every case in `evals/cases/` — forty-three as of 2026-11-08 — with and
 without the rules, writing paired output under `evals/scratch/<level>/<case>.md`
 to read side by side. Grading criteria and the trap each case checks for are in
 [`evals/CRITERIA.md`](../evals/CRITERIA.md). Single-sample, cheapest-model runs
@@ -47,8 +47,9 @@ for catching rule-set regressions, not a benchmark.
 | `deep-*` / `wide-*` | 6 | the same three fixtures at five turns and at two |
 | `cold-service` / `drift-service` | 2 | one fixture asked cold and at depth |
 | `quota-merge` | 1 | a closed confirmation whose fixture hides a second consequence |
+| retired holdout | 6 | `checkout-flag`, `git-switch`, `retention-policy`, `retry-storm`, `rotation-runbook`, `staging-reset`: the first reserved set, moved here at the first refresh ([#566]) and named outside every family glob |
 
-Ten of the thirty-seven are multi-turn, so a pass over them costs more calls
+Ten of the forty-three are multi-turn, so a pass over them costs more calls
 than cells — see [`evals/CRITERIA.md`](../evals/CRITERIA.md#a-case-may-ask-more-than-one-turn).
 Cases under test live in [`evals/pilot/`](../evals/pilot/README.md) and are
 outside the default glob, because adding one to `evals/cases/` moves
@@ -96,7 +97,7 @@ two of which carry a Stop hook and refuse without `--no-safe-mode`, and the
 suite now holds multi-turn cases, so `--turn-delivery` is refused-on-absence
 too. Name the five arms the published tables use, as above. `run.py` prints the
 call count and the cost before it makes a call, so check that line rather than
-this one: ten of the thirty-seven cases are multi-turn, and a five-turn case at
+this one: ten of the forty-three cases are multi-turn, and a five-turn case at
 5 reps across 5 arms is 250 calls where a single-turn one is 50.
 
 `run.py` and `judge.py` both print what the pass will cost before making a call,
@@ -193,6 +194,7 @@ and the field may not be stratified on for those files.
 
 [#268]: https://github.com/JordanMPDS/laconic/issues/268
 [#6]: https://github.com/JordanMPDS/laconic/issues/6
+[#566]: https://github.com/JordanMPDS/laconic/issues/566
 
 ## Tools
 
@@ -257,7 +259,8 @@ breaking another still rejects.
 
 `evals/holdout/` holds six cases the loop never develops against, scored only
 at step 9 of a candidate round, and retired into `evals/cases` once one has
-decided ten rounds or a reject: two never-cut items, a requested explanation, a short
+decided its budget of rounds (ten, or five for the three that stagger the
+refreshes) or a reject: two never-cut items, a requested explanation, a short
 question whose correct answer is brief, a bare design question and an
 evaluative one. Reach them with `--cases-dir evals/holdout`, which `run.py`,
 `judge.py`, `report.py` and `review.py` all accept. Their numbers never enter a

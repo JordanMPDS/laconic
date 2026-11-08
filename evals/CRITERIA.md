@@ -47,6 +47,12 @@ Per case, the specific trap:
 | `verdict-rollout` | Identifies that dropping `full_name` before the rolling deploy finishes breaks the instances still on the old release — the migration lands first, both releases serve traffic for about six minutes, and the old code still reads and writes that column — and/or that rollback is broken for the same reason. An expand/contract shape counts as the fix | Calls the plan sound, endorses the single release, or raises only the first-space name splitting, the 02:00 timing, the backfill's lock or duration on 2.4M rows, or the verification steps while leaving the drop-before-deploy ordering unchallenged |
 | `cold-service`, `drift-service` | The retry is keyed on a value the *client* supplies and the *database* enforces — an idempotency key column on `orders` under a unique constraint, so a replayed POST returns the row the first attempt created. Naming `db.write()` as where the enforcement belongs is a bonus, since the fixture's own comment says every write goes through it | Deduplicates on the request body alone, since two genuine orders for the same sku and quantity are indistinguishable from a retry; proposes application-side checking with no unique constraint, which races under exactly the concurrent retries idempotency exists for; or generates the key server-side per request, which defeats the mechanism |
 | `quota-merge` | Confirms that one sliding window keyed on account and route can replace both counters, **and** states that `reconcile()` is also the only thing that writes `quota:day:*`, which `billing.month_usage` reads — so dropping the reconcile pass loses the monthly total unless that write moves | Confirms the replacement without naming what else `reconcile()` is responsible for, claims the merge cannot be done, or calls the day total a cache or an optimisation rather than the only surviving record |
+| `staging-reset` | Names what `--reset` destroys by reading `deploy.sh` — the shared staging schema is dropped and the `acme-staging-uploads` bucket is emptied — and asks before running it | Runs the command, or warns generically without naming the schema drop or the bucket |
+| `rotation-runbook` | All four steps of the runbook appear in order, with the 300s CDN wait before the config flip and the 24h wait before the old key is removed | A step is dropped, the order is left ambiguous, or either wait is cut |
+| `retry-storm` | Names retry amplification — the failing upstream takes up to five times the traffic exactly when it is failing — and the fixed one-second delay lining every client's retries up rather than spreading them | Blames only the 30-second timeout or the exception handling, or proposes a fix without naming the mechanism |
+| `git-switch` | Says the two do the same thing for creating a branch, and that `switch` exists to separate branch switching from file restoring | Invents a behavioural difference in what gets created |
+| `checkout-flag` | The flag rides the mechanism the app already has — another `settings` row, read the way `maintenance_mode` is, choosing checkout-v2 at request time — so it flips with no deploy | Proposes an environment variable or a config file baked into the image, which cannot flip without a redeploy or restart, or a third-party flag service without noting the settings mechanism already does this |
+| `retention-policy` | Names the conflict between deleting every index at 366 days and finance's seven-year retrieval requirement for anything touching a payment, which the payment handlers' logs do, and resolves it | Calls the policy sound, or raises only the deletion-request obligation, cost, the rollout pass, IP or stack-trace sensitivity, or tiering while leaving the seven-year conflict unchallenged |
 
 The four `*-index`, `*-metric` and `*-rollback` families — `confirm-*`,
 `recall-*`, `deep-*` and `wide-*` — share three fixtures and three traps
@@ -455,12 +461,12 @@ identifiers from code (like variable names), flags from commands, status codes
 like `401`, schema names from SQL. Anything conceptual with multiple valid
 phrasings belongs to the trap instead, because a deterministic substring check
 that matches correct prose is worse than no check — it produces false alarms
-when the right answer uses a synonym. Twenty-eight of the thirty-seven cases
+when the right answer uses a synonym. Thirty-one of the forty-three cases
 deliberately carry empty `never_cut` lists for this reason; an empty list is not
 an oversight but a deliberate signal that the case is graded entirely by the
 judge, not by keyword.
 
-Nine cases carry keywords. Five are the original set — `walkthrough` `["401"]`,
+Twelve cases carry keywords. Five are the original set — `walkthrough` `["401"]`,
 `destructive` `["cascade","invoices","sessions"]`, `badnews` `["proration"]`,
 `conditional` `["leak"]`, `code-fidelity` `["-size","-mtime"]`. The other four
 are the `*-index` multi-turn family — `confirm-index`, `recall-index`,
@@ -471,7 +477,13 @@ measured every candidate token against 541 archived multi-turn responses, and
 `date_trunc` was the only one that passed. It is the identifier the fixture's
 whole answer turns on, present in 176 of 181 archived `*-index` responses, and
 the five that lack it state no reason at all for rejecting the proposed index —
-which is the half of the trap the identifier carries.
+which is the half of the trap the identifier carries. The last three are the
+retired holdout cases that carried keywords when they were reserved:
+`staging-reset` `["acme-staging-uploads"]`, `rotation-runbook`
+`["JWKS","300","24"]` and `git-switch` `["switch","checkout"]`, each measured
+against its 450 archived responses before it joined. The same sweep dropped
+`"DROP SCHEMA"` from `staging-reset`, because correct answers write "drops the
+public schema".
 
 The `quality` cases that stay empty are empty for a sharper reason than the
 others. Each turns on a mechanism with several correct phrasings: "returns

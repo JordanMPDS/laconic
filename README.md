@@ -82,13 +82,13 @@ find ~ -path '*/.claude/.laconic-level'
 ## Levels
 
 Cumulative. All three keep complete sentences, real articles, and real
-conjunctions — see [Never cut](#never-cut).
+conjunctions — see [Never do this](rules/laconic.md#never-do-this) in the rules.
 
 | Level | Cuts |
 | --- | --- |
 | `lite` | Ceremony: preamble, pleasantries, closing offers, stacked hedging, recap of work already visible in the diff. |
 | `full` | Also unrequested substance: leads with the answer, one recommendation instead of a survey, a list of findings led by the one that decides it, no unrequested alternatives, no unasked next-steps list. |
-| `ultra` | Also compresses to the result: a decision, a value, a `file:line`, a yes or no — reasoning only where withholding it would make the answer unusable or unsafe. |
+| `ultra` | Also compresses to the result: a decision, a value, a `file:line`, a yes or no — reasoning only where withholding it would make the answer unusable or unsafe. An answer that does not fit in a line or two gets `full` instead. |
 
 *"Our deploy failed with an OOM kill on the worker. Should I bump the memory
 limit?"*
@@ -103,9 +103,10 @@ Ultra kept the conditional because dropping it would give wrong advice half the
 time.
 
 Length scales to the request at every level: a yes/no question gets a line, and
-a report, walkthrough, or explanation you asked for gets full detail. A closed
-question confirming something you already know gets "Yes." and nothing after
-it, rather than your premise restated back to you. A question that names its
+a report, walkthrough, or explanation you asked for gets the scope your question
+needs, not the scope of the source read to answer it, and no claim in it twice.
+A closed question confirming something you already know gets "Yes." and nothing
+after it, rather than your premise restated back to you. A question that names its
 options gets the option that holds, and the evidence for it only if you asked
 why. A question about something broken gets the diagnosis, with the fix left
 for you to ask for. Running your data through code, to prove an answer, size
@@ -143,8 +144,8 @@ Every level, including `ultra`:
 /laconic off
 ```
 
-Both hooks — `SessionStart` and `UserPromptSubmit` — then exit without emitting
-anything. No lingering state.
+The flag file keeps `off`, and both hooks — `SessionStart` and
+`UserPromptSubmit` — emit nothing until you set a level again.
 
 `/laconic status` reports the active level and which flag file it came from,
 and `/laconic-help` prints a reference card for the levels and commands.

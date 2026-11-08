@@ -468,9 +468,9 @@ writes to, not a spec. Cursor's `.mdc` rules also take YAML frontmatter that
 controls when a rule applies; without it the file may not be always-on.
 
 **Do not copy `rules/laconic.md` itself.** It carries `<!-- level:lite -->`
-markers and the hook slices it at load time. Copied whole it delivers all three
-level blocks at once, and they contradict each other — lite keeps full reasoning
-and trade-offs, ultra cuts to the answer alone.
+markers and the hook slices it at load time. The levels nest, so copied whole it
+is the `ultra` slice with three marker comments left in: you get `ultra`
+whichever level you meant to copy.
 
 ## What you give up
 

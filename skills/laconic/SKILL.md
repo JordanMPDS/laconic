@@ -1,6 +1,6 @@
 ---
 name: laconic
-description: Laconic is always on — the plugin's hooks apply the rules to every turn, with no skill invocation needed. This skill sets the level (lite, full, ultra), which cuts claim count while keeping normal grammar. Invoke it only to change the level: when the user runs /laconic, asks for terser or shorter responses, or complains that responses are padded, repetitive, or full of preamble.
+description: Once a level is set, laconic is always on — the plugin's hooks apply the rules to every turn, with no skill invocation needed. This skill sets the level (lite, full, ultra), which cuts claim count while keeping normal grammar. Invoke it only to change the level: when the user runs /laconic, asks for terser or shorter responses, or complains that responses are padded, repetitive, or full of preamble.
 ---
 
 # Laconic
@@ -38,11 +38,3 @@ repository can opt out of a machine-wide default.
 
 `off` removes the mode entirely: every hook stops emitting, and nothing further
 is injected. Honor it immediately and do not re-adopt the mode afterward.
-
-## The one rule that overrides terseness
-
-Length scales to the request. A report, walkthrough, comparison, or explanation
-the user asked for gets the scope it needs at every level, `ultra` included,
-and no claim in it twice. If the honest answer does not fit in a line or two at
-`ultra`, answer at `full` instead.
-Never drop a never-cut item to hit a length target.

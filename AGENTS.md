@@ -127,9 +127,11 @@ one that catches stale generated files, and it is the easiest to skip by acciden
   disagreed, where the panel would have had the third break the tie (#446).
   A judgments file holds one judge setup, stamped as `judge_model`, and
   `judge.py` refuses to resume or carry across two while `report.py` refuses
-  to compare them. `--model <name>` is the single-judge compatibility mode,
-  for resuming, extending or reproducing a file graded before the panel, and
-  nothing else qualifies. `python3 evals/bench/panel_agreement.py` prints how
+  to compare them. `--model <name>` is the single-judge compatibility mode:
+  it reproduces a pre-panel file's setup into a new `--out`, or resumes a
+  single-judge file stamped `judge_tools`, and nothing else qualifies. It
+  cannot resume or extend a pre-panel file, because every one was graded
+  with tools (#447). `python3 evals/bench/panel_agreement.py` prints how
   the members agreed. Since #411 no judge has tools: the claude members run
   with `--tools ""` and kimi through `evals/bench/kimi-judge.md`, and a
   session whose stream shows a tool is refused. A judge sees the question, the

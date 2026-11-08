@@ -12,9 +12,11 @@ the response blind and the record's `verdict` is their majority, so report.py
 reads it unchanged and each vote is kept beside it. A single judge was one
 unvalidated grader with a measured 63% preference for the longer answer, and
 opus now also generates in every round, so it would otherwise grade its own
-family's answers alone. `--model X` is the single-judge compatibility mode, for
-resuming, extending or reproducing a judgments file graded before the panel:
-one file holds one judge setup, and a resume or carry across two is refused.
+family's answers alone. `--model X` is the single-judge compatibility mode: it
+reproduces a pre-panel file's setup into a new `--out`, or resumes a
+single-judge file stamped `judge_tools`. It cannot resume or extend a pre-panel
+file, because every one was graded by judges with tools (#411, #447). One file
+holds one judge setup, and a resume or carry across two is refused.
 """
 import argparse
 import json
@@ -420,7 +422,8 @@ def judge_setup(model):
     """The string a judgments file is stamped with, and compared on.
 
     A single judge keeps the bare model name every pre-panel file already
-    carries, so `--model sonnet` resumes those files without a migration.
+    carries, so a reproduction under `--model sonnet` is stamped like the
+    original. It does not resume one: those predate the judge_tools stamp.
     """
     return model if model else "panel:" + ",".join(PANEL)
 
@@ -516,9 +519,10 @@ def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--model", default=None,
                     help="grade with this one model instead of the panel. "
-                         "Compatibility only: for resuming, extending or "
-                         "reproducing a judgments file graded before the panel, "
-                         "whose stamp names a single model")
+                         "Compatibility only: reproduces a pre-panel file's "
+                         "setup into a new --out, or resumes a single-judge "
+                         "file stamped judge_tools. A pre-panel file cannot be "
+                         "resumed or extended: its judges had tools (#411)")
     ap.add_argument("--allow-opus", metavar="REASON", default=None,
                     help="why a single-judge pass needs an opus judge. Required "
                          "whenever --model is an opus model; the panel includes "
@@ -571,8 +575,9 @@ def main():
         bench_run.require_opus_reason([args.model], args.allow_opus)
     elif not shutil.which("kimi"):
         sys.exit("the panel needs the kimi CLI on PATH, logged in to the Kimi Code "
-                 "subscription (kimi login). Pass --model <name> only to resume or "
-                 "reproduce a pre-panel judgments file")
+                 "subscription (kimi login). Pass --model <name> only to reproduce "
+                 "a pre-panel setup into a new --out, or to resume a single-judge "
+                 "file stamped judge_tools")
     setup = judge_setup(args.model)
 
     snap = bench_run.load_snapshot(args.results)
@@ -618,18 +623,21 @@ def main():
     # this is the third harness and the pattern is the same one.
     at, done = resume_index(prior["judgments"])
 
-    # One file, one judge setup. A panel resuming a sonnet-graded file would
-    # publish a round graded by two instruments under one stamp.
-    had = setup_conflict(prior_meta, setup) if prior["judgments"] else None
-    if had:
-        sys.exit("%s was graded by %s and this pass would grade with %s. One "
-                 "file holds one judge setup: write to a new --out, or pass "
-                 "--model %s to resume it as it was graded"
-                 % (args.out, had, setup, had))
+    # Tools first: no setup can resume a file graded with tools, so a setup
+    # hint shown for one sends the operator into this refusal (#447).
     if prior["judgments"] and prior_meta.get("judge_tools") != JUDGE_TOOLS:
         sys.exit("%s was graded before #411, by judges that had tools, and no "
                  "judge has them now. One file holds one instrument: write to "
                  "a new --out and judge it again" % args.out)
+    # One file, one judge setup. A panel resuming a sonnet-graded file would
+    # publish a round graded by two instruments under one stamp.
+    had = setup_conflict(prior_meta, setup) if prior["judgments"] else None
+    if had:
+        how = ("drop --model to resume it with the panel" if had.startswith("panel:")
+               else "pass --model %s to resume it as it was graded" % had)
+        sys.exit("%s was graded by %s and this pass would grade with %s. One "
+                 "file holds one judge setup: write to a new --out, or %s"
+                 % (args.out, had, setup, how))
 
     # Same glob semantics as run.py --cases, so the two flags select alike.
     # Resolved here rather than beside `todo` because the #69 guard below reads

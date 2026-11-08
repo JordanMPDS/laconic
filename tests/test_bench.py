@@ -4651,6 +4651,69 @@ check("#529: a cell the measured rate cleared is re-counted too",
                              for r in why0)
       and v == "accept" and any("is 3 -> 8, p = %.4f" % P526(8) in r
                                 for r in why))
+# #454: a stored rate stands in for the control's draw, so it has to be the
+# control's rate. Measured at other rules it is dropped whole; graded by
+# another judge setup, only the judged sections go.
+R454 = {"never_cut_failures": {}, "quality_fails": {}, "safety_fails": {}}
+M454 = {"rules_cksum": "1830906901"}
+check("#454: rates at the control's rules and judge setup all apply",
+      bench_report.stale_cell_rates(R454, M454, {"rules_cksum": "1830906901"},
+                                    {"judge_model": "sonnet"}) == {})
+_s454 = bench_report.stale_cell_rates(R454, M454, {"rules_cksum": "1540384109"},
+                                      {"judge_model": "sonnet"})
+check("#454: rates measured at other rules than the control's all drop",
+      sorted(_s454) == sorted(R454) and all(
+          "rules_cksum 1830906901, and the control is at 1540384109" in w
+          for w in _s454.values()))
+check("#454: a control with no rules_cksum cannot vouch for the rates",
+      sorted(bench_report.stale_cell_rates(R454, M454, {}, {})) == sorted(R454))
+_s454 = bench_report.stale_cell_rates(
+    R454, M454, {"rules_cksum": "1830906901"},
+    {"judge_model": "panel:sonnet,opus,kimi", "judge_tools": "none"})
+check("#454: a panel without tools drops only the judged sections",
+      sorted(_s454) == ["quality_fails", "safety_fails"] and all(
+          "graded by an unstamped judge with tools, and the control by "
+          "panel:sonnet,opus,kimi without tools" in w for w in _s454.values()))
+check("#454: two stamped judge models that differ drop the judged sections",
+      sorted(bench_report.stale_cell_rates(
+          R454, dict(M454, judge_model="sonnet", judge_tools="none"),
+          {"rules_cksum": "1830906901"},
+          {"judge_model": "panel:sonnet,opus,kimi", "judge_tools": "none"}))
+      == ["quality_fails", "safety_fails"])
+# Through main(), which is the only caller that knows the control: a stale
+# file is used for nothing and says so, and --allow-stale-rates restores it.
+with tempfile.TemporaryDirectory() as td454:
+    _rates454 = Path(td454) / "cell-rates.json"
+    _rates454.write_text(json.dumps({
+        "metadata": {"rules_cksum": "0"},
+        "never_cut_failures": {"floor/haiku": {"failures": 4, "runs": 40}}}))
+    bench_run.save_snapshot(Path(td454) / "s.json", synthetic)
+
+    def _r454(*extra):
+        return subprocess.run(
+            [sys.executable, str(ROOT / "evals" / "bench" / "report.py"),
+             "--results", str(Path(td454) / "s.json"), "--judgments",
+             "/dev/null", "--against", str(Path(td454) / "s.json"),
+             "--against-judgments", "/dev/null", "--cell-rates",
+             str(_rates454), *extra], capture_output=True, text=True).stdout
+    _off, _kept = _r454(), _r454("--allow-stale-rates")
+    check("#454: report.py drops a stale cell-rates file and names why",
+          "measured-rate screen off on never_cut_failures: cell-rates.json was "
+          "measured at rules_cksum 0, and the control is at 1 (#454); pass "
+          "--allow-stale-rates" in _off
+          and "measured-rate screen active" not in _off)
+    check("#454: --allow-stale-rates uses it, and still says it is stale",
+          "measured-rate screen kept by --allow-stale-rates on "
+          "never_cut_failures" in _kept
+          and "measured-rate screen active on never_cut_failures: floor/haiku"
+          in _kept)
+    _rates454.write_text(json.dumps({
+        "metadata": {"rules_cksum": "1"},
+        "never_cut_failures": {"floor/haiku": {"failures": 4, "runs": 40}}}))
+    _cur454 = _r454()
+    check("#454: a file at the control's rules is used with no note",
+          "measured-rate screen active on never_cut_failures" in _cur454
+          and "#454" not in _cur454)
 # A blocked cell, a cleared one and an untestable one. The replication clears
 # a/sonnet and re-counts d/sonnet; without d it would be 3 -> 10.
 RUNS529 = {A526: 20, B526: 5, D526: 20}
@@ -4723,8 +4786,9 @@ for kw, label in (("qf", "quality"), ("sf", "safety")):
                            % (label, P530)) for r in why))
     check("#530: and its line carries the #70 disclosure for %s" % label,
           any(r.startswith("REJECT: %s lost (3 -> 10) round-wide" % label)
-              and "judge self-disagreement at 15%% would produce a rise of +7 "
-              "with p = %.3f (#70)" % J530 in r for r in why))
+              and "single-judge self-disagreement at 15%% would produce a rise of +7 "
+              "with p = %.3f (#70; measured on one sonnet "
+              "judge, the panel's is unmeasured, #454)" % J530 in r for r in why))
     v, why = bench_report.accept_verdict(prev530, cur530, "output_tokens",
                                          judge_noise_gate=True)
     check("#530: under the gate a %s #259 rejection inside judge noise is "
@@ -4751,7 +4815,7 @@ for kw, label in (("qf", "quality"), ("sf", "safety")):
               r.startswith("REJECT: %s lost (3 -> 17); counting t/sonnet at 3 "
                            "of 20 after the replication, the round-wide count "
                            "is 3 -> 10 at p = %.4f" % (label, P530))
-              and "would produce a rise of +7 with p = %.3f (#70)" % J530 in r
+              and "would produce a rise of +7 with p = %.3f (#70;" % J530 in r
               for r in why))
     v, why = bench_report.accept_verdict(prev530, cur530, "output_tokens",
                                          arbitration=arb530,
@@ -4771,7 +4835,7 @@ for kw, label in (("qf", "quality"), ("sf", "safety")):
                                          judge_noise_gate=True)
     check("#530: a %s testable cell that rose rejects under the gate, inside "
           "judge noise" % label,
-          v == "reject" and any("p = %.3f (#70)" % J530 in r for r in why))
+          v == "reject" and any("p = %.3f (#70;" % J530 in r for r in why))
     v, why = bench_report.accept_verdict(prev530, cur530, "output_tokens",
                                          arbitration=_q530(kw, 10, 0),
                                          judge_noise_gate=True)
@@ -4814,16 +4878,18 @@ for kw, label in (("qf", "quality"), ("sf", "safety")):
           v == "reject" and any(
               r.startswith("REJECT: %s lost (6 -> 12) round-wide" % label)
               and "on the round's exposure the control's 6 of 140 is 4 of 110, "
-              "judge self-disagreement at 15%% would produce a rise of +8 with "
-              "p = %.3f (#70)" % bench_report._judge_noise_p(8, 110) in r
+              "single-judge self-disagreement at 15%% would produce a rise of +8 with "
+              "p = %.3f (#70; measured on one sonnet "
+              "judge, the panel's is unmeasured, #454)" % bench_report._judge_noise_p(8, 110) in r
               for r in why))
     # The same rise in rate at equal exposure: the scaling changes nothing.
     v, why = bench_report.accept_verdict(prev531, _q531(kw, 15, 140),
                                          "output_tokens", judge_noise_gate=True)
     check("#531: at equal exposure a %s rise reads as it did" % label,
           v == "reject" and any(
-              "; judge self-disagreement at 15%% would produce a rise of +9 "
-              "with p = %.3f (#70)" % bench_report._judge_noise_p(9, 140) in r
+              "; single-judge self-disagreement at 15%% would produce a rise of +9 "
+              "with p = %.3f (#70; measured on one sonnet "
+              "judge, the panel's is unmeasured, #454)" % bench_report._judge_noise_p(9, 140) in r
               for r in why)
           and not any("on the round's exposure" in r for r in why))
     # The other direction, registered before it lands: a round with more
@@ -4837,7 +4903,7 @@ for kw, label in (("qf", "quality"), ("sf", "safety")):
           % label,
           v == "undecided" and bench_report._judge_noise_p(11, 210) <= 0.05
           and any(r.startswith("UNDECIDED: %s rise (2 -> 13)" % label)
-                  and "a rise of +10 with p = %.3f (#70)"
+                  and "a rise of +10 with p = %.3f (#70;"
                   % bench_report._judge_noise_p(10, 210) in r for r in why))
     v, _ = bench_report.accept_verdict(_q531(kw, 2, 140, tokens=500),
                                        _q531(kw, 13, 210), "output_tokens")
@@ -4871,8 +4937,9 @@ for kw, label in (("qf", "quality"), ("sf", "safety")):
               "round-wide count is 10 -> 6 at p = %.4f"
               % bench_report._count_rise_p(10, 6, 300, 60) in r
               and "on the round's exposure the control's 10 of 300 is 2 of "
-              "60, judge self-disagreement at 15%% would produce a rise of +4 "
-              "with p = %.3f (#70)" % bench_report._judge_noise_p(4, 60) in r
+              "60, single-judge self-disagreement at 15%% would produce a rise of +4 "
+              "with p = %.3f (#70; measured on one sonnet "
+              "judge, the panel's is unmeasured, #454)" % bench_report._judge_noise_p(4, 60) in r
               for r in why))
     v, _ = bench_report.accept_verdict(prev531, cur531, "output_tokens",
                                        arbitration=arb531,

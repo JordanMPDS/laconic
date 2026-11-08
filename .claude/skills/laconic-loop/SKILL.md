@@ -1026,6 +1026,19 @@ for at all are printed whether or not anything rose. A cell with no measured
 rate is scored exactly as before, and `--no-cell-rates` scores the way rounds
 01 to 11 were scored.
 
+**A rate applies only to the control it was measured for ([#454]).** The file's
+`metadata.rules_cksum` has to equal the control snapshot's, or `report.py`
+drops every section; its `judge_model` and `judge_tools` have to match the
+control's judgments, or it drops `quality_fails` and `safety_fails` and keeps
+the deterministic `never_cut_failures`. An unstamped `judge_tools` means graded
+with tools. Either drop prints one `measured-rate screen off` line, and
+`--allow-stale-rates` keeps the sections, which is how a round scored before
+#454 at other rules reproduces. The committed file was measured at
+1830906901 by the single sonnet judge, so it applies to no current round. A
+re-measured file stamps all three fields.
+
+[#454]: https://github.com/JordanMPDS/laconic/issues/454
+
 Measuring a new cell costs about 40 calls and is worth it for any cell that has
 rejected a round on a single flip. `destructive`/haiku runs at 5 of 65 and
 `conditional`/sonnet at 8 of 60.

@@ -303,8 +303,11 @@ python3 evals/bench/prefer.py --control baseline   # or --control terse-control
 python3 evals/bench/prefer.py --report-only
 ```
 
-Resumable on the same snapshot semantics as `judge.py`, and refuses to top up
-verdicts built against a different `rules_cksum`. `--both-orders N` re-runs N
+Resumable, and a file holds one instrument the way a judgments file does: a
+resume is refused onto verdicts built against a different `rules_cksum`, graded
+by a different `--model`, or graded before #411 by a judge with tools, which is
+any file without the `judge_tools` stamp. An opus judge needs `--allow-opus
+'<reason>'`, stamped as `opus_justification`. `--both-orders N` re-runs N
 comparisons with A and B swapped; the flip rate prints beside the headline, and
 at or above 50% the result is position bias rather than preference. What a
 preference verdict may and may not support is in

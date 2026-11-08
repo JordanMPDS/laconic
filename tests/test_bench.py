@@ -2723,6 +2723,81 @@ check("the tally counts each comparison once, not once per order",
       bench_prefer.tally(recs, "laconic", "baseline")
       == {"laconic": 2, "baseline": 0, "tie": 1, "unparseable": 0})
 
+# #449: one preferences file, one instrument, the way judge.py holds one. A
+# resume used to check rules_cksum alone and restamp judge_model with whatever
+# --model the resuming pass named, so an opus pass could top up a sonnet file,
+# and a tool-less file could not be told from a tool-era one.
+with tempfile.TemporaryDirectory() as td_pref:
+    _pstub = Path(td_pref) / "prefer-stub.sh"
+    _pstub.write_text(
+        "#!/usr/bin/env bash\n"
+        '[ "$1" = "--version" ] && { echo "0.0.0 (stub)"; exit 0; }\n'
+        "cat <<'JSON'\n"
+        '{"type":"system","subtype":"init","tools":[]}\n'
+        '{"type":"result","is_error":false,'
+        '"result":"{\\"winner\\":\\"A\\",\\"reason\\":\\"x\\"}",'
+        '"num_turns":1,"total_cost_usd":0.001,"duration_ms":1,'
+        '"usage":{"input_tokens":1,"output_tokens":1,'
+        '"cache_creation_input_tokens":0,"cache_read_input_tokens":0}}\n'
+        "JSON\n")
+    _pstub.chmod(0o755)
+    _psnap = Path(td_pref) / "results.json"
+    _ps = bench_run.new_snapshot(reps=1, models=["haiku"], level="full",
+                                 rules_cksum="1", arms=bench_run.ARMS)
+    for _arm in ("laconic", "baseline"):
+        _ps["runs"].append({"case": "floor", "arm": _arm, "model": "haiku",
+                            "rep": 0, "ok": True, "text": "answer " + _arm})
+    bench_run.save_snapshot(_psnap, _ps)
+
+    def _prefer(out, *extra):
+        return subprocess.run(
+            [sys.executable, str(ROOT / "evals" / "bench" / "prefer.py"),
+             "--claude-bin", str(_pstub), "--results", str(_psnap),
+             "--out", str(out), "--both-orders", "0"] + list(extra),
+            capture_output=True, text=True)
+
+    _pout = Path(td_pref) / "preferences.json"
+    _pr = _prefer(_pout)
+    _pmeta = json.loads(_pout.read_text())["metadata"] if _pout.exists() else {}
+    check("prefer: a fresh pass runs against the stub", _pr.returncode == 0)
+    check("prefer: a preferences file records that its judge had no tools (#449)",
+          _pmeta.get("judge_tools") == "none" and _pmeta.get("judge_model") == "sonnet")
+
+    def _variant(name, **meta):
+        _d = json.loads(_pout.read_text())
+        _d["metadata"].update(meta)
+        _d["metadata"] = {k: v for k, v in _d["metadata"].items() if v is not None}
+        _d["comparisons"][0]["reason"] = name
+        _path = Path(td_pref) / (name + ".json")
+        _path.write_text(json.dumps(_d))
+        return _path
+
+    def _untouched(path, name):
+        return json.loads(path.read_text())["comparisons"][0]["reason"] == name
+
+    _tool_era = _variant("tool-era", judge_tools=None)
+    _pr = _prefer(_tool_era)
+    check("prefer: a file graded before #411 is not extended, and gets no "
+          "--model hint it cannot follow",
+          _pr.returncode != 0 and "#411" in _pr.stderr
+          and "pass --model" not in _pr.stderr and _untouched(_tool_era, "tool-era"))
+
+    _sonnet = _variant("sonnet-graded")
+    _pr = _prefer(_sonnet, "--model", "opus", "--allow-opus", "test")
+    check("prefer: an opus pass does not top up a sonnet-graded file",
+          _pr.returncode != 0 and "graded by sonnet" in _pr.stderr
+          and "--model sonnet" in _pr.stderr and _untouched(_sonnet, "sonnet-graded"))
+
+    _opus_out = Path(td_pref) / "opus.json"
+    _pr = _prefer(_opus_out, "--model", "opus")
+    check("prefer: an opus judge needs a stated reason",
+          _pr.returncode != 0 and "--allow-opus" in _pr.stderr
+          and not _opus_out.exists())
+    _pr = _prefer(_opus_out, "--model", "opus", "--allow-opus", "the test says so")
+    check("prefer: the opus reason is stamped into the file",
+          _pr.returncode == 0 and json.loads(_opus_out.read_text())["metadata"]
+          .get("opus_justification") == "the test says so")
+
 # --- run.py: carrying control arms between rounds ---
 # A rule edit changes the laconic arm and nothing else, so regenerating the
 # controls each round would pay three times over for runs that cannot have

@@ -187,6 +187,13 @@ comparisons straddle it:
    The first hand-merged `opus-model-set.json` held 100 of 660 runs, which is
    the failure mode worth naming: a silent under-merge reports a number rather
    than an absence, so nothing downstream notices.
+6. **An assembled snapshot is read as carried.** Round 119's
+   `round-119-source.json` and `round-119-mutants.json` generated nothing:
+   `evals/pilot/score_facts.py build` drew every run from rounds 96, 97 and
+   118, and until [#464] the checker charged those rounds' 2 and 3 in flight to
+   round 119. Each run's `source` names the snapshot, arm and rep it was copied
+   from, and `carried_runs()` excuses a run once that record is found in the
+   named snapshot, as it already did for `carried_arms_from`.
 
 `tests/test_bench.py` pins the ten-snapshot affected set, so a new name appearing
 in it means a round was generated concurrently and this document needs
@@ -195,3 +202,4 @@ re-reading.
 [#80]: https://github.com/JordanMPDS/laconic/issues/80
 [#88]: https://github.com/JordanMPDS/laconic/issues/88
 [#120]: https://github.com/JordanMPDS/laconic/issues/120
+[#464]: https://github.com/JordanMPDS/laconic/issues/464

@@ -155,7 +155,10 @@ Every level, including `ultra`:
 
 The flag file keeps `off`, and both hooks — `SessionStart` and
 `UserPromptSubmit` — emit nothing until you set a level again. A
-`LACONIC_DEFAULT` you set does not bring it back.
+`LACONIC_DEFAULT` you set does not bring it back. What they emit is injected
+for the model rather than shown on screen, so the
+[end-to-end check](docs/development.md#end-to-end-check) confirms the switch in
+the session transcript.
 
 `/laconic status` reports the active level and which flag file it came from,
 and `/laconic-help` prints a reference card for the levels and commands.

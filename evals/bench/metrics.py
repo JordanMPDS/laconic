@@ -43,9 +43,14 @@ SYMBOLS = re.compile(r"(->|=>|→)")
 # ("req.user.id"), which the rules forbid rewriting (#404). A shortened word is
 # lowercase, or capitalised to open a sentence; in capitals it is a name, such
 # as the work-item IDs "IMPL-2" and "IMPL-5" or the options "A and B/C" (#406).
+# An arity compound ("the 3-arg form", "a two-arg call", "a no-arg
+# constructor") is a term, not a word shortened in prose, and the baseline
+# writes it as often as any laconic arm, so `arg` after a hyphenated word is
+# skipped; "pass one more arg" still counts (#474). A count such as "100 req at
+# 0:59" is not a unit the way req/s is, and stays counted.
 ABBREV = re.compile(
-    r"\b(?![Rr]eq\s*/)([Ii]mpl|[Rr]eq|[Rr]esp|[Ff]unc|[Vv]al|[Oo]bj|[Aa]rg|[Mm]sg|[Ee]rr)"
-    r"\b(?!\.\w)|\b[Ww]/|\b[Bb]/c\b"
+    r"\b(?![Rr]eq\s*/)([Ii]mpl|[Rr]eq|[Rr]esp|[Ff]unc|[Vv]al|[Oo]bj|(?<!\w-)[Aa]rg|[Mm]sg"
+    r"|[Ee]rr)\b(?!\.\w)|\b[Ww]/|\b[Bb]/c\b"
 )
 # Mask only abbreviations that never end sentences. e.g., i.e., vs. mid-sentence
 # should not be treated as sentence boundaries. Deliberately excludes al, Inc, Ltd,

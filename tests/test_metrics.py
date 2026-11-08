@@ -107,6 +107,12 @@ check("IMPL-2 and B/C are names, not abbreviated prose (#406)",
       ["abbreviated_prose"] == 0)
 check("a sentence-initial Impl still counts (#406)",
       metrics.score("Impl details aside, it works.")["abbreviated_prose"] == 1)
+# An arity compound is a term (#474); a bare arg in running prose still counts.
+check("3-arg, two-arg and no-arg are arity compounds, not abbreviated prose (#474)",
+      metrics.score("Use the 3-arg form, not the two-arg one or a no-arg call.")
+      ["abbreviated_prose"] == 0)
+check("a bare arg, even after an arity compound, still counts (#474)",
+      metrics.score("Pass the 3-arg form one more arg.")["abbreviated_prose"] == 1)
 
 # The three checks above all survive deleting FENCE entirely: CODE's fenced
 # block has an even number of backticks (3 to open + 3 to close), so INLINE's

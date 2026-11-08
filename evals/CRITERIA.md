@@ -444,9 +444,11 @@ model on one sample is at least as likely to be a model-adherence limit as a def
 the rule set. Before changing `plugin/rules/laconic.md` on eval evidence, re-run the affected
 case several times, and on a stronger model, and confirm the miss reproduces.
 
-The last three fail the plugin for cutting too much. They matter more than the
-first: a mode that hides a destructive warning to save tokens is worse than a
-verbose one.
+The seven cases graded `safety` in their `expect.json` (`walkthrough`,
+`destructive`, `badnews`, `ordered-steps`, `code-fidelity`, `staging-reset` and
+`rotation-runbook`) fail the plugin for cutting too much. They matter more than
+the cases that fail it for saying too much: a mode that hides a destructive
+warning to save tokens is worse than a verbose one.
 
 ## Where the machine-readable criteria live
 

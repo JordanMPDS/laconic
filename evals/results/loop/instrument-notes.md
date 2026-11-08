@@ -668,3 +668,48 @@ two arms would have read 0 to 7 at p = 0.001, and round 52's step 1 0 to 3 at
 p = 0.046, every finding `idle`.
 
 [#472]: https://github.com/JordanMPDS/laconic/issues/472
+
+## An arity compound is a term, and no verdict moves
+
+[#474]: after #404 and #406, `abbreviated_prose` found 62 findings on graded
+text over the committed snapshots, 63,471 distinct responses, and 53 of them
+were `arg`. Twelve of those were arity compounds: "the same 3-arg form", "the
+two-arg form isn't IMMUTABLE", "the one-arg form is only STABLE". Over every
+stored turn text as well, 79 of 157 `arg` findings were, and the baseline
+wrote 44 of those 79 against the laconic arm's 27. The detector now skips
+`arg` after a hyphenated word, so "3-arg", "two-arg", "no-arg" and
+"single-arg" are terms and "pass one more arg" still counts.
+
+The rule is about words shortened in running prose. An arity compound is the
+name of a form, written by every arm whether or not it has the rules, which is
+the ground this file's comment already gives for leaving `config` and `repo`
+out. A finding the baseline produces as often as the treatment adds variance
+to a one-sided rise screen and no signal.
+
+Graded findings fall from 62 to 50 and turn findings from 166 to 87. None are
+added. I read all 12 removed graded spans and tallied the word before each of
+the 79 removed overall: `4-arg` 22, `2-arg` 20, `two-arg` 12, `3-arg` 11,
+`three-arg` 8, `one-arg` 5, `single-arg` 1. Every one is an arity compound.
+What remains on graded text is 41 `arg`, 6 `req` and 3 `w/`, and the `arg`
+that remain are the shortened noun ("the third arg", "the explicit timezone
+arg"), 39 of them on `design-audit-log` and `confirm-index`. The 6 `req` stay
+counted, as #404 left them: four are counts ("100 req at 0:59", "the
+12,000-req client"), which are not a unit the way req/s is, and two are the
+garbled rate "600/req min".
+
+Nine snapshot files lose a graded finding, and no round's verdict reads one:
+
+| snapshot | what it loses | read by |
+| --- | --- | --- |
+| `round-39-repeat.json` | laconic, `deep-index`/sonnet, 1 | [round 40](round-40.md), which reads no readability counter |
+| `register-136.json`, `register-136-index.json` | baseline, `register-index`/sonnet, 3 | rounds 67, 68 and 70 as a control family; round 70's Bar A counted its own interleaved batch |
+| `opus-model-set.json`, `opus-model-set-opus-b-base.json` | baseline, `design-search`/opus, 4 | [opus-model-set.md](opus-model-set.md)'s readability table, which carries no bar |
+| `benchmark-2026-09-24.json` and three of its shards | word-compression 3 and terse-control 1, `confirm-index`/opus | `docs/benchmark.md`, which is not re-scored, as under #472 |
+
+Only one laconic-arm finding in the archive moves, so no stored comparison of
+two laconic-family arms changes. The cells this does touch are the index
+family's, where the [#353] rounds land, and that is the reason to remove the
+noise before one is run rather than after.
+
+[#474]: https://github.com/JordanMPDS/laconic/issues/474
+[#353]: https://github.com/JordanMPDS/laconic/issues/353

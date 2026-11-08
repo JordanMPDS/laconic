@@ -4,7 +4,7 @@
 Reads evals/snapshots/results.json and regenerates nothing: every comparison
 reuses two responses the benchmark already paid for. One call per comparison.
 
-Three things this shares with judge.py, for the same reasons:
+Four things this shares with judge.py, for the same reasons:
 
 - The judge never sees an arm name, so it cannot favour the plugin under test.
 - Each call runs in a fresh temp dir, never the repo root, so the judge cannot
@@ -12,6 +12,9 @@ Three things this shares with judge.py, for the same reasons:
 - "tie" is a first-class verdict. Folding ties into either side would invent a
   preference the judge declined to express, the same failure not_exercised
   exists to prevent in judge.py.
+- One file holds one instrument. A resume is refused onto a file graded by
+  another --model, or onto one without the judge_tools stamp, whose verdicts
+  came from judges that had tools (#411, #449).
 
 Position bias in an LLM judge is large enough to produce a result on its own,
 so A/B order is decided by a checksum of (case, model, rep) rather than by arm,
@@ -278,7 +281,12 @@ def report(records, treatment, control, lengths=None):
 
 def main():
     ap = argparse.ArgumentParser()
-    ap.add_argument("--model", default="sonnet", help="judge model")
+    ap.add_argument("--model", default="sonnet",
+                    help="judge model. A file holds one, so a resume has to "
+                         "name the model it was graded by")
+    ap.add_argument("--allow-opus", metavar="REASON", default=None,
+                    help="why this pass needs an opus judge. Required whenever "
+                         "--model is an opus model, and stamped into the file")
     ap.add_argument("--treatment", default="laconic")
     ap.add_argument("--control", default="baseline")
     ap.add_argument("--both-orders", type=int, default=20,
@@ -348,14 +356,33 @@ def main():
               % (chars // 4))
         return
 
+    opus_reason = bench_run.require_opus_reason([args.model], args.allow_opus,
+                                                len(work))
+
     # Same guard as judge.py: verdicts built against one rules revision must not
     # be topped up from a snapshot generated against another.
     rules_cksum = snap["metadata"].get("rules_cksum")
-    prior_cksum = prior.get("metadata", {}).get("rules_cksum")
+    prior_meta = prior.get("metadata", {})
+    prior_cksum = prior_meta.get("rules_cksum")
     if prior_cksum and prior_cksum != rules_cksum:
         sys.exit("preferences were generated from different results (cksum %s vs %s); "
                  "move %s aside before regenerating"
                  % (prior_cksum, rules_cksum, args.out))
+
+    # judge.py's two instrument guards, in its order (#449). Tools first: no
+    # --model can resume a file graded with tools, so a model hint for one
+    # would send the operator into this refusal (#447).
+    if prior["comparisons"] and prior_meta.get("judge_tools") != bench_judge.JUDGE_TOOLS:
+        sys.exit("%s was graded before #411, by judges that had tools, and no "
+                 "judge has them now. One file holds one instrument: write to "
+                 "a new --out and compare again" % args.out)
+    had = bench_judge.setup_conflict(prior_meta, args.model) \
+        if prior["comparisons"] else None
+    if had:
+        sys.exit("%s was graded by %s and this pass would grade with %s. One "
+                 "file holds one judge model: write to a new --out, or pass "
+                 "--model %s to resume it as it was graded"
+                 % (args.out, had, args.model, had))
 
     claude_bin = bench_run.require_claude_bin(args.claude_bin)
 
@@ -404,7 +431,10 @@ def main():
                 prior["comparisons"].append(rec)
             prior["metadata"] = {"judge_model": args.model, "rules_cksum": rules_cksum,
                                  "treatment": args.treatment, "control": args.control,
-                                 "effort": bench_run.EFFORT}
+                                 "effort": bench_run.EFFORT,
+                                 "judge_tools": bench_judge.JUDGE_TOOLS}
+            if opus_reason:
+                prior["metadata"]["opus_justification"] = opus_reason
             bench_run.save_snapshot(args.out, prior)  # after each: resumable if killed
             print("[%d/%d] %-14s %-7s rep%d order%d -> %s"
                   % (i, len(todo), rec["case"], rec["model"], rec["rep"],

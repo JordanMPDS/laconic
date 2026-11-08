@@ -358,8 +358,8 @@ def require_opus_reason(models, reason, calls=None):
     Since 2026-09-24 opus is a default generation model - round 80 found it
     two to three times longer than sonnet at master rules, and a behaviour
     untested on opus is not a behaviour known to match sonnet - so `run.py` no
-    longer calls this. `judge.py` still does: the judge is sonnet, and an opus
-    judge has no such reason. This is the same shape as `--allow-case-change`: the override
+    longer calls this. `judge.py` and `prefer.py` still do for a single judge:
+    that judge is sonnet, and an opus judge has no such reason. This is the same shape as `--allow-case-change`: the override
     exists, it has to be deliberate, and the reason is stamped into the snapshot
     instead of living in a transcript nobody reads.
 

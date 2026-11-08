@@ -39,14 +39,19 @@ Two things worth knowing before you use it:
   a shared house style.
 - **A repository you open can set your level.** The flag is read from the
   project directory, so cloning someone else's repo can change your verbosity or
-  switch laconic off. The contents are whitelisted to `lite`, `full`, `ultra`,
-  and `off`, so that is the whole blast radius — but it is the same trust model
-  as any other file under a project's `.claude/`.
+  switch laconic off. Once you trust the folder, its `.claude/settings.json` can
+  also set [`LACONIC_DEFAULT`](#default-level), and on a machine with no flag
+  file yet that seeds the machine flag, not the project one, so its level
+  applies in every project until you run `/laconic <level>`. The values are
+  whitelisted to `lite`, `full`, `ultra`, and `off`, so verbosity is the whole
+  blast radius — but it is the same trust model as any other file under a
+  project's `.claude/`.
 
 ## Default level
 
 Laconic is opt-in per machine. To skip `/laconic full` on a fresh install, set
-a default in the `env` block of `settings.json`:
+a default in the `env` block of `~/.claude/settings.json`
+(`$CLAUDE_CONFIG_DIR/settings.json` if you set that variable):
 
 ```json
 {
@@ -59,6 +64,13 @@ a default in the `env` block of `settings.json`:
 Valid values are `lite`, `full`, `ultra`, and `off`. An invalid value is
 rejected and no flag file gets created, so a typo cannot silently brick the
 plugin. It seeds the machine flag only — it never writes into a repository.
+
+The default is a first-run seed, not a standing setting. The hook reads it only
+while neither the project flag nor the machine flag exists, and the machine flag
+it writes decides from then on. So once `/laconic <level>` or
+`/laconic off` has written a flag, changing or removing `LACONIC_DEFAULT` does
+nothing: change the level with `/laconic <level>`, or delete both flag files to
+have the default read again.
 
 ## Statusline badge
 

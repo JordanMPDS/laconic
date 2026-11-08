@@ -152,7 +152,7 @@ plugin silently not working.
 ### Contract the port must honor
 
 Byte-identical behavior to `laconic.sh`, because both implementations read and write the same
-state and a user may switch between WSL and native Windows against the same `~/.claude`:
+state and a user may switch between Git Bash and Windows PowerShell against the same `~/.claude`:
 
 1. **Flag path.** `$env:CLAUDE_CONFIG_DIR` if set, else `$HOME/.claude`, file `.laconic-level`.
 2. **Modes.** Exactly `start` and `remind`. Anything else, including `subagent` (a mode

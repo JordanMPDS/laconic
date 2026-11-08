@@ -21,9 +21,11 @@ Two flag files. `.claude/.laconic-level` under the project directory wins over
 `${CLAUDE_CONFIG_DIR:-$HOME/.claude}/.laconic-level`, `off` included, so one
 repository can run a different level from the rest of the machine.
 
-Make it permanent with `LACONIC_DEFAULT=full` in the `env` block of
-`settings.json`. That seeds the machine flag only. With no flag file and no
-default set, the plugin is inert.
+`LACONIC_DEFAULT=full` in the `env` block of `~/.claude/settings.json` sets the
+level for a fresh install. It is read only while neither flag file exists, and
+then written to the machine flag, so after any `/laconic` switch it does nothing:
+change the level with `/laconic <level>`. With no flag file and no default set,
+the plugin is inert.
 
 Never cut at any level: code, config, commands, error strings, security warnings,
 destructive-action confirmations, ordered steps, bad news, uncertainty that changes

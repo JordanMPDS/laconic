@@ -93,7 +93,7 @@ largest one.
 
 Forcing the index with `SET enable_seqscan = off` confirms this: the index path
 runs in 11.2 seconds, slower than the scan, because it visits 15.7 million heap
-pages in physical-id order.
+rows in physical-id order.
 
 ## 5. The fix on the ticket
 
@@ -168,7 +168,7 @@ Column layout, for sizing:
 | `event_type` | `text` | 7 distinct values |
 | `amount_cents` | `bigint` | nullable |
 | `created_at` | `timestamptz` | not null, ingest time |
-| `payload` | `jsonb` | median 340 bytes |
+| `payload` | `jsonb` | median 140 bytes |
 
 The `payload` column is why the table is 8.4 GB against 41.2 million narrow
 rows, and it is why a sequential scan is as expensive as it is: the scan reads

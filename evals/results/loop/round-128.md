@@ -89,9 +89,10 @@ caveat. "Name the depth you left out" is the design bullet's exit, reused
 word for word. The bullet sits at `full` because #500 was observed there,
 and `lite` cuts ceremony only. It reaches `ultra` by inheritance. A user
 who fixes the scope is still governed by the never-cut explain bullet,
-which outranks every level. The `full` slice grows by 143 characters to
-8,999 and `ultra` to 9,460, under the 9,500 budget, so no example pair fits
-and none is added.
+which outranks every level. The delivered `full` slice grows by 143
+characters to 8,855 and `ultra` to 9,315, as `tests/test_laconic.sh`
+counts them, against the 9,500 budget. An example pair would take most of
+the 185 that remain, so none is added.
 
 ## Hypothesis
 

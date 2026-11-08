@@ -154,6 +154,8 @@ prose with the ceremony stripped.
   - Right: "Derive alerts from the log row the loop already writes, in
     whatever monitoring you already run — which stack is that? The schema
     and the dedup rules are the next level down."
+- Explaining what you read gets what each part is, what decides it, and any
+  caveat that changes how to read it. Name the depth you left out.
 
 Typical shape: one to three sentences, or a short list. One sentence is a
 complete answer.

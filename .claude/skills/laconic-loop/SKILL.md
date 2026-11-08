@@ -1286,6 +1286,40 @@ python3 evals/bench/judge.py --cases-dir evals/holdout \
 A regression here is fatal no matter what the dev set says. Holdout numbers
 never enter a published benchmark table.
 
+**A reserved case may decide ten rounds, then it retires** (#466). The six
+scenarios, all authored by 2026-08-07, decided seventeen rounds before anything
+counted that: the rule text that survives is, by construction, text
+that did not regress them, and whoever drafts the next edit can read them. A
+set consulted that often is no longer unseen. `report.py` prints each case's
+count beside the campaign line on every verdict, read from the runs in the
+committed `round-N-holdout*.json` snapshots, against `HOLDOUT_BUDGET`.
+
+- **Every consultation counts, accept or reject.** What wears a case is the
+  drafter having seen it, not the verdict.
+- **A case that decides a reject retires at once.** The next round will be
+  drafted against what it found, as round 20 was drafted against the harm
+  round 15's holdout found.
+- **A case past its budget retires at the next refresh.** It moves into
+  `evals/cases` under a name without the `holdout-` prefix
+  (`tests/test_evals_layout.sh` refuses `evals/cases/holdout-*`), where the
+  loop optimizes against it openly. A new case is authored for the coverage
+  slot it held, which `evals/holdout/README.md` lists, and it has to be a new
+  scenario rather than the retired case renamed or edited: a new name restarts
+  the count while the drafter's knowledge of the old case carries over.
+- **A worn case is still consulted until its replacement lands.** A
+  regression on a worn case is still a regression; wear weakens what a pass
+  vouches for, not what a failure shows. A round whose holdout pass rests on a
+  case past budget says so in its holdout section, and a refresh is owed.
+
+Ten is an exposure cap chosen from cost, not derived, because nothing can
+measure what a worn case stopped catching. A budget too small costs authoring
+time, which is visible and bounded: at the archive's pace, seventeen
+consultations in 89 days, a full turnover of six cases comes about every seven
+weeks. A budget too large costs a screen that passes everything because its
+cases are known, and nobody sees that, because holdout numbers are never
+published. Raise it only if authoring replacements becomes the loop's
+bottleneck.
+
 ## Step 10: record it, then propose it
 
 **Add a line to `evals/results/loop/LEDGER.md` whether the edit was accepted or

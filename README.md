@@ -180,7 +180,9 @@ Codex CLI, Gemini CLI, Cursor and Kimi Code all have hook systems close enough
 to Claude Code's that the same scripts serve them. Cursor gets a partial port:
 the rules load at session start, and nothing there can carry the per-turn
 reminder. Kimi Code gets the other half: the reminder runs as a hook, and the
-rules come from `AGENTS.md`. GitHub Copilot CLI's hooks cannot carry laconic at all; see
+rules come from `AGENTS.md`. Codex and Kimi Code were verified on a real install;
+Gemini and Cursor were checked against their documented schemas only. GitHub
+Copilot CLI's hooks cannot carry laconic at all; see
 [`docs/other-agents.md`](docs/other-agents.md#github-copilot-cli-the-hooks-cannot-carry-it).
 
 - **Codex CLI** — append [`plugin/hooks/codex-config.toml`](plugin/hooks/codex-config.toml) to
@@ -189,8 +191,8 @@ rules come from `AGENTS.md`. GitHub Copilot CLI's hooks cannot carry laconic at 
   thing that makes a correct setup look broken:
   [`docs/other-agents.md`](docs/other-agents.md#codex-cli-run-the-hooks).
 - **Gemini CLI** — copy [`plugin/hooks/gemini-settings.json`](plugin/hooks/gemini-settings.json)
-  into `~/.gemini/settings.json` and point it at your clone. Details and the two
-  behavioral differences are in
+  into `~/.gemini/settings.json` and point it at your clone. Details, and the
+  one behavioral difference, no reload after compaction, are in
   [`docs/other-agents.md`](docs/other-agents.md#gemini-cli-run-the-hooks).
 - **Cursor** — copy [`plugin/hooks/cursor-hooks.json`](plugin/hooks/cursor-hooks.json) into
   `~/.cursor/hooks.json` and point it at your clone. **There is no per-turn

@@ -18,11 +18,17 @@ events carry Claude Code's names and Claude Code's payload fields:
 | `UserPromptSubmit` | stdout, as a developer message on every turn | `remind` |
 
 Append [`plugin/hooks/codex-config.toml`](../plugin/hooks/codex-config.toml) to
-`~/.codex/config.toml` and replace `/absolute/path/to/laconic` with your clone:
+`~/.codex/config.toml`, with its `/absolute/path/to/laconic` placeholder set to
+your clone:
 
 ```bash
 git clone https://github.com/JordanMPDS/laconic ~/projects/laconic
+sed "s|/absolute/path/to/laconic|$HOME/projects/laconic|" \
+  ~/projects/laconic/plugin/hooks/codex-config.toml >> ~/.codex/config.toml
 ```
+
+On native Windows, set the `C:\\path\\to\\laconic` placeholder in the two
+`commandWindows` lines by hand, keeping the doubled backslashes TOML needs.
 
 Then set a level. `/laconic full` works from inside Codex, or write the flag
 directly — it is the same `~/.claude/.laconic-level` Claude Code reads:
@@ -78,14 +84,15 @@ confirmation again.
   deliberately has no subagent mode: nobody reads a subagent's report, and
   measuring the path found the rules raised the cost of a subagent call by 6–16%
   for no accuracy gain. See [#6](https://github.com/JordanMPDS/laconic/issues/6).
-- **`/laconic` does switch the level**, unlike under Gemini. Codex's
-  `UserPromptSubmit` payload carries the same `"prompt"` field Claude Code's
-  does, which is what the hook parses the switch out of.
+- **`/laconic` switches the level.** Codex's `UserPromptSubmit` payload carries
+  the same `"prompt"` field Claude Code's does, which is what the hook parses the
+  switch out of.
 
 ### What was verified
 
-Against a real Codex CLI 0.147.0 install, reading the injected developer messages
-back out of the session transcript:
+Against a real Codex CLI 0.147.0 install on 2026-09-02, with laconic v0.2.3's
+rules, reading the injected developer messages back out of the session
+transcript:
 
 | | Result |
 | --- | --- |
@@ -95,10 +102,11 @@ back out of the session transcript:
 | `ultra` | the 6,237-character `ultra` slice, delivered whole and unclamped |
 | `/laconic ultra` typed at Codex | flag written, reminder line changed the same turn |
 
-The `ultra` slice is the largest laconic emits, and it arrives byte-complete with
-no `additionalContextLimit` set, so the truncation risk
-[#14](https://github.com/JordanMPDS/laconic/issues/14) flagged does not apply at
-this size.
+The `ultra` slice is the largest laconic emits, and at 6,237 characters it
+arrived byte-complete with no `additionalContextLimit` set, so the truncation
+risk [#14](https://github.com/JordanMPDS/laconic/issues/14) flagged did not
+apply. The slices have grown by about half since, and delivery has not been
+re-checked at the current size.
 
 ## Gemini CLI: run the hooks
 
@@ -112,17 +120,19 @@ context, and they line up with laconic's two modes:
 | `SessionStart` | `additionalContext`, as the first turn | `start` |
 | `BeforeAgent` | `additionalContext`, appended to the prompt for that turn | `remind` |
 
-Copy [`plugin/hooks/gemini-settings.json`](../plugin/hooks/gemini-settings.json) into
-`~/.gemini/settings.json` (or `.gemini/settings.json` for one project), merging
-it with whatever is already there, and replace
-`/absolute/path/to/laconic` with your clone:
+Merge [`plugin/hooks/gemini-settings.json`](../plugin/hooks/gemini-settings.json)
+into `~/.gemini/settings.json` (or `.gemini/settings.json` for one project),
+alongside whatever is already there. This prints it with the
+`/absolute/path/to/laconic` placeholder set to your clone:
 
 ```bash
 git clone https://github.com/JordanMPDS/laconic ~/projects/laconic
+sed "s|/absolute/path/to/laconic|$HOME/projects/laconic|" \
+  ~/projects/laconic/plugin/hooks/gemini-settings.json
 ```
 
-Then set a level. `/laconic full` in Claude Code writes the same
-`~/.claude/.laconic-level` both tools read, or write it directly:
+Then set a level. `/laconic full` works from inside Gemini, or write the flag
+directly — it is the same `~/.claude/.laconic-level` Claude Code reads:
 
 ```bash
 printf full > ~/.claude/.laconic-level
@@ -151,18 +161,24 @@ the PowerShell command in place, JSON-escaped as shown:
 
 ### What is different from Claude Code
 
-- **`/laconic` does not switch the level from inside Gemini.** The switch is
-  parsed out of the `"prompt"` field of Claude Code's `UserPromptSubmit` payload,
-  and Gemini's `BeforeAgent` payload carries `llm_request.messages` instead. The
-  level comes from the flag file or `LACONIC_DEFAULT`. Nothing misfires — the
-  hook simply finds no switch to apply.
+- **`/laconic` switches the level, and the model sees the command too.** Gemini
+  has no `/laconic` command of its own, so it sends the text on as an ordinary
+  prompt, and `BeforeAgent` carries it as a top-level `"prompt"` string, the
+  field the hook parses the switch out of. The flag is written and that turn's
+  reminder names the new level. The flag is the one Claude Code reads, so
+  `/laconic off` typed in Gemini turns laconic off in Claude Code as well. The
+  one exception is the interactive CLI while its MCP servers are still loading,
+  where Gemini answers "Unknown command" and the hook never runs. This was read
+  from Gemini CLI's source at 62bab5b (2026-11-06), not run.
 - **No compaction reload.** Gemini's `SessionStart` sources are `startup`,
   `resume`, and `clear`; compaction is a separate `PreCompress` event that
   injects nothing.
-- **Not verified against a running Gemini CLI.** The JSON shape is checked by
-  `tests/test_laconic.sh` against Gemini's documented schema, and schema validity
-  is not evidence of loading. [#13](https://github.com/JordanMPDS/laconic/issues/13)
-  stays open until someone confirms it on a real install.
+- **Not verified against a running Gemini CLI.** Both test suites check the
+  fragment against Gemini's documented schema and feed the hook a `BeforeAgent`
+  payload, and schema validity is not evidence of loading.
+  [#13](https://github.com/JordanMPDS/laconic/issues/13) closed on 2026-09-15
+  without that check. **Reopen #13 when** someone confirms on a real install that
+  the slice reaches the model.
 
 ## Cursor: the rules load, the reminder cannot
 
@@ -176,13 +192,15 @@ a carrier there, and the gap is permanent until Cursor adds per-turn injection:
 | `beforeSubmitPrompt` | **Nothing.** It reads `continue`, and a `user_message` shown only when the submission is blocked | `switch` — persists `/laconic`, and acknowledges it |
 | `postToolUse` | `additional_context` — but per tool call, not per turn | — |
 
-Copy [`plugin/hooks/cursor-hooks.json`](../plugin/hooks/cursor-hooks.json) into
+Merge [`plugin/hooks/cursor-hooks.json`](../plugin/hooks/cursor-hooks.json) into
 `~/.cursor/hooks.json` (or `<project-root>/.cursor/hooks.json` for one project),
-merging it with whatever is already there, and replace
-`/absolute/path/to/laconic` with your clone:
+alongside whatever is already there. This prints it with the
+`/absolute/path/to/laconic` placeholder set to your clone:
 
 ```bash
 git clone https://github.com/JordanMPDS/laconic ~/projects/laconic
+sed "s|/absolute/path/to/laconic|$HOME/projects/laconic|" \
+  ~/projects/laconic/plugin/hooks/cursor-hooks.json
 ```
 
 Then set a level. `/laconic full` works from inside Cursor, or write the flag
@@ -252,8 +270,9 @@ the PowerShell command in place, JSON-escaped as shown:
 - **Not verified against a running Cursor.** `tests/test_laconic.sh` checks the
   fragment against Cursor's documented schema and runs the fragment's own
   commands end to end, and schema validity is not evidence of loading.
-  [#16](https://github.com/JordanMPDS/laconic/issues/16)'s last acceptance
-  criterion needs someone with the app. Worth knowing for whoever does it:
+  [#16](https://github.com/JordanMPDS/laconic/issues/16) closed on 2026-09-05
+  without that check. **Reopen #16 when** someone confirms on a real install that
+  the injected slice reaches the model. Worth knowing for whoever does it:
   Cursor has filed bugs on hook output handling elsewhere —
   `additional_context` accepted and logged on `postToolUse` but never surfaced,
   and `updated_input` silently stripped on `beforeSubmitPrompt` — so confirm the
@@ -447,7 +466,7 @@ one pre-sliced file per level — copy the one you want:
 | `ultra` | [`plugin/rules/dist/laconic-ultra.md`](../plugin/rules/dist/laconic-ultra.md) |
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/JordanMPDS/laconic/master/rules/dist/laconic-full.md \
+curl -fsSL https://raw.githubusercontent.com/JordanMPDS/laconic/master/plugin/rules/dist/laconic-full.md \
   > .github/copilot-instructions.md
 ```
 

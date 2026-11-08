@@ -989,6 +989,24 @@ sys.exit(0 if isinstance(v, str) and v.strip() else 1)
     fail "$mode fills additionalContext where Gemini reads it"
   fi
 done
+# Gemini sends an unknown slash command on as an ordinary prompt, and BeforeAgent
+# carries it as a top-level "prompt" string (#478), so /laconic switches the
+# shared flag there and that turn's reminder names the new level. The payload is
+# the shape Gemini's hookEventHandler.ts builds. Prose naming the command writes
+# nothing, as everywhere else.
+gemini_remind() { # gemini_remind <prompt>; prints additionalContext
+  printf '{"session_id":"s","transcript_path":"","cwd":"/w","hook_event_name":"BeforeAgent","timestamp":"2026-11-06T00:00:00.000Z","prompt":"%s"}' "$1" \
+    | LACONIC_JSON_PATH="$GEMINI_PATH" bash "$SCRIPT" remind 2>/dev/null \
+    | python3 -c "import json, sys; print(json.load(sys.stdin)['hookSpecificOutput']['additionalContext'])" 2>/dev/null
+}
+clear_project
+set_level lite
+ctx=$(gemini_remind '/laconic ultra')
+assert_has "Gemini BeforeAgent: /laconic ultra writes the flag" "ultra" "$(cat "$FLAG")"
+assert_has "Gemini BeforeAgent: additionalContext names the new level" "LACONIC MODE ACTIVE (ultra)" "$ctx"
+set_level lite
+gemini_remind 'does /laconic off work?' >/dev/null
+assert_has "Gemini BeforeAgent: prose naming /laconic writes nothing" "lite" "$(cat "$FLAG")"
 rm -f "$FLAG"
 
 # --- codex-config.toml: the Codex CLI hook fragment (#14) ---

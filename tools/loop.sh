@@ -97,11 +97,27 @@ nap() { # <seconds>
 # memory of the merge re-opens a pull request for it: on 2026-09-06 iteration 8
 # inherited `volunteered-check-116` after iteration 7 had merged it, and shipped
 # PR #251 as a byte-identical duplicate of #250 that merged as an empty commit.
+# A checkout this keeps is the child's to recognise, and PROMPT's first
+# paragraph tells it how: until #456 nothing did, and a child restarted on a
+# dirty round branch would have started the next round on top of it.
 #
-# So: tidy back to master only when the branch adds nothing to origin/master and
-# the tree is clean. A round in flight fails both tests and is never touched.
+# So: tidy back to master only when the tree is clean and the branch's work has
+# landed. "Landed" is GitHub's answer, not git's (#456): every pull request
+# merges as a squash, so a merged branch's commits never become ancestors of
+# master, and the ancestry test this used to be could pass only for a branch
+# with no commits at all — it could not have caught its own incident. The PR has
+# to be MERGED with its head at this checkout's HEAD, so a reused branch name
+# with new local commits past the merged head is kept. When gh cannot answer,
+# the ancestry test is the fallback: it passes for nothing that carries work,
+# so an offline gh keeps the branch, which is the safe direction.
 branch_is_merged() {
+  local b
   [ -z "$(git status --porcelain 2>/dev/null)" ] || return 1
+  b=$(git branch --show-current 2>/dev/null)
+  if [ -n "$b" ] && [ "$(gh pr view "$b" --json state,headRefOid \
+      --jq '"\(.state) \(.headRefOid)"' 2>/dev/null)" = "MERGED $(git rev-parse HEAD)" ]; then
+    return 0
+  fi
   git rev-parse --verify -q origin/master >/dev/null 2>&1 || return 1
   git merge-base --is-ancestor HEAD origin/master 2>/dev/null
 }
@@ -192,14 +208,35 @@ STUB
     STUB_MESSAGE="You've hit your session limit · resets 11:59pm (UTC)" bash "$0" 2>&1)
   check "a reset past the cap falls back to the backoff" 'retrying in 1s' "$out"
 
-  # The guard that matters: a tree with work in it is never tidied away. The
-  # merged case is not asserted here because CI checks out a detached merge ref,
-  # so what "merged" means depends on the checkout rather than on the code.
-  _probe=".loop-tidy-probe-$$"
-  touch "$_probe"
-  check "a dirty tree is never tidied" "^DIRTY$" \
-    "$(branch_is_merged || echo DIRTY)"
-  rm -f "$_probe"
+  # The tidy, in a fixture repository with a real origin rather than in this
+  # checkout, whose shape depends on where it runs: CI checks out a detached
+  # merge ref. The branch carries a commit that master does not, which is what a
+  # squash-merged branch looks like to git, and a stub `gh` says what GitHub
+  # would. Before #456 the merged case could not be asserted at all, because the
+  # ancestry test it rested on never passed for a branch with a commit.
+  cat > "$tmp/stub/gh" <<'STUB'
+#!/usr/bin/env bash
+[ -n "${STUB_GH_FAIL:-}" ] && exit 1
+printf '%s\n' "$STUB_PR"
+STUB
+  chmod +x "$tmp/stub/gh"
+  export GIT_AUTHOR_NAME=t GIT_AUTHOR_EMAIL=t@t \
+         GIT_COMMITTER_NAME=t GIT_COMMITTER_EMAIL=t@t
+  git init -q --bare "$tmp/origin.git"
+  git clone -q "$tmp/origin.git" "$tmp/repo" 2>/dev/null
+  _head=$(cd "$tmp/repo" && git commit -q --allow-empty -m base \
+    && git branch -M master && git push -q -u origin master 2>/dev/null \
+    && git checkout -q -b work && echo x > f && git add f \
+    && git commit -q -m work && git rev-parse HEAD) || { echo "FIXTURE"; exit 1; }
+  tidy() { (cd "$tmp/repo" && branch_is_merged && echo TIDY || echo KEPT); }
+  check "a squash-merged branch is tidied" '^TIDY$' "$(STUB_PR="MERGED $_head" tidy)"
+  check "a branch whose PR is open is kept" '^KEPT$' "$(STUB_PR="OPEN $_head" tidy)"
+  check "a branch with commits past the merged head is kept" '^KEPT$' \
+    "$(STUB_PR="MERGED 0000000000000000000000000000000000000000" tidy)"
+  check "a branch gh cannot answer for is kept" '^KEPT$' "$(STUB_GH_FAIL=1 tidy)"
+  touch "$tmp/repo/untracked"
+  check "a dirty tree is never tidied, merged or not" '^KEPT$' \
+    "$(STUB_PR="MERGED $_head" tidy)"
 
   out=$(STUB_STATE=$tmp/d STUB_TOUCH=$tmp/stop bash "$0" 2>&1)
   check "the stop file ends the loop" 'stop present, stopping' "$out"
@@ -269,7 +306,16 @@ RETRY_CAP=${LOOP_RETRY_CAP:-3600}
 # against the backlog — for the same reason waiting is a command and not an
 # intention. `tools/release-due.sh` answers it from the repository alone, which
 # is what makes it legible to a process with no memory of the accept.
-PROMPT='Run `bash tools/release-due.sh` before you look at anything else. If it
+PROMPT='First run `git branch --show-current` and `git status --short`. A
+checkout other than master is work a previous iteration left in flight unless
+`gh pr view --json state` says its pull request has merged. Finishing that work
+is then the whole of this iteration: never branch from it, and never start a
+release, a round or another issue on top of it, because whatever you commit
+there carries its uncommitted edits and snapshots into the wrong pull request.
+A checkout whose pull request has merged has nothing left to finish; switch to
+master, pull, and go on.
+
+Then run `bash tools/release-due.sh` before you look at anything else. If it
 exits non-zero a release is owed, and cutting it is the whole of this iteration:
 not a round, not a backlog issue. Bump the version in
 .claude-plugin/plugin.json, write a release commit that says what ships and what
@@ -348,7 +394,7 @@ while :; do
   # no business moving its HEAD.
   if [ "${LOOP_TIDY:-1}" = 1 ]; then
     git fetch -q origin master 2>/dev/null
-    if branch_is_merged && [ "$(git branch --show-current)" != master ]; then
+    if [ "$(git branch --show-current)" != master ] && branch_is_merged; then
       echo "loop: $(git branch --show-current) is already merged — returning to master"
       git checkout -q master 2>/dev/null && git merge --ff-only -q origin/master 2>/dev/null
     fi

@@ -531,7 +531,7 @@ for _min_arm, _fname in bench_run.ARM_FILES.items():
         check("%s keeps the never-cut contract: %r" % (_min_arm, _probe),
               _probe in _low)
 
-# Seven arms below are derived arms: each is defined as a transformation of the
+# The arms below are derived arms: each is defined as a transformation of the
 # shipped `full` slice, so its invariant is a statement about that slice and
 # cannot be checked against a different one. evals/arms/BUILT-FROM.json records
 # the rules_cksum each was cut from. When rules/laconic.md moves they go stale,

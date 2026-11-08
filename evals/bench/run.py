@@ -144,20 +144,20 @@ def _arm_file(name):
 PONYTAIL_FULL = (ROOT / "evals" / "arms" / "vendor" / "ponytail-full.md").read_text()
 
 
-# Eight of those arms are not free-standing texts: each is defined as a
-# transformation of the shipped `full` slice - a deletion, a replacement, a
-# swapped block - and means nothing except against the slice it was cut from.
-# So each records that slice's rules_cksum, and an edit to rules/laconic.md
-# makes it stale rather than silently wrong. A stale arm still reads as a
-# plausible rules file and would go on producing numbers, which is exactly the
-# failure this catches: `laconic-abl-shown` is "the slice minus its rendered
-# demonstrations", and against a slice carrying a demonstration it never saw it
-# is a deletion of something else. Rebuilding one is a deliberate act that
-# belongs to the round that needs it, so run.py refuses to generate with a
-# stale arm and tests/test_bench.py stops asserting invariants that cannot
-# hold. The laconic-min-* arms carry no entry: they are rewrites to a content
-# specification rather than transformations, so a rules edit does not make
-# them mean something else.
+# The arms listed in evals/arms/BUILT-FROM.json are not free-standing texts:
+# each is defined as a transformation of the shipped `full` slice - a deletion,
+# a replacement, a swapped block - and means nothing except against the slice
+# it was cut from. So each records that slice's rules_cksum, and an edit to
+# rules/laconic.md makes it stale rather than silently wrong. A stale arm still
+# reads as a plausible rules file and would go on producing numbers, which is
+# exactly the failure this catches: `laconic-abl-shown` is "the slice minus its
+# rendered demonstrations", and against a slice carrying a demonstration it
+# never saw it is a deletion of something else. Rebuilding one is a deliberate
+# act that belongs to the round that needs it, so run.py refuses to generate
+# with a stale arm and tests/test_bench.py stops asserting invariants that
+# cannot hold. The laconic-min-* arms carry no entry: they are rewrites to a
+# content specification rather than transformations, so a rules edit does not
+# make them mean something else.
 BUILT_FROM = {k: v for k, v in json.loads(
     (ROOT / "evals" / "arms" / "BUILT-FROM.json").read_text()).items()
     if not k.startswith("_")}

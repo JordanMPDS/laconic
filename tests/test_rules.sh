@@ -352,6 +352,15 @@ else
   fail "loop skill does not name the issue filter tools/loop.sh uses"
 fi
 
+# #456: an iteration inherits the last one's checkout, and a dirty round branch
+# taken for a fresh start carries its edits into another issue's pull request.
+if sed -n "/^PROMPT='/,/'\$/p" "$LOOPSH" | grep -qF 'git status --short' \
+   && grep -qF 'git status --short' "$ROOT/.claude/skills/laconic-loop/SKILL.md"; then
+  ok "unattended loop and loop skill both check the inherited checkout first"
+else
+  fail "unattended loop or loop skill no longer checks the inherited checkout first"
+fi
+
 # Each of these ships a --selftest and until now nothing ran any of them. An
 # enforcement script that is never exercised is the same failure as a rule that
 # is never shipped: it passes by not being looked at.

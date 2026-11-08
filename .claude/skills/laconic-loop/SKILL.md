@@ -61,6 +61,18 @@ touch .claude/loop-stop            # finish the current issue, then exit
 `LOOP_PERMISSION_MODE` defaults to `auto`. A genuinely unattended overnight run
 wants `bypassPermissions`; set it per run, deliberately.
 
+**An iteration inherits whatever checkout the last one left.** That is how a
+round too long for one process continues on its branch, and it is why an
+iteration starts with `git branch --show-current` and `git status --short`. A
+checkout other than master is work left in flight unless its pull request has
+merged, and finishing it is the whole iteration: never branch from it, and
+never start a release, a round or another issue on it, or its uncommitted
+edits and snapshots ride into the wrong pull request. The supervisor returns a
+clean checkout to master only when GitHub says its pull request merged with its
+head at that checkout's HEAD. It used to ask git whether HEAD was an ancestor of
+`origin/master`, which a squash merge never makes true, so the tidy could only
+fire on a branch with no commits (#456).
+
 **Only the operator's own issues are work.** The repository is public, and an
 iteration merges its own pull request and can push a release tag, so an issue
 anyone can open is a path to master. The prompt takes its queue from
@@ -90,9 +102,11 @@ loop: exit 3 — retrying in 600s (1/8)
 ```
 
 `bash tools/loop.sh --selftest` drives the script against a stub `claude`:
-seven checks over the retry, the failure cap, the two log labels, the stop
-file, and the `LACONIC_LOOP_SUPERVISOR` marker the hook reads. Five of them
-fail against the version that shipped, which is the point of having it.
+checks over the retry, the failure cap, the two log labels, the stop file, and
+the `LACONIC_LOOP_SUPERVISOR` marker the hook reads, five of which fail against
+the version that shipped. It also drives the merged-branch tidy against a stub
+`gh` in a fixture repository, where the squash-merged case fails against the
+ancestry test #456 replaced.
 
 **The hook asks GitHub; it does not read `gh`'s output.** It cannot: `gh pr
 merge` prints its "✓ Squashed and merged pull request #N" line only when

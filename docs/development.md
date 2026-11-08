@@ -4,15 +4,21 @@
 bash tests/test_rules.sh && bash tests/test_laconic.sh \
   && bash tests/test_evals_layout.sh \
   && python3 tests/test_metrics.py && python3 tests/test_bench.py \
-  && claude plugin validate . --strict \
-  && claude plugin validate .claude-plugin/plugin.json --strict
+  && claude plugin validate . --strict
 ```
 
 No framework, bash 3.2-safe. Covers the marker contract in `rules/laconic.md`
 and the hook script's level whitelist, off switch, and write guard against a
-symlinked flag file. `claude plugin validate .` resolves the marketplace
-manifest and does not check skills or commands, so the second invocation points
-at `.claude-plugin/plugin.json` directly.
+symlinked flag file; `tests/test_laconic.sh` also parses both manifests and
+each skill's frontmatter, so CI catches a release bump that breaks
+`plugin.json`. `claude plugin validate .` reads the marketplace manifest and
+then the plugin it lists, including `plugin.json`, the skills and
+`hooks/hooks.json`. It reports problems that do not stop the plugin loading
+as warnings and exits 0; `--strict` makes them exit 1. CI does not run it,
+because the CLI is not installed there. The repository's own `CLAUDE.md` lives
+at `.claude/CLAUDE.md` for this reason: the repository root is the plugin root,
+and `--strict` fails on a `CLAUDE.md` there because Claude Code never loads a
+plugin's.
 
 The PowerShell hook has its own suite, running the same numbered cases against
 `hooks/laconic.ps1`. It needs a Windows host, so CI is the normal place to see

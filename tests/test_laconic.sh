@@ -756,6 +756,76 @@ else
   fail "SessionStart must not pin its sources (got matcher: ${matcher:-empty})"
 fi
 
+# --- plugin manifests and skill frontmatter (#465) ---
+#
+# .claude-plugin/plugin.json is the one shipped file edited by hand at every
+# release, and tools/release-due.sh reads its version with sed, which succeeds
+# on a file that does not parse. Claude Code refuses to load a plugin whose
+# manifest does not parse, so a stray comma in a version bump would ship a
+# plugin that loads for nobody, and before this block nothing in CI read the
+# file. The plugin is found through the marketplace entry rather than at a fixed
+# path, so moving it into a subdirectory (#475) needs no edit here. These files
+# are platform-independent, so the bash suite owns them and the PowerShell suite
+# does not repeat them. The checks run from a file rather than inside $( ),
+# because bash 3.2 misparses a heredoc nested in a command substitution.
+python3 - "$ROOT" > "$CLAUDE_CONFIG_DIR/manifests" 2>&1 <<'EOF'
+import json, os, re, sys
+
+root = sys.argv[1]
+
+def check(name, passed):
+    print(("ok" if passed else "FAIL") + "\t" + name)
+
+def load(path):
+    try:
+        with open(path, encoding="utf-8") as f:
+            return json.load(f)
+    except (OSError, ValueError) as e:
+        print("FAIL\t%s parses as JSON: %s" % (os.path.relpath(path, root), e))
+        return None
+
+market = load(os.path.join(root, ".claude-plugin", "marketplace.json"))
+entries = [p for p in (market or {}).get("plugins", []) if p.get("name") == "laconic"]
+check("marketplace.json lists exactly one plugin named laconic", len(entries) == 1)
+source = entries[0].get("source") if len(entries) == 1 else None
+check("the laconic entry's source is a ./ path inside the marketplace",
+      isinstance(source, str) and source.startswith("./"))
+plugin_root = os.path.normpath(os.path.join(root, source if isinstance(source, str) else "./"))
+manifest = os.path.join(plugin_root, ".claude-plugin", "plugin.json")
+check("the laconic entry's source holds .claude-plugin/plugin.json", os.path.isfile(manifest))
+
+plugin = load(manifest) if os.path.isfile(manifest) else None
+if plugin is not None:
+    check("plugin.json parses as JSON", True)
+    check("plugin.json name is laconic, which /plugin install laconic@laconic names",
+          plugin.get("name") == "laconic")
+    # release-due.sh does arithmetic on the three parts to recommend the bump.
+    check("plugin.json version is MAJOR.MINOR.PATCH",
+          re.fullmatch(r"\d+\.\d+\.\d+", str(plugin.get("version", ""))) is not None)
+
+skills = os.path.join(plugin_root, "skills")
+names = sorted(d for d in os.listdir(skills)
+               if os.path.isdir(os.path.join(skills, d))) if os.path.isdir(skills) else []
+check("the plugin ships at least one skill", bool(names))
+for d in names:
+    try:
+        with open(os.path.join(skills, d, "SKILL.md"), encoding="utf-8") as f:
+            text = f.read()
+    except OSError:
+        text = ""
+    m = re.match(r"---\r?\n(.*?)\r?\n---\r?\n", text, re.S)
+    fields = dict(re.findall(r"^([A-Za-z_-]+):[ \t]*(\S.*)$", m.group(1), re.M)) if m else {}
+    check("skills/%s/SKILL.md opens with a frontmatter block" % d, m is not None)
+    # The name is the command a user types: /laconic and /laconic-help.
+    check("skills/%s/SKILL.md names itself %s" % (d, d), fields.get("name") == d)
+    check("skills/%s/SKILL.md carries a description" % d, "description" in fields)
+EOF
+manifest_rc=$?
+while IFS=$'\t' read -r verdict name; do
+  if [ "$verdict" = ok ]; then ok "$name"; else fail "${name:-$verdict}"; fi
+done < "$CLAUDE_CONFIG_DIR/manifests"
+[ "$manifest_rc" -eq 0 ] || fail "the manifest checks ran to completion (python3 exited $manifest_rc)"
+
 # --- switch mode: the Cursor acknowledgment (#16) ---
 #
 # Cursor's beforeSubmitPrompt injects nothing, so this mode does not deliver

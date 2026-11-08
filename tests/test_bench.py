@@ -71,6 +71,26 @@ check("empty is not ok", bench_run.parse_cli_json("")["ok"] is False)
 check("is_error payload is not ok",
       bench_run.parse_cli_json(json.dumps({"is_error": True, "result": "x"}))["ok"] is False)
 
+# #443: a failed parse says which failure it was, and keeps the CLI's own text.
+_err = bench_run.parse_cli_json(json.dumps(
+    {"is_error": True, "result": "Usage limit reached.", "api_error_status": 429}))
+check("an is_error payload is recorded as is_error",
+      _err["error"] == "is_error")
+check("and keeps the CLI's own error text and status",
+      _err["cli_error"] == "Usage limit reached."
+      and _err["api_error_status"] == 429)
+check("garbage is recorded as no result",
+      bench_run.parse_cli_json("not json")["error"] == "no result")
+check("a payload with no string result is recorded as no result",
+      bench_run.parse_cli_json(json.dumps({"result": None}))["error"]
+      == "no result")
+check("a long CLI error is cut to its tail",
+      len(bench_run.parse_cli_json(json.dumps(
+          {"is_error": True, "result": "x" * 5000}))["cli_error"])
+      == bench_run.FAILURE_TEXT_CHARS)
+check("a successful parse carries no failure field",
+      not set(bench_run.FAILURE_FIELDS) & set(parsed))
+
 # --- #142: stream-json capture records which tools a response invoked ---
 # num_turns (#49) counts agentic loop iterations, so a file read and a file
 # edit are the same integer. The CLI's stream-json format emits every
@@ -253,6 +273,10 @@ check("a one-turn sequence is returned untouched, with no turns key",
 check("a one-turn sequence carries no turn_count either, so absence means one",
       "turn_count" not in bench_run.merge_turns([_T1]))
 check("a failed turn fails the record", bench_run.merge_turns([_T1, {"ok": False}])["ok"] is False)
+check("a failed turn's reason survives the merge (#443)",
+      bench_run.merge_turns([_T1, {"ok": False, "error": "exit 1",
+                                   "stderr": "boom", "text": ""}])
+      == {"ok": False, "error": "exit 1", "stderr": "boom"})
 check("an empty sequence is not ok", bench_run.merge_turns([])["ok"] is False)
 
 
@@ -293,6 +317,22 @@ try:
           bench_run.call_turns("claude", "sonnet", ["q1", "q2"], None, "/tmp")["ok"]
           is False)
     check("and it does not spend the second call", len(seen) == 1)
+
+    # #443: the sequence's failure says why, and which turn it was.
+    seen, bench_run.call = _stub_calls(
+        [_T1, {"ok": False, "error": "timeout", "stderr": "hung"}])
+    _f = bench_run.call_turns("claude", "sonnet", ["q1", "q2"], None, "/tmp")
+    check("a failed later turn keeps its reason and names the turn",
+          _f == {"ok": False, "error": "timeout", "stderr": "hung",
+                 "failed_turn": 2})
+    seen, bench_run.call = _stub_calls([dict(_T1, session_id=None), _T2])
+    check("a missing session id is recorded as such, on the turn it stopped",
+          bench_run.call_turns("claude", "sonnet", ["q1", "q2"], None, "/tmp")
+          == {"ok": False, "error": "no session id", "failed_turn": 2})
+    seen, bench_run.call = _stub_calls([{"ok": False, "error": "exit 1"}])
+    check("a single-turn failure names no turn",
+          bench_run.call_turns("claude", "sonnet", ["only"], None, "/tmp")
+          == {"ok": False, "error": "exit 1"})
 
     seen, bench_run.call = _stub_calls([_T1])
     single = bench_run.call_turns("claude", "sonnet", ["only"], None, "/tmp")
@@ -1010,6 +1050,58 @@ stub_fail_out = subprocess.run(
     env=dict(os.environ, STUB_FAIL="1"),
 )
 check("STUB_FAIL=1 makes the stub exit non-zero", stub_fail_out.returncode != 0)
+
+# #443: call() says how it failed. Before, all of these were a bare
+# {"ok": False} and the stderr was captured and dropped.
+_saved_fail = os.environ.get("STUB_FAIL")
+try:
+    os.environ["STUB_FAIL"] = "1"
+    _r = bench_run.call(resolved_rel, "haiku", "p", None, "/tmp")
+    check("a non-zero exit is recorded with its code and the stderr tail",
+          _r["ok"] is False and _r["error"] == "exit 3"
+          and _r["stderr"] == "stub: simulated failure")
+    os.environ["STUB_FAIL"] = "api"
+    _r = bench_run.call(resolved_rel, "haiku", "p", None, "/tmp")
+    check("an API error keeps the CLI's own text and status, which arrive on "
+          "stdout beside a non-zero exit",
+          _r["error"] == "exit 1"
+          and _r["cli_error"] == "Stub usage limit reached."
+          and _r["api_error_status"] == 429
+          and "api_error" in _r["stderr"])
+    check("and the failed record is only the failure fields",
+          set(_r) <= set(bench_run.FAILURE_FIELDS) | {"ok"})
+    check("the console line leads with the CLI's own words",
+          bench_run.describe_failure(_r) == "exit 1: Stub usage limit reached.")
+finally:
+    if _saved_fail is None:
+        os.environ.pop("STUB_FAIL", None)
+    else:
+        os.environ["STUB_FAIL"] = _saved_fail
+_r = bench_run.call("/nonexistent/claude-binary", "haiku", "p", None, "/tmp")
+check("a binary that cannot be spawned is recorded as spawn",
+      _r["ok"] is False and _r["error"] == "spawn" and _r["stderr"])
+_orig_subprocess_run = bench_run.subprocess.run
+
+
+def _hang(*a, **kw):
+    # What run() raises after it kills the child: captured output as bytes,
+    # whatever text= said.
+    raise subprocess.TimeoutExpired(a[0], 300, output=b"", stderr=b"still going\n")
+
+
+bench_run.subprocess.run = _hang
+try:
+    _r = bench_run.call(resolved_rel, "haiku", "p", None, "/tmp")
+finally:
+    bench_run.subprocess.run = _orig_subprocess_run
+check("a timeout is recorded as timeout, its bytes stderr decoded",
+      _r == {"ok": False, "error": "timeout", "stderr": "still going"})
+check("a failure with nothing said is still described by its kind",
+      bench_run.describe_failure({"ok": False, "error": "timeout"}) == "timeout")
+check("stderr's last line describes a failure the CLI gave no text for",
+      bench_run.describe_failure({"error": "exit 2", "stderr": "a\nlast\n",
+                                  "failed_turn": 3})
+      == "exit 2 on turn 3: last")
 
 # Test bare-name resolution and call: exercises shutil.which() path
 with tempfile.TemporaryDirectory() as stub_dir:
@@ -6000,7 +6092,9 @@ if [ "${OK_ALL:-0}" = "1" ] || [ "$n" = "$OK_CALL" ]; then
   echo '{"type":"result","is_error":false,"result":"an answer","num_turns":1,"duration_ms":40,"usage":{"output_tokens":5}}'
   exit 0
 fi
-exit 3
+echo "[claude-code:api_error] stub" >&2
+echo '{"type":"result","is_error":true,"api_error_status":429,"result":"Stub limit reached."}'
+exit 1
 """
 
 
@@ -6029,6 +6123,14 @@ with tempfile.TemporaryDirectory() as td_stop:
     check("and says which cell it stopped on",
           "stopped after 3 consecutive failed cell(s)" in _r.stderr
           and "design-cache/laconic/haiku" in _r.stderr)
+    check("and what the last failure was, in the CLI's words (#443)",
+          "The last one failed with: exit 1: Stub limit reached." in _r.stderr)
+    check("each failed cell's console line names its failure",
+          _r.stdout.count("FAILED (exit 1: Stub limit reached.)") == 3)
+    check("the failed record in the snapshot says why it failed",
+          all(r["error"] == "exit 1" and r["api_error_status"] == 429
+              and r["cli_error"] == "Stub limit reached."
+              and "api_error" in r["stderr"] for r in _snap["runs"]))
     # The whole point: a failed key is not done, so nothing has to be undone.
     check("a stopped pass leaves no key marked done",
           bench_run.completed_keys(_snap) == set())

@@ -4,7 +4,9 @@
 Resumable: a key already in the snapshot is skipped, so an interrupted
 two-hour run continues instead of restarting. Failures are recorded with
 ok=False and excluded from every statistic - a failed call silently scored as
-a very short answer would read as excellent compression.
+a very short answer would read as excellent compression. A failed record says
+why in its FAILURE_FIELDS: `error` names the kind, beside the CLI's stderr
+tail and its own error text where it gave one (#443).
 """
 import argparse
 import fnmatch
@@ -423,6 +425,47 @@ def require_turn_delivery(multi_left, delivery):
         "one." % ", ".join(multi_left))
 
 
+# What a failed record says about why it failed (#443). Before this every
+# failure was a bare {"ok": False}, so a spawn error, a 300 s timeout, a usage
+# limit and a rejected flag were one shape and a resume could not tell an
+# outage that would pass from a configuration error that would fail every
+# remaining key again. `error` is the kind - spawn, timeout, "exit N",
+# is_error, no result, no session id, not tool-less - and the rest is what the
+# CLI said: its stderr tail, the result text of an is_error event, and the HTTP
+# status it reports beside that. usable() excludes every record that carries
+# these and dedupe() replaces it on retry, so no statistic reads them.
+FAILURE_FIELDS = ("error", "stderr", "cli_error", "api_error_status",
+                  "failed_turn")
+FAILURE_TEXT_CHARS = 1000
+
+
+def _tail(text):
+    """The last FAILURE_TEXT_CHARS of a stream, which may be bytes or None.
+
+    TimeoutExpired carries what was captured as bytes even under text=True.
+    """
+    if isinstance(text, bytes):
+        text = text.decode("utf-8", "replace")
+    return (text or "").strip()[-FAILURE_TEXT_CHARS:]
+
+
+def failure(res, **fields):
+    """A failed record carrying only res's failure fields, plus `fields`."""
+    out = {k: res[k] for k in FAILURE_FIELDS if k in res}
+    out.update(fields)
+    out["ok"] = False
+    return out
+
+
+def describe_failure(res):
+    """One line for the console: the kind, then the first thing the CLI said."""
+    said = (res.get("cli_error") or "").strip().splitlines()[:1] or [
+        l for l in (res.get("stderr") or "").splitlines() if l.strip()][-1:]
+    turn = (" on turn %d" % res["failed_turn"]) if res.get("failed_turn") else ""
+    return "%s%s%s" % (res.get("error") or "unknown", turn,
+                       (": " + said[0].strip()[:200]) if said else "")
+
+
 def parse_cli_json(raw):
     blank = {"ok": False, "text": "", "output_tokens": 0, "input_tokens": 0,
              "cache_creation_input_tokens": 0, "cache_read_input_tokens": 0,
@@ -431,12 +474,23 @@ def parse_cli_json(raw):
     try:
         d = json.loads(raw)
     except (ValueError, TypeError):
-        return blank
-    if not isinstance(d, dict) or d.get("is_error"):
-        return blank
+        return dict(blank, error="no result")
+    if not isinstance(d, dict):
+        return dict(blank, error="no result")
+    if d.get("is_error"):
+        # The CLI's own account of the failure, which is the most useful thing
+        # a failed record can hold: "There's an issue with the selected
+        # model", a usage-limit notice, an API error. It arrives on a non-zero
+        # exit too, which is why call() parses stdout before checking the code.
+        out = dict(blank, error="is_error")
+        if isinstance(d.get("result"), str):
+            out["cli_error"] = _tail(d["result"])
+        if d.get("api_error_status") is not None:
+            out["api_error_status"] = d["api_error_status"]
+        return out
     result = d.get("result")
     if not isinstance(result, str):
-        return blank
+        return dict(blank, error="no result")
     u = d.get("usage") or {}
     return {
         "ok": True,
@@ -493,7 +547,7 @@ def merge_turns(records):
     field means one turn.
     """
     if not records or not all(r.get("ok") for r in records):
-        return {"ok": False}
+        return failure(next((r for r in records if not r.get("ok")), {}))
     merged = dict(records[-1])
     if len(records) == 1:
         return merged
@@ -653,9 +707,12 @@ def call_turns(claude_bin, model, turns, system_prompt, cwd, output_style=None,
     """
     records = []
     session = None
+    # Which turn died is worth recording only when there was more than one: a
+    # single-turn failure stays the shape it was, with no turn field.
+    where = (lambda i: {"failed_turn": i + 1}) if len(turns) > 1 else (lambda i: {})
     for i, text in enumerate(turns):
         if i and not session:
-            return {"ok": False}
+            return failure({}, error="no session id", **where(i))
         if delivery == "plugin" and i:
             sp = None
             if reminder:
@@ -666,7 +723,7 @@ def call_turns(claude_bin, model, turns, system_prompt, cwd, output_style=None,
                    resume=session, stop_hook=stop_hook, safe_mode=safe_mode)
         records.append(res)
         if not res.get("ok"):
-            return {"ok": False}
+            return failure(res, **where(i))
         session = res.get("session_id")
     merged = merge_turns(records)
     if merged.get("ok") and len(records) > 1:
@@ -1254,11 +1311,18 @@ def call(claude_bin, model, prompt, system_prompt, cwd, output_style=None,
     try:
         out = subprocess.run(cmd, input=prompt, capture_output=True, text=True,
                              cwd=cwd, env=env, timeout=300)
-    except (OSError, subprocess.TimeoutExpired):
-        return {"ok": False}
-    if out.returncode != 0:
-        return {"ok": False}
+    except OSError as e:
+        return failure({}, error="spawn", stderr=_tail(str(e)))
+    except subprocess.TimeoutExpired as e:
+        return failure({}, error="timeout", stderr=_tail(e.stderr))
+    # Parsed before the exit code is read: the CLI exits 1 on an API error and
+    # still prints the result event that says what the error was (#443).
     res = parse_cli_stream(out.stdout)
+    if out.returncode != 0:
+        return failure(res, error="exit %d" % out.returncode,
+                       stderr=_tail(out.stderr))
+    if not res["ok"]:
+        res["stderr"] = _tail(out.stderr)
     if no_tools:
         # Confirmed from the stream, not assumed from the flag: a session whose
         # init event does not say it started with no tools, or that called one
@@ -1269,7 +1333,7 @@ def call(claude_bin, model, prompt, system_prompt, cwd, output_style=None,
             print("refused a judge session that was not tool-less (started "
                   "with %r, called %r) (#411)" % (started, res["tools"]),
                   file=sys.stderr)
-            return dict(res, ok=False)
+            return dict(res, ok=False, error="not tool-less")
     return res
 
 
@@ -2003,20 +2067,24 @@ def main():
                     save_snapshot(args.snapshot, snap)
                     print("[%d/%d] %-14s %-16s %-7s rep%d %s"
                           % (n, total, case, arm, model, rep,
-                             "ok" if res.get("ok") else "FAILED"))
+                             "ok" if res.get("ok") else
+                             "FAILED (%s)" % describe_failure(res)))
                     streak = 0 if res.get("ok") else streak + 1
                     if (args.max_consecutive_failures
                             and streak >= args.max_consecutive_failures):
                         sys.exit(
                             "\nstopped after %d consecutive failed cell(s), at "
-                            "%s/%s/%s rep%d. That is what a usage limit or an "
-                            "outage looks like from inside a pass, and every "
-                            "remaining key would cost two calls to record "
-                            "another failure. The snapshot is saved and no "
-                            "failed key counts as done, so re-running this same "
-                            "command regenerates exactly what is missing. Pass "
-                            "--max-consecutive-failures 0 to grind through it "
-                            "anyway." % (streak, case, arm, model, rep))
+                            "%s/%s/%s rep%d. The last one failed with: %s\n"
+                            "A streak like this is a usage limit, an outage or "
+                            "a configuration error, and every remaining key "
+                            "would cost two calls to record another failure. "
+                            "The snapshot is saved and no failed key counts as "
+                            "done, so re-running this same command, once the "
+                            "cause is gone, regenerates exactly what is "
+                            "missing. Pass --max-consecutive-failures 0 to "
+                            "grind through it anyway."
+                            % (streak, case, arm, model, rep,
+                               describe_failure(res)))
 
     # A resume that finds every cell done never enters the loop's save, and the
     # declaration it was given would be lost with it. Recomputing here also

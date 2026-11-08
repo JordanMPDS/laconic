@@ -145,7 +145,10 @@ Each refusal names the round that bought it:
 `--concurrency` refuses nothing. It is a declaration, and `concurrency.py`
 audits it. `--max-consecutive-failures` defaults to 8 and stops a pass that an
 outage or a usage limit would otherwise fail key by key; re-run the same command
-to resume.
+to resume. The stop message and each `FAILED` line name what the last failure
+was, and every failed record keeps it: `error` (`spawn`, `timeout`, `exit N`,
+`is_error`, `no result`, `no session id`), the stderr tail, and the CLI's own
+error text and `api_error_status` when it gave them.
 
 `--stop-on-cli-change` refuses a round that spans a `claude` release instead of
 recording it. It is not the default, because a round that runs for hours

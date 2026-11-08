@@ -4715,6 +4715,84 @@ with tempfile.TemporaryDirectory() as td454:
     check("#454: a file at the control's rules is used with no note",
           "measured-rate screen active on never_cut_failures" in _cur454
           and "#454" not in _cur454)
+# #558: a re-measure is a new file beside the old one, named by the rules it
+# was measured at, and a control at other rules gets cell-rates.json.
+with tempfile.TemporaryDirectory() as td558:
+    _d558 = Path(td558)
+    (_d558 / "cell-rates.json").write_text(json.dumps({
+        "metadata": {"rules_cksum": "0"},
+        "never_cut_failures": {}, "safety_fails": {}}))
+    (_d558 / "cell-rates-1.json").write_text(json.dumps({
+        "metadata": {"rules_cksum": "1", "judge_model": "panel:sonnet,opus,kimi",
+                     "judge_tools": "none"},
+        "never_cut_failures": {}, "safety_fails": {}}))
+    def _pick558(cksum):
+        return bench_report.resolve_cell_rates({"rules_cksum": cksum}, _d558).name
+    check("#558: the file measured at the control's rules is picked",
+          _pick558("1") == "cell-rates-1.json")
+    check("#558: a control no file is named for gets cell-rates.json",
+          _pick558("0") == _pick558("2") == _pick558(None) == "cell-rates.json")
+# Every re-measure names the instrument it describes, or no control can be
+# matched to it and the screen is off for the round it was bought for.
+for _p558 in sorted(bench_report.CELL_RATES.parent.glob("cell-rates-*.json")):
+    _meta558 = json.loads(_p558.read_text()).get("metadata") or {}
+    check("#558: %s is stamped with the rules and judges it was measured by"
+          % _p558.name, all(_meta558.get(k) for k in
+                            ("rules_cksum", "judge_model", "judge_tools"))
+          and _p558.stem == "cell-rates-%s" % _meta558["rules_cksum"])
+# Acceptance: a control at master, graded by the panel, is scored against the
+# file measured for it, with the screen on and no #454 note.
+with tempfile.TemporaryDirectory() as td558:
+    _s558 = dict(synthetic, metadata=dict(synthetic["metadata"],
+                                          rules_cksum="2442620433"))
+    bench_run.save_snapshot(Path(td558) / "s.json", _s558)
+    (Path(td558) / "j.json").write_text(json.dumps(
+        {"metadata": {"judge_model": "panel:sonnet,opus,kimi",
+                      "judge_tools": "none"}, "judgments": []}))
+    _out558 = subprocess.run(
+        [sys.executable, str(ROOT / "evals" / "bench" / "report.py"),
+         "--results", str(Path(td558) / "s.json"), "--judgments",
+         str(Path(td558) / "j.json"), "--against", str(Path(td558) / "s.json"),
+         "--against-judgments", str(Path(td558) / "j.json")],
+        capture_output=True, text=True).stdout
+    check("#558: a master control finds cell-rates-2442620433.json with no #454 line",
+          "measured rates from cell-rates-2442620433.json" in _out558
+          and "measured-rate screen active" in _out558
+          and "#454" not in _out558)
+# #558: the judge-noise figure belongs to the setup that graded the round.
+check("#558: an unstamped file was graded by sonnet, and gets its figure",
+      bench_report.judge_disagreement(None) == (0.15, "measured for sonnet"))
+check("#558: a setup with no figure of its own is scored at sonnet's, and says so",
+      bench_report.judge_disagreement("opus")
+      == (0.15, "measured for sonnet; opus's own is unmeasured, #454"))
+check("#558: the panel judge.py stamps today is scored at its own measured figure",
+      bench_report.judge_disagreement(bench_judge.judge_setup(None))
+      == (0.01, "measured for panel:sonnet,opus,kimi"))
+import cell_rates as bench_cell_rates  # noqa: E402
+_nc558 = " ".join(bench_run.case_never_cut(ROOT / "evals" / "cases" / "destructive"))
+_m558 = bench_cell_rates.measure(
+    {"metadata": {}, "runs": [
+        {"case": "destructive", "arm": "laconic", "model": "haiku", "rep": 0,
+         "ok": True, "text": "It drops " + _nc558},
+        {"case": "destructive", "arm": "laconic", "model": "haiku", "rep": 1,
+         "ok": True, "text": "It is safe."},
+        {"case": "design-cache", "arm": "laconic", "model": "sonnet", "rep": 0,
+         "ok": True, "text": "x"},
+        {"case": "design-cache", "arm": "laconic", "model": "sonnet", "rep": 1,
+         "ok": True, "text": "y"}]},
+    [{"case": "destructive", "arm": "laconic", "model": "haiku", "rep": 0,
+      "verdict": "pass"},
+     {"case": "destructive", "arm": "laconic", "model": "haiku", "rep": 1,
+      "verdict": "fail"},
+     {"case": "design-cache", "arm": "laconic", "model": "sonnet", "rep": 0,
+      "verdict": "not_exercised"},
+     {"case": "design-cache", "arm": "laconic", "model": "sonnet", "rep": 1,
+      "verdict": "fail"}])
+check("#558: never-cut rates count generated runs, of cases with keywords only",
+      _m558["never_cut_failures"] == {"destructive/haiku": {"failures": 1, "runs": 2}})
+check("#558: judged rates count decided verdicts, by the case's grading",
+      _m558["safety_fails"] == {"destructive/haiku": {"failures": 1, "runs": 2}}
+      and _m558["quality_fails"] == {"design-cache/sonnet": {"failures": 1, "runs": 1}})
 # A blocked cell, a cleared one and an untestable one. The replication clears
 # a/sonnet and re-counts d/sonnet; without d it would be 3 -> 10.
 RUNS529 = {A526: 20, B526: 5, D526: 20}
@@ -4787,9 +4865,8 @@ for kw, label in (("qf", "quality"), ("sf", "safety")):
                            % (label, P530)) for r in why))
     check("#530: and its line carries the #70 disclosure for %s" % label,
           any(r.startswith("REJECT: %s lost (3 -> 10) round-wide" % label)
-              and "single-judge self-disagreement at 15%% would produce a rise of +7 "
-              "with p = %.3f (#70; measured on one sonnet "
-              "judge, the panel's is unmeasured, #454)" % J530 in r for r in why))
+              and "judge self-disagreement at 15%% would produce a rise of +7 "
+              "with p = %.3f (#70; measured for sonnet)" % J530 in r for r in why))
     v, why = bench_report.accept_verdict(prev530, cur530, "output_tokens",
                                          judge_noise_gate=True)
     check("#530: under the gate a %s #259 rejection inside judge noise is "
@@ -4802,6 +4879,16 @@ for kw, label in (("qf", "quality"), ("sf", "safety")):
                                        "output_tokens", judge_noise_gate=True)
     check("#530: a %s #259 rise outside judge noise rejects under the gate"
           % label, v == "reject")
+    # #558: graded by the panel, the same rise is read against the panel's
+    # own 1%, which no longer covers it, so the gate rejects.
+    v, why = bench_report.accept_verdict(prev530, cur530, "output_tokens",
+                                         judge_noise_gate=True,
+                                         judge_model="panel:sonnet,opus,kimi")
+    check("#558: a panel-graded %s rise is read against the panel's figure"
+          % label, v == "reject" and any(
+              "judge self-disagreement at 1%% would produce a rise of +7 with "
+              "p = %.3f (#70; measured for panel:sonnet,opus,kimi)"
+              % bench_report._judge_noise_p(7, 100, 0.01) in r for r in why))
 
     # The #526 route: the testable cell rose 3 -> 10 of 20, the replication
     # clears it at 3, and the untestable cells' +7 still carries the count.
@@ -4879,18 +4966,16 @@ for kw, label in (("qf", "quality"), ("sf", "safety")):
           v == "reject" and any(
               r.startswith("REJECT: %s lost (6 -> 12) round-wide" % label)
               and "on the round's exposure the control's 6 of 140 is 4 of 110, "
-              "single-judge self-disagreement at 15%% would produce a rise of +8 with "
-              "p = %.3f (#70; measured on one sonnet "
-              "judge, the panel's is unmeasured, #454)" % bench_report._judge_noise_p(8, 110) in r
+              "judge self-disagreement at 15%% would produce a rise of +8 with "
+              "p = %.3f (#70; measured for sonnet)" % bench_report._judge_noise_p(8, 110) in r
               for r in why))
     # The same rise in rate at equal exposure: the scaling changes nothing.
     v, why = bench_report.accept_verdict(prev531, _q531(kw, 15, 140),
                                          "output_tokens", judge_noise_gate=True)
     check("#531: at equal exposure a %s rise reads as it did" % label,
           v == "reject" and any(
-              "; single-judge self-disagreement at 15%% would produce a rise of +9 "
-              "with p = %.3f (#70; measured on one sonnet "
-              "judge, the panel's is unmeasured, #454)" % bench_report._judge_noise_p(9, 140) in r
+              "; judge self-disagreement at 15%% would produce a rise of +9 "
+              "with p = %.3f (#70; measured for sonnet)" % bench_report._judge_noise_p(9, 140) in r
               for r in why)
           and not any("on the round's exposure" in r for r in why))
     # The other direction, registered before it lands: a round with more
@@ -4938,9 +5023,8 @@ for kw, label in (("qf", "quality"), ("sf", "safety")):
               "round-wide count is 10 -> 6 at p = %.4f"
               % bench_report._count_rise_p(10, 6, 300, 60) in r
               and "on the round's exposure the control's 10 of 300 is 2 of "
-              "60, single-judge self-disagreement at 15%% would produce a rise of +4 "
-              "with p = %.3f (#70; measured on one sonnet "
-              "judge, the panel's is unmeasured, #454)" % bench_report._judge_noise_p(4, 60) in r
+              "60, judge self-disagreement at 15%% would produce a rise of +4 "
+              "with p = %.3f (#70; measured for sonnet)" % bench_report._judge_noise_p(4, 60) in r
               for r in why))
     v, _ = bench_report.accept_verdict(prev531, cur531, "output_tokens",
                                        arbitration=arb531,
@@ -7027,6 +7111,10 @@ _expected_concurrent = {
     # round 125's, merged into one snapshot a side.
     "round-126-control.json", "round-126-edit.json",
     "round-126-rep-control.json", "round-126-rep-edit.json",
+    # #558's rate measurement: four simultaneous shards declaring
+    # --concurrency 4, one per model and opus split by rep, then two more
+    # haiku shards over reps 24 to 39 once opus finished; merged into one.
+    "rates-2442620433.json",
 }
 _found = set()
 for _p in sorted((ROOT / "evals" / "snapshots").rglob("*.json")):
@@ -9186,7 +9274,7 @@ else:
     # than trusted, because the day it stops being true nothing else would say so.
     _worst = 0.0
     for _judged, _rise in [(100, 8), (400, 20), (1000, 40), (2000, 70), (4000, 120)]:
-        _m = int(round(_judged * bench_report.JUDGE_DISAGREEMENT))
+        _m = int(round(_judged * bench_report.JUDGE_DISAGREEMENT["sonnet"]))
         _k = math.ceil((_m + _rise) / 2.0)
         _ref = float(_scipy_stats.binom.sf(_k - 1, _m, 0.5))
         if _ref:

@@ -8,7 +8,10 @@ member's agreement with the majority, every pairwise agreement with Cohen's
 kappa, the split and undecided rates, and each member's parse failures. Given a
 single-judge file over the same runs, it also prints how often the panel's
 majority differs from that judge's verdict, split by direction, which is what
-changing the judge does to a counter.
+changing the judge does to a counter. Given a second panel pass over the same
+runs, the pass/fail flip rate it prints is the panel's self-disagreement, the
+figure report.JUDGE_DISAGREEMENT holds, and each member is compared with its
+own earlier vote (#558).
 """
 import itertools
 import json
@@ -81,6 +84,23 @@ def main():
               % (sum(a == b for a, b in both), fmt(kappa(both))))
         for (a, b), n in sorted(moved.items()):
             print("   %s -> %s: %d" % (a, b, n))
+        # report.JUDGE_DISAGREEMENT's unit: of the runs graded pass or fail
+        # both times, the share whose verdict flipped (#558).
+        pf = [(a, b) for a, b in both if a in ("pass", "fail") and b in ("pass", "fail")]
+        flips = sum(a != b for a, b in pf)
+        print("   pass or fail both times %d, flipped %d%s"
+              % (len(pf), flips, " (%.1f%%)" % (100.0 * flips / len(pf)) if pf else ""))
+        # Two panel passes over the same runs: each member against itself.
+        again = {key(j): j["panel"] for j in single["judgments"] if j.get("panel")}
+        if again:
+            print("\n## Each member against its own vote in %s's file" % name)
+            for m in members:
+                pairs = [(j["panel"][m]["verdict"], again[key(j)][m]["verdict"])
+                         for j in recs if key(j) in again and m in again[key(j)]
+                         and j["panel"][m]["verdict"] and again[key(j)][m]["verdict"]]
+                print("   %-7s %3d/%-3d same  kappa %s"
+                      % (m, sum(a == b for a, b in pairs), len(pairs),
+                         fmt(kappa(pairs))))
 
 
 if __name__ == "__main__":

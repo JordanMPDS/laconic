@@ -136,7 +136,10 @@ one that catches stale generated files, and it is the easiest to skip by acciden
   criterion and the response, so a criterion that grades a fixture fact has to
   state that fact. Files are stamped `judge_tools: "none"`, and one without
   the stamp was graded with tools: `judge.py` will not extend or carry from
-  it, and `report.py` will not compare it with one that has the stamp.
+  it, and `report.py` will not compare it with one that has the stamp. Since
+  #450 each record names the CLI release behind every vote it holds as
+  `judge_cli`, and the file lists them as `judge_cli_versions`, so a judging
+  pass that spans a release is stratified like a generation pass, not refused.
 - **A multi-turn round has to name its delivery mode.** `run.py` can send the
   rules to a later turn two ways, and they are different treatments: `repeat`
   re-appends the whole rule slice every turn, while `plugin` reproduces the

@@ -1968,6 +1968,8 @@ with tempfile.TemporaryDirectory() as td_blind:
     cwd_stub = Path(td_blind) / "cwd-stub.sh"
     cwd_stub.write_text(
         "#!/usr/bin/env bash\n"
+        # judge.py reads the release before every call (#450).
+        '[ "$1" = "--version" ] && { echo "0.0.0 (stub)"; exit 0; }\n'
         'printf \'%s\\n\' "$PWD" >> "$JUDGE_CWD_LOG"\n'
         "cat <<'JSON'\n"
         '{"type":"system","subtype":"init","tools":[]}\n'
@@ -2117,12 +2119,46 @@ with tempfile.TemporaryDirectory() as td_km:
         check("_call_kimi returns the reply of a tool-less transcript",
               _kres["ok"] is True
               and bench_judge.parse_verdict(_kres["text"])["verdict"] == "pass")
+        # #450: kimi's vote is priced at its wall time and one turn, and names
+        # the release its own transcript reports.
+        check("_call_kimi names the release its transcript reports (#450)",
+              _kres["cli"] == "0.38.0")
+        check("_call_kimi records a vote's wall time and one turn (#450)",
+              isinstance(_kres["duration_ms"], int) and _kres["num_turns"] == 1
+              and bench_judge.usage_of(_kres)["num_turns"] == 1)
         os.environ["KIMI_STREAM"] = "\n".join([_KM, _KT, _KR, _KA, _KH])
+        _kbad = bench_judge._call_kimi("grade this")
         check("_call_kimi fails a judgment whose transcript shows a tool",
-              bench_judge._call_kimi("grade this")["ok"] is False)
+              _kbad["ok"] is False)
+        check("a failed kimi vote carries no usage, as a failed claude call does",
+              "duration_ms" not in _kbad and "num_turns" not in _kbad)
     finally:
         os.environ["PATH"] = _path_keep
         os.environ.pop("KIMI_STREAM", None)
+
+check("kimi_version reads the system.version line, else 'unknown'",
+      bench_judge.kimi_version("\n".join([_KM, _KA])) == "0.38.0"
+      and bench_judge.kimi_version(_KA) == "unknown"
+      and bench_judge.kimi_version("") == "unknown")
+
+# #450: the file's releases are read off its records. A record names the
+# release behind each vote; one graded before #450, or with a vote whose
+# release a failed probe could not name, is one a reader cannot stratify.
+_cli450 = bench_judge.judge_cli_stamp([
+    {"verdict": "pass", "judge_cli": {"sonnet": "2.1.2", "opus": "2.1.1", "kimi": "0.38.0"}},
+    {"verdict": "fail", "judge_cli": {"sonnet": "2.1.1", "opus": "unknown"}},
+    {"verdict": "pass"},
+    {"verdict": "not_exercised", "reason": bench_judge.REASON_JUDGE_CALL_FAILED,
+     "judge_cli": {"sonnet": "9.9.9"}}])
+check("judge_cli_stamp: one sorted release list per binary, sonnet and opus as claude",
+      _cli450["judge_cli_versions"] == {"claude": ["2.1.1", "2.1.2"], "kimi": ["0.38.0"]})
+check("judge_cli_stamp: an unknown or missing stamp is counted, an undecided record is not",
+      _cli450["judge_cli_unrecorded"] == 2)
+check("judge_releases names each binary's releases, or says none were recorded",
+      bench_report.judge_releases({"judge_cli_versions": {"claude": ["2.1.1", "2.1.2"]},
+                                   "judge_cli_unrecorded": 1})
+      == "claude 2.1.1, 2.1.2 (1 record(s) name no release)"
+      and bench_report.judge_releases({}) == "none recorded (graded before #450)")
 
 # --- G: run.py._cli_version must use the resolved --claude-bin, with a timeout ---
 with tempfile.TemporaryDirectory() as td_ver:
@@ -4827,6 +4863,9 @@ with tempfile.TemporaryDirectory() as td558:
          str(Path(td558) / "j.json"), "--against", str(Path(td558) / "s.json"),
          "--against-judgments", str(Path(td558) / "j.json")],
         capture_output=True, text=True).stdout
+    check("--against prints both judgments files' releases (#450)",
+          "judge releases: this round none recorded (graded before #450); "
+          "against none recorded" in _out558)
     check("#558: a master control finds cell-rates-2442620433.json with no #454 line",
           "measured rates from cell-rates-2442620433.json" in _out558
           and "measured-rate screen active" in _out558
@@ -5221,6 +5260,16 @@ _flat = bench_report.cost_summary(
 check("a flat output_tokens on a judgment is not read as usage (#68)",
       _flat[1]["priced"] == 0 and _flat[1]["output_tokens"] == 0)
 
+# #450: a panel record is three calls, and kimi's is counted but not priced.
+_panel450 = [{"verdict": "pass", "usage": dict(u),
+              "panel": {m: {"verdict": "pass"} for m in bench_judge.PANEL}}] * 2
+_prows450 = bench_report.cost_summary({"metadata": {}, "runs": []}, _panel450, [])
+check("a panel record counts one call per member, kimi's unpriced (#450)",
+      _prows450[1]["calls"] == 6 and _prows450[1]["priced"] == 4)
+check("and the table says why kimi's calls carry no price",
+      "Calls include 2 kimi vote(s)" in bench_report._cost_table(_prows450)
+      and "kimi" not in bench_report._cost_table(_old))
+
 # --- #71: judge.py judges through a thread pool, and a resume still repairs
 # in place rather than appending beside the failure. Concurrency is the part
 # most likely to break the resume invariant #67 established, so the two are
@@ -5234,6 +5283,7 @@ with tempfile.TemporaryDirectory() as td_jobs:
     stub = Path(td_jobs) / "counting-claude.sh"
     stub.write_text(
         "#!/usr/bin/env bash\n"
+        '[ "$1" = "--version" ] && { echo "0.0.0 (stub)"; exit 0; }\n'
         # mkdir, not flock: flock is util-linux and macOS has none.
         'L="%s.lock"; until mkdir "$L" 2>/dev/null; do sleep 0.01; done\n'
         'n=$(cat "%s" 2>/dev/null || echo 0)\n'
@@ -5319,6 +5369,7 @@ with tempfile.TemporaryDirectory() as td_pan:
     _pclaude = _pd / "claude-stub.sh"
     _pclaude.write_text(
         "#!/usr/bin/env bash\n"
+        '[ "$1" = "--version" ] && { echo "2.1.999 (Claude Code)"; exit 0; }\n'
         'echo "$3" >> "%s"\n'
         'in=$(cat)\n'
         'v=pass\n'
@@ -5391,6 +5442,19 @@ with tempfile.TemporaryDirectory() as td_pan:
           and _pj2[2]["panel"]["opus"]["verdict"] == "fail")
     check("panel resume: one record per run, none appended",
           len(json.loads(_pout.read_text())["judgments"]) == 3)
+    # #450: each vote names the release that cast it, a kept vote keeps its
+    # own, and kimi's vote counts in the record's turns.
+    _V450 = "2.1.999 (Claude Code)"
+    check("panel pass: a record names the release behind each vote it holds (#450)",
+          _pj1[0]["judge_cli"] == {"sonnet": _V450, "opus": _V450})
+    check("panel resume: a kept vote keeps the release that cast it (#450)",
+          _pj2[1]["judge_cli"] == {"sonnet": _V450, "opus": _V450, "kimi": "0.38.0"})
+    check("panel resume: kimi's vote counts in the record's turns (#450)",
+          _pj2[1]["usage"]["num_turns"] == 3)
+    _pm2 = json.loads(_pout.read_text())["metadata"]
+    check("panel resume: the file lists the releases its votes were cast under",
+          _pm2["judge_cli_versions"] == {"claude": [_V450], "kimi": ["0.38.0"]}
+          and _pm2["judge_cli_unrecorded"] == 0)
 
 # --- #80: provenance is stamped per run, and the report reads it off the runs.
 # round-12.json records round-01-n10-v2.json's CLI and date because the
@@ -5444,6 +5508,7 @@ with tempfile.TemporaryDirectory() as td_cj:
     stub = Path(td_cj) / "claude.sh"
     stub.write_text(
         "#!/usr/bin/env bash\n"
+        '[ "$1" = "--version" ] && { echo "0.0.0 (stub)"; exit 0; }\n'
         'L="%s.lock"; until mkdir "$L" 2>/dev/null; do sleep 0.01; done\n'
         'n=$(cat "%s" 2>/dev/null || echo 0); n=$((n+1)); printf \'%%s\' "$n" > "%s"\n'
         'rmdir "$L"\n'
@@ -6487,6 +6552,7 @@ with tempfile.TemporaryDirectory() as td_log:
 # first). ThreadPoolExecutor.map submits every item up front, so stopping means
 # making the remaining items call nothing.
 _JUDGE_SEQ_STUB = """#!/usr/bin/env bash
+[ "$1" = "--version" ] && { echo "0.0.0 (stub)"; exit 0; }
 until mkdir "$CFILE.lock" 2>/dev/null; do sleep 0.01; done
 n=$(( $(cat "$CFILE" 2>/dev/null || echo 0) + 1 ))
 echo "$n" > "$CFILE"

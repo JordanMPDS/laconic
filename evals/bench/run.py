@@ -966,8 +966,10 @@ def new_snapshot(reps, models, level, rules_cksum, arms, claude_bin="claude",
 
 def _cli_version(claude_bin):
     try:
+        # No stdin: a probe never reads it, and an inherited terminal would
+        # hold a binary that does until the timeout.
         out = subprocess.run([claude_bin, "--version"], capture_output=True,
-                             text=True, timeout=10)
+                             text=True, timeout=10, stdin=subprocess.DEVNULL)
     except (OSError, subprocess.TimeoutExpired):
         return "unknown"
     return out.stdout.strip() if out.returncode == 0 else "unknown"

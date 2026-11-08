@@ -24,6 +24,7 @@ import subprocess
 import sys
 import tempfile
 import threading
+import time
 import zlib
 from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
@@ -303,11 +304,15 @@ def _call_blind(claude_bin, model, prompt):
     res = {"ok": False}
     for _ in range(2):
         scratch = tempfile.mkdtemp()
+        # Read before the call, the way run.py stamps a generation (#272): a
+        # release can land mid-pass, and the vote is the new release's (#450).
+        cli = bench_run._cli_version(claude_bin)
         try:
             res = bench_run.call(claude_bin, model, prompt, None, scratch,
                                  no_tools=True)
         finally:
             shutil.rmtree(scratch, ignore_errors=True)
+        res["cli"] = cli
         if res.get("ok"):
             return res
     return res
@@ -342,6 +347,24 @@ def kimi_reply(raw):
     return "\n".join(parts)
 
 
+def kimi_version(raw):
+    """The release a kimi transcript says produced it, else "unknown".
+
+    Read off the call's own `system.version` line rather than probed with
+    `kimi --version`, which is a second Python start of about 1.5 s per vote
+    and could name a different release than the one that graded (#450).
+    """
+    for line in (raw or "").splitlines():
+        try:
+            d = json.loads(line)
+        except ValueError:
+            continue
+        if isinstance(d, dict) and d.get("type") == "system.version" \
+                and d.get("version"):
+            return str(d["version"])
+    return "unknown"
+
+
 def _call_kimi(prompt):
     """One kimi judgment, retried once, blind in a fresh temp dir.
 
@@ -351,16 +374,22 @@ def _call_kimi(prompt):
     refuses a transcript that shows one in use anyway. The reply is the
     assistant text, which parse_verdict reads the same way it reads a claude
     reply.
+
+    kimi's stream carries no token counts, so a vote's usage is its wall time
+    and one turn, kept only when the vote arrived: a failed claude call carries
+    no usage either (#443), and the record sums its members alike (#450).
     """
     res = {"ok": False}
     for _ in range(2):
         scratch = tempfile.mkdtemp()
         try:
+            started = time.monotonic()
             p = subprocess.run(["kimi", "-p", prompt, "-m", KIMI_MODEL,
                                 "--agent-file", str(KIMI_AGENT),
                                 "--output-format", "stream-json"],
                                cwd=scratch, capture_output=True, text=True,
                                timeout=KIMI_TIMEOUT, stdin=subprocess.DEVNULL)
+            ms = int((time.monotonic() - started) * 1000)
             text = kimi_reply(p.stdout) if p.returncode == 0 else ""
             if text is None:
                 print("refused a kimi judgment whose transcript is not plain "
@@ -372,11 +401,14 @@ def _call_kimi(prompt):
                 print("kimi judgment attempt failed: exit %d: %s"
                       % (p.returncode, " ".join(p.stderr.split()[-40:])),
                       file=sys.stderr)
-            res = {"ok": bool(text and text.strip()), "text": text or ""}
+            res = {"ok": bool(text and text.strip()), "text": text or "",
+                   "cli": kimi_version(p.stdout)}
+            if res["ok"]:
+                res.update(duration_ms=ms, num_turns=1)
         except (OSError, subprocess.TimeoutExpired) as e:
             print("kimi judgment attempt failed: %s" % type(e).__name__,
                   file=sys.stderr)
-            res = {"ok": False}
+            res = {"ok": False, "cli": "unknown"}
         finally:
             shutil.rmtree(scratch, ignore_errors=True)
         if res.get("ok"):
@@ -451,6 +483,32 @@ def held_votes(j):
                 "reason": v.get("reason", "")}
             for m, v in (j.get("panel") or {}).items()
             if v.get("verdict") in VERDICTS}
+
+
+def judge_cli_stamp(judgments):
+    """The file's judge releases, read off its records (#450).
+
+    Each record stamps the release behind every member's vote as `judge_cli`,
+    because a judging pass runs for hours and the CLI ships several times a
+    day: a stamp written once per pass would be inherited by every vote after
+    a release, which is #272's defect on the judging side. Recomputed from the
+    records rather than kept as a running set, so it describes the file and
+    not one invocation (#86). sonnet and opus are one binary; "unknown" is a
+    failed probe and names no release (#445), so it lands in the count of
+    records a reader cannot stratify, beside the records graded before #450.
+    """
+    seen, unrecorded = {}, 0
+    for j in judgments:
+        if _is_infra_failure(j):  # no verdict yet, and a resume retries it
+            continue
+        cli = j.get("judge_cli") or {}
+        if not cli or "unknown" in cli.values():
+            unrecorded += 1
+        for m, v in cli.items():
+            if v != "unknown":
+                seen.setdefault("kimi" if m == "kimi" else "claude", set()).add(v)
+    return {"judge_cli_versions": {b: sorted(v) for b, v in sorted(seen.items())},
+            "judge_cli_unrecorded": unrecorded}
 
 
 def main():
@@ -673,9 +731,11 @@ def main():
 
     todo = [r for r in runs
             if (r["case"], r["arm"], r["model"], r["rep"]) not in done]
-    # A retried panel record keeps the votes it holds, and their cost (#446).
+    # A retried panel record keeps the votes it holds, their cost (#446) and
+    # the releases that cast them (#450).
     held = {} if args.model else {
-        k: (held_votes(prior["judgments"][i]), prior["judgments"][i].get("usage") or {})
+        k: (held_votes(prior["judgments"][i]), prior["judgments"][i].get("usage") or {},
+            prior["judgments"][i].get("judge_cli") or {})
         for k, i in at.items() if k not in done}
     ungated = []
     if not args.judge_all:
@@ -703,7 +763,7 @@ def main():
     # a judging pass is hundreds of CLI sessions and nothing said so up front.
     per = 1 if args.model else len(PANEL)
     calls = sum(per - len(held.get((r["case"], r["arm"], r["model"], r["rep"]),
-                                   ({}, {}))[0])
+                                   ({},))[0])
                 for r in todo)
     print("budget: %d judgment(s) to make by %s, %d call(s), of %d usable "
           "run(s) in this snapshot (%d already graded or carried, %d skipped as "
@@ -744,26 +804,33 @@ def main():
             v = parse_verdict(res.get("text", "")) if res.get("ok") else \
                 {"verdict": "not_exercised", "quote": "", "reason": REASON_JUDGE_CALL_FAILED}
             usage = usage_of(res)
+            cli = {args.model: res.get("cli", "unknown")}
         else:
             # Members in sequence, not in parallel: --jobs already runs that
             # many judgments at once, and three processes each would triple the
             # open sessions on a machine #255 found memory-bound.
-            kept, spent = held.get((r["case"], r["arm"], r["model"], r["rep"]),
-                                   ({}, {}))
-            votes = {}
+            kept, spent, kept_cli = held.get(
+                (r["case"], r["arm"], r["model"], r["rep"]), ({}, {}, {}))
+            votes, cli = {}, {}
             usage = {k: spent.get(k, 0) or 0 for k in USAGE_FIELDS}
             for m in PANEL:
                 if m in kept:
                     votes[m] = kept[m]
+                    # A vote kept from before #450 names no release.
+                    cli[m] = kept_cli.get(m, "unknown")
                     continue
                 res = _call_kimi(prompt) if m == "kimi" else \
                     _call_blind(claude_bin, m, prompt)
                 votes[m] = parse_verdict(res.get("text", "")) if res.get("ok") else None
+                # The release behind each vote the record holds: a member
+                # that cast none has nothing for a reader to stratify.
+                if votes[m]:
+                    cli[m] = res.get("cli", "unknown")
                 for k, n in usage_of(res).items():
                     usage[k] += n or 0
             v = panel_verdict(votes)
         v.update({"case": r["case"], "arm": r["arm"], "model": r["model"], "rep": r["rep"],
-                  "usage": usage})
+                  "usage": usage, "judge_cli": cli})
         with stop_lock:
             if not _is_infra_failure(v):
                 stop["streak"] = 0
@@ -784,13 +851,22 @@ def main():
             else:
                 at[key] = len(prior["judgments"])
                 prior["judgments"].append(v)
+            meta.update(judge_cli_stamp(prior["judgments"]))
             bench_run.save_snapshot(args.out, prior)  # after each: resumable if killed
             print("[%d/%d] %-14s %-16s %-7s rep%d -> %s"
                   % (i, len(todo), v["case"], v["arm"], v["model"], v["rep"],
                      v["verdict"]), flush=True)
 
+    meta.update(judge_cli_stamp(prior["judgments"]))
     bench_run.save_snapshot(args.out, prior)
     print("\nwrote %s (%d judgments)" % (args.out, len(prior["judgments"])))
+    for binary, releases in meta["judge_cli_versions"].items():
+        if len(releases) > 1:
+            print("warning: this file's votes were cast under %d %s releases "
+                  "(%s), so its verdicts come from more than one instrument. "
+                  "Stratify on each record's judge_cli before reading a "
+                  "contrast from it (#450)"
+                  % (len(releases), binary, ", ".join(releases)))
     # A kimi vote that never arrived - an outage, or a transcript kimi_reply
     # refused (#411) - leaves sonnet and opus deciding where they agree. That is
     # the panel's verdict, which no third vote overturns (#446), but

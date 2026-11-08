@@ -388,6 +388,28 @@ with tempfile.TemporaryDirectory() as td_pt:
           and "ponytail-full.md" in _pt2.stderr
           and "changed since" in _pt2.stderr)
 
+# #440: metadata.reps was written once, at creation, so a snapshot extended
+# from one rep to three still declared one.
+with tempfile.TemporaryDirectory() as td_ext:
+    _ext_out = Path(td_ext) / "ext.json"
+
+    def _extend(reps):
+        return subprocess.run(
+            [sys.executable, str(ROOT / "evals" / "bench" / "run.py"),
+             "--claude-bin", str(ROOT / "tests" / "stubs" / "claude-stub.sh"),
+             "--arms", "laconic", "--models", "haiku", "--reps", str(reps),
+             "--cases", "floor", "--snapshot", str(_ext_out)],
+            capture_output=True, text=True)
+
+    _extend(1)
+    _ext = _extend(3)
+    _ext_snap = json.loads(_ext_out.read_text())
+    check("subprocess: a resume that extends a snapshot records the reps it "
+          "now covers (#440)",
+          _ext.returncode == 0 and len(_ext_snap["runs"]) == 3
+          and (_ext_snap["metadata"]["reps"],
+               _ext_snap["metadata"]["rep_offset"]) == (3, 0))
+
 # #283's second enforcement arm. It exists to answer whether the block has to
 # quote the rule, so the one thing that must hold is that the two arms differ
 # in that and in nothing else - a difference anywhere else, in the rules text
@@ -7276,6 +7298,71 @@ with tempfile.TemporaryDirectory() as td_merge:
               _old.returncode == 0
               and bench_run.load_snapshot(str(td / ("z-%s.json" % _key)))
               ["metadata"].get(_key) == _v1)
+
+    # #440: shards split by --rep-offset each declare one shard's size, and
+    # merge.py took the largest declaration, so a complete merge read as half
+    # a round while two shards that both forgot the offset read as complete.
+    def _offset(offset, text="t"):
+        s = _shard("haiku", ["floor"])
+        s["metadata"]["rep_offset"] = offset
+        for r in s["runs"]:
+            r["rep"] += offset
+            r["text"] = text
+        return s
+
+    _lo = _write("lo.json", _offset(0))
+    _hi = _write("hi.json", _offset(2))
+    _p440 = _merge_cli([_lo, _hi, "--out", str(td / "m440.json"),
+                        "--cases-dir", str(ROOT / "evals" / "cases")])
+    _m440 = bench_run.load_snapshot(str(td / "m440.json"))["metadata"]
+    check("a merge of --rep-offset shards counts the union of their reps (#440)",
+          (_m440["reps"], _m440["rep_offset"]) == (4, 0))
+    check("and reports the complete merge as complete",
+          _p440.returncode == 0 and "note: " not in _p440.stdout
+          and "warning: " not in _p440.stdout)
+    check("each shard entry records the reps it declared",
+          [(s["rep_offset"], s["reps"]) for s in _m440["shards"]]
+          == [(0, 2), (2, 2)])
+    _twin = _write("twin.json", _offset(0, text="another shard's answer"))
+    _pc = _merge_cli([_lo, _twin, "--out", str(td / "c440.json"),
+                      "--cases-dir", str(ROOT / "evals" / "cases")])
+    check("two shards at the same offset are warned about, naming the one "
+          "whose runs the merge discarded (#440)",
+          _pc.returncode == 0
+          and "warning: 4 usable run(s) discarded" in _pc.stdout
+          and "twin.json lost 4" in _pc.stdout
+          and [s["discarded_runs"] for s in bench_run.load_snapshot(
+              str(td / "c440.json"))["metadata"]["shards"]] == [0, 4])
+    _same = _write("same.json", _offset(0))
+    check("and identical copies of a run, which is what two shards carrying "
+          "one control arm hold, are not",
+          "warning: " not in _merge_cli(
+              [_lo, _same, "--out", str(td / "s440.json"), "--cases-dir",
+               str(ROOT / "evals" / "cases")]).stdout)
+    check("merge.py runs under python3 -I, like every sibling-importing script",
+          subprocess.run([sys.executable, "-I",
+                          str(ROOT / "evals" / "bench" / "merge.py"), "--help"],
+                         capture_output=True, text=True).returncode == 0)
+
+# rep_ids is the rep range a file covers: the declared range and every rep its
+# own records hold, never a carried run's, because carry_arms copies a source's
+# reps whatever the round's are (#440).
+_ri = _shard("haiku", ["floor"], reps=5)
+_ri["metadata"]["reps"] = 2
+_ri_carried = {bench_conc._cell(r) for r in _ri["runs"]
+               if r["arm"] == "baseline"}
+check("rep_ids counts the reps a file's own runs hold beyond its declaration",
+      bench_run.rep_ids(_ri) == set(range(5)))
+check("and leaves a carried arm's reps out",
+      bench_run.rep_ids(
+          {"metadata": _ri["metadata"],
+           "runs": [r for r in _ri["runs"]
+                    if r["arm"] == "baseline" or r["rep"] < 2]},
+          _ri_carried) == {0, 1})
+_ri["runs"] = []
+_ri["metadata"].update(reps=3, rep_offset=4)
+check("and keeps a declared rep that produced no record",
+      bench_run.rep_ids(_ri) == {4, 5, 6})
 
 
 # The reminder is a second copy of a string that lives in hooks/laconic.sh, and

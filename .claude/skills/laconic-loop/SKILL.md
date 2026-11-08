@@ -185,10 +185,12 @@ the other three things round 21 has. Read it before running a round:
   ```
 
   `run.py` generates only the rep keys the snapshot lacks, so this adds reps 5
-  to 9 and costs 220 calls rather than 440. **It does not rewrite
-  `metadata.reps`,** which `new_snapshot` sets once at creation: the file would
-  hold ten reps of laconic while its metadata still says 5. Correct the field
-  by hand if you do this, or the next reader takes the arm for n=5.
+  to 9 and costs 220 calls rather than 440. Since [#440] the resume rewrites
+  `metadata.reps` to cover every rep the file generated, so it reads 10
+  afterwards. That is the laconic arm's count: the other arms stay at 5, and
+  the field cannot say so.
+
+[#440]: https://github.com/JordanMPDS/laconic/issues/440
 
 **Rounds 16 to 21 used `-v4`, which is `-v3` plus `design-cache`,
 `design-realtime` and `design-upload`.** Every cell in the file is at

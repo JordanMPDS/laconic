@@ -765,6 +765,28 @@ def dedupe(runs):
     return out
 
 
+def rep_ids(snap, carried=frozenset()):
+    """The rep indices a snapshot covers: its declared range, and the rep of
+    every record it generated (#440).
+
+    metadata.reps used to describe only the invocation that created the file,
+    so a snapshot extended from 10 reps to 30 still read 10, and a merge of
+    --rep-offset shards read one shard's size. Declared beats observed for the
+    reason it does for cells: a rep whose every run failed is in the design and
+    absent from the records. Carried runs are left out, keyed as
+    concurrency.carried_runs keys them, because carry_arms copies a source's
+    reps whatever this round's are: a 10-rep control carried into a 5-rep
+    round does not make the round's design 10 reps.
+    """
+    meta = snap.get("metadata") or {}
+    first = meta.get("rep_offset") or 0
+    ids = set(range(first, first + (meta.get("reps") or 0)))
+    ids.update(r["rep"] for r in snap.get("runs", [])
+               if r.get("rep") is not None
+               and concurrency._cell(r) not in carried)
+    return ids
+
+
 def carry_arms(snap, source, keep_arms, cells=None):
     """Copy every usable run whose arm is not being regenerated.
 
@@ -1720,6 +1742,14 @@ def main():
     # cannot change during the pass, and reading the carry source on each of
     # 440 writes would re-parse a multi-megabyte snapshot every time.
     carried = concurrency.carried_runs(snap)
+    # The rep range describes the file too, so extending a snapshot from 10
+    # reps to 25 records 25 rather than the 10 it was created with, and an
+    # older file that understates what it holds is corrected (#440).
+    ids = rep_ids(snap, carried) | set(
+        range(args.rep_offset, args.rep_offset + args.reps))
+    if ids:
+        meta["reps"] = len(ids)
+        meta["rep_offset"] = min(ids)
 
     # Collapse duplicates a pre-#61 resume appended, so a file written by the
     # old code repairs itself the first time it is touched.

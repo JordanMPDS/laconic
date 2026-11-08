@@ -47,6 +47,14 @@ no single shard saw:
   the merge itself demonstrates.
 - `turn_delivery`, `cli_versions` and `cli_versions_per_run`, from every
   shard's runs rather than the first shard's metadata (#441).
+- `reps` and `rep_offset`, over the union of every shard's declared rep range
+  and the reps its records hold, rather than the largest declaration: shards
+  split by `--rep-offset` each declare one shard's size (#440).
+
+What it reports rather than refuses: a usable run discarded because another
+shard holds a different run under the same key. That is two shards started at
+the same `--rep-offset`, and the merged file would otherwise read as complete
+with one shard's work gone (#440). Each shard entry counts its own losses.
 
 `metadata.shards` records where every run came from, so the merged file carries
 its own provenance instead of leaving it to be reconstructed.
@@ -56,8 +64,9 @@ import json
 import sys
 from pathlib import Path
 
-import concurrency
-import run as R
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+import concurrency  # noqa: E402
+import run as R  # noqa: E402
 
 
 def merge(paths, cases_dir=None):
@@ -109,7 +118,19 @@ def merge(paths, cases_dir=None):
                  "label." % "; ".join("%s: %s" % (p, "/".join(v))
                                       for p, v in held if v))
 
-    runs = R.dedupe([r for s in snaps for r in s.get("runs", [])])
+    every = [(s["__path"], r) for s in snaps for r in s.get("runs", [])]
+    runs = R.dedupe([r for _, r in every])
+    # Count the usable records dedupe dropped for a different record under the
+    # same key (#440). An identical copy is no loss: two shards carrying one
+    # control arm from one source hold the same records, and so does a merge
+    # that names a shard beside a file already merged from it.
+    kept = {R.run_key(r.get("case"), r.get("arm"), r.get("model"), r.get("rep")): r
+            for r in runs}
+    discarded = {}
+    for path, r in every:
+        k = kept[R.run_key(r.get("case"), r.get("arm"), r.get("model"), r.get("rep"))]
+        if r.get("ok") and k is not r and k != r:
+            discarded[path] = discarded.get(path, 0) + 1
 
     cases_dir = cases_dir or fm.get("cases_dir") or str(R.CASES)
     # The design, from the shards that declare one (#285). Declared beats
@@ -140,7 +161,11 @@ def merge(paths, cases_dir=None):
     meta["cases_dir"] = cases_dir
     meta["cells"] = R.cells_of(cells)
     meta["models"] = models
-    meta["reps"] = max(s["metadata"].get("reps") or 0 for s in snaps)
+    ids = set()
+    for s in snaps:
+        ids |= R.rep_ids(s, concurrency.carried_runs(s))
+    meta["reps"] = len(ids)
+    meta["rep_offset"] = min(ids) if ids else 0
     if modes:
         meta["turn_delivery"] = modes[0]
     versions = sorted({r["claude_cli_version"] for r in runs
@@ -173,7 +198,9 @@ def merge(paths, cases_dir=None):
         "safe_mode": s["metadata"].get("safe_mode"),
         "turn_delivery": s["metadata"].get("turn_delivery"),
         "rep_offset": s["metadata"].get("rep_offset"),
+        "reps": s["metadata"].get("reps"),
         "usable_runs": len(R.usable(s.get("runs", []))),
+        "discarded_runs": discarded.get(s["__path"], 0),
     } for s in snaps]
     return out
 
@@ -210,6 +237,17 @@ def main():
         print("warning: reconstructed concurrency exceeds the declaration; pass "
               "--concurrency %d to the generating run.py invocations (#120)"
               % meta["max_runs_in_flight"])
+    lost = [s for s in meta["shards"] if s["discarded_runs"]]
+    if lost:
+        print("warning: %d usable run(s) discarded, each because another shard "
+              "holds a different run under the same (case, arm, model, rep) "
+              "key: %s. Shards started at the same --rep-offset generate the "
+              "same keys and a merge keeps one record per key, so the merged "
+              "file holds one shard's work where both were bought. Regenerate "
+              "the lost shard at an offset of its own (#440)."
+              % (sum(s["discarded_runs"] for s in lost),
+                 "; ".join("%s lost %d" % (s["path"], s["discarded_runs"])
+                           for s in lost)))
     # The shape a reader checks first, and the one the hand merge got wrong.
     # Counted over the cells the round declared rather than over the case-by-
     # model rectangle: a ragged design is complete at three cells where the

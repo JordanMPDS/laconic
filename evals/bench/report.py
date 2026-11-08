@@ -3005,6 +3005,12 @@ def cost_summary(snap, judgments=(), comparisons=()):
     "priced" is reported beside "calls" on purpose. Snapshots recorded before
     the capture landed total to zero, and a bare $0.00 for a stage that
     plainly cost money would read as a measurement rather than as a gap.
+
+    Calls are counted per call, not per record. A panel record is one vote per
+    member, so a 340-run round judged by the panel issues 1,020 judge calls,
+    and counting its records reported a third of them (#450). kimi's votes
+    are counted but never priced: kimi reports no tokens, and the Kimi Code
+    subscription it bills is flat.
     """
     carried = set((snap.get("metadata", {}).get("carried_arms_from") or {}).get("arms") or [])
     runs = [r for r in snap.get("runs", []) if r.get("ok")]
@@ -3024,13 +3030,37 @@ def cost_summary(snap, judgments=(), comparisons=()):
                [j for j in judged if j.get("carried")], True))
     rows = []
     for name, records, nested in stages:
-        used = [u for u in (_usage_of(r, nested) for r in records) if u]
-        row = {"stage": name, "calls": len(records), "priced": len(used),
+        used, calls, priced, kimi = [], 0, 0, 0
+        for r in records:
+            u = _usage_of(r, nested)
+            # A record without a panel is one call: a run, a comparison, or a
+            # single-judge verdict.
+            members = list(r.get("panel") or ()) or [None]
+            calls += len(members)
+            kimi += members.count("kimi")
+            if u:
+                used.append(u)
+                priced += len(members) - members.count("kimi")
+        row = {"stage": name, "calls": calls, "priced": priced, "kimi": kimi,
                "billed": not name.startswith("carried")}
         for f in bench_judge.USAGE_FIELDS:
             row[f] = sum(u.get(f, 0) for u in used)
         rows.append(row)
     return rows
+
+
+def judge_releases(meta):
+    """The releases a judgments file's votes were cast under, as one line.
+
+    judge.py stamps them since #450; a file graded before that names none.
+    """
+    meta = meta or {}
+    seen = meta.get("judge_cli_versions")
+    if not seen:
+        return "none recorded (graded before #450)"
+    unrecorded = meta.get("judge_cli_unrecorded")
+    return "; ".join("%s %s" % (b, ", ".join(r)) for b, r in sorted(seen.items())) \
+        + (" (%d record(s) name no release)" % unrecorded if unrecorded else "")
 
 
 SUMMED = ("calls", "priced", "input_tokens", "cache_creation_input_tokens",
@@ -3066,6 +3096,12 @@ def _cost_table(rows):
         out.append("_No usage recorded for: %s. Snapshots written before #68 "
                    "carry none; those stages cost money the table cannot show._"
                    % ", ".join(unpriced))
+    kimi = sum(r.get("kimi", 0) for r in billed)
+    if kimi:
+        out.append("")
+        out.append("_Calls include %d kimi vote(s), which are never priced: "
+                   "kimi reports no tokens, and the Kimi Code subscription it "
+                   "bills is flat (#450)._" % kimi)
     return "\n".join(out)
 
 
@@ -3600,6 +3636,11 @@ def main():
                  (" on %s" % ", ".join(target_cases)) if target_cases else "",
                  (" (%s only)" % ", ".join(target_models)) if target_models else "",
                  args.against))
+        # Printed, not refused: generation spans releases routinely and is
+        # stratified rather than refused (#272), and a judge is the same CLI.
+        print("  judge releases: this round %s; against %s"
+              % (judge_releases(judg.get("metadata")),
+                 judge_releases(prev_file.get("metadata"))))
         # Which cells the screen was able to speak for at all, whether or not
         # any of them rose this round. A gate that can silently stop applying
         # to a cell is a gate nobody can audit.

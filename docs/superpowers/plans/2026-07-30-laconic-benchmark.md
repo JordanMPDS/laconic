@@ -1,5 +1,10 @@
 # Laconic Benchmark Implementation Plan
 
+**Status:** Historical — implemented and since superseded. Its boxes were never
+ticked, so an unticked box is not outstanding work, and the sub-skill line
+below is not an instruction to execute it. The live description is
+[`docs/benchmark.md`](../../benchmark.md) and [`docs/development.md`](../../development.md).
+
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
 **Goal:** Replace the n=1, two-arm, human-read eval with a four-arm benchmark across two models at n=5 that measures compression *and* readability, and publishes numbers regenerable offline from a committed snapshot.

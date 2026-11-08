@@ -1,5 +1,10 @@
 # Laconic Plugin Implementation Plan
 
+**Status:** Historical — implemented and since superseded. Its boxes were never
+ticked, so an unticked box is not outstanding work, and the sub-skill line
+below is not an instruction to execute it. The live description is
+[`README.md`](../../../README.md) and [`AGENTS.md`](../../../AGENTS.md).
+
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
 **Goal:** Ship a distributable Claude Code plugin named `laconic` that makes responses terse by cutting claim count rather than grammar, with three cumulative levels and an off switch that genuinely stops all injection.

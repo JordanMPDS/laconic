@@ -11,8 +11,9 @@ accept.** Merging is the loop's own since 2026-09-01; what it may not do is
 leave an accepted edit sitting in master unreleased, which is step 11. **And a
 round that proposes no rule edit may not follow another**, which is step 0.
 
-Design and the reasoning behind every threshold:
-`docs/superpowers/specs/2026-08-01-rules-loop-design.md`.
+The original design, from before the loop merged its own work:
+`docs/superpowers/specs/2026-08-01-rules-loop-design.md`. This skill is the
+live procedure where the two disagree.
 
 ## Running the backlog unattended: one process per issue
 
@@ -28,24 +29,19 @@ What a session can do is exit, and a process boundary is a real clear rather
 than an approximation of one. So:
 
 - `.claude/hooks/post-merge-stop.py` is a `PostToolUse`/`Bash` hook wired in
-  `.claude/settings.json`. It watches for `gh pr merge` reporting success and
-  returns `{"continue": false}`, ending the turn at the merge.
+  `.claude/settings.json`. On a `gh pr merge` command it asks GitHub whether
+  that pull request merged just now and, if it did, returns
+  `{"continue": false}`, ending the turn at the merge.
 - `tools/loop.sh` starts the next `claude` process. Its prompt says to take
   **exactly one issue** end to end and then stop — the restart is the loop, not
   a `while` inside one context. It exports `LACONIC_LOOP_SUPERVISOR=1`, which
   is how the hook knows a restart is coming; `tools/loop.sh --selftest` checks
   that the name still reaches `claude`, because the hook reads that exact name.
 
-**Do not drive the backlog with `/loop`.** Claude Code's built-in `/loop` keeps
-itself alive by calling `ScheduleWakeup` as the **last action of a turn**.
-`post-merge-stop.py` returns `{"continue": false}` the moment a merge succeeds,
-which ends the turn first — so a `/loop` iteration that merges can never
-schedule its successor. Every successful iteration ends in a merge, so the
-first one kills the loop. On 2026-09-04 that stopped the backlog for five and a
-half hours after PR #231 merged, and nothing in the transcript distinguished a
-dead loop from a working one. The hook now names the missing half in its stop
-message when `LACONIC_LOOP_SUPERVISOR` is absent, but the fix is to run the
-supervisor: the stop is only a loop if something restarts from it.
+**Do not drive the backlog with `/loop`.** `/loop` schedules its successor as
+the last action of a turn, and the hook ends the turn at the merge first, so
+the first iteration that merges kills it. The hook's docstring has the
+incident; the fix is to run the supervisor.
 
 Continuity is the repository, not a context window: the open issues,
 [`LEDGER.md`](../../../evals/results/loop/LEDGER.md), and master's log. That is
@@ -69,76 +65,37 @@ merged, and finishing it is the whole iteration: never branch from it, and
 never start a release, a round or another issue on it, or its uncommitted
 edits and snapshots ride into the wrong pull request. The supervisor returns a
 clean checkout to master only when GitHub says its pull request merged with its
-head at that checkout's HEAD. It used to ask git whether HEAD was an ancestor of
-`origin/master`, which a squash merge never makes true, so the tidy could only
-fire on a branch with no commits (#456).
+head at that checkout's HEAD (#456).
 
-**Only the operator's own issues are work.** The repository is public, and an
-iteration merges its own pull request and can push a release tag, so an issue
-anyone can open is a path to master. The prompt takes its queue from
-`gh issue list --author @me`, the account `gh` runs as, which already holds the
-merge, and calls everything anyone else wrote, comments and reviews included,
-data rather than instructions. Keeping foreign text out of the context is the
-part that works; telling a model to disregard text it has already read is a
-mitigation, and `bypassPermissions` is no defence against injection at all. To
-hand the loop an outside report, open it yourself.
+**Only the operator's own issues are work.** The prompt takes its queue from
+`gh issue list --author @me` and calls everything anyone else wrote, comments
+and reviews included, data rather than instructions, because the repository is
+public and an iteration merges its own pull request. `tools/loop.sh`'s header
+says why the gate is on the list command rather than in the prompt's wording.
+To hand the loop an outside report, open it yourself.
 
-**A failed iteration waits and retries; it does not end the loop.** The first
-version stopped on any non-zero exit, and on 2026-09-02 that cost twelve hours:
-iteration 3 exited 1 at 04:05 with `You've hit your session limit · resets
-6:20am (UTC)`, the supervisor stopped, and nothing restarted it after the reset
-two hours later. A usage limit is the likeliest way an unattended run ends and
-it clears itself, so it is the one failure the loop has to survive — the same
-conclusion `run.py` and `judge.py` reached, which is why both stop only after
-eight *consecutive* failures. The backoff is 10 minutes doubling to an hour,
-for `LOOP_MAX_FAILURES` (default 8) consecutive failures, about six hours of
-cover, and it resets on any iteration that finishes cleanly.
-
-The log distinguishes the two cases, because they need different responses:
+**A failed iteration waits and retries; it does not end the loop.** The backoff
+is 10 minutes doubling to an hour, for `LOOP_MAX_FAILURES` (default 8)
+consecutive failures, and it resets on any iteration that finishes cleanly. A
+usage limit is logged with the time it clears, anything else with its exit
+status:
 
 ```
 loop: usage limit (resets 6:20am (UTC)) — retrying in 600s (1/8)
 loop: exit 3 — retrying in 600s (1/8)
 ```
 
-`bash tools/loop.sh --selftest` drives the script against a stub `claude`:
-checks over the retry, the failure cap, the two log labels, the stop file, and
-the `LACONIC_LOOP_SUPERVISOR` marker the hook reads, five of which fail against
-the version that shipped. It also drives the merged-branch tidy against a stub
-`gh` in a fixture repository, where the squash-merged case fails against the
-ancestry test #456 replaced.
+**The hook decides on GitHub's answer alone**, never on `gh`'s output, which is
+empty under an agent's shell, and never on the command's wording, which can
+quote a merge it is not running. It asks whether the pull request merged within
+`MERGE_WINDOW` (120 seconds), so a command that only names a pull request merged
+in the last two minutes still ends the turn. The docstring has the incidents
+behind each choice.
 
-**The hook asks GitHub; it does not read `gh`'s output.** It cannot: `gh pr
-merge` prints its "✓ Squashed and merged pull request #N" line only when
-stderr is a terminal, and under an agent's shell tool the command prints
-nothing at all. The first version of this hook matched that wording and never
-fired once — the merge it was meant to catch produced an empty payload. The
-tool payload carries no exit status either, so the hook parses the PR number
-out of the command and asks GitHub. Truncating or discarding the output is
-therefore harmless. Reading it was harmful: until #458 a match on that wording
-skipped the GitHub check, so grepping the hook's own file ended a turn. A merge
-named by no number is asked about as the current branch's PR, except with
-`--delete-branch`, which has switched to the base branch by the time the hook
-runs: then it asks whether any of the five most recently created merged PRs
-merged just now. Only the flag earns that wider question, because the loop
-restarts ten seconds after a stop and the new session starts on the base branch.
-
-**It asks "was this merged just now", not "is this merged".** The hook is
-handed the whole command text, quoted heredocs and JSON payloads included, and
-no reading of that string separates an executed merge from a quoted one. On
-2026-09-05 it stopped two turns inside twenty minutes while merging nothing:
-once on a `gh pr create` whose body quoted a timeline of earlier merges, once
-on a test payload carrying a merge command inside a JSON string. Under
-`tools/loop.sh` a false stop ends an iteration mid-work, so the question had to
-change rather than the matching. `gh pr view <N> --json state,mergedAt` answers
-it, and `MERGE_WINDOW` (120 seconds, symmetric so a GitHub clock running ahead
-still counts) is the width of "just now".
-
-`python3 .claude/hooks/post-merge-stop.py --selftest` drives `main()` with
-GitHub stubbed — 45 checks covering the empty-output case that actually occurs,
-the quoted-mention commands that fired falsely, the freshness arithmetic, the
-query each form of the command sends GitHub, and both branches of the stop
-message.
+```sh
+bash tools/loop.sh --selftest                     # the supervisor, against stubs
+python3 .claude/hooks/post-merge-stop.py --selftest  # the hook, GitHub stubbed
+```
 
 Inside a single interactive session the equivalent is a subagent per unit of
 work — a fresh window whose verbose output never reaches this one — but only
@@ -146,116 +103,38 @@ the restart actually clears what is already here.
 
 ## Before you start
 
-Set `N` to the next round number and `PREV` to the last round's snapshot. The
-current baseline is round 21 — all five arms at n=5 over all 22 cases, at
-`rules_cksum` 1830906901:
-
-```bash
-N=22
-PREV=evals/snapshots/loop/round-21.json
-PREV_J=evals/snapshots/loop/round-21-judgments.json
-```
-
-**From round 22 the baseline is `round-21.json`, and its laconic arm is n=5
-where `-v4`'s was n=10.** That is a real loss of power and it is the price of
-the other three things round 21 has. Read it before running a round:
-
-- **Every fatal counter is now a five-rep draw.** The baseline reads
-  `never_cut_failures` 0, `quality_fails` 56, `safety_fails` 8 and
-  `violations_total` 66. A cell that fails at a low rate is more often 0 in the
-  baseline at n=5 than at n=10, so a single flip reaching the gate as
-  "0 to 1" is correspondingly more likely. `cell-rates.json` is the mitigation
-  and it matters more than it did: screen every risen cell against a measured
-  rate where one exists, and prefer measuring a new cell over arbitrating the
-  same one twice.
-- **Generate the round's laconic arm at `--reps 5`,** matching the baseline. An
-  n=10 round against an n=5 baseline gives the round twice the opportunity to
-  fail a cell and is not the comparison the fatal counters describe.
-- **What round 21 buys.** It carries a `cases_cksum` (2389944869), which `-v4`
-  predates entirely, so the [#69] guard can verify it. It includes the
-  `concise-style` arm, so no round has to seed it. And its judgments were
-  produced under the criteria in `evals/cases/` today, at `criteria_cksum`
-  997100469.
-- **To restore n=10,** generate 220 more laconic runs into the baseline and
-  re-judge that arm, then set `--reps 10` back:
+- **`N` is the highest round document plus one**, and `OUT` is where its
+  snapshots go. Set both from the repository root:
 
   ```bash
-  python3 evals/bench/run.py --arms laconic --reps 10 --snapshot "$PREV"
-  python3 evals/bench/judge.py --results "$PREV" --jobs 6 --out "$PREV_J"
+  N=$(ls evals/results/loop/ | sed -n 's/^round-\([0-9]*\)\.md$/\1/p' | sort -n | tail -1)
+  N=$((10#$N + 1))
+  OUT=$PWD/evals/snapshots/loop
   ```
 
-  `run.py` generates only the rep keys the snapshot lacks, so this adds reps 5
-  to 9 and costs 220 calls rather than 440. Since [#440] the resume rewrites
-  `metadata.reps` to cover every rep the file generated, so it reads 10
-  afterwards. That is the laconic arm's count: the other arms stay at 5, and
-  the field cannot say so.
+- **The baseline is the round's own control side**, generated beside the edit
+  in the same window (steps 1-3), not an earlier round's snapshot. The
+  published figures a round is read against are in
+  [`docs/benchmark.md`](../../../docs/benchmark.md).
+- **Checksums and the case count come from the newest round document and
+  [`LEDGER.md`](../../../evals/results/loop/LEDGER.md)**, which say which
+  `rules_cksum`, `cases_cksum` and CLI release the last round ran at. A number
+  written into this skill goes stale the round after it is written.
 
-[#440]: https://github.com/JordanMPDS/laconic/issues/440
+**Never re-score an old round against a later baseline.** Its snapshot has no
+runs for the cases added since, so every one of those cells reads as missing
+rather than as unchanged. Re-scoring rounds 07 to 14 under a later scope once
+turned round 10's accept into a rejection, purely because the cases it needed
+did not exist when it ran.
 
-**Rounds 16 to 21 used `-v4`, which is `-v3` plus `design-cache`,
-`design-realtime` and `design-upload`.** Every cell in the file is at
-`rules_cksum` 1830906901, and `-v4` is identical to `-v3` on every fatal counter
-once the three new cases are removed.
-
-The three exist because the five older design cases cannot tell a derived answer
-from a recalled one: on all five the answer a model gives without opening a file
-is already the fixture's answer, so `baseline`, `laconic`, `terse-control` and
-`word-compression` all score alike. That is why the round 15 edit passed every
-dev-set gate and was killed by the holdout. **On the three new cases, no
-response that failed to resolve the fixture has ever passed** — see
-[`design-discrimination.md`](../../../evals/results/loop/design-discrimination.md)
-and [#88].
-
-**`-v3` remains the baseline for the scoped `output_tokens` target.** The five
-older design cases carry it, and they still do: it is a length measurement and
-does not depend on the property they lack — see
-[`token-scope.md`](../../../evals/results/loop/token-scope.md). What they may no
-longer be read as is evidence about design-answer quality.
-
-**A scoped `output_tokens` hypothesis must now name all five design cases.**
-Naming three leaves four voting cells, which cannot reach alpha, so the gate
-keeps the short cells and tells you to widen the scope:
-
-```
---target-cases design-alerting,design-audit-log,design-search,design-rate-limit,design-retry
-```
-
-**From round 11 the baseline was `-v2`, which is `round-01-n10.json` plus the
-three `verdict-*` cells** ([#60]'s instrument). Every original cell is
-byte-identical and the new cells were generated under the same
-`rules_cksum` 1830906901, so `never_cut_failures`, `quality_fails` and
-`safety_fails` are unchanged at 2, 41 and 6. Only `violations_total` moves,
-78 to 86, because there are three more cases producing text.
-
-Rounds 01 to 10 were scored against the 14-case `round-01-n10.json`, rounds 11
-to 14 against `-v2`, and each stays that way. **Do not re-score an old round
-against a later baseline**: its snapshot has no runs for the added cases, so
-every one of those cells reads as missing rather than as unchanged. That is not
-a formality — re-scoring rounds 07 to 14 under the `-v3` scope turned round 10's
-accept into a rejection, purely because the cases it needed did not exist when
-it ran.
-
-Generate the round's laconic arm at the same reps as the baseline
-(`--reps 5`), and carry arms from `$PREV`, not from
-`evals/snapshots/results.json` — the old committed snapshot has no control runs
-for the three `design-*` cases, so carrying from it silently drops them from
-preference and from the reduction tables.
-
-**Check the baseline's judgments were produced under the criteria in
-`evals/cases/` today.** A criterion that has been corrected since re-grades the
-baseline, and scoring against the stale file reports the difference as something
-the edit did. Two case criteria have been corrected against the real software
-they describe, and both moved several verdicts. Before the #45 regeneration the
-baseline was `evals/snapshots/results.json` with
-`evals/snapshots/loop/round-01-judgments-v2.json` (identical in every verdict
-to `evals/snapshots/judgments.json`); `round-01-judgments.json` is the
-superseded grading. See
-[`LEDGER.md`](../../../evals/results/loop/LEDGER.md) for what moved.
-
-**If you correct a criterion, re-judge every round you will compare, not just
-the baseline.** Re-grading one side and carrying the other publishes a delta
-between two instruments. That mistake shipped once, in the first `safety_fails`
-re-score, and took 20 further judge calls to undo.
+**Check that the judgments a round compares were produced under the criteria
+in `evals/cases/` today.** A criterion corrected since re-grades the earlier
+side, and scoring against the stale file reports the difference as something
+the edit did. `LEDGER.md` records the two criteria that were corrected against
+the real software they describe, and what each moved. **If you correct a
+criterion, re-judge every round you will compare, not just one side.**
+Re-grading one side and carrying the other publishes a delta between two
+instruments; that shipped once, in the first `safety_fails` re-score.
 
 **While a pass is running, the working tree is part of the instrument.** The
 harnesses read `prompt.md`, `expect.json` and the fixtures live, and a round
@@ -325,26 +204,10 @@ bash tools/candidate-due.sh
 ```
 
 **At most one round that proposes no rule edit sits between two that do.** Exit 1
-means the allowance is spent and this round has to carry a candidate.
-
-The drift this caps is not laziness, which is why an intention cannot hold it
-back. A round that measures the instrument always produces a publishable number,
-never rejects, and always suggests the next measurement, so it is always the
-easier round to justify — and every one of these was worth running:
-
-| round | what it measured |
-|---|---|
-| 56 | the pre-action check's quality cost, at 0.95 power |
-| 57 | which clause of it costs the reading |
-| 58 | whether most of `rules/laconic.md` is dilution (it inverted) |
-| 59 | which 750 words carry the compression |
-| 60 | which of the three things the demonstration block does |
-| 61 | post-hoc enforcement, the first round to change the mechanism |
-| 62 | whether the block has to quote the rule |
-| 63 | the reading cost assay, which did not fire |
-
-Eight rounds, 2026-09-08 to 2026-09-14, and `rules/laconic.md` did not move in
-any of them. The last edit the loop proposed was [round 55](../../../evals/results/loop/round-55.md).
+means the allowance is spent and this round has to carry a candidate. A
+measuring round always produces a number and never rejects, so it is always the
+easier round to justify; the script's header has the eight in a row it was
+written to stop.
 
 The script reads the last round document, because that is where a round states
 its own design before any generation. An instrument round disclaims the edit in
@@ -356,27 +219,23 @@ its edit section and adds the disclaimer to its preamble, and the disclaimer
 wins. It counts only in bold, so a candidate can mention in plain prose that
 the previous round proposed no rule edit.
 
-When it exits 1, the round comes from an open issue labelled `rules`. [#116] and
-[#46] both carry user-visible failure reports, which is the strongest kind of
-lead this loop gets.
-
-[#116]: https://github.com/JordanMPDS/laconic/issues/116
-[#46]: https://github.com/JordanMPDS/laconic/issues/46
-
-## Steps 1-3: measure the round you have (405 calls at n=5)
+When it exits 1, the round comes from an open issue labelled `rules`, taken
+from the operator's own:
 
 ```bash
-python3 evals/bench/run.py --arms laconic --reps 5 \
-  --carry-arms-from "$PREV" \
-  --snapshot "evals/snapshots/loop/round-$N.json"
-python3 evals/bench/judge.py --results "evals/snapshots/loop/round-$N.json" \
-  --carry-judgments-from "$PREV_J" --jobs 6 \
-  --out "evals/snapshots/loop/round-$N-judgments.json"
+gh issue list --author @me --label rules
 ```
 
-220 generations, one per case/model/rep of the laconic arm, and 185 judgments —
-37 gate-reading cells at 5 reps. Both commands print that number before they
-spend anything, so check the budget line against what you meant to buy.
+A user-visible failure report is the strongest kind of lead this loop gets.
+
+## Steps 1-3: measure the round you have
+
+**A round generates every side it compares, at the same time:** the control
+from a worktree at master, the edit from the round's branch. The commands are
+under "Run the two sides simultaneously" below. Carrying a side from an earlier
+round's snapshot is the pattern this replaced, and "Carrying the controls was
+wrong" says why. Both harnesses print a budget line in calls before they spend
+anything, so check it against what you meant to buy.
 
 **Either pass stops itself after eight consecutive failures.** A usage limit
 fails every remaining key and each one costs two calls, because both harnesses
@@ -582,60 +441,60 @@ moving **4.7x in five days** at byte-identical rules
 ([`round-37.md`](../../../evals/results/loop/round-37.md)), so a sequential
 window is exactly the exposure to avoid.
 
-Round 38 is the first round run the other way and the pattern is cheap to copy:
+Round 38 is the first round run the other way, and every round since copies
+it. Generate both sides, wait for both, then audit and judge each:
 
 ```bash
 git worktree add /tmp/laconic-control master
 # edit side, from the branch:
-python3 evals/bench/run.py --arms laconic --models sonnet --reps 30 \
-  --cases '<scope>' --concurrency 2 \
-  --snapshot evals/snapshots/loop/round-$N-edit.json &
+python3 evals/bench/run.py --arms laconic --reps 10 --cases '<scope>' \
+  --turn-delivery plugin --concurrency 2 \
+  --snapshot "$OUT/round-$N-edit.json" &
 # control side, from the worktree, writing back to the main tree:
-cd /tmp/laconic-control && python3 evals/bench/run.py --arms laconic \
-  --models sonnet --reps 30 --cases '<scope>' --concurrency 2 \
-  --snapshot <abs path>/evals/snapshots/loop/round-$N-control.json &
+( cd /tmp/laconic-control && python3 evals/bench/run.py --arms laconic \
+  --reps 10 --cases '<scope>' --turn-delivery plugin --concurrency 2 \
+  --snapshot "$OUT/round-$N-control.json" ) &
+wait
+python3 evals/bench/release.py "$OUT/round-$N-control.json" "$OUT/round-$N-edit.json"
+for side in control edit; do
+  python3 evals/bench/judge.py --results "$OUT/round-$N-$side.json" --jobs 6 \
+    --out "$OUT/round-$N-$side-judgments.json"
+done
 ```
 
-Declare `--concurrency 2` on **both**, because two CLI invocations really are in
-flight. Each snapshot still reconstructs to one generator of its own, so the
-[#120] audit is satisfied and the declaration is conservative rather than false.
+`--cells` replaces `--cases` for a round scoped by fire rate, and the model set
+is the default three unless the round names its cells. Declare `--concurrency 2`
+on **both**, because two CLI invocations really are in flight, or the total
+across both trees if each side is sharded further. Each snapshot still
+reconstructs to one generator of its own, so the [#120] audit is satisfied and
+the declaration is conservative rather than false.
 
-**Remove the worktree when the round is scored, and know what it costs while it
-is there.** `/tmp` on this machine is tmpfs, so a control worktree is 145 MiB of
-*memory*, not disk, held until the directory is removed. Nothing removed them:
-on 2026-09-15 seven mutation copies and two spent control worktrees held 1.7 GiB
-of a 7.6 GiB machine, and the supervisor was killed for low memory at 04:58 with
-no generation shard running at all — the round it was registering had to be
-recovered from an uncommitted working tree.
+**Remove the worktree when the round is scored.** `/tmp` on this machine is
+tmpfs, so a control worktree is 145 MiB of memory held until the directory
+goes:
 
 ```bash
 git worktree remove --force /tmp/laconic-control
 ```
 
-**A round cannot be relied on to do this, because the way a round ends badly is
-being killed, and a killed process runs no trap.** So the reclaim is also a
-command the *next* iteration runs: `bash tools/reclaim-scratch.sh`, called from
-the supervisor's tidy step, removes every registered worktree under `/tmp` that
-no process is working inside, that holds no untracked file, and whose HEAD has
-already landed on `origin/master`. It keeps a live one — it is the round in
-flight that is the most expensive thing in this repository to destroy — and
-prints why it kept it. It also sweeps the claude transcripts and kimi sessions
-each benchmark call leaves under `~/.claude/projects/-tmp-tmp*` and
-`~/.kimi-code/sessions` once they are spent (#444).
-Run it by hand with `--dry-run` to see what would go.
+A killed round runs no trap, so the next iteration also reclaims what it can:
+`tools/loop.sh` runs `bash tools/reclaim-scratch.sh` at the top of every
+iteration, which removes only a `/tmp` worktree no process is working in, with
+no untracked file and its HEAD on `origin/master`, prints why it kept each of
+the others, and sweeps the spent CLI sessions benchmark calls leave behind
+(#444). Run it with `--dry-run` to see what would go; its header has the
+2026-09-15 low-memory kill that made it necessary.
+
 Round 38's two sides tracked within two runs of each other for 90 runs a side.
 
 It costs nothing extra, halves wall time, and makes era and regime cancel between
 the sides instead of confounding them.
 
-**Carrying is still correct for the round-wide fatal counters**, which compare
-the laconic arm of two rounds and read no control at all. What it is not correct
-for is any statement of the form "laconic against baseline". Nor for the baseline a
-scoped count target is registered against, which step 5 requires the round to
-generate for itself.
-
-**But carrying the laconic arm is a bet that the counted behaviour is
-era-stable, and round 37 watched that bet lose.** Holding `rules_cksum`
+**Rounds before 38 carried the laconic arm for the round-wide fatal
+counters**, which compare the laconic arm of two rounds and read no control,
+and `run.py` keeps the carry so those rounds reproduce. A new round does not
+use it: carrying is a bet that the counted behaviour is era-stable, **and
+round 37 watched that bet lose.** Holding `rules_cksum`
 136269960 and `laconic_level` `full` fixed - same case, same arm, no judge
 anywhere - the share of `walkthrough` responses opening with a pure announcement
 read 55.0%, 38.8% and 52.5% across 2026-08-27 to 08-31, then **10.0%** on 09-01.
@@ -680,22 +539,8 @@ See [`round-37.md`](../../../evals/results/loop/round-37.md).
 Code `Concise` output style, delivered through `--settings` rather than an
 appended system prompt, and it is the one control that answers "does the plugin
 beat what the CLI already ships". It carries no rules, so an edit cannot move
-it, and it costs 15 runs in a scoped round. Round 21 measured it at n=5: on
-compression it wins, -55% on sonnet against laconic's -32%, indistinguishable
-on quality, and 3 never-cut failures against laconic's 0. See
-[`docs/benchmark.md`](../../../docs/benchmark.md#the-concise-style-arm). Those
-figures are from carried arms and inherit the problem above; the first matched
-measurement is the one round 23 will produce.
-
-If a future baseline is ever built from a snapshot predating an arm, `run.py`
-prints a `no runs to carry` warning naming it and records it as `missing_arms`
-in the metadata, but it does not stop the round. That warning is the signal to
-seed the arm into the carry source before continuing:
-
-```bash
-python3 evals/bench/run.py --arms <arm> --reps 5 --snapshot "$PREV"
-python3 evals/bench/judge.py --results "$PREV" --jobs 6 --out "$PREV_J"
-```
+it, and it costs one more arm in the batch. Its published figures are
+in [`docs/benchmark.md`](../../../docs/benchmark.md#the-concise-style-arm).
 
 `run.py` probes the style against the live CLI before generating anything and
 exits if it is not reaching the model, because an output style the CLI does not
@@ -703,8 +548,8 @@ recognise is dropped without an error — that arm would otherwise run as a
 second copy of `baseline` and the round would publish "the native style changes
 nothing".
 
-**When a round does carry control runs, carry their verdicts too.** Round 14
-carried the control *runs* and then re-graded them anyway: 510 of its 850 judge
+**Never re-grade text that has already been graded.** Round 14 carried the
+control *runs* and then re-graded them anyway: 510 of its 850 judge
 calls, and $25.05 of its $41.37 judging bill, spent re-grading text the baseline
 had already graded and no fatal gate reads. Worse than wasted — the judge
 disagrees with itself on 5 to 10% of identical text round-wide, so each round
@@ -769,10 +614,13 @@ one — untested, and the reason the pre-registration is worth keeping.
 ## Step 4: review, no calls
 
 ```bash
-python3 evals/bench/review.py "evals/snapshots/loop/round-$N.json" \
-  --judgments "evals/snapshots/loop/round-$N-judgments.json" \
-  --preferences "evals/snapshots/loop/round-$N-preferences.json"
+python3 evals/bench/review.py "$OUT/round-$N-control.json" \
+  --judgments "$OUT/round-$N-control-judgments.json"
 ```
+
+Review the control side: it is master's rules, and the failures there are what
+an edit has to fix. Add `--preferences` only for a round that bought a
+preference pass (step 7).
 
 Read the inventory top down. The classes are ranked, and the ranking is the
 advice:
@@ -906,7 +754,7 @@ Regenerate the pre-sliced copies, which the test suite checks:
 bash tools/build-rules.sh
 ```
 
-## Steps 6-7: confirm and compare (405 calls)
+## Steps 6-7: confirm and compare
 
 **Score the cheap target before buying the expensive arm.** A token target needs
 no judging at all, and `one_turn` is free off `num_turns`, so a scoped batch of
@@ -920,15 +768,16 @@ sequence, and stop at the first step that fails:
 2. The round-wide laconic arm and its judgments, for the fatal counters.
 3. Step 8's replication, and only for an edit that has passed both.
 
-Repeat steps 1-3 with `N` incremented, then:
+Generate each stage as both sides at once (steps 1-3), then score the edit
+side against the control:
 
 ```bash
 python3 evals/bench/report.py \
-  --results "evals/snapshots/loop/round-$M.json" \
-  --judgments "evals/snapshots/loop/round-$M-judgments.json" \
-  --against "evals/snapshots/loop/round-$N.json" \
-  --against-judgments "evals/snapshots/loop/round-$N-judgments.json" \
-  --target output_tokens
+  --results "$OUT/round-$N-edit.json" \
+  --judgments "$OUT/round-$N-edit-judgments.json" \
+  --against "$OUT/round-$N-control.json" \
+  --against-judgments "$OUT/round-$N-control-judgments.json" \
+  --target output_tokens --looks 1
 ```
 
 Exit 0 accepts, exit 1 rejects, and every reason prints.
@@ -1055,12 +904,11 @@ and [`round-54.md`](../../../evals/results/loop/round-54.md).
 [#259]: https://github.com/JordanMPDS/laconic/issues/259
 
 **A cell with a measured failure rate is screened against it first.** The
-fatal counters compare a round's per-cell count against the baseline's, and the
-baseline is one draw — n = 5 since round 21, where it was n = 10 through round
-21's predecessor. For a cell that fails at 8% under master rules an n = 10 draw
-is 0 about 43% of the time and an n = 5 draw about 66% of the time, so "0 to 1"
-was the gate reporting a coin flip as a regression, and at n = 5 it is a
-likelier coin flip. `evals/snapshots/loop/cell-rates*.json` hold rates
+fatal counters compare a round's per-cell count against the control's, and the
+control is one draw at the round's own reps. For a cell that fails at 8% under
+master rules an n = 10 draw is 0 about 43% of the time and an n = 5 draw about
+66% of the time, so "0 to 1" is the gate reporting a coin flip as a regression,
+and the fewer the reps the likelier the coin flip. `evals/snapshots/loop/cell-rates*.json` hold rates
 measured under master rules at n ≥ 30; where one exists, a risen cell is a loss
 only if its count is higher than that rate predicts at the same alpha. Every
 screened cell is named in the reason line, and the metrics the screen can speak
@@ -1231,6 +1079,7 @@ file edit, and the prose it produced passed every prose rule in the ruleset.
    ever rising is 3 of 31. The gate is live and has never fired on the archive,
    so a round that trips it is reporting something new.
 
+[#46]: https://github.com/JordanMPDS/laconic/issues/46
 [#49]: https://github.com/JordanMPDS/laconic/issues/49
 [#131]: https://github.com/JordanMPDS/laconic/issues/131
 [#138]: https://github.com/JordanMPDS/laconic/issues/138
@@ -1266,8 +1115,8 @@ is willing to pay for it. Nothing else changes — `report.py` still reads
 `--preferences` when a round has bought one:
 
 ```bash
-python3 evals/bench/prefer.py --results "evals/snapshots/loop/round-$M.json" \
-  --control baseline --jobs 6 --out "evals/snapshots/loop/round-$M-preferences.json"
+python3 evals/bench/prefer.py --results "$OUT/round-$N-edit.json" \
+  --control baseline --jobs 6 --out "$OUT/round-$N-edit-preferences.json"
 ```
 
 ## Step 8: replicate
@@ -1280,10 +1129,10 @@ not a measurement.
 
 ```bash
 python3 evals/bench/run.py --arms laconic --cases-dir evals/holdout \
-  --snapshot "evals/snapshots/loop/round-$M-holdout.json"
+  --snapshot "$OUT/round-$N-holdout.json"
 python3 evals/bench/judge.py --cases-dir evals/holdout \
-  --results "evals/snapshots/loop/round-$M-holdout.json" \
-  --out "evals/snapshots/loop/round-$M-holdout-judgments.json"
+  --results "$OUT/round-$N-holdout.json" \
+  --out "$OUT/round-$N-holdout-judgments.json"
 ```
 
 A regression here is fatal no matter what the dev set says. Holdout numbers
@@ -1341,13 +1190,9 @@ PR carrying all of it and merge it once the checks pass.
 ## Step 11: release it
 
 **An accept is not a ship, and an accepted round is not finished until the
-version moves.** The loop used to end at step 10 and go straight to registering
-round N+1. That decoupled accepts from releases, and the gap is measurable:
-round 55 accepted on 2026-09-08 — three registered bars, two bounds, 1,080
-generations, the first accept in its family — and its edit sat merged and
-unreleased for six days, until 0.3.0 shipped it as a side effect of the Codex,
-Gemini and Cursor ports. Nineteen days and 37 rounds separated 0.2.3 from
-0.3.0. A rule edit nobody is running is a passing test, not an improvement.
+version moves.** A rule edit nobody is running is a passing test, not an
+improvement; the script's header has the six days round 55's accept sat
+merged and unreleased.
 
 ```bash
 bash tools/release-due.sh

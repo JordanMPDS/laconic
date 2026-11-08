@@ -1,7 +1,8 @@
 # Laconic — design
 
 **Date:** 2026-07-30
-**Status:** Approved design, ready for implementation planning
+**Status:** Historical — implemented and since superseded. The live description is
+[`README.md`](../../../README.md) and [`AGENTS.md`](../../../AGENTS.md).
 
 ## Problem
 

@@ -15,3 +15,11 @@ fixture-anchored answer reuses a mechanism the service already runs
 ([#46](https://github.com/JordanMPDS/laconic/issues/46)), and one evaluative
 question ("is this policy sound?") whose fixture contradicts itself
 ([#60](https://github.com/JordanMPDS/laconic/issues/60)).
+
+`tests/test_evals_layout.sh` holds these traps to the same vocabulary check as
+the scored suite. `holdout-short` stays `quality` and grades only whether the
+answer is right: until [#468](https://github.com/JordanMPDS/laconic/issues/468)
+it also failed "unrequested branching-workflow advice", which grades form.
+Relabelling it `rule-adherence` instead would have taken its correctness check
+out of this gate, because `judge.py` skips a case whose verdict feeds no fatal
+counter.

@@ -295,8 +295,10 @@ FORBIDDEN = ("terse", "concise", "brief", "shorter", "length", "verbose",
 # evals/pilot holds cases under test, outside the scored suite. They are held
 # to the same expect.json contract: a pilot is where a criterion is decided,
 # so it is exactly where a trap that grades form would be written by accident.
+# evals/holdout is held to it too, because a holdout regression is fatal and a
+# `quality` verdict there is read as "the answer was right" (#468).
 dirs = [p for p in (root / "evals" / "cases").iterdir() if p.is_dir()]
-dirs += [p for p in (root / "evals" / "pilot").iterdir()
+dirs += [p for sub in ("pilot", "holdout") for p in (root / "evals" / sub).iterdir()
          if p.is_dir() and (p / "expect.json").exists()]
 
 for d in sorted(dirs):
@@ -800,12 +802,13 @@ PYEOF
 done
 
 # A judge sees no file since #411, so the traps that grade against the fixture
-# carry it (#414): fixture_facts.py writes the block and --check fails when a
-# fixture moves without its trap.
+# carry it (#414, and #468 for badnews, verdict-schema, walkthrough and
+# cited-*): fixture_facts.py writes the block and --check fails when a fixture
+# moves without its trap.
 if python3 -B "$ROOT/evals/pilot/fixture_facts.py" --check >/dev/null; then
-  ok "simplify-*, verify-*, subset-* and deepsubset-* carry their fixture's facts"
+  ok "every trap that grades against its fixture carries the fixture's facts"
 else
-  fail "simplify-*, verify-*, subset-* and deepsubset-* carry their fixture's facts"
+  fail "every trap that grades against its fixture carries the fixture's facts"
 fi
 
 # `count-*` is round 118's falsifier for #116: one question over propose-*'s

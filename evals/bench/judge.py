@@ -118,8 +118,8 @@ def usage_of(res):
     judgment carrying a flat output_tokens of its own is a field that means
     something different under the same name.
 
-    A failed call carries no usage - bench_run.call returns a bare
-    {"ok": False} - so the zeros are the truth about it rather than a
+    A failed call carries no usage - bench_run.call returns only why it
+    failed (#443) - so the zeros are the truth about it rather than a
     placeholder, and a retry that succeeds overwrites the record with its own.
     A session refused for having tools (#411) did run, and keeps its usage.
     """

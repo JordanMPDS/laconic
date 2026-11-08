@@ -2,7 +2,10 @@
 # Fake `claude` for offline harness tests. Emits one canned CLI stream, in the
 # --output-format stream-json shape call() now asks for: one JSON object per
 # line, closing with the result event and a system event after it.
-# STUB_TEXT overrides the answer; STUB_FAIL=1 exits non-zero.
+# STUB_TEXT overrides the answer; STUB_FAIL=1 writes a line to stderr and
+# exits 3 with no stream. STUB_FAIL=api fails the way the real CLI does on an
+# API error: exit 1, a one-line stderr tag, and a result event with is_error
+# and api_error_status that says what went wrong (#443).
 # STUB_TOOLS, a space-separated list of tool names, emits one assistant
 # tool_use event per name so a test can assert on the captured tool list.
 # The init event lists Bash and Read unless the call passed `--tools ""`.
@@ -35,7 +38,16 @@ if [ -n "${STUB_ARGV_OUT:-}" ]; then
     for a in "$@"; do printf '%s\n' "$a"; done
   } > "$STUB_ARGV_OUT"
 fi
-[ "${STUB_FAIL:-0}" = "1" ] && exit 3
+if [ "${STUB_FAIL:-0}" = "1" ]; then
+  echo "stub: simulated failure" >&2
+  exit 3
+fi
+if [ "${STUB_FAIL:-0}" = "api" ]; then
+  echo '[claude-code:api_error] {"query_source":"sdk"}' >&2
+  echo '{"type":"system","subtype":"init","tools":[]}'
+  echo '{"type":"result","subtype":"success","is_error":true,"api_error_status":429,"terminal_reason":"api_error","result":"Stub usage limit reached.","num_turns":1,"duration_ms":5}'
+  exit 1
+fi
 # Escape backslashes and double quotes so STUB_TEXT can't break the JSON it's
 # interpolated into (e.g. a quote character in the answer).
 text="${STUB_TEXT:-stub answer}"

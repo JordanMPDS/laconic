@@ -225,3 +225,81 @@ direction little weight.
 ## Results
 
 <!-- Nothing below this line was computed at the registration commit. -->
+
+### Stage 2
+
+Control from `laconic-r130-control` (`3f78283`, `rules_cksum` 1610267591,
+master), edit from `laconic-r130-edit` (`af79502`, `rules_cksum`
+3595161794), four shards at once, 140 runs a side, 0 failed, all CLI
+2.1.319, 2026-11-09 07:16 to 07:57 UTC. `release.py`: no unreadable span,
+no arm imbalanced across a release.
+
+**Primary: fails.** Mean log ratio +0.001 (factor 1.001), one-sided
+**p = 0.518**. The point estimate moved against the registered direction.
+
+| cell | control prose words | edit prose words | control relayed | edit relayed |
+|---|--:|--:|--:|--:|
+| `relay-rollout`/opus | 316 | 322 | 2.0 | 2.5 |
+| `relay-migration`/opus | 244 | 250 | 8.0 | 8.0 |
+| `relay-retention`/opus | 270 | 260 | 14.5 | 14.0 |
+
+Medians over 20 runs a cell. Under the registration, a failed primary
+rejects the round before any judging is bought, so no verdict was
+generated, the bounds were not scored, and no replication or holdout was
+run.
+
+**The edit did not change how many sentences opus writes.** Sentences are
+counted on the prose `score_compression.words` reads, split by
+`metrics.SENTENCE_SPLIT` after list markers and headings are dropped:
+
+| cell | control sentences | edit sentences | control words a sentence | edit words a sentence |
+|---|--:|--:|--:|--:|
+| `relay-rollout`/opus | 22.0 | 23.5 | 15.2 | 14.9 |
+| `relay-migration`/opus | 19.0 | 18.0 | 14.1 | 13.8 |
+| `relay-retention`/opus | 18.0 | 16.0 | 15.1 | 16.2 |
+| `walkthrough`/opus | 25.5 | 26.0 | 13.2 | 13.3 |
+
+The bullet allows seven sentences on a relay question. Edit answers carry
+16 to 23.5, as round 129's edit side did (23.0, 19.0 and 19.0 over its 40
+runs a cell), at the same sentence length. The pre-mortem's mark, sentences
+halving while words hold, did not appear either: neither count moved. The
+median `relay-rollout` edit answer gives the shadow stage about ten
+sentences, a four-item criteria list among them, and ends on a volunteered
+note about a weekday mismatch in the timeline.
+
+Disclosed, deciding nothing, medians:
+
+| cell | control prose | edit prose | control items | edit items |
+|---|--:|--:|--:|--:|
+| `relay-rollout`/sonnet | 276 | 290 | 11.5 | 7.0 |
+| `relay-migration`/sonnet | 257 | 298 | 6.0 | 8.0 |
+| `relay-retention`/sonnet | 221 | 220 | 6.0 | 4.5 |
+| `explain-index`/opus | 99 | 101 | 2.0 | 2.0 |
+| `explain-metric`/opus | 76 | 84 | 0.0 | 0.0 |
+| `explain-rollback`/opus | 130 | 124 | 0.0 | 0.0 |
+| `walkthrough`/opus | 322 | 364 | 3.0 | 4.5 |
+
+Edit answers at or under 326 prose words: 49 of 60 on the three
+`relay-*`/opus cells, against 51 of 60 on the control.
+
+### Disclosed, deciding nothing
+
+- **The control reads a little shorter than round 129's edit side**, at
+  the same rules on the same release: 316, 244 and 270 against that
+  round's 337, 264 and 280, then 345, 270 and 258. 51 of 60 control
+  answers ran 326 prose words or fewer, against round 129's 45 and 44. It
+  still runs 1.5 to 1.9 times the 163-word reference, so the defect was
+  there for the edit to move.
+- **Round 129's gain did not come from a count opus kept.** Its edit
+  answers carry about three times the units its bullet allows, so its
+  factor of 0.63 reads as pressure on length rather than compliance with a
+  number, and a stricter number added no pressure.
+- **Cost.** $24.55 of generation across the 280 runs, and no judging.
+
+## Result: rejected
+
+The primary failed at factor 1.001, p = 0.518, with the estimate on the
+wrong side of zero. `plugin/rules/laconic.md` and `plugin/rules/dist/` are
+reverted to master. [#500] stays open.
+
+[#500]: https://github.com/JordanMPDS/laconic/issues/500

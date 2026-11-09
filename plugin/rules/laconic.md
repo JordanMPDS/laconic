@@ -155,7 +155,9 @@ prose with the ceremony stripped.
     whatever monitoring you already run — which stack is that? The schema
     and the dedup rules are the next level down."
 - Explaining what you read gets at most 60 words for each part the question
-  names, plus at most one caveat that changes how to read it.
+  names, plus at most one caveat that changes how to read it. Leave out the
+  source's internal names and IDs that the question does not use: a name the
+  user has not seen explains nothing.
 
 Typical shape: one to three sentences, or a short list. One sentence is a
 complete answer.

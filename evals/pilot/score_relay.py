@@ -5,6 +5,7 @@
     python3 evals/pilot/score_relay.py words <control.json> <edit.json>
     python3 evals/pilot/score_relay.py bounds <control-judgments.json> <edit-judgments.json>
     python3 evals/pilot/score_relay.py holdout <control-judgments.json> <edit-judgments.json>
+    python3 evals/pilot/score_relay.py readability <control.json> <edit.json>
     python3 evals/pilot/score_relay.py --selftest
 
 #500 is a bare "explain <stage A> and <stage B>" answered at 620 words after
@@ -28,6 +29,10 @@ side label within each cell, on median log words, seed `SEED`.
 **Bounds, `bounds`:** the panel pass rate may not fall in any `BOUNDS` cell,
 each one-sided Fisher at alpha 0.05, uncorrected, per `AGENTS.md`.
 **Holdout, `holdout`:** `score_findings_length.holdout`, unchanged.
+**Readability, `readability`, from round 132:** the share of the three cells'
+answers with no `metrics.score` violation (an arrow, a shortened word, a
+lowercase sentence start) may not fall, pooled, one-sided Fisher at alpha 0.05.
+A word cap is the edit likeliest to buy length with grammar.
 """
 
 import math
@@ -40,6 +45,9 @@ import score_findings_length as sfl  # noqa: E402
 from score_choice import fall  # noqa: E402
 from score_compression import words  # noqa: E402
 from score_settled import stratified  # noqa: E402
+
+sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "bench"))
+import metrics  # noqa: E402
 
 SEED = 126
 LONG = 300
@@ -146,6 +154,22 @@ def bounds(c, e):
     return not fired
 
 
+def readability(control, edit):
+    print("## Bound (fatal): answers with no readability violation, relay-*/opus")
+    t = [0, 0, 0, 0]
+    for c in TARGET:
+        a = [metrics.score(r.get("text") or "") for r in control.get(c, [])]
+        b = [metrics.score(r.get("text") or "") for r in edit.get(c, [])]
+        ca, cb = sum(not x["violations"] for x in a), sum(not x["violations"] for x in b)
+        t = [t[0] + ca, t[1] + len(a), t[2] + cb, t[3] + len(b)]
+        print("   %-24s clean control %2d/%-2d edit %2d/%-2d  median article rate"
+              " control %.3f edit %.3f" % (
+                  "/".join(c), ca, len(a), cb, len(b),
+                  sfl.median([x["article_rate"] for x in a]),
+                  sfl.median([x["article_rate"] for x in b])))
+    return not fall("pooled", *t)
+
+
 def selftest():
     fixtures = Path(__file__).resolve().parent
     for case, planted in RELAY.items():
@@ -183,6 +207,14 @@ def selftest():
     assert bounds(full, full)
     assert not bounds(full, {**full, **t({("walkthrough", "opus"):
                                           ["pass"] * 3 + ["fail"] * 7})})
+    prose = {c: [{"text": "The stage runs for a week and passes on latency."}] * 20
+             for c in TARGET}
+    clipped = {c: [{"text": "stage runs a week \u2192 passes on latency"}] * 20
+               for c in TARGET}
+    assert metrics.score(clipped[TARGET[0]][0]["text"])["violations"] == 2
+    assert readability(prose, prose)
+    assert readability(clipped, prose)
+    assert not readability(prose, clipped)
     print("selftest ok")
 
 
@@ -206,6 +238,9 @@ def main(argv):
         ok = primary(c, e)
         disclose(c, e)
         return 0 if ok else 1
+    if len(argv) == 3 and argv[0] == "readability":
+        (_, c), (_, e) = sfl.runs(argv[1]), sfl.runs(argv[2])
+        return 0 if readability(c, e) else 1
     if len(argv) == 3 and argv[0] in ("bounds", "holdout"):
         fn = bounds if argv[0] == "bounds" else sfl.holdout
         return 0 if fn(sfl.tally(argv[1]), sfl.tally(argv[2])) else 1

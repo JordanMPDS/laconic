@@ -7430,6 +7430,10 @@ _expected_concurrent = {
     # three session shards are merged into one, and the cold shard is one
     # invocation of its own.
     "round-131-session.json",
+    # Round 132's first sample and replication: round 126's four-shard design,
+    # merged into one snapshot a side.
+    "round-132-control.json", "round-132-edit.json",
+    "round-132-rep-control.json", "round-132-rep-edit.json",
     # #558's rate measurement: four simultaneous shards declaring
     # --concurrency 4, one per model and opus split by rep, then two more
     # haiku shards over reps 24 to 39 once opus finished; merged into one.

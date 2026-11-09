@@ -231,4 +231,134 @@ estimate moving against the direction little weight.
 
 <!-- Nothing below this line was computed at the registration commit. -->
 
+### Stage 2
+
+Control from `laconic-r132-control` (`da4183c`, `rules_cksum` 1610267591,
+master), edit from `laconic-r132-edit` (`c6ea4eb`, `rules_cksum`
+1859532872), four shards at once, 140 runs a side, 0 failed, all CLI
+2.1.319, 2026-11-09 09:23 to 10:02 UTC. The first launch ran under a
+600-second tool timeout that killed all four shards after 136 runs; the
+identical commands resumed them by key at 09:33, on the same release.
+`release.py`: no unreadable span, no arm imbalanced across a release.
+
+**Primary: passes.** Mean log ratio −0.318 (factor **0.728**), one-sided
+**p < 0.00001**.
+
+| cell | control prose words | edit prose words | control relayed | edit relayed |
+|---|--:|--:|--:|--:|
+| `relay-rollout`/opus | 322 | 208 | 2.0 | 0.0 |
+| `relay-migration`/opus | 252 | 192 | 8.0 | 7.0 |
+| `relay-retention`/opus | 246 | 191 | 14.0 | 13.0 |
+
+Medians over 20 runs a cell. Each control cell reads within 24 words of
+round 130's control, which ran the same rules on the same release.
+
+**Readability: holds.** 60 of 60 answers free of violations on both sides,
+one-sided p = 1.0. Median article rate 0.091, 0.090 and 0.103 on the
+control against 0.081, 0.094 and 0.104 on the edit.
+
+**Bounds: all hold.** Every one of the 280 verdicts passes, so each cell
+reads one-sided p = 1.0, `walkthrough`/opus at 20 of 20 on both sides.
+The panel decided all 140 records a side with no three-way split, and
+every member agreed with the majority wherever it voted; kimi cast no vote
+on 3 control and 1 edit records, which sonnet and opus decided together.
+
+**Opus does not keep 60 words a part either.** The median
+`relay-rollout`/opus edit answer (210 prose words) is two bold-labelled
+paragraphs of 97 and 113 words, the caveat folded into the second, and no
+list. Against round 130's median control answer it drops the sign-off and
+the definition of a successful search and cuts the overlap band's gloss
+from three sentences to two: the parts lost elaboration, and neither
+reached 60. 3 of the 60 edit
+answers on the relay cells ran 163 prose words or fewer, against 0 of 60 on
+the control; 60 of 60 edit answers ran 326 or fewer, against 48.
+
+Disclosed, deciding nothing, medians. Sentences are this round's count
+(prose after list markers and headings are dropped, split by
+`metrics.SENTENCE_SPLIT`), which reads round 130's control at 19.0, 16.5,
+16.0 and 23.0, a little under that round's own figures:
+
+| cell | control sentences | edit sentences | control words a sentence | edit words a sentence |
+|---|--:|--:|--:|--:|
+| `relay-rollout`/opus | 18.0 | 13.0 | 17.5 | 15.8 |
+| `relay-migration`/opus | 17.5 | 15.0 | 15.0 | 12.7 |
+| `relay-retention`/opus | 14.0 | 14.0 | 16.4 | 13.0 |
+| `walkthrough`/opus | 24.5 | 21.5 | 14.4 | 13.7 |
+
+| cell | control prose | edit prose | control items | edit items |
+|---|--:|--:|--:|--:|
+| `relay-rollout`/sonnet | 299 | 195 | 13.0 | 4.0 |
+| `relay-migration`/sonnet | 288 | 234 | 10.0 | 8.0 |
+| `relay-retention`/sonnet | 221 | 178 | 6.0 | 0.0 |
+| `explain-index`/opus | 94 | 90 | 2.0 | 2.0 |
+| `explain-metric`/opus | 82 | 78 | 0.0 | 0.0 |
+| `explain-rollback`/opus | 128 | 130 | 0.0 | 0.0 |
+| `walkthrough`/opus | 328 | 286 | 7.0 | 2.0 |
+
+Kimi's padding prediction did not appear: the `explain-*` answers moved by
+−4, −4 and +2 words.
+
+### Replication
+
+A fresh 140 runs a side from the same two trees, reps 20 to 39 on the
+target cells and 10 to 19 on the bounds, 0 failed, all CLI 2.1.319,
+10:32 to 11:11 UTC. `release.py`: no unreadable span, no arm imbalanced.
+
+**Primary: passes again.** Mean log ratio −0.337 (factor **0.714**),
+one-sided **p < 0.00001**.
+
+| cell | control prose words | edit prose words | control relayed | edit relayed |
+|---|--:|--:|--:|--:|
+| `relay-rollout`/opus | 324 | 208 | 1.5 | 0.0 |
+| `relay-migration`/opus | 264 | 185 | 8.0 | 7.0 |
+| `relay-retention`/opus | 242 | 196 | 14.0 | 13.0 |
+
+**Readability: holds again**, 60 of 60 on both sides. **Bounds: all hold
+again**, every one of the 280 verdicts a pass, `walkthrough`/opus 20 of 20
+on both sides. The panel decided every record with no split; kimi cast no
+vote on 3 control and 1 edit records.
+
+Disclosed, deciding nothing, medians: `walkthrough`/opus 372 against 260
+prose words; `explain-index`, `explain-metric` and `explain-rollback`/opus
+98, 82 and 129 against 106, 68 and 122; the sonnet relay cells 290, 278 and
+226 against 217, 242 and 188. 1 of 60 edit relay answers ran 163 prose
+words or fewer, against 0; 60 of 60 ran 326 or fewer, against 50.
+
+### Holdout
+
+All six reserved cases, sonnet and opus, 5 reps, from both trees at once:
+60 runs a side, 0 failed, CLI 2.1.319, `cases_cksum` 3353367341 on both,
+11:42 to 12:00 UTC. This is the second consultation of the five cases
+authored in #566 and the first of `holdout-scratch`, which replaced
+`holdout-namespace` in #589; all six are within their budgets. The panel
+decided all 60 records a side with no split. `score_relay.py holdout`:
+**no reserved case is worse under the edit.** Every case passed 10 of 10
+on both sides.
+
+### Disclosed, deciding nothing
+
+- **The pre-mortem's likeliest class did not arrive.** Opus did not keep
+  60 words a part, as it did not keep three sentences, but this bullet
+  pressed where round 130's did not: 0.728 and 0.714 against round 130's
+  1.001, at the same control.
+- **`walkthrough`/opus shortened within its bound**, 328 to 286 and 372 to
+  260 prose words, with 40 of 40 edit verdicts passing. The user fixed that
+  scope at "the whole flow", and the edit answers still cover it; the bound
+  this round buys cannot see a loss smaller than about five verdicts of 20.
+- **`relay-retention` still relays 13 of its 20 planted identifiers** on
+  both samples, and `relay-migration` 7; only `relay-rollout` fell to 0.
+  Relaying is disclosed, not a bar.
+- **The edit cells still run 1.1 to 1.3 times the 163-word reference.**
+  #500 is narrower than it was and still open.
+- **Cost.** $46.21 of generation across the 560 stage-2 and replication
+  runs and $6.89 across the 120 holdout runs, and the panel's judging on
+  top.
+
+## Result: accepted
+
+The primary passed twice, at factors 0.728 and 0.714 (p < 0.00001 both),
+every bound held on both samples at 100%, the readability bound held at 60
+of 60 on both, and the holdout held. `plugin/rules/laconic.md` ships the
+edit; a release is owed.
+
 [#500]: https://github.com/JordanMPDS/laconic/issues/500

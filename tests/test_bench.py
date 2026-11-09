@@ -7425,6 +7425,11 @@ _expected_concurrent = {
     # Round 130's first sample: round 126's four-shard design, merged into one
     # snapshot a side. Its primary failed, so no replication was generated.
     "round-130-control.json", "round-130-edit.json",
+    # Round 131: four simultaneous shards declaring --concurrency 4, three
+    # over feasible-* split by --rep-offset and one over coldfeasible-*; the
+    # three session shards are merged into one, and the cold shard is one
+    # invocation of its own.
+    "round-131-session.json",
     # #558's rate measurement: four simultaneous shards declaring
     # --concurrency 4, one per model and opus split by rep, then two more
     # haiku shards over reps 24 to 39 once opus finished; merged into one.

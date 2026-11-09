@@ -314,6 +314,17 @@ caveat, and nothing about the identifiers.
 
 [#500]: https://github.com/JordanMPDS/laconic/issues/500
 
+## `feasible-*` and `coldfeasible-*`
+
+[#113]'s feasibility pair, registered in
+[`../results/loop/round-131.md`](../results/loop/round-131.md):
+`feasible-replay`, `feasible-shadow` and `feasible-state` are a four-turn
+session over session-alerting-long's SPEC.md, two co-authoring edits that
+settle open questions, then "is it possible to ... on X?" and "what about Y
+instead?" about a storage backend. Each `coldfeasible-*` case asks its
+session's turn 3 with no session. `score_feasible.py` holds a reference answer
+for each feasibility turn and counts answers against it.
+
 ## Borrowed by symlink
 
 `deep-*`, `confirm-*`, `drift-service`, `conditional` and `walkthrough` are symlinks to the
@@ -355,6 +366,7 @@ issue it was written for.
 | `score_findings.py` | Round 111: whether a list of findings names the one that decides `verdict-schema`. |
 | `score_facts.py` | Round 119: whether a tool-less judge grades the fixture once the trap carries it ([#414]). |
 | `score_relay.py` | Round 126: whether an explanation of a spec just read relays the spec ([#500]). |
+| `score_feasible.py` | Round 131: whether #113's feasibility pair runs long or closes with an offer ([#113]). |
 | `score_volunteered.py` | [#116]'s counters on `conditional`: did the answer do the work, and say what was wrong. |
 | `score_closing_edit.py` | Whether laconic's closing-offer rate survives a session that edits. |
 | `score_offer_fix.py` | Rounds 76 and 79: naming the offer in the pre-action check ([#113]). |

@@ -256,3 +256,135 @@ moving against the direction little weight.
 <!-- Nothing below this line was computed at the registration commit. -->
 
 [#500]: https://github.com/JordanMPDS/laconic/issues/500
+
+### Stage 2
+
+Control from `laconic-r133-control` (`2ad84ca`, `rules_cksum` 1859532872,
+master), edit from `laconic-r133-edit` (`c66d013`, `rules_cksum`
+3264759024), four shards at once, 140 runs a side, 0 failed, all CLI
+2.1.319, 2026-11-09 14:20 to 14:55 UTC. `release.py`: no unreadable span, no
+arm imbalanced across a release. Each control cell reads within 0.3 of the
+mean round 132's edit side read at the same rules.
+
+**Primary: passes.** Mean difference −5.58 identifiers, one-sided
+**p < 0.00001**, factor **0.342** against the 0.75 it needed.
+
+| cell | control mean | edit mean | control median | edit median |
+|---|--:|--:|--:|--:|
+| `relay-migration`/opus | 6.60 | 0.50 | 7.0 | 0.0 |
+| `relay-retention`/opus | 12.90 | 7.85 | 13.0 | 8.0 |
+
+**Prose words: holds.** Mean log ratio −0.001 (factor 0.999), one-sided
+p = 0.523 for a rise. Medians 222, 188 and 186 on the control against 219,
+187 and 188 on the edit, `relay-rollout`, `relay-migration` and
+`relay-retention` in that order: the names went and were not traded for
+phrases. **Readability: holds**, 60 of 60 clean on both sides. **Never-cut:
+holds**, `explain-index`/opus 10 of 10 carrying `date_trunc` on both sides,
+`walkthrough`/opus 20 of 20 carrying `401` on both.
+
+**Bounds: all hold.** Every one of the 280 verdicts passes, so each cell
+reads one-sided p = 1.0. The panel decided all 140 records a side with no
+three-way split, and all three members voted on every record and agreed
+with the majority on every one.
+
+**The two cells did not move alike.** On `relay-migration` the edit drops
+nearly everything: the seven names the control carries in 15 to 20 of its
+20 answers (`pg-orders-1`, `orders_outbox`, `outbox-relay`,
+`backfill_orders_v2`, `order-diff`, `orders.read_from_v2`,
+`orders.write_legacy`) appear in 0 to 2 edit answers each. Its median edit
+answer (0 identifiers, 218 prose words) says "a relay worker copies that
+row" and "a flag moves reads to orders-v2". On `relay-retention` the edit
+halves the names that only label something (`active_accounts` 19 to 9,
+`purge_order.yaml` 19 to 5, `user-media-prod` 19 to 6, `DB-RB-03` 17 to 5,
+`PRV-104` 17 to 7) and keeps most of the ones attached to an action the
+answer describes: `acctctl` 20 to 17, `purge_accounts` and `purge_ledger`
+20 to 14, `ID-RB-12` and `purge_verify` 20 to 13. The times and the cap, which
+the pre-mortem said were not names, stay at 15, 15 and 20 of 20. Its median
+edit answer (8 identifiers, 162 prose words) still says "Support can undo
+the deletion with `acctctl restore` once the user passes the `ID-RB-12`
+identity check".
+
+Disclosed, deciding nothing, means of planted identifiers relayed:
+`relay-rollout`/opus 0.00 on both sides; the sonnet cells 1.50, 7.50 and
+13.70 on the control against 0.60, 5.00 and 12.10 on the edit. Medians:
+
+| cell | control prose | edit prose | control total | edit total |
+|---|--:|--:|--:|--:|
+| `relay-rollout`/opus | 222 | 219 | 235 | 232 |
+| `relay-migration`/opus | 188 | 187 | 212 | 195 |
+| `relay-retention`/opus | 186 | 188 | 210 | 203 |
+| `relay-rollout`/sonnet | 202 | 224 | 227 | 249 |
+| `relay-migration`/sonnet | 244 | 228 | 282 | 258 |
+| `relay-retention`/sonnet | 185 | 199 | 214 | 225 |
+| `explain-index`/opus | 106 | 95 | 124 | 116 |
+| `explain-metric`/opus | 78 | 74 | 96 | 93 |
+| `explain-rollback`/opus | 122 | 131 | 148 | 155 |
+| `walkthrough`/opus | 303 | 296 | 345 | 338 |
+
+`explain-rollback`/opus names `ledger_entries` and `chargeOrder` in 10 of 10
+answers on both sides: the neighbouring names that answer needs survived.
+
+### Replication
+
+A fresh 140 runs a side from the same two trees, reps 20 to 39 on the
+target cells and 10 to 19 on the bounds, 0 failed, all CLI 2.1.319,
+15:24 to 16:01 UTC. `release.py`: no unreadable span, no arm imbalanced.
+
+**Primary: passes again.** Mean difference −5.67 identifiers, one-sided
+**p < 0.00001**, factor **0.384**.
+
+| cell | control mean | edit mean | control median | edit median |
+|---|--:|--:|--:|--:|
+| `relay-migration`/opus | 7.00 | 1.70 | 7.0 | 0.0 |
+| `relay-retention`/opus | 12.75 | 6.70 | 13.0 | 7.0 |
+
+**Prose words: fires.** Mean log ratio +0.032 (factor **1.032**), one-sided
+**p = 0.02486** for a rise, against alpha 0.05. Medians 214, 186 and 190 on
+the control against 216, 197 and 196 on the edit, `relay-rollout`,
+`relay-migration` and `relay-retention` in that order. **Readability:
+holds**, 60 of 60 on both sides. **Never-cut: holds**, 10 of 10 and 20 of 20
+on both sides.
+
+The registration scores the primary and the three deterministic bounds
+before any judging is bought, so the replication was not judged and the
+holdout was not consulted. The reserved cases keep their counts.
+
+Disclosed, deciding nothing: the same names fell as in stage 2, by a little
+less. On `relay-migration` the seven the control carries in 18 to 20 answers
+appear in 2 to 7 edit answers each; on `relay-retention`, `purge_order.yaml`
+16 to 2, `DB-RB-03` 18 to 5, `user-media-prod` 19 to 6 and
+`active_accounts` 20 to 7, while `acctctl` 20 to 14 and `5,000` 20 to 20
+stay. Means relayed on `relay-rollout`/opus 0.20 against 0.00, and on the
+sonnet cells 3.50, 7.80 and 13.90 against 1.00, 8.00 and 12.00.
+`explain-rollback`/opus names `ledger_entries` and `chargeOrder` in 10 of 10
+on both sides. Prose medians on `explain-index`, `explain-metric` and
+`explain-rollback`/opus 98, 78 and 118 against 106, 75 and 120;
+`walkthrough`/opus 278 against 280.
+
+### Disclosed, deciding nothing
+
+- **The pre-mortem's likeliest class arrived, and smaller than it
+  described.** The registration expected opus to drop the names and keep
+  the mechanisms they labelled, with prose rising. Both samples show the
+  first half: `relay-migration`'s median edit answer keeps every step and
+  threshold under "a relay worker" and "a flag". The rise is three words in
+  a hundred on one sample and none on the other.
+- **Pooled over both samples**, a test the registration did not declare,
+  the same statistic reads factor 1.017 at one-sided p = 0.085, medians 218,
+  187 and 186 against 217.5, 190 and 193. The registered bar fires on one of
+  its two samples, and accepting needs it to hold on both.
+- **`relay-retention` keeps the names tied to an action.** `acctctl
+  restore`, `purge_accounts`, `purge_ledger` and `purge_verify` survive in
+  10 to 17 of 20 edit answers across the two samples, where
+  `purge_order.yaml`, `user-media-prod`, `DB-RB-03` and `active_accounts`,
+  which only label something, fall to between 2 and 9. The question uses
+  none of them.
+- **Cost.** $45.37 of generation across the 560 runs, and the panel's 420
+  judgments a side on stage 2 on top.
+
+## Result: rejected
+
+The primary passed twice, at factors 0.342 and 0.384 (p < 0.00001 both),
+and every bound held in stage 2, but the fatal prose-words bound fired on
+the replication at factor 1.032, one-sided p = 0.025. `plugin/rules/laconic.md`
+and `plugin/rules/dist/` are reverted to master. [#500] stays open.

@@ -154,9 +154,9 @@ prose with the ceremony stripped.
   - Right: "Derive alerts from the log row the loop already writes, in
     whatever monitoring you already run — which stack is that? The schema
     and the dedup rules are the next level down."
-- Explaining what you read gets at most three sentences or list items for
-  each part the question names, plus at most one caveat that changes how to
-  read it.
+- Explaining what you read gets at most three sentences for each part the
+  question names, counting those in lists, plus one for a caveat that
+  changes how to read it.
 
 Typical shape: one to three sentences, or a short list. One sentence is a
 complete answer.

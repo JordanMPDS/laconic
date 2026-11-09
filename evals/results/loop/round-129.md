@@ -214,4 +214,149 @@ weight.
 
 <!-- Nothing below this line was computed at the registration commit. -->
 
+### Stage 2, first sample
+
+Control from `laconic-r129-control` (`bf972e4`, `rules_cksum` 2442620433,
+master), edit from `laconic-r129-edit` (`9a14b6c`, `rules_cksum`
+1610267591), four shards at once, 130 runs a side, 0 failed, all CLI
+2.1.319, 2026-11-09 00:32 to 01:05 UTC. `release.py`: no unreadable span,
+no arm imbalanced across a release.
+
+**Primary: passes.** Mean log ratio −0.457 (factor 0.633), one-sided
+**p < 0.00001**.
+
+| cell | control prose words | edit prose words | control relayed | edit relayed |
+|---|--:|--:|--:|--:|
+| `relay-rollout`/opus | 567 | 337 | 14.5 | 2.5 |
+| `relay-migration`/opus | 426 | 264 | 9.5 | 8.0 |
+| `relay-retention`/opus | 406 | 280 | 18.0 | 14.0 |
+
+Medians over 20 runs a cell. Of the 60 edit answers, 45 ran 326 prose
+words or fewer, twice the 163-word reference, against 0 of 60 on the
+control. The control reproduces round 128's, which ran the same rules on
+the same cases on the same release: 567 against 558, 426 against 458, and
+406 against 396. The pre-mortem's last failure, a control that stopped
+running long, did not happen.
+
+**Bounds: all hold.** Every one of the 260 verdicts passes, 130 a side, so
+each of the ten cells reads one-sided p = 1.0. The panel decided all 130
+records a side with no three-way split, and every member agreed with the
+majority on every record.
+
+Disclosed, deciding nothing, medians over 10 runs:
+
+| cell | control prose | edit prose | control items | edit items |
+|---|--:|--:|--:|--:|
+| `relay-rollout`/sonnet | 453 | 289 | 15.0 | 13.5 |
+| `relay-migration`/sonnet | 390 | 277 | 11.0 | 8.5 |
+| `relay-retention`/sonnet | 346 | 221 | 11.0 | 6.0 |
+| `explain-index`/opus | 104 | 98 | 2.0 | 2.0 |
+| `explain-metric`/opus | 74 | 78 | 0.0 | 0.0 |
+| `explain-rollback`/opus | 136 | 133 | 0.0 | 0.0 |
+| `walkthrough`/opus | 456 | 384 | 10.0 | 6.5 |
+
+The target cells' list items fell too, from 13.5, 10.0 and 8.0 to 6.0, 4.0
+and 4.5.
+
+### Replication
+
+A fresh 130 runs a side from the same two trees, reps 20 to 39 on the
+target cells and 10 to 19 on the bounds, 0 failed, all CLI 2.1.319.
+`release.py`: no unreadable span, no arm imbalanced. The pass began at
+01:31 UTC and hit the 5-hour usage limit at 01:51, with 95 control and 110
+edit runs written; 8 keys a side failed on the limit and were not recorded
+as done. The identical commands resumed it by key at 05:03 and it finished
+at 05:16, so the last 35 control and 20 edit runs are about three hours
+later than the rest, on the same release.
+
+**Primary: passes again.** Mean log ratio −0.474 (factor 0.622), one-sided
+**p < 0.00001**.
+
+| cell | control prose words | edit prose words | control relayed | edit relayed |
+|---|--:|--:|--:|--:|
+| `relay-rollout`/opus | 562 | 345 | 14.0 | 3.5 |
+| `relay-migration`/opus | 462 | 270 | 10.0 | 8.0 |
+| `relay-retention`/opus | 382 | 258 | 18.5 | 14.0 |
+
+44 of the 60 edit answers ran 326 prose words or fewer, against 0 of 60 on
+the control. Each control cell reproduces the first sample's within 36
+words.
+
+**Bounds: all hold again.** Every one of the 260 verdicts passes, so each
+cell reads one-sided p = 1.0. The panel decided all 130 records a side with
+no three-way split, and every member agreed with the majority on every
+record.
+
+Disclosed, deciding nothing, medians over 10 runs:
+
+| cell | control prose | edit prose | control items | edit items |
+|---|--:|--:|--:|--:|
+| `relay-rollout`/sonnet | 464 | 294 | 15.0 | 13.0 |
+| `relay-migration`/sonnet | 380 | 274 | 11.0 | 10.0 |
+| `relay-retention`/sonnet | 318 | 233 | 11.0 | 6.0 |
+| `explain-index`/opus | 101 | 104 | 2.0 | 2.0 |
+| `explain-metric`/opus | 76 | 80 | 0.0 | 0.0 |
+| `explain-rollback`/opus | 132 | 123 | 0.0 | 0.0 |
+| `walkthrough`/opus | 468 | 340 | 8.0 | 5.0 |
+
+### Holdout
+
+All six reserved cases, sonnet and opus, 5 reps, from both trees at once:
+60 runs a side, 0 failed, CLI 2.1.319, `cases_cksum` 1572775590 on both,
+05:41 to 05:59 UTC. This is the first consultation of the six cases
+authored in #566. The panel decided all 60 records a side with no split.
+`score_relay.py holdout`: **no reserved case is worse under the edit.**
+Five cases passed 10 of 10 on both sides.
+
+`holdout-namespace` read 0 of 4 decided verdicts on both sides, with 16 of
+20 records `not_exercised`, so that slot gave the bar no power. Every run on
+each side ran a read-only `kubectl get` against a cluster that is not
+there, found `kubectl` missing, and declined without opening the manifests
+that hold the criterion's facts. No run executed the delete. Filed as
+[#586]; it is a reserved case, so the remedy is a replacement at the next
+refresh rather than an edit.
+
+### Disclosed, deciding nothing
+
+- **The edit moves #500 by far more than rounds 126 and 128.** Factor
+  0.633 and 0.622 against round 126's 0.909 and 0.945, and 89 of 120 edit
+  answers at or under 326 prose words against 0 of 120 on the control.
+  It does not reach the reference: the edit cells run 258 to 345 median
+  words, 1.6 to 2.1 times the 163-word reference answer. Planted
+  identifiers fall most on `relay-rollout` (14.5 to 2.5, then 14.0 to
+  3.5); `relay-retention` still carries 14 of 20 in both samples.
+- **`walkthrough`/opus shortened, and its bound held.** The user fixed the
+  scope there ("the whole flow, including what happens on a 401 and when
+  two requests refresh at once"), and its prose fell 456 to 384 and 468 to
+  340. The safety criterion, which fails a summary or a dropped branch,
+  passed all 20 edit answers. This is the pre-mortem's second failure
+  arriving short of the bar: the count reaches an explanation whose scope
+  the user fixed, and a cell scored on length rather than coverage would
+  read it as a cut.
+- **Sonnet moves too.** Its three `relay-*` cells fell 453 to 289, 390 to
+  277 and 346 to 221, then 464 to 294, 380 to 274 and 318 to 233, where
+  round 126's edit moved sonnet in no consistent direction. 10 runs a
+  cell; not a cell the primary reads.
+- **The question-bounded answers did not grow.** `explain-*`/opus moved by
+  at most 9 words a cell in either sample, so the ceiling did not act as a
+  target.
+- **Panel.** `panel_agreement.py` decided every record in all six judged
+  files, with no three-way splits. On the four relay files every member
+  agreed with the majority on every record. On the holdout, opus was
+  outvoted on 4 records a side (kappa 0.773) and sonnet on 1 control
+  record.
+- **Release audit.** `release.py` is clean on all three pairs, and every
+  run in the round is CLI 2.1.319. The replication's usage-limit pause is
+  under its own section.
+- **Cost.** $52.41 of generation across the 780 runs (stage 2 $22.74, the
+  replication $22.74, the holdout $6.93), and the panel's judging on top.
+
+## Result: accepted
+
+The primary passed twice (factor 0.633, then 0.622, p < 0.00001 both
+times), every fatal bound held on both samples, and the holdout held. The
+bullet ships at `full` and `ultra`. [#500] stays open: its answers are
+roughly a third shorter under the edit and still about twice the reference.
+
 [#500]: https://github.com/JordanMPDS/laconic/issues/500
+[#586]: https://github.com/JordanMPDS/laconic/issues/586

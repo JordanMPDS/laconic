@@ -214,6 +214,78 @@ weight.
 
 <!-- Nothing below this line was computed at the registration commit. -->
 
+### Stage 2, first sample
+
+Control from `laconic-r128-control` (`49f5d2f`, `rules_cksum` 2442620433,
+master), edit from `laconic-r128-edit` (`14bed0f`, `rules_cksum`
+225604376), four shards at once, 130 runs a side, 0 failed, all CLI
+2.1.319, 2026-11-08 23:33 to 2026-11-09 00:07 UTC. `release.py`: no
+unreadable span, no arm imbalanced across a release.
+
+**Primary: fails.** Mean log ratio −0.023 (factor 0.977), one-sided
+**p = 0.148**.
+
+| cell | control prose words | edit prose words | control relayed | edit relayed |
+|---|--:|--:|--:|--:|
+| `relay-rollout`/opus | 558 | 541 | 16.0 | 8.5 |
+| `relay-migration`/opus | 458 | 453 | 12.0 | 9.0 |
+| `relay-retention`/opus | 396 | 384 | 18.5 | 18.0 |
+
+Medians over 20 runs a cell. All three cells moved in the registered
+direction, by 3% at most, and none came near the 163-word reference
+answer: of the 60 edit answers, 2 ran 326 words or fewer, twice the
+reference, against 1 of 60 on the control. By the registration the round
+rejects here, so **nothing was judged**, and the replication and the
+holdout were not bought.
+
+The control reproduces round 126's edit side, which ran the same rules on
+the same cases on the same release: 558 against 546 and 557 on
+`relay-rollout`, 458 against 422 and 460 on `relay-migration`, and 396
+against 384 and 392 on `relay-retention`. The pre-mortem's third failure,
+a control that stopped running long, did not happen.
+
+### What the bullet changed
+
+It cut planted identifiers, not length. `relay-rollout`/opus fell from a
+median 16.0 relayed identifiers to 8.5, and `relay-migration` from 12.0 to
+9.0, while their prose fell by 17 and 5 words. An edit answer at that
+cell's median (545 words, 8 identifiers) is the pre-mortem's second
+failure as written: a heading per stage, then every pass criterion with its
+threshold and the reason for it, the three guardrails, the stop list, the
+SSR definition and the revenue caveat. Each is something that "decides" a
+stage, so "what decides it" admitted all of it, and the cut fell on the
+planted identifiers, which decide nothing. "Name the depth you left
+out" did little: a phrase match for a named omission ("left out", "the spec
+also covers" and the like) finds it in 7 of 60 edit answers against 2 of 60
+on the control.
+
+Disclosed, deciding nothing, medians over 10 runs:
+
+| cell | control prose | edit prose | control items | edit items |
+|---|--:|--:|--:|--:|
+| `relay-rollout`/sonnet | 494 | 411 | 17.0 | 9.5 |
+| `relay-migration`/sonnet | 382 | 374 | 11.0 | 11.0 |
+| `relay-retention`/sonnet | 330 | 326 | 12.0 | 13.0 |
+| `explain-index`/opus | 104 | 114 | 2.0 | 2.0 |
+| `explain-metric`/opus | 76 | 76 | 0.0 | 0.0 |
+| `explain-rollback`/opus | 140 | 136 | 0.0 | 0.0 |
+| `walkthrough`/opus | 460 | 428 | 10.0 | 10.0 |
+
+Sonnet's `relay-rollout` is the one cell that moved by more than a tenth,
+on 10 runs a side, and it is not a cell the primary reads. Cost: $23.76 of
+generation over the 260 runs, and no judging.
+
+## Result: rejected
+
+The primary moved in its registered direction and did not separate (factor
+0.977, p = 0.148), so the round rejects in the noise-floor class.
+`plugin/rules/laconic.md` and `plugin/rules/dist/` are back at master in
+this pull request. Rounds 126 and 128 together say that #500's answers
+barely shorten when the rules name a smaller scope or a smaller set of
+parts: opus files the source's detail under any part the rule names. A
+successor has to bound the answer itself, by a length or a count of
+claims per part, or leave the issue to the next report. [#500] stays open.
+
 [#46]: https://github.com/JordanMPDS/laconic/issues/46
 [#500]: https://github.com/JordanMPDS/laconic/issues/500
 [#552]: https://github.com/JordanMPDS/laconic/pull/552

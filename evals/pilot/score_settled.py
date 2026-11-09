@@ -113,13 +113,15 @@ def votes(a, b):
             crossed, mixed)
 
 
-def stratified(pairs, seed=SEED, resamples=RESAMPLES):
+def stratified(pairs, seed=SEED, resamples=RESAMPLES, centre=metrics.median):
     """One-sided stratified permutation of the side label within each cell.
 
     `pairs` is [(control_words, edit_words), ...], one entry per voting cell.
     The statistic is the mean over cells of (edit median - control median), so
     every cell contributes equally however many runs it holds, and a cell that
-    is simply longer than the others cannot carry the round. Returns
+    is simply longer than the others cannot carry the round. `centre` replaces the
+    median, for a small integer count whose ties leave the median too coarse
+    to separate (round 133). Returns
     (statistic, p) where p is P(statistic <= observed) under the null, or
     (None, None) when no cell votes.
     """
@@ -128,8 +130,7 @@ def stratified(pairs, seed=SEED, resamples=RESAMPLES):
         return (None, None)
 
     def stat(ps):
-        return sum(metrics.median(e) - metrics.median(c)
-                   for c, e in ps) / len(ps)
+        return sum(centre(e) - centre(c) for c, e in ps) / len(ps)
 
     obs = stat(pairs)
     rng = random.Random(seed)

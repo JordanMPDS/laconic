@@ -183,5 +183,88 @@ too.
 
 <!-- Nothing below this line was computed at the registration commit. -->
 
+### Neither half fires
+
+45 runs, 0 failed, every one on CLI 2.1.319, from four shards at once on
+2026-11-09, stamped 08:30 to 08:46 UTC, at master rules (`rules_cksum`
+1610267591). `release.py`: no unreadable span, no arm imbalanced across a
+release. The merged session snapshot declares 4 and reconstructs to 3 in
+flight.
+
+```
+## Feasibility answers, opus, laconic
+   case                 turn  n  median  ratio >=3x >=300  >=600 offers heads bolds  wrote
+   feasible-replay         3 10   103.0   1.26    0    0      0      0   0.0   0.0  0
+   feasible-replay         4 10    35.5   0.85    0    0      0      0   0.0   0.0  0
+   feasible-shadow         3 10   116.5   1.79    0    0      0      0   0.0   0.0  0
+   feasible-shadow         4 10    72.5   1.27    0    0      0      0   0.0   0.0  0
+   feasible-state          3 10   103.5   1.73    0    0      0      0   0.0   0.0  0
+   feasible-state          4 10    74.5   1.59    0    0      0      0   0.0   0.0  0
+   coldfeasible-replay     3  5   195.0   2.38    0    0      0      0   0.0   0.0  0
+   coldfeasible-shadow     3  5   170.0   2.62    2    0      0      0   0.0   3.0  0
+   coldfeasible-state      3  5   210.0   3.50    5    0      0      0   0.0   4.0  0
+## Every closing offer, verbatim
+   none
+## Verdict, over the feasible-* sessions (10 a stem expected)
+   sessions with a feasibility answer at >= 3x its reference: 0 of 30 (fires at 6)
+   sessions with a closing offer on a feasibility answer: 0 of 30 (fires at 3)
+## length does not fire, ceremony does not fire
+```
+
+**No session answer reaches three times its reference, and none closes with
+an offer.** The longest of the 60 feasibility answers is 169 prose words, and
+the highest ratio is 2.82 (`state`, turn 3). Medians run 0.85 to 1.79 times
+the reference, so a typical answer is the reference with a sentence or two
+more. No feasibility answer carries a heading or a bold label, and none
+edits SPEC.md. The report's 600 words is more than three times the longest.
+
+**The manipulation held.** All 30 sessions changed SPEC.md over turns 1 and 2,
+27 of them through `Edit` or `Write` on turn 1. No edit turn carries an offer
+either.
+
+A median `feasible-state` turn-3 answer, 114 prose words:
+
+> Not with the supervisor as the spec describes it. Section 10 treats each
+> cycle as a separate run: it writes a heartbeat at the start, and if it can't
+> take the lease it exits. Anything held in memory would be gone by the next
+> cycle.
+>
+> That state includes the integral term, and probably the consecutive-stale
+> count and the previous cap. Without it, the integral would reset every
+> cycle, the three-cycle `feed_stale` fallback would never trigger, and the
+> cap would have nothing to scale from. [...]
+
+That is the verdict, the deciding constraint and the failure chain #113 asks
+a fix to keep, at the reference's size.
+
+### Disclosed, deciding nothing
+
+- **The cold question runs about twice as long as the same question in the
+  session.** Turn-3 medians of 195, 170 and 210 prose words cold against 103,
+  116.5 and 103.5 in session, and the cold `shadow` and `state` answers carry
+  a median 3 and 4 bold labels where no session answer carries any. All five
+  cold `state` answers reach three times the reference. The median one is a
+  bolded three-item list of reasons, and closes on an alternative nobody
+  asked for (*"you could store it in the cycle record"*). This is round 36's
+  direction, depth suppressing what a cold question draws, on a new shape. No
+  test was registered on it, and at 5 reps a stem it is a description.
+- **The pre-mortem was half wrong.** It expected the length half to fire on
+  turn 4, and turn 4 is the shortest turn in every stem.
+- **Cost.** $28.38 for the 30 sessions (120 turns) and $2.26 for the 15 cold
+  calls. Nothing was judged.
+
+## Result: neither half fires
+
+At master rules on opus, #113's feasibility pair, asked in the co-authoring
+session it was reported from, is answered at about the size of a complete
+reference answer and never closes with an offer. Every shape [#113] reports
+now has a reading on opus: the offer on `edit-service` (0 of 50 runs), on a
+build request with ponytail beside laconic (0 of 60), and on this pair (0 of
+30), and the length on this pair (0 of 30 at three times the reference). The
+cold cells are the one place the length still shows, and they are not the
+report's condition.
+
+Round 132 owes a candidate, and this round gives it no target on [#113].
+
 [#46]: https://github.com/JordanMPDS/laconic/issues/46
 [#113]: https://github.com/JordanMPDS/laconic/issues/113

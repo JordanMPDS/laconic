@@ -1226,6 +1226,37 @@ PYEOF
   fi
 done
 
+# `feasible-*` is #113's feasibility pair asked after two co-authoring edits,
+# and `coldfeasible-*` asks each session's turn 3 with no session, for round
+# 131. The stems may differ only in the pair: if the edit turns drift between
+# stems, or a cold prompt stops being its session's turn 3, or a case leaves
+# session-alerting-long's SPEC.md, the stems stop being one session asked about
+# three backends and the cold cells stop being the same question.
+if python3 - "$ROOT/evals/pilot" <<'PYEOF'
+import sys
+from pathlib import Path
+root = Path(sys.argv[1])
+spec = root.joinpath("session-alerting-long", "fixture").resolve()
+edits = None
+for stem in ("replay", "shadow", "state"):
+    s, c = root / ("feasible-" + stem), root / ("coldfeasible-" + stem)
+    turns = s.joinpath("prompt.md").read_text().split("<!-- turn -->")
+    assert len(turns) == 4, "feasible-%s must be four turns" % stem
+    assert all("Go ahead and make the change." in t for t in turns[:2]), stem
+    assert not any("make the change" in t for t in turns[2:]), stem
+    edits = edits or turns[:2]
+    assert turns[:2] == edits, "feasible-%s's edit turns differ" % stem
+    assert c.joinpath("prompt.md").read_text().strip() == turns[2].strip(), \
+        "coldfeasible-%s is not feasible-%s's turn 3" % (stem, stem)
+    for d in (s, c):
+        assert d.joinpath("fixture").resolve() == spec, "%s's fixture" % d.name
+PYEOF
+then
+  ok "feasible-* share their edit turns and coldfeasible-* ask their turn 3"
+else
+  fail "feasible-* share their edit turns and coldfeasible-* ask their turn 3"
+fi
+
 # The ledger is one line per attempt, including rejected ones, and a round
 # that merges without its row is invisible to the attempt count. Rounds 71,
 # 76, 77 and 78 all did (#340). A round document that says it "takes no

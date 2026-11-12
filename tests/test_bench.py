@@ -9509,6 +9509,10 @@ with tempfile.TemporaryDirectory() as _t:
     _hsnap("round-21.json", ["holdout-b"])
     (_t / "snaps" / "round-22-holdout.json").write_text("{not json")
     _hc = bench_report._holdout_consultations(_t / "snaps", _t / "holdout")
+    # Rounds 132 and 134 put the arm before "holdout" in the name (#600).
+    _hsnap("round-25-control-holdout.json", ["holdout-b"])
+    _hsnap("round-25-control-holdout-judgments.json", ["holdout-a"])
+    _hc_arm = bench_report._holdout_consultations(_t / "snaps", _t / "holdout")
     # A staggered case carries its own budget (#566); the other has none.
     (_t / "holdout" / "holdout-b" / "expect.json").write_text(
         json.dumps({"holdout_budget": 1}))
@@ -9522,6 +9526,8 @@ with tempfile.TemporaryDirectory() as _t:
         _hb.append(bench_report._holdout_budget("holdout-b", _t / "holdout"))
 check("holdout consultations are distinct rounds per case, read from the runs",
       _hc == {"holdout-a": [15, 20], "holdout-b": [15]})
+check("a holdout snapshot named round-N-<arm>-holdout counts its round (#600)",
+      _hc_arm == {"holdout-a": [15, 20], "holdout-b": [15, 25]})
 check("a holdout tree with no case counts nothing",
       bench_report._holdout_consultations(_t, _t) is None)
 _hl = bench_report._holdout_line(_hc, budget=1)

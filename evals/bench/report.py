@@ -807,7 +807,7 @@ def _holdout_budget(case, holdout=None):
 
 def _holdout_consultations(snapdir=None, holdout=None):
     """{case: rounds} for every case now in evals/holdout: the distinct round
-    numbers whose `round-N-holdout*.json` result snapshots hold a run of it.
+    numbers whose `round-N-*holdout*.json` result snapshots hold a run of it.
 
     Read from the runs rather than the file names, so a replacement case
     starts at zero however the files are split. Returns None when no reserved
@@ -821,7 +821,8 @@ def _holdout_consultations(snapdir=None, holdout=None):
     out = {d.name: set() for d in holdout.iterdir()
            if (d / "prompt.md").is_file()}
     for f in snapdir.glob("round-*-holdout*.json"):
-        m = re.match(r"round-(\d+)-holdout", f.name)
+        # The glob has matched "holdout"; an arm may precede it (#600).
+        m = re.match(r"round-(\d+)-", f.name)
         if not m or f.name.endswith("judgments.json"):
             continue
         try:

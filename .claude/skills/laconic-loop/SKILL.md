@@ -1145,7 +1145,7 @@ counted that: the rule text that survives is, by construction, text
 that did not regress them, and whoever drafts the next edit can read them. A
 set consulted that often is no longer unseen. `report.py` prints each case's
 count beside the campaign line on every verdict, read from the runs in the
-committed `round-N-holdout*.json` snapshots, against the case's own
+committed `round-N-*holdout*.json` snapshots, against the case's own
 `holdout_budget` or else `HOLDOUT_BUDGET`. The first refresh, on 2026-11-08
 (#566), retired all six and gave three of their replacements a budget of five,
 so the generations stay offset and a refresh authors three cases, not six.

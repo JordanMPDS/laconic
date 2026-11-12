@@ -159,6 +159,8 @@ prose with the ceremony stripped.
   source's internal names and IDs that the question does not use, and any
   description of what they name: say what happens, not which component
   does it.
+- A feasibility question gets the verdict, the constraint that decides it
+  and its consequences, in at most 80 words.
 
 Typical shape: one to three sentences, or a short list. One sentence is a
 complete answer.

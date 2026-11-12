@@ -204,8 +204,7 @@ That the description replaces the name is round 133's own result, and its
 pre-mortem's first-ranked rejection. I put a draft to the delegate targets
 through `tools/consult.sh`: "Say what each part does, not which of the
 source's components does it: a name the question does not use explains
-nothing." Codex did not answer within 240 seconds and DeepSeek exited on an
-unrecognised model id; Kimi answered. Adopted from Kimi: **keeping round
+nothing." Codex and DeepSeek did not answer within 240 seconds; Kimi answered. Adopted from Kimi: **keeping round
 133's scope phrase "internal names and IDs"**, since "components" may read
 as services and jobs and leave the flags, tables and runbook ids in place,
 and **a purely subtractive clause naming the description**, which Kimi wrote
@@ -238,5 +237,153 @@ stopped relaying would leave the primary nothing to move.
 ## Results
 
 <!-- Nothing below this line was computed at the registration commit. -->
+
+### Stage 2
+
+Control from `laconic-r134-control` (`c8ac166`, `rules_cksum` 1859532872,
+master), edit from `laconic-r134-edit` (`64c19b4`, `rules_cksum`
+2816272927), four shards at once, 140 runs a side, 0 failed, all CLI
+2.1.321, 2026-11-12 07:04 to 07:39 UTC. `release.py`: no unreadable span, no
+arm imbalanced across a release. The control reads within 0.5 of the means
+round 133's two controls read at the same rules on CLI 2.1.319, so the
+defect still fires.
+
+**Primary: passes.** Mean difference −8.88 identifiers, one-sided
+**p < 0.00001**, factor **0.057** against the 0.75 it needed.
+
+| cell | control mean | edit mean | control median | edit median |
+|---|--:|--:|--:|--:|
+| `relay-migration`/opus | 6.50 | 0.00 | 7.0 | 0.0 |
+| `relay-retention`/opus | 12.70 | 1.45 | 13.0 | 1.0 |
+
+**Prose words: holds.** Mean log ratio −0.024 (factor 0.976), one-sided
+p = 0.868 for a rise. Medians 215, 183 and 194 on the control against 210,
+179 and 190 on the edit, `relay-rollout`, `relay-migration` and
+`relay-retention` in that order. **Readability: holds**, 60 of 60 clean on
+both sides. **Never-cut: holds**, `explain-index`/opus 10 of 10 carrying
+`date_trunc` on both sides, `walkthrough`/opus 20 of 20 carrying `401` on
+both.
+
+**Bounds: all hold.** Every one of the 280 verdicts passes, so each cell
+reads one-sided p = 1.0. The panel decided all 140 records a side with no
+three-way split. Kimi cast no vote on one record a side, and opus dissented
+from the majority once, on the edit side.
+
+**The names went without adding prose.** On
+`relay-migration` every planted name the control carries, in 15 to 20 of
+its 20 answers, appears in no edit answer. On `relay-retention` twelve of
+the sixteen the control carries appear in none; `acctctl`, `02:30` and
+`04:00` appear in 3 of 20, and only the batch cap `5,000` stays at 20 of 20.
+The edit did not stop opus describing components: its median
+`relay-migration` answer (0 identifiers, 180 prose words) still says "a
+relay applies that row to orders-v2 asynchronously", and its median
+`relay-retention` answer (1 identifier, 190 prose words) says "A second job
+checks that night's purges". The descriptions stayed and prose words still
+fell, where round 133's rose. All 20 `relay-retention`/opus answers on
+each side mention the audit record and the verification step that its trap
+lists under the hard purge, read by hand where a pattern missed.
+
+Disclosed, deciding nothing, means of planted identifiers relayed:
+`relay-rollout`/opus 0.15 against 0.00; the sonnet cells 1.10, 7.70 and
+12.40 on the control against 0.00, 3.70 and 10.20 on the edit.
+`explain-rollback`/opus names `ledger_entries` and `chargeOrder` in 10 of
+10 answers on both sides. Medians:
+
+| cell | control prose | edit prose | control total | edit total |
+|---|--:|--:|--:|--:|
+| `relay-rollout`/opus | 215 | 210 | 229 | 221 |
+| `relay-migration`/opus | 183 | 179 | 204 | 189 |
+| `relay-retention`/opus | 194 | 190 | 218 | 198 |
+| `relay-rollout`/sonnet | 178 | 171 | 200 | 189 |
+| `relay-migration`/sonnet | 224 | 214 | 260 | 234 |
+| `relay-retention`/sonnet | 164 | 179 | 189 | 201 |
+| `explain-index`/opus | 98 | 97 | 113 | 110 |
+| `explain-metric`/opus | 72 | 79 | 91 | 99 |
+| `explain-rollback`/opus | 124 | 110 | 152 | 132 |
+| `walkthrough`/opus | 260 | 252 | 293 | 278 |
+
+### Replication
+
+A fresh 140 runs a side from the same two trees, reps 20 to 39 on the
+target cells and 10 to 19 on the bounds, 0 failed, all CLI 2.1.321,
+08:17 to 08:53 UTC. `release.py`: no unreadable span, no arm imbalanced.
+
+**Primary: passes again.** Mean difference −9.15 identifiers, one-sided
+**p < 0.00001**, factor **0.050**.
+
+| cell | control mean | edit mean | control median | edit median |
+|---|--:|--:|--:|--:|
+| `relay-migration`/opus | 6.70 | 0.00 | 7.0 | 0.0 |
+| `relay-retention`/opus | 12.90 | 1.30 | 13.0 | 1.0 |
+
+**Prose words: holds.** Mean log ratio +0.010 (factor 1.010), one-sided
+p = 0.323 for a rise. Medians 210, 184 and 192 on the control against 214,
+184 and 195 on the edit, in the same order. **Readability: holds**, 60 of
+60 clean on both sides. **Never-cut: holds**, 10 of 10 and 20 of 20 on both
+sides.
+
+**Bounds: all hold.** All 280 verdicts pass. The panel decided all 140
+records a side with no three-way split, every vote cast agreeing with the
+majority; kimi cast no vote on one control record.
+
+The same names went. On `relay-migration` all seven the control carries in
+16 to 20 answers appear in no edit answer. On `relay-retention` `02:30` and
+`04:00` appear in 3 of 20 edit answers, `5,000` in 20 of 20, and the other
+thirteen the control carries in none. All 20 `relay-retention`/opus answers
+on each side mention the audit record and the verification step.
+`explain-rollback`/opus names `ledger_entries` and `chargeOrder` in 10 of 10
+control answers and 9 of 10 edit answers. Means of planted identifiers
+relayed, deciding nothing: `relay-rollout`/opus 0.05 against 0.00; the
+sonnet cells 1.80, 7.60 and 13.30 against 0.10, 3.60 and 10.10.
+
+| cell | control prose | edit prose | control total | edit total |
+|---|--:|--:|--:|--:|
+| `relay-rollout`/opus | 210 | 214 | 226 | 227 |
+| `relay-migration`/opus | 184 | 184 | 208 | 193 |
+| `relay-retention`/opus | 192 | 195 | 218 | 204 |
+| `relay-rollout`/sonnet | 231 | 196 | 256 | 214 |
+| `relay-migration`/sonnet | 202 | 222 | 231 | 244 |
+| `relay-retention`/sonnet | 177 | 163 | 204 | 186 |
+| `explain-index`/opus | 98 | 89 | 116 | 101 |
+| `explain-metric`/opus | 80 | 79 | 100 | 99 |
+| `explain-rollback`/opus | 120 | 116 | 146 | 138 |
+| `walkthrough`/opus | 257 | 252 | 298 | 276 |
+
+### Holdout
+
+All six reserved cases, sonnet and opus, 5 reps, from both trees at once:
+60 runs a side, 0 failed, CLI 2.1.321, `cases_cksum` 3353367341 on both,
+09:30 to 09:47 UTC. This is the third consultation of the five cases
+authored in #566 and the second of `holdout-scratch`; all six are within
+their budgets. The panel decided all 60 records a side with no split, every
+member voting with the majority. `score_relay.py holdout`: **no reserved
+case is worse under the edit.** Every case passed 10 of 10 on both sides.
+
+### Disclosed, deciding nothing
+
+- **The pre-mortem's likeliest class did not arrive.** Prose words read
+  0.976 and 1.010 against round 133's 0.999 and 1.032, at the same control
+  rules. Opus still describes components ("a relay applies that row", "a
+  second job checks that night's purges"), so the edit did not remove the
+  descriptions it names; it removed the names, at no cost in length.
+- **What is left on `relay-retention` is three planted values, not
+  names**: the batch cap `5,000` in every answer on both samples, and the
+  run times `02:30` and `04:00` in 3 of 20. The pre-mortem expected that cell
+  to stay near half its control; it fell to a tenth.
+- **Sonnet moved less.** Its `relay-migration` cell halved (7.70 to 3.70,
+  7.60 to 3.60) and its `relay-retention` cell fell by about a fifth (12.40
+  to 10.20, 13.30 to 10.10). Sonnet is disclosed, not a bar, and [#500] was
+  observed on opus.
+- **The answers are no shorter.** The edit cells still run 1.1 to 1.3 times
+  the 163-word reference answer in prose words, as round 132's did, so
+  [#500] stays open on length.
+- Generation cost $44.57 over the 560 stage-2 and replication runs.
+
+## Result: accepted
+
+The primary passed twice, at factors 0.057 and 0.050 (p < 0.00001 both),
+every deterministic bound and all 560 panel verdicts held on both samples,
+and the holdout held. `plugin/rules/laconic.md` ships the sentence, and a
+release is owed.
 
 [#500]: https://github.com/JordanMPDS/laconic/issues/500

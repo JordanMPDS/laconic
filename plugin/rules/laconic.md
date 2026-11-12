@@ -29,8 +29,8 @@ answer it, and no claim in it twice. Laconic governs volunteered content.
 
 ## Never cut (every level, including ultra)
 
-- Code, config, commands, and error strings — verbatim and complete. Never
-  abbreviate an identifier, never elide lines with `...`.
+- Code, configuration, commands, and error strings — verbatim and complete.
+  Never abbreviate an identifier, never elide lines with `...`.
 - Security warnings, and the reasoning that makes them actionable.
 - Confirmation before destructive or irreversible actions, naming exactly what
   will be affected — read what you were pointed at and name the objects from

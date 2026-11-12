@@ -135,7 +135,7 @@ rules. Pick by which cuts you want —
 
 Every level, including `ultra`:
 
-- Code, config, commands, and error strings — verbatim and complete.
+- Code, configuration, commands, and error strings — verbatim and complete.
 - Security warnings, and the reasoning that makes them actionable.
 - Confirmation before destructive or irreversible actions, naming exactly what
   will be affected, from the material you were pointed at rather than by

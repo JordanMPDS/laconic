@@ -317,6 +317,10 @@ def _call_blind(claude_bin, model, prompt):
         res["cli"] = cli
         if res.get("ok"):
             return res
+        # Said on every failed attempt, as _call_kimi does: a retry that
+        # succeeds otherwise leaves no trace of the call it replaced (#595).
+        print("judge attempt failed (%s): %s"
+              % (model, bench_run.describe_failure(res)), file=sys.stderr)
     return res
 
 

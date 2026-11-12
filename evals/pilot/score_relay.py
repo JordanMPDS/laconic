@@ -6,6 +6,9 @@
     python3 evals/pilot/score_relay.py bounds <control-judgments.json> <edit-judgments.json>
     python3 evals/pilot/score_relay.py holdout <control-judgments.json> <edit-judgments.json>
     python3 evals/pilot/score_relay.py readability <control.json> <edit.json>
+    python3 evals/pilot/score_relay.py identifiers <control.json> <edit.json>
+    python3 evals/pilot/score_relay.py longer <control.json> <edit.json>
+    python3 evals/pilot/score_relay.py nevercut <control.json> <edit.json>
     python3 evals/pilot/score_relay.py --selftest
 
 #500 is a bare "explain <stage A> and <stage B>" answered at 620 words after
@@ -33,9 +36,25 @@ each one-sided Fisher at alpha 0.05, uncorrected, per `AGENTS.md`.
 answers with no `metrics.score` violation (an arrow, a shortened word, a
 lowercase sentence start) may not fall, pooled, one-sided Fisher at alpha 0.05.
 A word cap is the edit likeliest to buy length with grammar.
+
+**Round 133** asks for the planted identifiers themselves, which `words` cannot
+see because it drops inline code. **Primary, `identifiers`:** the planted
+identifiers relayed fall on `NAMED`, the two cells that still relay them at
+round 132's rules, by `stratified` on the per-cell mean count, one-sided: the
+count is a small integer, and its ties leave a median too coarse to separate.
+It also needs the mean over cells of edit mean / control mean at `MIN_FALL` or
+under, because the counts are tight enough that significance alone is cheap.
+**Bound, `longer`:** prose words may not rise on the three cells on opus, the
+same statistic as `words` with the sides swapped, so an answer that trades
+`purge_accounts` for a phrase describing it cannot undo round 132 unseen.
+**Bound, `nevercut`:** on every `BOUNDS` cell whose case lists never-cut
+keywords, the share of answers carrying all of them may not fall, one-sided
+Fisher, because `explain-index` needs `date_trunc` verbatim.
 """
 
+import json
 import math
+import statistics
 import sys
 from collections import Counter
 from pathlib import Path
@@ -79,6 +98,12 @@ RELAY = {
         "PRV-110", "identity-oncall", "purge_verify", "04:00", "DB-RB-03",
         "61,000"),
 }
+NAMED = (("relay-migration", "opus"), ("relay-retention", "opus"))
+# The counts are tight enough that round 132's length bullet moved them 1.4
+# identifiers at p < 0.00001 without addressing them, so significance alone is
+# no bar: the mean over cells of edit mean / control mean has to reach this.
+MIN_FALL = 0.75
+EVALS = Path(__file__).resolve().parents[1]
 
 
 def relayed(run):
@@ -142,6 +167,67 @@ def disclose(control, edit):
         print("   %-24s control %4.1f  edit %4.1f" % (
             "/".join(c), sfl.median([relayed(r) for r in control.get(c, [])]),
             sfl.median([relayed(r) for r in edit.get(c, [])])))
+
+
+def identifiers(control, edit, resamples=sfl.RESAMPLES):
+    print("## Primary (round 133): planted identifiers relayed fall, one-sided")
+    pairs = []
+    for c in NAMED:
+        cr = [relayed(r) for r in control.get(c, [])]
+        er = [relayed(r) for r in edit.get(c, [])]
+        pairs.append((cr, er))
+        print("   %-24s control n=%2d mean %5.2f median %4.1f  edit n=%2d mean"
+              " %5.2f median %4.1f" % ("/".join(c), len(cr), statistics.fmean(cr or [0]),
+                                      sfl.median(cr), len(er),
+                                      statistics.fmean(er or [0]), sfl.median(er)))
+    if any(not c or not e for c, e in pairs):
+        print("   a cell is empty on one side: the primary is not scored")
+        return False
+    obs, p = stratified(pairs, seed=SEED, resamples=resamples,
+                        centre=statistics.fmean)
+    factor = sum(statistics.fmean(e) / max(statistics.fmean(c), 1e-9)
+                 for c, e in pairs) / len(pairs)
+    ok = p < sfl.ALPHA and factor <= MIN_FALL
+    print("   mean difference %+.2f identifiers  one-sided p = %.5f  factor %.3f"
+          " (needs <= %.2f)  %s" % (obs, p, factor, MIN_FALL,
+                                    "PASSES" if ok else "fails"))
+    return ok
+
+
+def longer(control, edit, resamples=sfl.RESAMPLES):
+    print("## Bound (fatal, round 133): prose words may not rise on relay-*/opus")
+    logs = lambda rs: [math.log(max(words(r), 1)) for r in rs]  # noqa: E731
+    pairs = [(logs(edit.get(c, [])), logs(control.get(c, []))) for c in TARGET]
+    if any(not a or not b for a, b in pairs):
+        print("   a cell is empty on one side: the bound is not scored")
+        return False
+    obs, p = stratified(pairs, seed=SEED, resamples=resamples)
+    fired = p < sfl.ALPHA
+    print("   mean log ratio %.3f (factor %.3f)  one-sided p = %.5f  %s"
+          % (-obs, math.exp(-obs), p, "FIRES" if fired else "holds"))
+    return not fired
+
+
+def never_cut(case):
+    for d in ("pilot", "cases"):
+        p = EVALS / d / case / "expect.json"
+        if p.exists():
+            return json.loads(p.read_text()).get("never_cut", [])
+    return []
+
+
+def nevercut(control, edit):
+    print("## Bound (fatal, round 133): answers keeping every never-cut keyword")
+    fired = False
+    for cell in BOUNDS:
+        kw = never_cut(cell[0])
+        if not kw:
+            continue
+        a, b = control.get(cell, []), edit.get(cell, [])
+        keep = lambda rs: sum(  # noqa: E731
+            not metrics.never_cut_missing(r.get("text") or "", kw) for r in rs)
+        fired |= fall("/".join(cell), keep(a), len(a), keep(b), len(b))
+    return not fired
 
 
 def bounds(c, e):
@@ -215,6 +301,26 @@ def selftest():
     assert readability(prose, prose)
     assert readability(clipped, prose)
     assert not readability(prose, clipped)
+    many = {c: [run(c[0], 200, 13) for _ in range(20)] for c in NAMED}
+    few = {c: [run(c[0], 200, 3) for _ in range(20)] for c in NAMED}
+    assert identifiers(many, few, resamples=2000)
+    assert not identifiers(many, many, resamples=2000)
+    assert not identifiers(few, many, resamples=2000)
+    assert not identifiers(many, {NAMED[0]: few[NAMED[0]]}, resamples=2000)
+    most = {c: [run(c[0], 200, 11) for _ in range(20)] for c in NAMED}
+    assert not identifiers(many, most, resamples=2000)
+    assert longer(big, big, resamples=2000)
+    assert longer(big, small, resamples=2000)
+    assert not longer(small, big, resamples=2000)
+    assert never_cut("explain-index") == ["date_trunc"]
+    assert never_cut("walkthrough") == ["401"]
+    assert never_cut("relay-rollout") == []
+    kept = {("explain-index", "opus"): [{"text": "on date_trunc('day', created_at)"}] * 10,
+            ("walkthrough", "opus"): [{"text": "a 401 triggers refresh()"}] * 20}
+    dropped = {**kept, ("explain-index", "opus"): [{"text": "on the day"}] * 10}
+    assert nevercut(kept, kept)
+    assert nevercut(dropped, kept)
+    assert not nevercut(kept, dropped)
     print("selftest ok")
 
 
@@ -238,6 +344,16 @@ def main(argv):
         ok = primary(c, e)
         disclose(c, e)
         return 0 if ok else 1
+    if len(argv) == 3 and argv[0] in ("identifiers", "longer", "nevercut"):
+        (cm, c), (em, e) = sfl.runs(argv[1]), sfl.runs(argv[2])
+        if cm.get("rules_cksum") == em.get("rules_cksum"):
+            print("!! both sides share rules_cksum: this is not a contrast")
+            return 1
+        if argv[0] == "identifiers":
+            ok = identifiers(c, e)
+            disclose(c, e)
+            return 0 if ok else 1
+        return 0 if {"longer": longer, "nevercut": nevercut}[argv[0]](c, e) else 1
     if len(argv) == 3 and argv[0] == "readability":
         (_, c), (_, e) = sfl.runs(argv[1]), sfl.runs(argv[2])
         return 0 if readability(c, e) else 1

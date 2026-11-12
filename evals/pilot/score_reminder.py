@@ -2,12 +2,16 @@
 """Round 99: does dropping "Cut content, not words." from the reminder stop #353?
 
     python3 evals/pilot/score_reminder.py precheck <snapshot> <judgments>
+    python3 evals/pilot/score_reminder.py reading <snapshot> <judgments>
     python3 evals/pilot/score_reminder.py compare <control> <control-judgments> \
         <edit> <edit-judgments>
     python3 evals/pilot/score_reminder.py --selftest
 
 `precheck` is stage 1: panel fails on the sonnet index family at master rules,
-against the threshold registered in `round-99.md`. `compare` is stage 2: the
+against the threshold registered in `round-99.md`. `reading` is the same
+precheck read three ways, as `round-137.md` registers it: FIRES, GONE when
+the one-sided 95% Clopper-Pearson upper bound on the fail rate is under the
+rate the edit aims for, and OPEN otherwise. `compare` is stage 2: the
 primary (one-sided Fisher on those fails, edit lower), the guard-word bound
 (`score_settled.stratified`, one-sided for a rise) and the `recall-metric`
 bound. A judgment counts only as `pass` or `fail`; anything else is not a
@@ -22,11 +26,15 @@ sys.path.insert(0, str(HERE))
 sys.path.insert(0, str(HERE.parents[1] / "evals" / "bench"))
 import metrics  # noqa: E402
 from score_compression import words  # noqa: E402
+from score_relay import upper  # noqa: E402
 from score_settled import fisher_le, fmt_p, stratified  # noqa: E402
 
 SEED = 99
 ALPHA = 0.05
 FIRES_AT = 12  # of 60 sonnet index-family verdicts
+# round 137: fires at 10 of 60; gone under round 86's no-reminder rate, 5 of 60
+READ_FIRES_AT = 10
+GONE_UNDER = 0.083
 INDEX = ("recall-index", "wide-index", "deep-index")
 METRIC = ("recall-metric",)
 GUARDS = ("recall-rollback", "wide-rollback", "wide-metric", "deep-rollback",
@@ -61,6 +69,18 @@ def precheck(verdicts):
     lines.append("%-14s %d/%d  (disclosed)" % (("recall-metric",)
                                               + fails(verdicts, METRIC)))
     return k >= FIRES_AT, lines
+
+
+def reading(verdicts):
+    """Round 137: (FIRES, GONE or OPEN, lines) over the same verdicts."""
+    _, lines = precheck(verdicts)
+    k, n = fails(verdicts, INDEX)
+    bound = upper(k, n) if n else 1.0
+    verdict = ("FIRES" if k >= READ_FIRES_AT
+               else "GONE" if bound < GONE_UNDER else "OPEN")
+    lines[len(INDEX)] = ("%-14s %d/%d  upper bound %.3f  fires at >= %d, gone under %.3f: %s"
+                         % ("sonnet index", k, n, bound, READ_FIRES_AT, GONE_UNDER, verdict))
+    return verdict, lines
 
 
 def guard_pairs(control, edit):
@@ -121,6 +141,15 @@ def selftest():
     assert fails([v("recall-index", "not_exercised")], INDEX) == (0, 0)
     assert fails([v("recall-index", "fail", "opus")], INDEX) == (0, 0)
 
+    def sixty(k):
+        return [v("deep-index", "fail")] * k + [v("wide-index", "pass")] * (60 - k)
+    assert reading(sixty(10))[0] == "FIRES"
+    assert reading(sixty(9))[0] == "OPEN"
+    assert reading(sixty(2))[0] == "OPEN", "2 of 60 bounds at 0.101"
+    assert reading(sixty(1))[0] == "GONE", "1 of 60 bounds at 0.077"
+    assert reading(sixty(0))[0] == "GONE"
+    assert reading([])[0] == "OPEN", "no verdict is not evidence"
+
     guards = [r(c, 50, m) for c in GUARDS for m in ("sonnet", "opus")] * 5
     longer = [r(c, 80, m) for c in GUARDS for m in ("sonnet", "opus")] * 5
     cv = [v("recall-index", "fail")] * 30 + [v("recall-index", "pass")] * 60
@@ -137,8 +166,8 @@ def selftest():
 def main(argv):
     if argv == ["--selftest"]:
         return selftest()
-    if argv[:1] == ["precheck"] and len(argv) == 3:
-        ok, lines = precheck(load_verdicts(argv[2]))
+    if argv[:1] in (["precheck"], ["reading"]) and len(argv) == 3:
+        _, lines = (precheck if argv[0] == "precheck" else reading)(load_verdicts(argv[2]))
         runs = load_runs(argv[1])
         lines.append("sonnet index graded-turn median words %.1f"
                      % metrics.median([words(r) for r in runs

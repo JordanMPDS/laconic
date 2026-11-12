@@ -27,7 +27,7 @@ then written to the machine flag, so after any `/laconic` switch it does nothing
 change the level with `/laconic <level>`. With no flag file and no default set,
 the plugin is inert.
 
-Never cut at any level: code, config, commands, error strings, security warnings,
+Never cut at any level: code, configuration, commands, error strings, security warnings,
 destructive-action confirmations, ordered steps, bad news, uncertainty that changes
 what the user should do, and anything the user asked to have explained (at the
 scope they set, not as a licence for length). Read

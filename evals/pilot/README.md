@@ -312,6 +312,15 @@ explanation needs (alert ids, tables, flags, jobs, channels, run times), which
 `score_relay.py` counts as relayed. The trap grades the two parts and the
 caveat, and nothing about the identifiers.
 
+## `unseen-trust`, `unseen-pricing`, `unseen-limits`
+
+The same shape in three new domains, registered in
+[`../results/loop/round-135.md`](../results/loop/round-135.md) and written
+after round 134, so that no rule had been drafted against them when they were
+first measured. `score_relay.py unseen` scores round 126's bar on them, with
+the no-rules `baseline` arm as the positive control and one frozen reference
+answer per case.
+
 [#500]: https://github.com/JordanMPDS/laconic/issues/500
 
 ## `feasible-*` and `coldfeasible-*`
@@ -365,7 +374,7 @@ issue it was written for.
 | `score_affirm.py` | Round 110: whether a closed confirmation's turn calls a tool nobody asked for ([#116]). |
 | `score_findings.py` | Round 111: whether a list of findings names the one that decides `verdict-schema`. |
 | `score_facts.py` | Round 119: whether a tool-less judge grades the fixture once the trap carries it ([#414]). |
-| `score_relay.py` | Round 126: whether an explanation of a spec just read relays the spec ([#500]). |
+| `score_relay.py` | Round 126: whether an explanation of a spec just read relays the spec ([#500]); round 135 on specs no rule was drafted against. |
 | `score_feasible.py` | Round 131: whether #113's feasibility pair runs long or closes with an offer ([#113]). |
 | `score_volunteered.py` | [#116]'s counters on `conditional`: did the answer do the work, and say what was wrong. |
 | `score_closing_edit.py` | Whether laconic's closing-offer rate survives a session that edits. |

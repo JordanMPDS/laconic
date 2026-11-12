@@ -279,6 +279,88 @@ leaves empty.
 
 <!-- Nothing below this line was computed at the registration commit. -->
 
+### Stage 2
+
+Control from `laconic-r136-control` (`9470e8d`, `rules_cksum` 2816272927,
+master), edit from `laconic-r136-edit` (`a45a9c2`, `rules_cksum` 87207730),
+four shards at once, 145 records a side (130 single answers and 15 four-turn
+sessions), 0 failed, all CLI 2.1.321, stamped 13:29 to 14:12 UTC on
+2026-11-12. `release.py`: no unreadable span, no arm imbalanced across a
+release. Each merged side declares 4 and reconstructs to 2 in flight.
+
+**Primary: fails.** Mean log ratio −0.023, factor **0.977** against the 0.80
+it needed, one-sided **p = 0.310**.
+
+| cell | control median | edit median | edit / reference |
+|---|--:|--:|--:|
+| `coldfeasible-replay`/opus | 157.5 | 167.5 | 2.04 |
+| `coldfeasible-shadow`/opus | 169.5 | 163.0 | 2.51 |
+| `coldfeasible-state`/opus | 204.0 | 186.0 | 3.10 |
+
+The control reads within 3 words of the sizing look on `replay` and `state`
+and 21.5 above it on `shadow`, so the defect still fired; the edit left it
+where it was. Under the registration the round rejects here, and nothing was
+judged: no panel call was made, and the holdout was not consulted.
+
+The three deterministic bounds were scored anyway, since they cost nothing,
+and all hold. **Prose words on `keep-*`/opus** fell rather than rose, factor
+0.915, one-sided p = 0.947 for a rise: medians 147.0, 162.5 and 143.0 on the
+control against 132.0, 149.5 and 133.0 on the edit, `keep-cdc`, `keep-disk`
+and `keep-checkout` in that order. **Readability:** 60 of 60 clean on both
+sides. **Never-cut:** `walkthrough`/opus carries `401` in 10 of 10 on both
+sides.
+
+### Disclosed, deciding nothing
+
+- **The edit restructured the cold answer instead of cutting it.** The
+  median edit `coldfeasible-state` answer (191 prose words) leads with the
+  verdict, "Not as the supervisor is specified", where the control's (208)
+  leads with "Yes, as far as `govern()` goes", and then gives the constraint
+  and a bolded three-item list of what every tenant loses, plus a paragraph
+  on replay. That reads as the bullet obeyed: a verdict, the constraint, and
+  its consequences, each consequence written out. "And its consequences", the
+  clause adopted to protect the trap, reads as a licence to list every one.
+  All 20 `state` answers on each side name both the integral term and the
+  stale count.
+- **Bold labels fell on two cold cells and stayed on the third.** Medians
+  0.5, 2.0 and 3.0 on the control against 0.0, 0.0 and 3.0 on the edit, the
+  same order as above. No cold answer on either side carries a heading or a
+  closing offer.
+- **The session answers got longer.** Turn 3 of `feasible-*`/opus, where
+  round 131 found the session answering at about the reference's size, ran
+  medians of 96, 89 and 99 prose words on the control against 123, 147 and
+  112 on the edit, and 3 of the 15 edit answers carry three bold labels
+  against 1 control answer carrying two. Turn 4 moved less (42, 72 and 66
+  against 40, 95 and 77). At 5 sessions a stem this is a description rather
+  than a test, but it is the opposite of the direction registered for the
+  cold cells, on #113's own condition.
+- **Sonnet moved more than opus.** `coldfeasible-*`/sonnet medians 138.5,
+  162.5 and 184.0 on the control against 111.0, 145.5 and 172.0 on the
+  edit, with bold labels at a median 0 on all three edit cells. Sonnet is
+  disclosed, not a bar.
+- **No flat verdict on the conditional cases.** All 20 `keep-disk` answers
+  open on a conditional ("Only if a slot is what's holding the WAL", "Possibly,
+  but DISK.md doesn't show that a slot is the cause"). On `keep-cdc` a bare
+  "No." opens 1 of 10 control answers and 3 of 10 edit answers, each followed
+  by why turning retries off is unsafe rather than by a cause the record does
+  not establish.
+  Neither was judged.
+- **The pre-mortem named the class and overstated the movement.** It ranked
+  a second-class rejection third and expected the cold cells near 0.85; they
+  reached 0.977. It ranked a `keep-*` length rise second, and `keep-*` fell.
+- Generation cost $56.22 for the 290 records, and the sizing look $2.25.
+
+## Result: rejected
+
+The primary failed on both of its conditions, factor 0.977 at p = 0.310, so
+the round rejected before any judging. `plugin/rules/laconic.md`,
+`plugin/rules/dist/` and the slice budget in `tests/test_laconic.sh` and
+`AGENTS.md` are reverted to master in this pull request. On opus, a bullet
+naming the feasibility shape and its parts does not shorten the cold answer;
+it reorders it around the verdict and keeps every consequence. [#113] stays
+open on the cold shape, which this round measured at master again and did not
+move.
+
 [#46]: https://github.com/JordanMPDS/laconic/issues/46
 [#113]: https://github.com/JordanMPDS/laconic/issues/113
 [#264]: https://github.com/JordanMPDS/laconic/issues/264

@@ -9,6 +9,11 @@ command, at today's master (`0efbcd0`) and the shipped reminder
 (`reminder_cksum` 1027894636). What is new is how it is read: three ways,
 with a reading that closes the issue.
 
+**This round proposes no rule edit.** Its candidate was registered behind the
+stage-1 precheck below, the precheck read GONE, and the edit was never
+applied, so the round is recorded as measuring, #353 closes, and round 138
+has to carry a candidate.
+
 `bash tools/candidate-due.sh` exited 0 at registration ([round 136](round-136.md)
 carried a candidate), and `bash tools/release-due.sh` exited 0: v0.10.0 is
 tagged and current. This round carries round 99's registered candidate for
@@ -172,3 +177,56 @@ sentence of preamble and no answer.
 ## Results
 
 <!-- Nothing below this line was computed at the registration commit. -->
+
+## Result: GONE, and #353 closes
+
+100 runs, 0 failed, every one on CLI 2.1.321 (`release.py`: one release, no
+imbalanced arm), at the registered `rules_cksum` 303191222 and
+`reminder_cksum` 1027894636. Both shards were started at 15:58 and
+restarted by key at 16:13, sonnet after two answers and opus after one, for a
+reason the logs do not keep. The sonnet shard then stopped at a usage limit after 58 answers,
+with eight keys recorded as failed, and the same command resumed it by key
+after the reset; judging stopped the same way after 10 records and resumed.
+`concurrency.py` reads every invocation at its declared 2 or under. `merge.py` notes 100 runs against 160 for the declared cells because
+opus ran at the registered 5 reps rather than 20.
+
+```
+recall-index   0/20
+wide-index     0/20
+deep-index     0/20
+sonnet index   0/60  upper bound 0.049  fires at >= 10, gone under 0.083: GONE
+opus index     1/15  (opus, disclosed)
+recall-metric  0/20  (disclosed)
+sonnet index graded-turn median words 33.0
+```
+
+The panel decided all 100 records with no three-way split. Kimi cast no
+parseable vote on one `recall-metric`/sonnet record, a disclosed cell, so all
+60 deciding verdicts carry three votes; sonnet agreed with the majority on
+100, opus on 99 and kimi on 98 of 99.
+
+**#353 closes, and round 99's arm F is retired with it.** The upper bound,
+0.049, sits under round 86's no-reminder rate of 0.083, so the shipped
+reminder leaves the edit nothing to remove. The shortest sonnet
+`recall-index` answer, 30 words, is still a "No" with its reason and the fix:
+
+> No. An index on bare `created_at` can't serve a predicate on
+> `date_trunc('day', created_at)`, so the plan wouldn't change. Rewrite the
+> predicate to a range on `created_at` and index `(tenant_id, created_at)`.
+
+With rounds 88, 99 and 109, sonnet's shipped-reminder index verdicts on CLI
+2.1.285 to 2.1.321 read 1 of 225, against 45 of 105 on 2.1.282.
+
+**The opus fail is round 109's shape, not #353's.** It names the fix and
+gives the observed plan instead of the `date_trunc` reason, which the
+criterion fails:
+
+> No. On its own, that index changes nothing: the write-up built it and the
+> plan stayed a full sequential scan. The fix is to rewrite the predicate as
+> `created_at >= $1 AND created_at < $1 + interval '1 day'` and index
+> `(tenant_id, created_at)`, which measured 29ms on the restored copy.
+
+The pre-mortem's first line held. As registered, GONE reads today's CLI and
+today's rules on the three stems that found the defect; a later benchmark
+that reads the shape again is a new report. $22.32 of generation over 100
+runs. Round 138 owes a candidate.

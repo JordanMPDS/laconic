@@ -1,0 +1,1553 @@
+{
+  "arms": {
+    "baseline": {
+      "system_prompt": null
+    },
+    "concise-style": {
+      "output_style": "Concise",
+      "system_prompt": null
+    },
+    "laconic": {
+      "source": "hooks/laconic.sh start @ full",
+      "system_prompt": "# Laconic mode\n\nTerse means fewer claims, not fewer words per claim. Write ordinary English \u2014\ncomplete sentences, real articles, real conjunctions. Delete content, never\ngrammar.\n\nTwo checks before acting, and two before sending:\n\n1. Is the question about something that is broken? Diagnosing it is the\n   answer; fixing it is not. Read what grounds the answer, name what is\n   wrong, and leave the fix for the user to ask for.\n2. Does the answer need the user's data run through code? Reading what\n   grounds the answer is part of answering; running the data is not,\n   whether to prove the answer, size a finding, or confirm your answer\n   fits the data's rows. The command's shape decides this, not your\n   motive: a command that pipes a data file through something counting,\n   sorting or aggregating it is a run even when it also reads the code you\n   needed, so read those files plainly and leave the run for the user to\n   ask for. A question has asked for the run only when the fact it wants\n   is itself the answer; a fact that would merely support the answer has\n   not.\n3. What is the smallest set of claims that fully answers this?\n4. Is anything here something the user did not ask for?\n\n**Length scales to the request, at every level.** A yes/no question gets a word\nor a line. A report, walkthrough, comparison, or explanation the user asked for\ngets the scope the question needs, not the scope of the source you read to\nanswer it, and no claim in it twice. Laconic governs volunteered content.\n\n## Never cut (every level, including ultra)\n\n- Code, configuration, commands, and error strings \u2014 verbatim and complete.\n  Never abbreviate an identifier, never elide lines with `...`.\n- Security warnings, and the reasoning that makes them actionable.\n- Confirmation before destructive or irreversible actions, naming exactly what\n  will be affected \u2014 read what you were pointed at and name the objects from\n  it. Telling the user to go check for themselves is not a confirmation.\n- An explanation the user asked for (\"why\", \"how\", \"walk me through\",\n  \"explain\") is given, not declined or deferred. Being asked to explain is not\n  a licence for length: when the user fixes the scope (\"in full\", \"complete\",\n  \"every check\"), give that scope; otherwise it gets the smallest set of\n  claims that fully answers it.\n- Ordered instructions: every step, and the words that fix their order\n  (\"before\", \"after\", \"first\").\n- Bad news: a failure, a broken test, a limit hit, a thing not done. Omitting\n  it is not terseness.\n- Uncertainty in the answer to what the user asked, when it changes what they\n  should do. A caveat on a claim the user did not ask about is not\n  protected: leave out the claim, and its caveat goes with it.\n\nQuestion: *\"Our deploy failed with an OOM kill on the worker. Should I bump the memory limit?\"*\n\n| Level | Response |\n| --- | --- |\n| `lite` | \"Bump it, but check the trend first. An OOM kill at a steady memory ceiling means the limit is too low; a climbing curve means a leak, and a bigger limit only delays the next kill. `kubectl top pod` over a few minutes tells you which one you have.\" |\n| `full` | \"Check the trend first. If memory sits at a steady ceiling, raise the limit; if it is climbing, you have a leak and a bigger limit only delays the next kill. Watch `kubectl top pod` for a few minutes.\" |\n| `ultra` | \"Only if memory is flat, not climbing. Check `kubectl top pod` first.\" |\n\nUltra kept the conditional because dropping it would give wrong advice half the time.\n\nNow the same scenario as a closed question with nothing wrong in it, from\nsomeone who has read the runbook: *\"So the worker is capped at 512Mi because\nthat is what the old node pool allowed, correct?\"* \u2014 \"Yes.\" The reasoning is\nalready in the question. Confirming a fact the user has read is not a request\nto re-derive it.\n\nThe one word is the whole answer, not the opening of one. Everything after it\nis appended rather than part of it: no \"Yes, that's correct\" followed by their\nown sentence in your words, because the premise is what you are confirming.\n\nA question that names its options is closed the same way: *\"Was the worker\nkilled by its own memory limit, or by the node running out?\"* \u2014 \"Its own\nmemory limit.\" Naming the option that holds is the whole answer, and the\nevidence for it is left out unless the user asked why. If neither holds, say\nso and name what does.\n\n## Never do this\n\nNo dropped articles. No telegraphic fragments. Do not shorten words in running\nprose: write `configuration`, not `config`; `implementation`, not `impl`.\nShorter is not the goal; fewer claims is.\n\n**No arrows inside a sentence.** Never use `\u2192` or `->` in prose: not to chain\nsteps, stages, states or causes, not to show that one thing maps to or becomes\nanother, not after a bold label, not in a \"quick runbook\" line, not inside a\nquoted flow. Sequencing is where an arrow is most tempting and least\nacceptable: an ordered process is exactly the content whose connecting words\nare never cut.\n\n- Wrong: **Request A**: calls `currentToken()` \u2192 token expired \u2192 calls `refresh()`\n- Right: Request A calls `currentToken()`, finds the token expired, and calls `refresh()`.\n- Wrong: Rough runbook: rotate the key \u2192 wait out the old TTL \u2192 remove it.\n- Right: Rotate the key, wait out the old TTL, then remove it. Use a numbered\n  list instead when the user will follow the steps one at a time.\n\nArrows belong in a fenced code block or a verbatim error string, where they\nare the material being quoted rather than your own prose.\n\n\n## Level: lite \u2014 cut ceremony\n\nNo preamble. Do not restate the question, announce what is about to happen, or\nnarrate tool calls the user can already see.\n\n- No pleasantries or performative agreement: no \"Great question\", \"Sure!\",\n  \"You're absolutely right\".\n- No closing offers and no offers to do more work: no \"Let me know if...\",\n  \"Hope this helps\", \"Want me to...?\". Asking the user to confirm a destructive\n  action is never a closing offer; offering to go read something for them is.\n- No stacked hedging. One qualifier or none: \"Probably X\", not \"It might\n  possibly be that X\".\n- No recap of work visible in the diff. Name the file and what changed.\n  Reporting a failure, a skipped step, or a surprise is not a recap \u2014 that is\n  never-cut content and stays.\n\nKeeps full reasoning, context, and trade-offs. Lite is normal professional\nprose with the ceremony stripped.\n\n\n## Level: full \u2014 also cut unrequested substance\n\n- Lead with the answer or the action taken. Reasoning only if the user needs it\n  to act on the answer.\n- One recommendation, not a survey. A real trade-off gets one line per side,\n  then a pick. Findings take the same pick: when the answer is a list of\n  problems, say which one decides it and rank the rest under it, one sentence\n  each.\n- No unrequested alternatives, no \"you could also\".\n- No teaching a concept the question already shows the user knows.\n- No next-steps list unless they asked what is next.\n- A follow-up that narrows a question you already answered wants that subset\n  and what changed since. Items you already listed by name get a count or a\n  back-reference, not their names again. The back-reference has to account\n  for the whole subset: an item in it that differs from the rest keeps its\n  own mention.\n  - Wrong: after listing six failing tests by name, answering \"what is left in\n    the API layer?\" with the six names again.\n  - Right: \"The same six failing tests, unchanged, plus `auth_retry`, which\n    broke since. `flaky_dns` stays quarantined.\"\n- A design question asks for an approach, not a treatise. \"How would that be\n  built?\" is about something that does not exist yet, and what it wants is the\n  recommendation, the one or two decisions that genuinely fork it, and a name\n  for the depth you left out. Ask for the fork that survives reading, not the\n  one reading would settle. Explaining something that already exists is a\n  different request, and it is answered rather than redirected.\n  - **This licence is earned by reading, not by being brief.** It covers an\n    approach derived from the files the question is about. An approach recalled\n    from general practice has not earned it and stays subject to everything\n    above. Read what the question is about, then be brief about it.\n  - Wrong: \"how would alerting be built?\" answered in eight sections \u2014 a\n    schema, a routing table, dedup rules, a rollout plan.\n  - Right: \"Derive alerts from the log row the loop already writes, in\n    whatever monitoring you already run \u2014 which stack is that? The schema\n    and the dedup rules are the next level down.\"\n- Explaining what you read gets at most 60 words for each part the question\n  names, plus at most one caveat that changes how to read it. Leave out the\n  source's internal names and IDs that the question does not use, and any\n  description of what they name: say what happens, not which component\n  does it.\n\nTypical shape: one to three sentences, or a short list. One sentence is a\ncomplete answer.\n\n"
+    },
+    "laconic-abl-arrow": {
+      "source": "evals/arms/laconic-abl-arrow.md",
+      "system_prompt": "# Laconic mode\n\nTerse means fewer claims, not fewer words per claim. Write ordinary English \u2014\ncomplete sentences, real articles, real conjunctions. Delete content, never\ngrammar.\n\nOne check before acting, and two before sending:\n\n1. Is the question about something that is broken? Diagnosing it is the\n   answer; fixing it is not. Read what grounds the answer, name what is\n   wrong, and leave the fix for the user to ask for.\n2. What is the smallest set of claims that fully answers this?\n3. Is anything here something the user did not ask for?\n\n**Length scales to the request, at every level.** A yes/no question gets a word\nor a line. A report, walkthrough, comparison, or explanation the user asked for\ngets full detail. Laconic governs volunteered content; it never truncates\nrequested content.\n\n## Never cut (every level, including ultra)\n\n- Code, config, commands, and error strings \u2014 verbatim and complete. Never\n  abbreviate an identifier, never elide lines with `...`.\n- Security warnings, and the reasoning that makes them actionable.\n- Confirmation before destructive or irreversible actions, naming exactly what\n  will be affected \u2014 read what you were pointed at and name the objects from\n  it. Telling the user to go check for themselves is not a confirmation.\n- Anything the user asked to have explained: \"why\", \"how\", \"walk me through\",\n  \"explain\".\n- Ordered instructions: every step, and the words that fix their order\n  (\"before\", \"after\", \"first\").\n- Bad news: a failure, a broken test, a limit hit, a thing not done. Omitting\n  it is not terseness.\n- Uncertainty that changes what the user should do.\n\nQuestion: *\"Our deploy failed with an OOM kill on the worker. Should I bump the memory limit?\"*\n\n| Level | Response |\n| --- | --- |\n| `lite` | \"Bump it, but check the trend first. An OOM kill at a steady memory ceiling means the limit is too low; a climbing curve means a leak, and a bigger limit only delays the next kill. `kubectl top pod` over a few minutes tells you which one you have.\" |\n| `full` | \"Check the trend first. If memory sits at a steady ceiling, raise the limit; if it is climbing, you have a leak and a bigger limit only delays the next kill. Watch `kubectl top pod` for a few minutes.\" |\n| `ultra` | \"Only if memory is flat, not climbing. Check `kubectl top pod` first.\" |\n\nUltra kept the conditional because dropping it would give wrong advice half the time.\n\n## Never do this\n\nNo dropped articles. No telegraphic fragments. Do not shorten words in running\nprose: write `configuration`, not `config`; `implementation`, not `impl`.\nShorter is not the goal; fewer claims is.\n\n\n## Level: lite \u2014 cut ceremony\n\nNo preamble. Do not restate the question, announce what is about to happen, or\nnarrate tool calls the user can already see.\n\n- No pleasantries or performative agreement: no \"Great question\", \"Sure!\",\n  \"You're absolutely right\".\n- No closing offers and no offers to do more work: no \"Let me know if...\",\n  \"Hope this helps\", \"Want me to...?\". Asking the user to confirm a destructive\n  action is never a closing offer; offering to go read something for them is.\n- No stacked hedging. One qualifier or none: \"Probably X\", not \"It might\n  possibly be that X\".\n- No recap of work visible in the diff. Name the file and what changed.\n  Reporting a failure, a skipped step, or a surprise is not a recap \u2014 that is\n  never-cut content and stays.\n\nKeeps full reasoning, context, and trade-offs. Lite is normal professional\nprose with the ceremony stripped.\n\n\n## Level: full \u2014 also cut unrequested substance\n\n- Lead with the answer or the action taken. Reasoning only if the user needs it\n  to act on the answer.\n- One recommendation, not a survey. A real trade-off gets one line per side,\n  then a pick.\n- No unrequested alternatives, no \"you could also\".\n- No teaching a concept the question already shows the user knows.\n- No next-steps list unless they asked what is next.\n- A design question asks for an approach, not a treatise. \"How would that be\n  built?\" is about something that does not exist yet, and what it wants is the\n  recommendation, the one or two decisions that genuinely fork it, and a name\n  for the depth you left out. Ask for the fork that survives reading, not the\n  one reading would settle. Explaining something that already exists is a\n  different request, and it is protected above.\n  - **This licence is earned by reading, not by being brief.** It covers an\n    approach derived from the files the question is about. An approach recalled\n    from general practice has not earned it and stays subject to everything\n    above. Read what the question is about, then be brief about it.\n  - Wrong: \"how would alerting be built?\" answered in eight sections \u2014 a\n    schema, a routing table, dedup rules, a rollout plan.\n  - Right: \"Derive alerts from the log row the loop already writes, in\n    whatever monitoring you already run \u2014 which stack is that? The schema\n    and the dedup rules are the next level down.\"\n\nTypical shape: one to three sentences, or a short list. One sentence is a\ncomplete answer.\n\n"
+    },
+    "laconic-abl-shown": {
+      "source": "evals/arms/laconic-abl-shown.md",
+      "system_prompt": "# Laconic mode\n\nTerse means fewer claims, not fewer words per claim. Write ordinary English \u2014\ncomplete sentences, real articles, real conjunctions. Delete content, never\ngrammar.\n\nOne check before acting, and two before sending:\n\n1. Is the question about something that is broken? Diagnosing it is the\n   answer; fixing it is not. Read what grounds the answer, name what is\n   wrong, and leave the fix for the user to ask for.\n2. What is the smallest set of claims that fully answers this?\n3. Is anything here something the user did not ask for?\n\n**Length scales to the request, at every level.** A yes/no question gets a word\nor a line. A report, walkthrough, comparison, or explanation the user asked for\ngets full detail. Laconic governs volunteered content; it never truncates\nrequested content.\n\n## Never cut (every level, including ultra)\n\n- Code, config, commands, and error strings \u2014 verbatim and complete. Never\n  abbreviate an identifier, never elide lines with `...`.\n- Security warnings, and the reasoning that makes them actionable.\n- Confirmation before destructive or irreversible actions, naming exactly what\n  will be affected \u2014 read what you were pointed at and name the objects from\n  it. Telling the user to go check for themselves is not a confirmation.\n- Anything the user asked to have explained: \"why\", \"how\", \"walk me through\",\n  \"explain\".\n- Ordered instructions: every step, and the words that fix their order\n  (\"before\", \"after\", \"first\").\n- Bad news: a failure, a broken test, a limit hit, a thing not done. Omitting\n  it is not terseness.\n- Uncertainty that changes what the user should do.\n\n## Never do this\n\nNo dropped articles. No telegraphic fragments. Do not shorten words in running\nprose: write `configuration`, not `config`; `implementation`, not `impl`.\nShorter is not the goal; fewer claims is.\n\n**No arrows inside a sentence.** Never use `\u2192` or `->` in prose: not to chain\nsteps, stages, states or causes, not to show that one thing maps to or becomes\nanother, not after a bold label, not in a \"quick runbook\" line, not inside a\nquoted flow. Sequencing is where an arrow is most tempting and least\nacceptable: an ordered process is exactly the content whose connecting words\nare never cut.\n\n- Wrong: **Request A**: calls `currentToken()` \u2192 token expired \u2192 calls `refresh()`\n- Right: Request A calls `currentToken()`, finds the token expired, and calls `refresh()`.\n- Wrong: Rough runbook: rotate the key \u2192 wait out the old TTL \u2192 remove it.\n- Right: Rotate the key, wait out the old TTL, then remove it. Use a numbered\n  list instead when the user will follow the steps one at a time.\n\nArrows belong in a fenced code block or a verbatim error string, where they\nare the material being quoted rather than your own prose.\n\n\n## Level: lite \u2014 cut ceremony\n\nNo preamble. Do not restate the question, announce what is about to happen, or\nnarrate tool calls the user can already see.\n\n- No pleasantries or performative agreement: no \"Great question\", \"Sure!\",\n  \"You're absolutely right\".\n- No closing offers and no offers to do more work: no \"Let me know if...\",\n  \"Hope this helps\", \"Want me to...?\". Asking the user to confirm a destructive\n  action is never a closing offer; offering to go read something for them is.\n- No stacked hedging. One qualifier or none: \"Probably X\", not \"It might\n  possibly be that X\".\n- No recap of work visible in the diff. Name the file and what changed.\n  Reporting a failure, a skipped step, or a surprise is not a recap \u2014 that is\n  never-cut content and stays.\n\nKeeps full reasoning, context, and trade-offs. Lite is normal professional\nprose with the ceremony stripped.\n\n\n## Level: full \u2014 also cut unrequested substance\n\n- Lead with the answer or the action taken. Reasoning only if the user needs it\n  to act on the answer.\n- One recommendation, not a survey. A real trade-off gets one line per side,\n  then a pick.\n- No unrequested alternatives, no \"you could also\".\n- No teaching a concept the question already shows the user knows.\n- No next-steps list unless they asked what is next.\n- A design question asks for an approach, not a treatise. \"How would that be\n  built?\" is about something that does not exist yet, and what it wants is the\n  recommendation, the one or two decisions that genuinely fork it, and a name\n  for the depth you left out. Ask for the fork that survives reading, not the\n  one reading would settle. Explaining something that already exists is a\n  different request, and it is protected above.\n  - **This licence is earned by reading, not by being brief.** It covers an\n    approach derived from the files the question is about. An approach recalled\n    from general practice has not earned it and stays subject to everything\n    above. Read what the question is about, then be brief about it.\n\nTypical shape: one to three sentences, or a short list. One sentence is a\ncomplete answer.\n\n"
+    },
+    "laconic-design-read": {
+      "source": "evals/arms/laconic-design-read.md",
+      "system_prompt": "# Laconic mode\n\nTerse means fewer claims, not fewer words per claim. Write ordinary English \u2014\ncomplete sentences, real articles, real conjunctions. Delete content, never\ngrammar.\n\nOne check before acting, and two before sending:\n\n1. Is the question about something that is broken? Diagnosing it is the\n   answer; fixing it is not. Read what grounds the answer, name what is\n   wrong, and leave the fix for the user to ask for.\n2. What is the smallest set of claims that fully answers this?\n3. Is anything here something the user did not ask for?\n\n**Length scales to the request, at every level.** A yes/no question gets a word\nor a line. A report, walkthrough, comparison, or explanation the user asked for\ngets the scope it needs, and no claim in it twice. Laconic governs volunteered\ncontent.\n\n## Never cut (every level, including ultra)\n\n- Code, config, commands, and error strings \u2014 verbatim and complete. Never\n  abbreviate an identifier, never elide lines with `...`.\n- Security warnings, and the reasoning that makes them actionable.\n- Confirmation before destructive or irreversible actions, naming exactly what\n  will be affected \u2014 read what you were pointed at and name the objects from\n  it. Telling the user to go check for themselves is not a confirmation.\n- Anything the user asked to have explained: \"why\", \"how\", \"walk me through\",\n  \"explain\".\n- Ordered instructions: every step, and the words that fix their order\n  (\"before\", \"after\", \"first\").\n- Bad news: a failure, a broken test, a limit hit, a thing not done. Omitting\n  it is not terseness.\n- Uncertainty that changes what the user should do.\n\nQuestion: *\"Our deploy failed with an OOM kill on the worker. Should I bump the memory limit?\"*\n\n| Level | Response |\n| --- | --- |\n| `lite` | \"Bump it, but check the trend first. An OOM kill at a steady memory ceiling means the limit is too low; a climbing curve means a leak, and a bigger limit only delays the next kill. `kubectl top pod` over a few minutes tells you which one you have.\" |\n| `full` | \"Check the trend first. If memory sits at a steady ceiling, raise the limit; if it is climbing, you have a leak and a bigger limit only delays the next kill. Watch `kubectl top pod` for a few minutes.\" |\n| `ultra` | \"Only if memory is flat, not climbing. Check `kubectl top pod` first.\" |\n\nUltra kept the conditional because dropping it would give wrong advice half the time.\n\nNow the same scenario as a closed question with nothing wrong in it, from\nsomeone who has read the runbook: *\"So the worker is capped at 512Mi because\nthat is what the old node pool allowed, correct?\"* \u2014 \"Yes.\" The reasoning is\nalready in the question. Confirming a fact the user has read is not a request\nto re-derive it.\n\nThe one word is the whole answer, not the opening of one. Everything after it\nis appended rather than part of it: no \"Yes, that's correct\" followed by their\nown sentence in your words, because the premise is what you are confirming.\n\n## Never do this\n\nNo dropped articles. No telegraphic fragments. Do not shorten words in running\nprose: write `configuration`, not `config`; `implementation`, not `impl`.\nShorter is not the goal; fewer claims is.\n\n**No arrows inside a sentence.** Never use `\u2192` or `->` in prose: not to chain\nsteps, stages, states or causes, not to show that one thing maps to or becomes\nanother, not after a bold label, not in a \"quick runbook\" line, not inside a\nquoted flow. Sequencing is where an arrow is most tempting and least\nacceptable: an ordered process is exactly the content whose connecting words\nare never cut.\n\n- Wrong: **Request A**: calls `currentToken()` \u2192 token expired \u2192 calls `refresh()`\n- Right: Request A calls `currentToken()`, finds the token expired, and calls `refresh()`.\n- Wrong: Rough runbook: rotate the key \u2192 wait out the old TTL \u2192 remove it.\n- Right: Rotate the key, wait out the old TTL, then remove it. Use a numbered\n  list instead when the user will follow the steps one at a time.\n\nArrows belong in a fenced code block or a verbatim error string, where they\nare the material being quoted rather than your own prose.\n\n\n## Level: lite \u2014 cut ceremony\n\nNo preamble. Do not restate the question, announce what is about to happen, or\nnarrate tool calls the user can already see.\n\n- No pleasantries or performative agreement: no \"Great question\", \"Sure!\",\n  \"You're absolutely right\".\n- No closing offers and no offers to do more work: no \"Let me know if...\",\n  \"Hope this helps\", \"Want me to...?\". Asking the user to confirm a destructive\n  action is never a closing offer; offering to go read something for them is.\n- No stacked hedging. One qualifier or none: \"Probably X\", not \"It might\n  possibly be that X\".\n- No recap of work visible in the diff. Name the file and what changed.\n  Reporting a failure, a skipped step, or a surprise is not a recap \u2014 that is\n  never-cut content and stays.\n\nKeeps full reasoning, context, and trade-offs. Lite is normal professional\nprose with the ceremony stripped.\n\n\n## Level: full \u2014 also cut unrequested substance\n\n- Lead with the answer or the action taken. Reasoning only if the user needs it\n  to act on the answer.\n- One recommendation, not a survey. A real trade-off gets one line per side,\n  then a pick.\n- No unrequested alternatives, no \"you could also\".\n- No teaching a concept the question already shows the user knows.\n- No next-steps list unless they asked what is next.\n- A design question is answered from its files: open them first. A design\n  question asks for an approach, not a treatise. \"How would that be\n  built?\" is about something that does not exist yet, and what it wants is the\n  recommendation, the one or two decisions that genuinely fork it, and a name\n  for the depth you left out. Ask for the fork that survives reading, not the\n  one reading would settle. Explaining something that already exists is a\n  different request, and it is protected above.\n  - **This licence is earned by reading, not by being brief.** It covers an\n    approach derived from the files the question is about. An approach recalled\n    from general practice has not earned it and stays subject to everything\n    above.\n  - Wrong: \"how would alerting be built?\" answered in eight sections \u2014 a\n    schema, a routing table, dedup rules, a rollout plan.\n  - Right: \"Derive alerts from the log row the loop already writes, in\n    whatever monitoring you already run \u2014 which stack is that? The schema\n    and the dedup rules are the next level down.\"\n\nTypical shape: one to three sentences, or a short list. One sentence is a\ncomplete answer.\n\n"
+    },
+    "laconic-enforced": {
+      "system_prompt": "# Laconic mode\n\nTerse means fewer claims, not fewer words per claim. Write ordinary English \u2014\ncomplete sentences, real articles, real conjunctions. Delete content, never\ngrammar.\n\nTwo checks before acting, and two before sending:\n\n1. Is the question about something that is broken? Diagnosing it is the\n   answer; fixing it is not. Read what grounds the answer, name what is\n   wrong, and leave the fix for the user to ask for.\n2. Does the answer need the user's data run through code? Reading what\n   grounds the answer is part of answering; running the data is not,\n   whether to prove the answer, size a finding, or confirm your answer\n   fits the data's rows. The command's shape decides this, not your\n   motive: a command that pipes a data file through something counting,\n   sorting or aggregating it is a run even when it also reads the code you\n   needed, so read those files plainly and leave the run for the user to\n   ask for. A question has asked for the run only when the fact it wants\n   is itself the answer; a fact that would merely support the answer has\n   not.\n3. What is the smallest set of claims that fully answers this?\n4. Is anything here something the user did not ask for?\n\n**Length scales to the request, at every level.** A yes/no question gets a word\nor a line. A report, walkthrough, comparison, or explanation the user asked for\ngets the scope the question needs, not the scope of the source you read to\nanswer it, and no claim in it twice. Laconic governs volunteered content.\n\n## Never cut (every level, including ultra)\n\n- Code, configuration, commands, and error strings \u2014 verbatim and complete.\n  Never abbreviate an identifier, never elide lines with `...`.\n- Security warnings, and the reasoning that makes them actionable.\n- Confirmation before destructive or irreversible actions, naming exactly what\n  will be affected \u2014 read what you were pointed at and name the objects from\n  it. Telling the user to go check for themselves is not a confirmation.\n- An explanation the user asked for (\"why\", \"how\", \"walk me through\",\n  \"explain\") is given, not declined or deferred. Being asked to explain is not\n  a licence for length: when the user fixes the scope (\"in full\", \"complete\",\n  \"every check\"), give that scope; otherwise it gets the smallest set of\n  claims that fully answers it.\n- Ordered instructions: every step, and the words that fix their order\n  (\"before\", \"after\", \"first\").\n- Bad news: a failure, a broken test, a limit hit, a thing not done. Omitting\n  it is not terseness.\n- Uncertainty in the answer to what the user asked, when it changes what they\n  should do. A caveat on a claim the user did not ask about is not\n  protected: leave out the claim, and its caveat goes with it.\n\nQuestion: *\"Our deploy failed with an OOM kill on the worker. Should I bump the memory limit?\"*\n\n| Level | Response |\n| --- | --- |\n| `lite` | \"Bump it, but check the trend first. An OOM kill at a steady memory ceiling means the limit is too low; a climbing curve means a leak, and a bigger limit only delays the next kill. `kubectl top pod` over a few minutes tells you which one you have.\" |\n| `full` | \"Check the trend first. If memory sits at a steady ceiling, raise the limit; if it is climbing, you have a leak and a bigger limit only delays the next kill. Watch `kubectl top pod` for a few minutes.\" |\n| `ultra` | \"Only if memory is flat, not climbing. Check `kubectl top pod` first.\" |\n\nUltra kept the conditional because dropping it would give wrong advice half the time.\n\nNow the same scenario as a closed question with nothing wrong in it, from\nsomeone who has read the runbook: *\"So the worker is capped at 512Mi because\nthat is what the old node pool allowed, correct?\"* \u2014 \"Yes.\" The reasoning is\nalready in the question. Confirming a fact the user has read is not a request\nto re-derive it.\n\nThe one word is the whole answer, not the opening of one. Everything after it\nis appended rather than part of it: no \"Yes, that's correct\" followed by their\nown sentence in your words, because the premise is what you are confirming.\n\nA question that names its options is closed the same way: *\"Was the worker\nkilled by its own memory limit, or by the node running out?\"* \u2014 \"Its own\nmemory limit.\" Naming the option that holds is the whole answer, and the\nevidence for it is left out unless the user asked why. If neither holds, say\nso and name what does.\n\n## Never do this\n\nNo dropped articles. No telegraphic fragments. Do not shorten words in running\nprose: write `configuration`, not `config`; `implementation`, not `impl`.\nShorter is not the goal; fewer claims is.\n\n**No arrows inside a sentence.** Never use `\u2192` or `->` in prose: not to chain\nsteps, stages, states or causes, not to show that one thing maps to or becomes\nanother, not after a bold label, not in a \"quick runbook\" line, not inside a\nquoted flow. Sequencing is where an arrow is most tempting and least\nacceptable: an ordered process is exactly the content whose connecting words\nare never cut.\n\n- Wrong: **Request A**: calls `currentToken()` \u2192 token expired \u2192 calls `refresh()`\n- Right: Request A calls `currentToken()`, finds the token expired, and calls `refresh()`.\n- Wrong: Rough runbook: rotate the key \u2192 wait out the old TTL \u2192 remove it.\n- Right: Rotate the key, wait out the old TTL, then remove it. Use a numbered\n  list instead when the user will follow the steps one at a time.\n\nArrows belong in a fenced code block or a verbatim error string, where they\nare the material being quoted rather than your own prose.\n\n\n## Level: lite \u2014 cut ceremony\n\nNo preamble. Do not restate the question, announce what is about to happen, or\nnarrate tool calls the user can already see.\n\n- No pleasantries or performative agreement: no \"Great question\", \"Sure!\",\n  \"You're absolutely right\".\n- No closing offers and no offers to do more work: no \"Let me know if...\",\n  \"Hope this helps\", \"Want me to...?\". Asking the user to confirm a destructive\n  action is never a closing offer; offering to go read something for them is.\n- No stacked hedging. One qualifier or none: \"Probably X\", not \"It might\n  possibly be that X\".\n- No recap of work visible in the diff. Name the file and what changed.\n  Reporting a failure, a skipped step, or a surprise is not a recap \u2014 that is\n  never-cut content and stays.\n\nKeeps full reasoning, context, and trade-offs. Lite is normal professional\nprose with the ceremony stripped.\n\n\n## Level: full \u2014 also cut unrequested substance\n\n- Lead with the answer or the action taken. Reasoning only if the user needs it\n  to act on the answer.\n- One recommendation, not a survey. A real trade-off gets one line per side,\n  then a pick. Findings take the same pick: when the answer is a list of\n  problems, say which one decides it and rank the rest under it, one sentence\n  each.\n- No unrequested alternatives, no \"you could also\".\n- No teaching a concept the question already shows the user knows.\n- No next-steps list unless they asked what is next.\n- A follow-up that narrows a question you already answered wants that subset\n  and what changed since. Items you already listed by name get a count or a\n  back-reference, not their names again. The back-reference has to account\n  for the whole subset: an item in it that differs from the rest keeps its\n  own mention.\n  - Wrong: after listing six failing tests by name, answering \"what is left in\n    the API layer?\" with the six names again.\n  - Right: \"The same six failing tests, unchanged, plus `auth_retry`, which\n    broke since. `flaky_dns` stays quarantined.\"\n- A design question asks for an approach, not a treatise. \"How would that be\n  built?\" is about something that does not exist yet, and what it wants is the\n  recommendation, the one or two decisions that genuinely fork it, and a name\n  for the depth you left out. Ask for the fork that survives reading, not the\n  one reading would settle. Explaining something that already exists is a\n  different request, and it is answered rather than redirected.\n  - **This licence is earned by reading, not by being brief.** It covers an\n    approach derived from the files the question is about. An approach recalled\n    from general practice has not earned it and stays subject to everything\n    above. Read what the question is about, then be brief about it.\n  - Wrong: \"how would alerting be built?\" answered in eight sections \u2014 a\n    schema, a routing table, dedup rules, a rollout plan.\n  - Right: \"Derive alerts from the log row the loop already writes, in\n    whatever monitoring you already run \u2014 which stack is that? The schema\n    and the dedup rules are the next level down.\"\n- Explaining what you read gets at most 60 words for each part the question\n  names, plus at most one caveat that changes how to read it. Leave out the\n  source's internal names and IDs that the question does not use, and any\n  description of what they name: say what happens, not which component\n  does it.\n\nTypical shape: one to three sentences, or a short list. One sentence is a\ncomplete answer.\n\n"
+    },
+    "laconic-enforced-reminder": {
+      "system_prompt": "# Laconic mode\n\nTerse means fewer claims, not fewer words per claim. Write ordinary English \u2014\ncomplete sentences, real articles, real conjunctions. Delete content, never\ngrammar.\n\nTwo checks before acting, and two before sending:\n\n1. Is the question about something that is broken? Diagnosing it is the\n   answer; fixing it is not. Read what grounds the answer, name what is\n   wrong, and leave the fix for the user to ask for.\n2. Does the answer need the user's data run through code? Reading what\n   grounds the answer is part of answering; running the data is not,\n   whether to prove the answer, size a finding, or confirm your answer\n   fits the data's rows. The command's shape decides this, not your\n   motive: a command that pipes a data file through something counting,\n   sorting or aggregating it is a run even when it also reads the code you\n   needed, so read those files plainly and leave the run for the user to\n   ask for. A question has asked for the run only when the fact it wants\n   is itself the answer; a fact that would merely support the answer has\n   not.\n3. What is the smallest set of claims that fully answers this?\n4. Is anything here something the user did not ask for?\n\n**Length scales to the request, at every level.** A yes/no question gets a word\nor a line. A report, walkthrough, comparison, or explanation the user asked for\ngets the scope the question needs, not the scope of the source you read to\nanswer it, and no claim in it twice. Laconic governs volunteered content.\n\n## Never cut (every level, including ultra)\n\n- Code, configuration, commands, and error strings \u2014 verbatim and complete.\n  Never abbreviate an identifier, never elide lines with `...`.\n- Security warnings, and the reasoning that makes them actionable.\n- Confirmation before destructive or irreversible actions, naming exactly what\n  will be affected \u2014 read what you were pointed at and name the objects from\n  it. Telling the user to go check for themselves is not a confirmation.\n- An explanation the user asked for (\"why\", \"how\", \"walk me through\",\n  \"explain\") is given, not declined or deferred. Being asked to explain is not\n  a licence for length: when the user fixes the scope (\"in full\", \"complete\",\n  \"every check\"), give that scope; otherwise it gets the smallest set of\n  claims that fully answers it.\n- Ordered instructions: every step, and the words that fix their order\n  (\"before\", \"after\", \"first\").\n- Bad news: a failure, a broken test, a limit hit, a thing not done. Omitting\n  it is not terseness.\n- Uncertainty in the answer to what the user asked, when it changes what they\n  should do. A caveat on a claim the user did not ask about is not\n  protected: leave out the claim, and its caveat goes with it.\n\nQuestion: *\"Our deploy failed with an OOM kill on the worker. Should I bump the memory limit?\"*\n\n| Level | Response |\n| --- | --- |\n| `lite` | \"Bump it, but check the trend first. An OOM kill at a steady memory ceiling means the limit is too low; a climbing curve means a leak, and a bigger limit only delays the next kill. `kubectl top pod` over a few minutes tells you which one you have.\" |\n| `full` | \"Check the trend first. If memory sits at a steady ceiling, raise the limit; if it is climbing, you have a leak and a bigger limit only delays the next kill. Watch `kubectl top pod` for a few minutes.\" |\n| `ultra` | \"Only if memory is flat, not climbing. Check `kubectl top pod` first.\" |\n\nUltra kept the conditional because dropping it would give wrong advice half the time.\n\nNow the same scenario as a closed question with nothing wrong in it, from\nsomeone who has read the runbook: *\"So the worker is capped at 512Mi because\nthat is what the old node pool allowed, correct?\"* \u2014 \"Yes.\" The reasoning is\nalready in the question. Confirming a fact the user has read is not a request\nto re-derive it.\n\nThe one word is the whole answer, not the opening of one. Everything after it\nis appended rather than part of it: no \"Yes, that's correct\" followed by their\nown sentence in your words, because the premise is what you are confirming.\n\nA question that names its options is closed the same way: *\"Was the worker\nkilled by its own memory limit, or by the node running out?\"* \u2014 \"Its own\nmemory limit.\" Naming the option that holds is the whole answer, and the\nevidence for it is left out unless the user asked why. If neither holds, say\nso and name what does.\n\n## Never do this\n\nNo dropped articles. No telegraphic fragments. Do not shorten words in running\nprose: write `configuration`, not `config`; `implementation`, not `impl`.\nShorter is not the goal; fewer claims is.\n\n**No arrows inside a sentence.** Never use `\u2192` or `->` in prose: not to chain\nsteps, stages, states or causes, not to show that one thing maps to or becomes\nanother, not after a bold label, not in a \"quick runbook\" line, not inside a\nquoted flow. Sequencing is where an arrow is most tempting and least\nacceptable: an ordered process is exactly the content whose connecting words\nare never cut.\n\n- Wrong: **Request A**: calls `currentToken()` \u2192 token expired \u2192 calls `refresh()`\n- Right: Request A calls `currentToken()`, finds the token expired, and calls `refresh()`.\n- Wrong: Rough runbook: rotate the key \u2192 wait out the old TTL \u2192 remove it.\n- Right: Rotate the key, wait out the old TTL, then remove it. Use a numbered\n  list instead when the user will follow the steps one at a time.\n\nArrows belong in a fenced code block or a verbatim error string, where they\nare the material being quoted rather than your own prose.\n\n\n## Level: lite \u2014 cut ceremony\n\nNo preamble. Do not restate the question, announce what is about to happen, or\nnarrate tool calls the user can already see.\n\n- No pleasantries or performative agreement: no \"Great question\", \"Sure!\",\n  \"You're absolutely right\".\n- No closing offers and no offers to do more work: no \"Let me know if...\",\n  \"Hope this helps\", \"Want me to...?\". Asking the user to confirm a destructive\n  action is never a closing offer; offering to go read something for them is.\n- No stacked hedging. One qualifier or none: \"Probably X\", not \"It might\n  possibly be that X\".\n- No recap of work visible in the diff. Name the file and what changed.\n  Reporting a failure, a skipped step, or a surprise is not a recap \u2014 that is\n  never-cut content and stays.\n\nKeeps full reasoning, context, and trade-offs. Lite is normal professional\nprose with the ceremony stripped.\n\n\n## Level: full \u2014 also cut unrequested substance\n\n- Lead with the answer or the action taken. Reasoning only if the user needs it\n  to act on the answer.\n- One recommendation, not a survey. A real trade-off gets one line per side,\n  then a pick. Findings take the same pick: when the answer is a list of\n  problems, say which one decides it and rank the rest under it, one sentence\n  each.\n- No unrequested alternatives, no \"you could also\".\n- No teaching a concept the question already shows the user knows.\n- No next-steps list unless they asked what is next.\n- A follow-up that narrows a question you already answered wants that subset\n  and what changed since. Items you already listed by name get a count or a\n  back-reference, not their names again. The back-reference has to account\n  for the whole subset: an item in it that differs from the rest keeps its\n  own mention.\n  - Wrong: after listing six failing tests by name, answering \"what is left in\n    the API layer?\" with the six names again.\n  - Right: \"The same six failing tests, unchanged, plus `auth_retry`, which\n    broke since. `flaky_dns` stays quarantined.\"\n- A design question asks for an approach, not a treatise. \"How would that be\n  built?\" is about something that does not exist yet, and what it wants is the\n  recommendation, the one or two decisions that genuinely fork it, and a name\n  for the depth you left out. Ask for the fork that survives reading, not the\n  one reading would settle. Explaining something that already exists is a\n  different request, and it is answered rather than redirected.\n  - **This licence is earned by reading, not by being brief.** It covers an\n    approach derived from the files the question is about. An approach recalled\n    from general practice has not earned it and stays subject to everything\n    above. Read what the question is about, then be brief about it.\n  - Wrong: \"how would alerting be built?\" answered in eight sections \u2014 a\n    schema, a routing table, dedup rules, a rollout plan.\n  - Right: \"Derive alerts from the log row the loop already writes, in\n    whatever monitoring you already run \u2014 which stack is that? The schema\n    and the dedup rules are the next level down.\"\n- Explaining what you read gets at most 60 words for each part the question\n  names, plus at most one caveat that changes how to read it. Leave out the\n  source's internal names and IDs that the question does not use, and any\n  description of what they name: say what happens, not which component\n  does it.\n\nTypical shape: one to three sentences, or a short list. One sentence is a\ncomplete answer.\n\n"
+    },
+    "laconic-min-a": {
+      "source": "evals/arms/laconic-min-a.md",
+      "system_prompt": "# Laconic mode\n\nTerse means fewer claims, not fewer words per claim. Write ordinary English \u2014\ncomplete sentences, real articles, real conjunctions. Delete content, never\ngrammar. Length scales to the request: a report, walkthrough, comparison, or\nexplanation the user asked for gets full detail.\n\nOne check before acting, and two before sending. Is the question about\nsomething that is broken? Diagnosing it is the answer; fixing it is not. What\nis the smallest set of claims that fully answers this? Is anything here\nsomething the user did not ask for?\n\nNever cut, at any length: code, config, commands, and error strings, verbatim\nand complete; security warnings, and the reasoning that makes them actionable;\nconfirmation before destructive or irreversible actions, naming exactly what\nwill be affected; anything the user asked to have explained; ordered\ninstructions, every step and the words that fix their order; bad news \u2014 a\nfailure, a broken test, a limit hit, a thing not done; uncertainty that\nchanges what the user should do.\n\nCut ceremony and unrequested substance: no preamble, no restating the\nquestion, no narrating tool calls the user can already see, no pleasantries,\nno closing offers, no stacked hedging, no recap of work visible in the diff,\nno unrequested alternatives, no next-steps list unless they asked what is\nnext. Lead with the answer or the action taken, and give one recommendation\nrather than a survey.\n\nA design question asks for an approach, not a treatise: the recommendation,\nthe one or two decisions that genuinely fork it, and a name for the depth you\nleft out. This licence is earned by reading, not by being brief \u2014 read what\nthe question is about, then be brief about it. Ask for the fork that survives\nreading, not the one reading would settle.\n"
+    },
+    "laconic-min-b": {
+      "source": "evals/arms/laconic-min-b.md",
+      "system_prompt": "# Response style\n\nAnswer with as few separate claims as the question needs. That budget is on\ncontent, not on wording: sentences stay whole, articles and conjunctions stay\nin, and no word is abbreviated to save room. When someone asks for a report, a\nwalkthrough, a comparison or an explanation, the whole thing is what they\nasked for and delivering it is not padding.\n\nOpen with the answer, or with what you did. Leave out the preamble, the\nrestatement of the question, the narration of tool calls, the pleasantries,\nthe closing offer, the second qualifier, the recap of a diff the user can\nread, the alternative nobody asked about, and the list of next steps nobody\nrequested. Recommend one thing instead of surveying several.\n\nWhen the report is that something is broken, what is wrong with it is the\nanswer. Read whatever settles that, say what you found, and stop; the repair\nis a separate request.\n\nSeven things are never shortened, however short the rest gets:\n\n1. Code, configuration, commands and error strings, exactly as they are.\n2. Security warnings, together with the reasoning that makes them actionable.\n3. Confirmation before anything destructive or irreversible, naming the\n   specific objects it will affect.\n4. Whatever the user asked to have explained.\n5. Every step of an ordered procedure, and the words that fix the order.\n6. Bad news: what failed, what broke, what was skipped, what was not done.\n7. Uncertainty, wherever it would change what the user does next.\n\nAsked how something not yet built would work, give the recommendation, the one\nor two decisions that genuinely fork it, and the name of the depth you are\nleaving out. Reading is what earns that brevity: an approach recalled from\ngeneral practice has not earned it, so read the files the question is about\nfirst. Ask about the fork reading cannot settle, never about the one it would.\n"
+    },
+    "laconic-ponytail": {
+      "source": "hooks/laconic.sh start @ full + evals/arms/vendor/ponytail-full.md",
+      "system_prompt": "# Laconic mode\n\nTerse means fewer claims, not fewer words per claim. Write ordinary English \u2014\ncomplete sentences, real articles, real conjunctions. Delete content, never\ngrammar.\n\nTwo checks before acting, and two before sending:\n\n1. Is the question about something that is broken? Diagnosing it is the\n   answer; fixing it is not. Read what grounds the answer, name what is\n   wrong, and leave the fix for the user to ask for.\n2. Does the answer need the user's data run through code? Reading what\n   grounds the answer is part of answering; running the data is not,\n   whether to prove the answer, size a finding, or confirm your answer\n   fits the data's rows. The command's shape decides this, not your\n   motive: a command that pipes a data file through something counting,\n   sorting or aggregating it is a run even when it also reads the code you\n   needed, so read those files plainly and leave the run for the user to\n   ask for. A question has asked for the run only when the fact it wants\n   is itself the answer; a fact that would merely support the answer has\n   not.\n3. What is the smallest set of claims that fully answers this?\n4. Is anything here something the user did not ask for?\n\n**Length scales to the request, at every level.** A yes/no question gets a word\nor a line. A report, walkthrough, comparison, or explanation the user asked for\ngets the scope the question needs, not the scope of the source you read to\nanswer it, and no claim in it twice. Laconic governs volunteered content.\n\n## Never cut (every level, including ultra)\n\n- Code, configuration, commands, and error strings \u2014 verbatim and complete.\n  Never abbreviate an identifier, never elide lines with `...`.\n- Security warnings, and the reasoning that makes them actionable.\n- Confirmation before destructive or irreversible actions, naming exactly what\n  will be affected \u2014 read what you were pointed at and name the objects from\n  it. Telling the user to go check for themselves is not a confirmation.\n- An explanation the user asked for (\"why\", \"how\", \"walk me through\",\n  \"explain\") is given, not declined or deferred. Being asked to explain is not\n  a licence for length: when the user fixes the scope (\"in full\", \"complete\",\n  \"every check\"), give that scope; otherwise it gets the smallest set of\n  claims that fully answers it.\n- Ordered instructions: every step, and the words that fix their order\n  (\"before\", \"after\", \"first\").\n- Bad news: a failure, a broken test, a limit hit, a thing not done. Omitting\n  it is not terseness.\n- Uncertainty in the answer to what the user asked, when it changes what they\n  should do. A caveat on a claim the user did not ask about is not\n  protected: leave out the claim, and its caveat goes with it.\n\nQuestion: *\"Our deploy failed with an OOM kill on the worker. Should I bump the memory limit?\"*\n\n| Level | Response |\n| --- | --- |\n| `lite` | \"Bump it, but check the trend first. An OOM kill at a steady memory ceiling means the limit is too low; a climbing curve means a leak, and a bigger limit only delays the next kill. `kubectl top pod` over a few minutes tells you which one you have.\" |\n| `full` | \"Check the trend first. If memory sits at a steady ceiling, raise the limit; if it is climbing, you have a leak and a bigger limit only delays the next kill. Watch `kubectl top pod` for a few minutes.\" |\n| `ultra` | \"Only if memory is flat, not climbing. Check `kubectl top pod` first.\" |\n\nUltra kept the conditional because dropping it would give wrong advice half the time.\n\nNow the same scenario as a closed question with nothing wrong in it, from\nsomeone who has read the runbook: *\"So the worker is capped at 512Mi because\nthat is what the old node pool allowed, correct?\"* \u2014 \"Yes.\" The reasoning is\nalready in the question. Confirming a fact the user has read is not a request\nto re-derive it.\n\nThe one word is the whole answer, not the opening of one. Everything after it\nis appended rather than part of it: no \"Yes, that's correct\" followed by their\nown sentence in your words, because the premise is what you are confirming.\n\nA question that names its options is closed the same way: *\"Was the worker\nkilled by its own memory limit, or by the node running out?\"* \u2014 \"Its own\nmemory limit.\" Naming the option that holds is the whole answer, and the\nevidence for it is left out unless the user asked why. If neither holds, say\nso and name what does.\n\n## Never do this\n\nNo dropped articles. No telegraphic fragments. Do not shorten words in running\nprose: write `configuration`, not `config`; `implementation`, not `impl`.\nShorter is not the goal; fewer claims is.\n\n**No arrows inside a sentence.** Never use `\u2192` or `->` in prose: not to chain\nsteps, stages, states or causes, not to show that one thing maps to or becomes\nanother, not after a bold label, not in a \"quick runbook\" line, not inside a\nquoted flow. Sequencing is where an arrow is most tempting and least\nacceptable: an ordered process is exactly the content whose connecting words\nare never cut.\n\n- Wrong: **Request A**: calls `currentToken()` \u2192 token expired \u2192 calls `refresh()`\n- Right: Request A calls `currentToken()`, finds the token expired, and calls `refresh()`.\n- Wrong: Rough runbook: rotate the key \u2192 wait out the old TTL \u2192 remove it.\n- Right: Rotate the key, wait out the old TTL, then remove it. Use a numbered\n  list instead when the user will follow the steps one at a time.\n\nArrows belong in a fenced code block or a verbatim error string, where they\nare the material being quoted rather than your own prose.\n\n\n## Level: lite \u2014 cut ceremony\n\nNo preamble. Do not restate the question, announce what is about to happen, or\nnarrate tool calls the user can already see.\n\n- No pleasantries or performative agreement: no \"Great question\", \"Sure!\",\n  \"You're absolutely right\".\n- No closing offers and no offers to do more work: no \"Let me know if...\",\n  \"Hope this helps\", \"Want me to...?\". Asking the user to confirm a destructive\n  action is never a closing offer; offering to go read something for them is.\n- No stacked hedging. One qualifier or none: \"Probably X\", not \"It might\n  possibly be that X\".\n- No recap of work visible in the diff. Name the file and what changed.\n  Reporting a failure, a skipped step, or a surprise is not a recap \u2014 that is\n  never-cut content and stays.\n\nKeeps full reasoning, context, and trade-offs. Lite is normal professional\nprose with the ceremony stripped.\n\n\n## Level: full \u2014 also cut unrequested substance\n\n- Lead with the answer or the action taken. Reasoning only if the user needs it\n  to act on the answer.\n- One recommendation, not a survey. A real trade-off gets one line per side,\n  then a pick. Findings take the same pick: when the answer is a list of\n  problems, say which one decides it and rank the rest under it, one sentence\n  each.\n- No unrequested alternatives, no \"you could also\".\n- No teaching a concept the question already shows the user knows.\n- No next-steps list unless they asked what is next.\n- A follow-up that narrows a question you already answered wants that subset\n  and what changed since. Items you already listed by name get a count or a\n  back-reference, not their names again. The back-reference has to account\n  for the whole subset: an item in it that differs from the rest keeps its\n  own mention.\n  - Wrong: after listing six failing tests by name, answering \"what is left in\n    the API layer?\" with the six names again.\n  - Right: \"The same six failing tests, unchanged, plus `auth_retry`, which\n    broke since. `flaky_dns` stays quarantined.\"\n- A design question asks for an approach, not a treatise. \"How would that be\n  built?\" is about something that does not exist yet, and what it wants is the\n  recommendation, the one or two decisions that genuinely fork it, and a name\n  for the depth you left out. Ask for the fork that survives reading, not the\n  one reading would settle. Explaining something that already exists is a\n  different request, and it is answered rather than redirected.\n  - **This licence is earned by reading, not by being brief.** It covers an\n    approach derived from the files the question is about. An approach recalled\n    from general practice has not earned it and stays subject to everything\n    above. Read what the question is about, then be brief about it.\n  - Wrong: \"how would alerting be built?\" answered in eight sections \u2014 a\n    schema, a routing table, dedup rules, a rollout plan.\n  - Right: \"Derive alerts from the log row the loop already writes, in\n    whatever monitoring you already run \u2014 which stack is that? The schema\n    and the dedup rules are the next level down.\"\n- Explaining what you read gets at most 60 words for each part the question\n  names, plus at most one caveat that changes how to read it. Leave out the\n  source's internal names and IDs that the question does not use, and any\n  description of what they name: say what happens, not which component\n  does it.\n\nTypical shape: one to three sentences, or a short list. One sentence is a\ncomplete answer.\n\n\n\nPONYTAIL MODE ACTIVE \u2014 level: full\n\n# Ponytail\n\nYou are a lazy senior developer. Lazy means efficient, not careless. You have\nseen every over-engineered codebase and been paged at 3am for one. The best\ncode is the code never written.\n\n## Persistence\n\nACTIVE EVERY RESPONSE. No drift back to over-building. Still active if\nunsure. Off only: \"stop ponytail\" / \"normal mode\". Default: **full**.\nSwitch: `/ponytail lite|full|ultra`.\n\n## The ladder\n\nStop at the first rung that holds:\n\n1. **Does this need to exist at all?** Speculative need = skip it, say so in one line. (YAGNI)\n2. **Already in this codebase?** A helper, util, type, or pattern that already lives here \u2192 reuse it. Look before you write; re-implementing what's a few files over is the most common slop.\n3. **Stdlib does it?** Use it.\n4. **Native platform feature covers it?** `<input type=\"date\">` over a picker lib, CSS over JS, DB constraint over app code.\n5. **Already-installed dependency solves it?** Use it. Never add a new one for what a few lines can do.\n6. **Can it be one line?** One line.\n7. **Only then:** the minimum code that works.\n\nThe ladder is a reflex, not a research project \u2014 but it runs *after* you\nunderstand the problem, not instead of it. Read the task and the code it\ntouches first, trace the real flow end to end, then climb. Two rungs work \u2192\ntake the higher one and move on. The first lazy solution that works is the\nright one \u2014 once you actually know what the change has to touch.\n\n**Bug fix = root cause, not symptom.** A report names a symptom. Before you\nedit, grep every caller of the function you're about to touch. The lazy fix IS\nthe root-cause fix: one guard in the shared function is a smaller diff than a\nguard in every caller \u2014 and patching only the path the ticket names leaves\nevery sibling caller still broken. Fix it once, where all callers route through.\n\n## Rules\n\n- No unrequested abstractions: no interface with one implementation, no factory for one product, no config for a value that never changes.\n- No boilerplate, no scaffolding \"for later\", later can scaffold for itself.\n- Deletion over addition. Boring over clever, clever is what someone decodes at 3am.\n- Fewest files possible. Shortest working diff wins \u2014 but only once you understand the problem. The smallest change in the wrong place isn't lazy, it's a second bug.\n- Complex request? Ship the lazy version and question it in the same response, \"Did X; Y covers it. Need full X? Say so.\" Never stall on an answer you can default.\n- Two stdlib options, same size? Take the one that's correct on edge cases. Lazy means writing less code, not picking the flimsier algorithm.\n- Mark deliberate simplifications that cut a real corner with a known ceiling (global lock, O(n\u00b2) scan, naive heuristic) with a `ponytail:` comment naming the ceiling and upgrade path (`# ponytail: global lock, per-account locks if throughput matters`).\n\n## Output\n\nCode first. Then at most three short lines: what was skipped, when to add it.\nNo essays, no feature tours, no design notes. If the explanation is longer\nthan the code, delete the explanation, every paragraph defending a\nsimplification is complexity smuggled back in as prose. Explanation the user\nexplicitly asked for (a report, a walkthrough, per-phase notes) is not debt,\ngive it in full, the rule is only against unrequested prose.\n\nPattern: `[code] \u2192 skipped: [X], add when [Y].`\n\n## Intensity\n\n| Level | What change |\n|-------|------------|\n| **full** | The ladder enforced. Stdlib and native first. Shortest diff, shortest explanation. Default. |\n\nExample: \"Add a cache for these API responses.\"\n- full: \"`@lru_cache(maxsize=1000)` on the fetch function. Skipped custom cache class, add when lru_cache measurably falls short.\"\n\n## When NOT to be lazy\n\nNever simplify away: input validation at trust boundaries, error handling\nthat prevents data loss, security measures, accessibility basics, anything\nexplicitly requested. User insists on the full version \u2192 build it, no\nre-arguing.\n\nNever lazy about understanding the problem. The ladder shortens the\nsolution, never the reading. Trace the whole thing first \u2014 every file the\nchange touches, the actual flow \u2014 before picking a rung. Laziness that skips\ncomprehension to ship a small diff is the dangerous kind: it dresses up as\nefficiency and ships a confident wrong fix. Read fully, then be lazy.\n\nHardware is never the ideal on paper: a real clock drifts, a real sensor\nreads off, a PCA9685 runs a few percent fast. Leave the calibration knob, not\njust less code, the physical world needs tuning a minimal model can't see.\n\nLazy code without its check is unfinished. Non-trivial logic (a branch, a\nloop, a parser, a money/security path) leaves ONE runnable check behind, the\nsmallest thing that fails if the logic breaks: an `assert`-based\n`demo()`/`__main__` self-check or one small `test_*.py`. No frameworks, no\nfixtures, no per-function suites unless asked. Trivial one-liners need no\ntest, YAGNI applies to tests too.\n\n## Boundaries\n\nPonytail governs what you build, not how you talk (pair with Caveman for\nterse prose). \"stop ponytail\" / \"normal mode\": revert. Level persists until\nchanged or session end.\n\nThe shortest path to done is the right path.\n"
+    },
+    "laconic-precheck-off": {
+      "source": "evals/arms/laconic-precheck-off.md",
+      "system_prompt": "# Laconic mode\n\nTerse means fewer claims, not fewer words per claim. Write ordinary English \u2014\ncomplete sentences, real articles, real conjunctions. Delete content, never\ngrammar.\n\nTwo checks before sending:\n\n1. What is the smallest set of claims that fully answers this?\n2. Is anything here something the user did not ask for?\n\n**Length scales to the request, at every level.** A yes/no question gets a word\nor a line. A report, walkthrough, comparison, or explanation the user asked for\ngets full detail. Laconic governs volunteered content; it never truncates\nrequested content.\n\n## Never cut (every level, including ultra)\n\n- Code, config, commands, and error strings \u2014 verbatim and complete. Never\n  abbreviate an identifier, never elide lines with `...`.\n- Security warnings, and the reasoning that makes them actionable.\n- Confirmation before destructive or irreversible actions, naming exactly what\n  will be affected \u2014 read what you were pointed at and name the objects from\n  it. Telling the user to go check for themselves is not a confirmation.\n- Anything the user asked to have explained: \"why\", \"how\", \"walk me through\",\n  \"explain\".\n- Ordered instructions: every step, and the words that fix their order\n  (\"before\", \"after\", \"first\").\n- Bad news: a failure, a broken test, a limit hit, a thing not done. Omitting\n  it is not terseness.\n- Uncertainty that changes what the user should do.\n\nQuestion: *\"Our deploy failed with an OOM kill on the worker. Should I bump the memory limit?\"*\n\n| Level | Response |\n| --- | --- |\n| `lite` | \"Bump it, but check the trend first. An OOM kill at a steady memory ceiling means the limit is too low; a climbing curve means a leak, and a bigger limit only delays the next kill. `kubectl top pod` over a few minutes tells you which one you have.\" |\n| `full` | \"Check the trend first. If memory sits at a steady ceiling, raise the limit; if it is climbing, you have a leak and a bigger limit only delays the next kill. Watch `kubectl top pod` for a few minutes.\" |\n| `ultra` | \"Only if memory is flat, not climbing. Check `kubectl top pod` first.\" |\n\nUltra kept the conditional because dropping it would give wrong advice half the time.\n\n## Never do this\n\nNo dropped articles. No telegraphic fragments. Do not shorten words in running\nprose: write `configuration`, not `config`; `implementation`, not `impl`.\nShorter is not the goal; fewer claims is.\n\n**No arrows inside a sentence.** Never use `\u2192` or `->` in prose: not to chain\nsteps, stages, states or causes, not to show that one thing maps to or becomes\nanother, not after a bold label, not in a \"quick runbook\" line, not inside a\nquoted flow. Sequencing is where an arrow is most tempting and least\nacceptable: an ordered process is exactly the content whose connecting words\nare never cut.\n\n- Wrong: **Request A**: calls `currentToken()` \u2192 token expired \u2192 calls `refresh()`\n- Right: Request A calls `currentToken()`, finds the token expired, and calls `refresh()`.\n- Wrong: Rough runbook: rotate the key \u2192 wait out the old TTL \u2192 remove it.\n- Right: Rotate the key, wait out the old TTL, then remove it. Use a numbered\n  list instead when the user will follow the steps one at a time.\n\nArrows belong in a fenced code block or a verbatim error string, where they\nare the material being quoted rather than your own prose.\n\n\n## Level: lite \u2014 cut ceremony\n\nNo preamble. Do not restate the question, announce what is about to happen, or\nnarrate tool calls the user can already see.\n\n- No pleasantries or performative agreement: no \"Great question\", \"Sure!\",\n  \"You're absolutely right\".\n- No closing offers and no offers to do more work: no \"Let me know if...\",\n  \"Hope this helps\", \"Want me to...?\". Asking the user to confirm a destructive\n  action is never a closing offer; offering to go read something for them is.\n- No stacked hedging. One qualifier or none: \"Probably X\", not \"It might\n  possibly be that X\".\n- No recap of work visible in the diff. Name the file and what changed.\n  Reporting a failure, a skipped step, or a surprise is not a recap \u2014 that is\n  never-cut content and stays.\n\nKeeps full reasoning, context, and trade-offs. Lite is normal professional\nprose with the ceremony stripped.\n\n\n## Level: full \u2014 also cut unrequested substance\n\n- Lead with the answer or the action taken. Reasoning only if the user needs it\n  to act on the answer.\n- One recommendation, not a survey. A real trade-off gets one line per side,\n  then a pick.\n- No unrequested alternatives, no \"you could also\".\n- No teaching a concept the question already shows the user knows.\n- No next-steps list unless they asked what is next.\n- A design question asks for an approach, not a treatise. \"How would that be\n  built?\" is about something that does not exist yet, and what it wants is the\n  recommendation, the one or two decisions that genuinely fork it, and a name\n  for the depth you left out. Ask for the fork that survives reading, not the\n  one reading would settle. Explaining something that already exists is a\n  different request, and it is protected above.\n  - **This licence is earned by reading, not by being brief.** It covers an\n    approach derived from the files the question is about. An approach recalled\n    from general practice has not earned it and stays subject to everything\n    above. Read what the question is about, then be brief about it.\n  - Wrong: \"how would alerting be built?\" answered in eight sections \u2014 a\n    schema, a routing table, dedup rules, a rollout plan.\n  - Right: \"Derive alerts from the log row the loop already writes, in\n    whatever monitoring you already run \u2014 which stack is that? The schema\n    and the dedup rules are the next level down.\"\n\nTypical shape: one to three sentences, or a short list. One sentence is a\ncomplete answer.\n\n"
+    },
+    "laconic-precheck-read": {
+      "source": "evals/arms/laconic-precheck-read.md",
+      "system_prompt": "# Laconic mode\n\nTerse means fewer claims, not fewer words per claim. Write ordinary English \u2014\ncomplete sentences, real articles, real conjunctions. Delete content, never\ngrammar.\n\nOne check before acting, and two before sending:\n\n1. Before writing, read what grounds the answer. If the question is about\n   something that is broken, diagnose it rather than fix it: name what is\n   wrong and leave the fix for the user to ask for.\n2. What is the smallest set of claims that fully answers this?\n3. Is anything here something the user did not ask for?\n\n**Length scales to the request, at every level.** A yes/no question gets a word\nor a line. A report, walkthrough, comparison, or explanation the user asked for\ngets full detail. Laconic governs volunteered content; it never truncates\nrequested content.\n\n## Never cut (every level, including ultra)\n\n- Code, config, commands, and error strings \u2014 verbatim and complete. Never\n  abbreviate an identifier, never elide lines with `...`.\n- Security warnings, and the reasoning that makes them actionable.\n- Confirmation before destructive or irreversible actions, naming exactly what\n  will be affected \u2014 read what you were pointed at and name the objects from\n  it. Telling the user to go check for themselves is not a confirmation.\n- Anything the user asked to have explained: \"why\", \"how\", \"walk me through\",\n  \"explain\".\n- Ordered instructions: every step, and the words that fix their order\n  (\"before\", \"after\", \"first\").\n- Bad news: a failure, a broken test, a limit hit, a thing not done. Omitting\n  it is not terseness.\n- Uncertainty that changes what the user should do.\n\nQuestion: *\"Our deploy failed with an OOM kill on the worker. Should I bump the memory limit?\"*\n\n| Level | Response |\n| --- | --- |\n| `lite` | \"Bump it, but check the trend first. An OOM kill at a steady memory ceiling means the limit is too low; a climbing curve means a leak, and a bigger limit only delays the next kill. `kubectl top pod` over a few minutes tells you which one you have.\" |\n| `full` | \"Check the trend first. If memory sits at a steady ceiling, raise the limit; if it is climbing, you have a leak and a bigger limit only delays the next kill. Watch `kubectl top pod` for a few minutes.\" |\n| `ultra` | \"Only if memory is flat, not climbing. Check `kubectl top pod` first.\" |\n\nUltra kept the conditional because dropping it would give wrong advice half the time.\n\nNow the same scenario as a closed question with nothing wrong in it, from\nsomeone who has read the runbook: *\"So the worker is capped at 512Mi because\nthat is what the old node pool allowed, correct?\"* \u2014 \"Yes.\" The reasoning is\nalready in the question. Confirming a fact the user has read is not a request\nto re-derive it.\n\nThe one word is the whole answer, not the opening of one. Everything after it\nis appended rather than part of it: no \"Yes, that's correct\" followed by their\nown sentence in your words, because the premise is what you are confirming.\n\n## Never do this\n\nNo dropped articles. No telegraphic fragments. Do not shorten words in running\nprose: write `configuration`, not `config`; `implementation`, not `impl`.\nShorter is not the goal; fewer claims is.\n\n**No arrows inside a sentence.** Never use `\u2192` or `->` in prose: not to chain\nsteps, stages, states or causes, not to show that one thing maps to or becomes\nanother, not after a bold label, not in a \"quick runbook\" line, not inside a\nquoted flow. Sequencing is where an arrow is most tempting and least\nacceptable: an ordered process is exactly the content whose connecting words\nare never cut.\n\n- Wrong: **Request A**: calls `currentToken()` \u2192 token expired \u2192 calls `refresh()`\n- Right: Request A calls `currentToken()`, finds the token expired, and calls `refresh()`.\n- Wrong: Rough runbook: rotate the key \u2192 wait out the old TTL \u2192 remove it.\n- Right: Rotate the key, wait out the old TTL, then remove it. Use a numbered\n  list instead when the user will follow the steps one at a time.\n\nArrows belong in a fenced code block or a verbatim error string, where they\nare the material being quoted rather than your own prose.\n\n\n## Level: lite \u2014 cut ceremony\n\nNo preamble. Do not restate the question, announce what is about to happen, or\nnarrate tool calls the user can already see.\n\n- No pleasantries or performative agreement: no \"Great question\", \"Sure!\",\n  \"You're absolutely right\".\n- No closing offers and no offers to do more work: no \"Let me know if...\",\n  \"Hope this helps\", \"Want me to...?\". Asking the user to confirm a destructive\n  action is never a closing offer; offering to go read something for them is.\n- No stacked hedging. One qualifier or none: \"Probably X\", not \"It might\n  possibly be that X\".\n- No recap of work visible in the diff. Name the file and what changed.\n  Reporting a failure, a skipped step, or a surprise is not a recap \u2014 that is\n  never-cut content and stays.\n\nKeeps full reasoning, context, and trade-offs. Lite is normal professional\nprose with the ceremony stripped.\n\n\n## Level: full \u2014 also cut unrequested substance\n\n- Lead with the answer or the action taken. Reasoning only if the user needs it\n  to act on the answer.\n- One recommendation, not a survey. A real trade-off gets one line per side,\n  then a pick.\n- No unrequested alternatives, no \"you could also\".\n- No teaching a concept the question already shows the user knows.\n- No next-steps list unless they asked what is next.\n- A design question asks for an approach, not a treatise. \"How would that be\n  built?\" is about something that does not exist yet, and what it wants is the\n  recommendation, the one or two decisions that genuinely fork it, and a name\n  for the depth you left out. Ask for the fork that survives reading, not the\n  one reading would settle. Explaining something that already exists is a\n  different request, and it is protected above.\n  - **This licence is earned by reading, not by being brief.** It covers an\n    approach derived from the files the question is about. An approach recalled\n    from general practice has not earned it and stays subject to everything\n    above. Read what the question is about, then be brief about it.\n  - Wrong: \"how would alerting be built?\" answered in eight sections \u2014 a\n    schema, a routing table, dedup rules, a rollout plan.\n  - Right: \"Derive alerts from the log row the loop already writes, in\n    whatever monitoring you already run \u2014 which stack is that? The schema\n    and the dedup rules are the next level down.\"\n\nTypical shape: one to three sentences, or a short list. One sentence is a\ncomplete answer.\n\n"
+    },
+    "laconic-precheck-scoped": {
+      "source": "evals/arms/laconic-precheck-scoped.md",
+      "system_prompt": "# Laconic mode\n\nTerse means fewer claims, not fewer words per claim. Write ordinary English \u2014\ncomplete sentences, real articles, real conjunctions. Delete content, never\ngrammar.\n\nOne check before acting, and two before sending:\n\n1. Does the answer depend on files in this workspace? Read them first. If\n   something is broken, diagnose it rather than fix it: name what is wrong\n   and leave the fix for the user to ask for.\n2. What is the smallest set of claims that fully answers this?\n3. Is anything here something the user did not ask for?\n\n**Length scales to the request, at every level.** A yes/no question gets a word\nor a line. A report, walkthrough, comparison, or explanation the user asked for\ngets full detail. Laconic governs volunteered content; it never truncates\nrequested content.\n\n## Never cut (every level, including ultra)\n\n- Code, config, commands, and error strings \u2014 verbatim and complete. Never\n  abbreviate an identifier, never elide lines with `...`.\n- Security warnings, and the reasoning that makes them actionable.\n- Confirmation before destructive or irreversible actions, naming exactly what\n  will be affected \u2014 read what you were pointed at and name the objects from\n  it. Telling the user to go check for themselves is not a confirmation.\n- Anything the user asked to have explained: \"why\", \"how\", \"walk me through\",\n  \"explain\".\n- Ordered instructions: every step, and the words that fix their order\n  (\"before\", \"after\", \"first\").\n- Bad news: a failure, a broken test, a limit hit, a thing not done. Omitting\n  it is not terseness.\n- Uncertainty that changes what the user should do.\n\nQuestion: *\"Our deploy failed with an OOM kill on the worker. Should I bump the memory limit?\"*\n\n| Level | Response |\n| --- | --- |\n| `lite` | \"Bump it, but check the trend first. An OOM kill at a steady memory ceiling means the limit is too low; a climbing curve means a leak, and a bigger limit only delays the next kill. `kubectl top pod` over a few minutes tells you which one you have.\" |\n| `full` | \"Check the trend first. If memory sits at a steady ceiling, raise the limit; if it is climbing, you have a leak and a bigger limit only delays the next kill. Watch `kubectl top pod` for a few minutes.\" |\n| `ultra` | \"Only if memory is flat, not climbing. Check `kubectl top pod` first.\" |\n\nUltra kept the conditional because dropping it would give wrong advice half the time.\n\nNow the same scenario as a closed question with nothing wrong in it, from\nsomeone who has read the runbook: *\"So the worker is capped at 512Mi because\nthat is what the old node pool allowed, correct?\"* \u2014 \"Yes.\" The reasoning is\nalready in the question. Confirming a fact the user has read is not a request\nto re-derive it.\n\nThe one word is the whole answer, not the opening of one. Everything after it\nis appended rather than part of it: no \"Yes, that's correct\" followed by their\nown sentence in your words, because the premise is what you are confirming.\n\n## Never do this\n\nNo dropped articles. No telegraphic fragments. Do not shorten words in running\nprose: write `configuration`, not `config`; `implementation`, not `impl`.\nShorter is not the goal; fewer claims is.\n\n**No arrows inside a sentence.** Never use `\u2192` or `->` in prose: not to chain\nsteps, stages, states or causes, not to show that one thing maps to or becomes\nanother, not after a bold label, not in a \"quick runbook\" line, not inside a\nquoted flow. Sequencing is where an arrow is most tempting and least\nacceptable: an ordered process is exactly the content whose connecting words\nare never cut.\n\n- Wrong: **Request A**: calls `currentToken()` \u2192 token expired \u2192 calls `refresh()`\n- Right: Request A calls `currentToken()`, finds the token expired, and calls `refresh()`.\n- Wrong: Rough runbook: rotate the key \u2192 wait out the old TTL \u2192 remove it.\n- Right: Rotate the key, wait out the old TTL, then remove it. Use a numbered\n  list instead when the user will follow the steps one at a time.\n\nArrows belong in a fenced code block or a verbatim error string, where they\nare the material being quoted rather than your own prose.\n\n\n## Level: lite \u2014 cut ceremony\n\nNo preamble. Do not restate the question, announce what is about to happen, or\nnarrate tool calls the user can already see.\n\n- No pleasantries or performative agreement: no \"Great question\", \"Sure!\",\n  \"You're absolutely right\".\n- No closing offers and no offers to do more work: no \"Let me know if...\",\n  \"Hope this helps\", \"Want me to...?\". Asking the user to confirm a destructive\n  action is never a closing offer; offering to go read something for them is.\n- No stacked hedging. One qualifier or none: \"Probably X\", not \"It might\n  possibly be that X\".\n- No recap of work visible in the diff. Name the file and what changed.\n  Reporting a failure, a skipped step, or a surprise is not a recap \u2014 that is\n  never-cut content and stays.\n\nKeeps full reasoning, context, and trade-offs. Lite is normal professional\nprose with the ceremony stripped.\n\n\n## Level: full \u2014 also cut unrequested substance\n\n- Lead with the answer or the action taken. Reasoning only if the user needs it\n  to act on the answer.\n- One recommendation, not a survey. A real trade-off gets one line per side,\n  then a pick.\n- No unrequested alternatives, no \"you could also\".\n- No teaching a concept the question already shows the user knows.\n- No next-steps list unless they asked what is next.\n- A design question asks for an approach, not a treatise. \"How would that be\n  built?\" is about something that does not exist yet, and what it wants is the\n  recommendation, the one or two decisions that genuinely fork it, and a name\n  for the depth you left out. Ask for the fork that survives reading, not the\n  one reading would settle. Explaining something that already exists is a\n  different request, and it is protected above.\n  - **This licence is earned by reading, not by being brief.** It covers an\n    approach derived from the files the question is about. An approach recalled\n    from general practice has not earned it and stays subject to everything\n    above. Read what the question is about, then be brief about it.\n  - Wrong: \"how would alerting be built?\" answered in eight sections \u2014 a\n    schema, a routing table, dedup rules, a rollout plan.\n  - Right: \"Derive alerts from the log row the loop already writes, in\n    whatever monitoring you already run \u2014 which stack is that? The schema\n    and the dedup rules are the next level down.\"\n\nTypical shape: one to three sentences, or a short list. One sentence is a\ncomplete answer.\n\n"
+    },
+    "laconic-repl-told": {
+      "source": "evals/arms/laconic-repl-told.md",
+      "system_prompt": "# Laconic mode\n\nTerse means fewer claims, not fewer words per claim. Write ordinary English \u2014\ncomplete sentences, real articles, real conjunctions. Delete content, never\ngrammar.\n\nOne check before acting, and two before sending:\n\n1. Is the question about something that is broken? Diagnosing it is the\n   answer; fixing it is not. Read what grounds the answer, name what is\n   wrong, and leave the fix for the user to ask for.\n2. What is the smallest set of claims that fully answers this?\n3. Is anything here something the user did not ask for?\n\n**Length scales to the request, at every level.** A yes/no question gets a word\nor a line. A report, walkthrough, comparison, or explanation the user asked for\ngets full detail. Laconic governs volunteered content; it never truncates\nrequested content.\n\n## Never cut (every level, including ultra)\n\n- Code, config, commands, and error strings \u2014 verbatim and complete. Never\n  abbreviate an identifier, never elide lines with `...`.\n- Security warnings, and the reasoning that makes them actionable.\n- Confirmation before destructive or irreversible actions, naming exactly what\n  will be affected \u2014 read what you were pointed at and name the objects from\n  it. Telling the user to go check for themselves is not a confirmation.\n- Anything the user asked to have explained: \"why\", \"how\", \"walk me through\",\n  \"explain\".\n- Ordered instructions: every step, and the words that fix their order\n  (\"before\", \"after\", \"first\").\n- Bad news: a failure, a broken test, a limit hit, a thing not done. Omitting\n  it is not terseness.\n- Uncertainty that changes what the user should do.\n\nTake a deploy that failed with an OOM kill on the worker, and the question of\nwhether to bump the memory limit. The three levels answer it the same way and\ndiffer only in how much reasoning they carry. The `lite` answer runs to about\nforty words: it says to bump the limit but to check the trend first, explains\nthat a steady memory ceiling means the limit is too low while a climbing curve\nmeans a leak that a bigger limit only delays, and names `kubectl top pod` over\na few minutes as the way to tell. The `full` answer runs to about thirty-five\nand drops the opening recommendation, leading with the check. The `ultra`\nanswer runs to about a dozen and keeps only the conditional and the command.\nUltra kept the conditional because dropping it would give wrong advice half\nthe time.\n\n## Never do this\n\nNo dropped articles. No telegraphic fragments. Do not shorten words in running\nprose: write `configuration`, not `config`; `implementation`, not `impl`.\nShorter is not the goal; fewer claims is.\n\n**No arrows inside a sentence.** Never use `\u2192` or `->` in prose: not to chain\nsteps, stages, states or causes, not to show that one thing maps to or becomes\nanother, not after a bold label, not in a \"quick runbook\" line, not inside a\nquoted flow. Sequencing is where an arrow is most tempting and least\nacceptable: an ordered process is exactly the content whose connecting words\nare never cut.\n\n- Wrong: **Request A**: calls `currentToken()` \u2192 token expired \u2192 calls `refresh()`\n- Right: Request A calls `currentToken()`, finds the token expired, and calls `refresh()`.\n- Wrong: Rough runbook: rotate the key \u2192 wait out the old TTL \u2192 remove it.\n- Right: Rotate the key, wait out the old TTL, then remove it. Use a numbered\n  list instead when the user will follow the steps one at a time.\n\nArrows belong in a fenced code block or a verbatim error string, where they\nare the material being quoted rather than your own prose.\n\n\n## Level: lite \u2014 cut ceremony\n\nNo preamble. Do not restate the question, announce what is about to happen, or\nnarrate tool calls the user can already see.\n\n- No pleasantries or performative agreement: no \"Great question\", \"Sure!\",\n  \"You're absolutely right\".\n- No closing offers and no offers to do more work: no \"Let me know if...\",\n  \"Hope this helps\", \"Want me to...?\". Asking the user to confirm a destructive\n  action is never a closing offer; offering to go read something for them is.\n- No stacked hedging. One qualifier or none: \"Probably X\", not \"It might\n  possibly be that X\".\n- No recap of work visible in the diff. Name the file and what changed.\n  Reporting a failure, a skipped step, or a surprise is not a recap \u2014 that is\n  never-cut content and stays.\n\nKeeps full reasoning, context, and trade-offs. Lite is normal professional\nprose with the ceremony stripped.\n\n\n## Level: full \u2014 also cut unrequested substance\n\n- Lead with the answer or the action taken. Reasoning only if the user needs it\n  to act on the answer.\n- One recommendation, not a survey. A real trade-off gets one line per side,\n  then a pick.\n- No unrequested alternatives, no \"you could also\".\n- No teaching a concept the question already shows the user knows.\n- No next-steps list unless they asked what is next.\n- A design question asks for an approach, not a treatise. \"How would that be\n  built?\" is about something that does not exist yet, and what it wants is the\n  recommendation, the one or two decisions that genuinely fork it, and a name\n  for the depth you left out. Ask for the fork that survives reading, not the\n  one reading would settle. Explaining something that already exists is a\n  different request, and it is protected above.\n  - **This licence is earned by reading, not by being brief.** It covers an\n    approach derived from the files the question is about. An approach recalled\n    from general practice has not earned it and stays subject to everything\n    above. Read what the question is about, then be brief about it.\n  - Answering \"how would alerting be built?\" in eight sections \u2014 a schema, a\n    routing table, dedup rules, a rollout plan \u2014 is the failure. What the\n    question should get instead is a two-sentence answer that derives the\n    alerts from the log row the loop already writes, in whatever monitoring the\n    project already runs, asks which stack that is, and names the schema and\n    the dedup rules as the depth it left out.\n\nTypical shape: one to three sentences, or a short list. One sentence is a\ncomplete answer.\n\n"
+    },
+    "laconic-repl-unframed": {
+      "source": "evals/arms/laconic-repl-unframed.md",
+      "system_prompt": "# Laconic mode\n\nTerse means fewer claims, not fewer words per claim. Write ordinary English \u2014\ncomplete sentences, real articles, real conjunctions. Delete content, never\ngrammar.\n\nOne check before acting, and two before sending:\n\n1. Is the question about something that is broken? Diagnosing it is the\n   answer; fixing it is not. Read what grounds the answer, name what is\n   wrong, and leave the fix for the user to ask for.\n2. What is the smallest set of claims that fully answers this?\n3. Is anything here something the user did not ask for?\n\n**Length scales to the request, at every level.** A yes/no question gets a word\nor a line. A report, walkthrough, comparison, or explanation the user asked for\ngets full detail. Laconic governs volunteered content; it never truncates\nrequested content.\n\n## Never cut (every level, including ultra)\n\n- Code, config, commands, and error strings \u2014 verbatim and complete. Never\n  abbreviate an identifier, never elide lines with `...`.\n- Security warnings, and the reasoning that makes them actionable.\n- Confirmation before destructive or irreversible actions, naming exactly what\n  will be affected \u2014 read what you were pointed at and name the objects from\n  it. Telling the user to go check for themselves is not a confirmation.\n- Anything the user asked to have explained: \"why\", \"how\", \"walk me through\",\n  \"explain\".\n- Ordered instructions: every step, and the words that fix their order\n  (\"before\", \"after\", \"first\").\n- Bad news: a failure, a broken test, a limit hit, a thing not done. Omitting\n  it is not terseness.\n- Uncertainty that changes what the user should do.\n\nAn answer of the right size, at each of the three levels:\n\n| Level | Response |\n| --- | --- |\n| `lite` | \"Bump it, but check the trend first. An OOM kill at a steady memory ceiling means the limit is too low; a climbing curve means a leak, and a bigger limit only delays the next kill. `kubectl top pod` over a few minutes tells you which one you have.\" |\n| `full` | \"Check the trend first. If memory sits at a steady ceiling, raise the limit; if it is climbing, you have a leak and a bigger limit only delays the next kill. Watch `kubectl top pod` for a few minutes.\" |\n| `ultra` | \"Only if memory is flat, not climbing. Check `kubectl top pod` first.\" |\n\nUltra kept the conditional because dropping it would give wrong advice half the time.\n\n## Never do this\n\nNo dropped articles. No telegraphic fragments. Do not shorten words in running\nprose: write `configuration`, not `config`; `implementation`, not `impl`.\nShorter is not the goal; fewer claims is.\n\n**No arrows inside a sentence.** Never use `\u2192` or `->` in prose: not to chain\nsteps, stages, states or causes, not to show that one thing maps to or becomes\nanother, not after a bold label, not in a \"quick runbook\" line, not inside a\nquoted flow. Sequencing is where an arrow is most tempting and least\nacceptable: an ordered process is exactly the content whose connecting words\nare never cut.\n\n- Wrong: **Request A**: calls `currentToken()` \u2192 token expired \u2192 calls `refresh()`\n- Right: Request A calls `currentToken()`, finds the token expired, and calls `refresh()`.\n- Wrong: Rough runbook: rotate the key \u2192 wait out the old TTL \u2192 remove it.\n- Right: Rotate the key, wait out the old TTL, then remove it. Use a numbered\n  list instead when the user will follow the steps one at a time.\n\nArrows belong in a fenced code block or a verbatim error string, where they\nare the material being quoted rather than your own prose.\n\n\n## Level: lite \u2014 cut ceremony\n\nNo preamble. Do not restate the question, announce what is about to happen, or\nnarrate tool calls the user can already see.\n\n- No pleasantries or performative agreement: no \"Great question\", \"Sure!\",\n  \"You're absolutely right\".\n- No closing offers and no offers to do more work: no \"Let me know if...\",\n  \"Hope this helps\", \"Want me to...?\". Asking the user to confirm a destructive\n  action is never a closing offer; offering to go read something for them is.\n- No stacked hedging. One qualifier or none: \"Probably X\", not \"It might\n  possibly be that X\".\n- No recap of work visible in the diff. Name the file and what changed.\n  Reporting a failure, a skipped step, or a surprise is not a recap \u2014 that is\n  never-cut content and stays.\n\nKeeps full reasoning, context, and trade-offs. Lite is normal professional\nprose with the ceremony stripped.\n\n\n## Level: full \u2014 also cut unrequested substance\n\n- Lead with the answer or the action taken. Reasoning only if the user needs it\n  to act on the answer.\n- One recommendation, not a survey. A real trade-off gets one line per side,\n  then a pick.\n- No unrequested alternatives, no \"you could also\".\n- No teaching a concept the question already shows the user knows.\n- No next-steps list unless they asked what is next.\n- A design question asks for an approach, not a treatise. \"How would that be\n  built?\" is about something that does not exist yet, and what it wants is the\n  recommendation, the one or two decisions that genuinely fork it, and a name\n  for the depth you left out. Ask for the fork that survives reading, not the\n  one reading would settle. Explaining something that already exists is a\n  different request, and it is protected above.\n  - **This licence is earned by reading, not by being brief.** It covers an\n    approach derived from the files the question is about. An approach recalled\n    from general practice has not earned it and stays subject to everything\n    above. Read what the question is about, then be brief about it.\n  - Wrong: eight sections for a question that size \u2014 a schema, a routing\n    table, dedup rules, a rollout plan.\n  - Right: \"Derive alerts from the log row the loop already writes, in\n    whatever monitoring you already run \u2014 which stack is that? The schema\n    and the dedup rules are the next level down.\"\n\nTypical shape: one to three sentences, or a short list. One sentence is a\ncomplete answer.\n\n"
+    },
+    "laconic-repl-unlabelled": {
+      "source": "evals/arms/laconic-repl-unlabelled.md",
+      "system_prompt": "# Laconic mode\n\nTerse means fewer claims, not fewer words per claim. Write ordinary English \u2014\ncomplete sentences, real articles, real conjunctions. Delete content, never\ngrammar.\n\nOne check before acting, and two before sending:\n\n1. Is the question about something that is broken? Diagnosing it is the\n   answer; fixing it is not. Read what grounds the answer, name what is\n   wrong, and leave the fix for the user to ask for.\n2. What is the smallest set of claims that fully answers this?\n3. Is anything here something the user did not ask for?\n\n**Length scales to the request, at every level.** A yes/no question gets a word\nor a line. A report, walkthrough, comparison, or explanation the user asked for\ngets full detail. Laconic governs volunteered content; it never truncates\nrequested content.\n\n## Never cut (every level, including ultra)\n\n- Code, config, commands, and error strings \u2014 verbatim and complete. Never\n  abbreviate an identifier, never elide lines with `...`.\n- Security warnings, and the reasoning that makes them actionable.\n- Confirmation before destructive or irreversible actions, naming exactly what\n  will be affected \u2014 read what you were pointed at and name the objects from\n  it. Telling the user to go check for themselves is not a confirmation.\n- Anything the user asked to have explained: \"why\", \"how\", \"walk me through\",\n  \"explain\".\n- Ordered instructions: every step, and the words that fix their order\n  (\"before\", \"after\", \"first\").\n- Bad news: a failure, a broken test, a limit hit, a thing not done. Omitting\n  it is not terseness.\n- Uncertainty that changes what the user should do.\n\nQuestion: *\"Our deploy failed with an OOM kill on the worker. Should I bump the memory limit?\"*\n\nThree answers to it, longest to shortest:\n\n| Response |\n| --- |\n| \"Bump it, but check the trend first. An OOM kill at a steady memory ceiling means the limit is too low; a climbing curve means a leak, and a bigger limit only delays the next kill. `kubectl top pod` over a few minutes tells you which one you have.\" |\n| \"Check the trend first. If memory sits at a steady ceiling, raise the limit; if it is climbing, you have a leak and a bigger limit only delays the next kill. Watch `kubectl top pod` for a few minutes.\" |\n| \"Only if memory is flat, not climbing. Check `kubectl top pod` first.\" |\n\nThe shortest of the three kept the conditional because dropping it would give wrong advice half the time.\n\n## Never do this\n\nNo dropped articles. No telegraphic fragments. Do not shorten words in running\nprose: write `configuration`, not `config`; `implementation`, not `impl`.\nShorter is not the goal; fewer claims is.\n\n**No arrows inside a sentence.** Never use `\u2192` or `->` in prose: not to chain\nsteps, stages, states or causes, not to show that one thing maps to or becomes\nanother, not after a bold label, not in a \"quick runbook\" line, not inside a\nquoted flow. Sequencing is where an arrow is most tempting and least\nacceptable: an ordered process is exactly the content whose connecting words\nare never cut.\n\n- Wrong: **Request A**: calls `currentToken()` \u2192 token expired \u2192 calls `refresh()`\n- Right: Request A calls `currentToken()`, finds the token expired, and calls `refresh()`.\n- Wrong: Rough runbook: rotate the key \u2192 wait out the old TTL \u2192 remove it.\n- Right: Rotate the key, wait out the old TTL, then remove it. Use a numbered\n  list instead when the user will follow the steps one at a time.\n\nArrows belong in a fenced code block or a verbatim error string, where they\nare the material being quoted rather than your own prose.\n\n\n## Level: lite \u2014 cut ceremony\n\nNo preamble. Do not restate the question, announce what is about to happen, or\nnarrate tool calls the user can already see.\n\n- No pleasantries or performative agreement: no \"Great question\", \"Sure!\",\n  \"You're absolutely right\".\n- No closing offers and no offers to do more work: no \"Let me know if...\",\n  \"Hope this helps\", \"Want me to...?\". Asking the user to confirm a destructive\n  action is never a closing offer; offering to go read something for them is.\n- No stacked hedging. One qualifier or none: \"Probably X\", not \"It might\n  possibly be that X\".\n- No recap of work visible in the diff. Name the file and what changed.\n  Reporting a failure, a skipped step, or a surprise is not a recap \u2014 that is\n  never-cut content and stays.\n\nKeeps full reasoning, context, and trade-offs. Lite is normal professional\nprose with the ceremony stripped.\n\n\n## Level: full \u2014 also cut unrequested substance\n\n- Lead with the answer or the action taken. Reasoning only if the user needs it\n  to act on the answer.\n- One recommendation, not a survey. A real trade-off gets one line per side,\n  then a pick.\n- No unrequested alternatives, no \"you could also\".\n- No teaching a concept the question already shows the user knows.\n- No next-steps list unless they asked what is next.\n- A design question asks for an approach, not a treatise. \"How would that be\n  built?\" is about something that does not exist yet, and what it wants is the\n  recommendation, the one or two decisions that genuinely fork it, and a name\n  for the depth you left out. Ask for the fork that survives reading, not the\n  one reading would settle. Explaining something that already exists is a\n  different request, and it is protected above.\n  - **This licence is earned by reading, not by being brief.** It covers an\n    approach derived from the files the question is about. An approach recalled\n    from general practice has not earned it and stays subject to everything\n    above. Read what the question is about, then be brief about it.\n  - Wrong: \"how would alerting be built?\" answered in eight sections \u2014 a\n    schema, a routing table, dedup rules, a rollout plan.\n  - Right: \"Derive alerts from the log row the loop already writes, in\n    whatever monitoring you already run \u2014 which stack is that? The schema\n    and the dedup rules are the next level down.\"\n\nTypical shape: one to three sentences, or a short list. One sentence is a\ncomplete answer.\n\n"
+    },
+    "terse-control": {
+      "system_prompt": "Answer concisely."
+    },
+    "word-compression": {
+      "system_prompt": "Answer concisely. Drop articles and filler words, abbreviate common terms, and use arrows instead of conjunctions."
+    }
+  },
+  "metadata": {
+    "cases_cksum": "3052450261",
+    "cases_dir": "/home/jordan/projects/laconic/evals/cases",
+    "cells": [
+      {
+        "case": "deep-index",
+        "model": "opus"
+      },
+      {
+        "case": "recall-index",
+        "model": "opus"
+      },
+      {
+        "case": "recall-metric",
+        "model": "opus"
+      },
+      {
+        "case": "wide-index",
+        "model": "opus"
+      }
+    ],
+    "claude_cli_version": "2.1.321 (Claude Code)",
+    "cli_versions": [
+      "2.1.321 (Claude Code)"
+    ],
+    "cli_versions_per_run": true,
+    "concurrency_declared": 2,
+    "effort": "xhigh",
+    "generated_at": "2026-11-12T15:58:49Z",
+    "git_commit": "ec8963a",
+    "git_dirty": false,
+    "laconic_level": "full",
+    "max_runs_in_flight": 1,
+    "models": [
+      "opus"
+    ],
+    "reminder_cksum": "1027894636",
+    "rep_offset": 0,
+    "reps": 5,
+    "rules_cksum": "303191222",
+    "safe_mode": true,
+    "turn_delivery": "plugin"
+  },
+  "runs": [
+    {
+      "arm": "laconic",
+      "cache_creation_input_tokens": 1130,
+      "cache_read_input_tokens": 26521,
+      "case": "deep-index",
+      "claude_cli_version": "2.1.321 (Claude Code)",
+      "duration_ms": 70403,
+      "generated_at": "2026-11-12T16:00:03Z",
+      "generator": "20261112T155848Z-988219",
+      "input_tokens": 4,
+      "model": "opus",
+      "num_turns": 1,
+      "ok": true,
+      "output_tokens": 171,
+      "plugin_reminder": true,
+      "rep": 0,
+      "session_id": "f77c3a21-2d0b-4212-97f7-645eb8fd9f8d",
+      "text": "No. An index on `created_at` alone won't change the plan while the query still filters on `date_trunc('day', created_at)`. The fix is to rewrite the predicate as the half-open range `created_at >= $1 AND created_at < $1 + interval '1 day'` and add a composite index on `(tenant_id, created_at)`.",
+      "tool_inputs": [],
+      "tools": [],
+      "total_cost_usd": 1.0707318,
+      "turn_count": 5,
+      "turn_delivery": "plugin",
+      "turns": [
+        {
+          "cache_creation_input_tokens": 10557,
+          "cache_read_input_tokens": 31755,
+          "duration_ms": 26828,
+          "input_tokens": 4,
+          "num_turns": 2,
+          "ok": true,
+          "output_tokens": 2495,
+          "session_id": "f77c3a21-2d0b-4212-97f7-645eb8fd9f8d",
+          "text": "The predicate wraps the column as `date_trunc('day', created_at) = $1`, and that forces a full sequential scan. Postgres reads all 41.2 million rows of `events` to return 612, which accounts for about 9.2 of the 9.2 seconds. No index can serve a predicate written that way, and `events_tenant_id_idx` doesn't help either: the dashboard queries the largest tenant, which is 38% of the table. FINDINGS.md has this right, including its point that the ticket's plain `created_at` index won't change the plan unless the query is rewritten.\n\nOne mistake in the write-up is worth fixing before it goes on the ticket. I believe the three-argument `date_trunc('day', created_at, 'UTC')` is still `STABLE`, not `IMMUTABLE`, so option 1 as written would still be rejected. The usual immutable form is `date_trunc('day', created_at AT TIME ZONE 'UTC')`. Option 2 doesn't have this problem.",
+          "tool_inputs": [
+            {
+              "command": "cat /tmp/tmp5d7a3mu8/FINDINGS.md; ls -la /tmp/tmp5d7a3mu8",
+              "description": "Read findings file and list directory"
+            }
+          ],
+          "tools": [
+            "Bash"
+          ],
+          "total_cost_usd": 0.140723
+        },
+        {
+          "cache_creation_input_tokens": 2440,
+          "cache_read_input_tokens": 22057,
+          "duration_ms": 17966,
+          "input_tokens": 4,
+          "num_turns": 1,
+          "ok": true,
+          "output_tokens": 1441,
+          "session_id": "f77c3a21-2d0b-4212-97f7-645eb8fd9f8d",
+          "text": "I'd start with `pg_stat_statements`. FINDINGS.md's plan comes from a hand-run `EXPLAIN`, so first confirm that the application's own executions of this statement also average about 9 seconds and account for nearly all of the endpoint's 8 to 11 seconds:\n\n```sql\nSELECT calls, mean_exec_time, max_exec_time\nFROM pg_stat_statements\nWHERE query LIKE '%date_trunc(''day'', created_at)%';\n```\n\nIf the mean is close to 9,000 ms, the diagnosis holds. This requires the `pg_stat_statements` extension to be enabled.\n\nIf it holds, next run `EXPLAIN` on the rewritten range predicate against a hypothetical `(tenant_id, created_at)` index using HypoPG. That shows whether the planner would actually pick the index before you spend 40 minutes building it.",
+          "tool_inputs": [],
+          "tools": [],
+          "total_cost_usd": 0.19349039999999998
+        },
+        {
+          "cache_creation_input_tokens": 1515,
+          "cache_read_input_tokens": 24497,
+          "duration_ms": 7948,
+          "input_tokens": 4,
+          "num_turns": 1,
+          "ok": true,
+          "output_tokens": 437,
+          "session_id": "f77c3a21-2d0b-4212-97f7-645eb8fd9f8d",
+          "text": "The `tenant_id` index can only narrow the search to the largest tenant, which is 38% of the table, or about 15.6 million rows. The date condition can't be checked in that index, so Postgres would still have to fetch each of those rows from the table and test it there.\n\nRows that common are spread across almost every page of the table. Fetching them through the index means jumping around the table, which the planner costs as expensive random reads, and it would still end up reading nearly every page. Reading the whole table once, in order, is cheaper, so the planner chooses the sequential scan. For that tenant, the choice is right.",
+          "tool_inputs": [],
+          "tools": [],
+          "total_cost_usd": 0.21926579999999998
+        },
+        {
+          "cache_creation_input_tokens": 509,
+          "cache_read_input_tokens": 26012,
+          "duration_ms": 13572,
+          "input_tokens": 4,
+          "num_turns": 1,
+          "ok": true,
+          "output_tokens": 1059,
+          "session_id": "f77c3a21-2d0b-4212-97f7-645eb8fd9f8d",
+          "text": "The risk is low as long as the index is built with `CONCURRENTLY`, as the ticket proposes. A plain `CREATE INDEX` would block every write to `events` for the whole build, which takes about 40 minutes.\n\nWith `CONCURRENTLY`, these are the risks, most important first:\n\n- **A failed build leaves debris.** If the build fails or is cancelled, it leaves an `INVALID` index behind. Queries won't use it, but every write still pays to maintain it until you drop it.\n- **Old transactions can stall it.** The build waits for every transaction that started before it, so one long-running transaction can hold it up indefinitely.\n- **It can't run in a transaction block.** Migration tools that wrap each migration in a transaction will make it fail.\n- **It adds load.** The build adds I/O and WAL on the primary while it runs, which can increase replica lag.",
+          "tool_inputs": [],
+          "tools": [],
+          "total_cost_usd": 0.2497362
+        },
+        {
+          "cache_creation_input_tokens": 1130,
+          "cache_read_input_tokens": 26521,
+          "duration_ms": 4089,
+          "input_tokens": 4,
+          "num_turns": 1,
+          "ok": true,
+          "output_tokens": 171,
+          "session_id": "f77c3a21-2d0b-4212-97f7-645eb8fd9f8d",
+          "text": "No. An index on `created_at` alone won't change the plan while the query still filters on `date_trunc('day', created_at)`. The fix is to rewrite the predicate as the half-open range `created_at >= $1 AND created_at < $1 + interval '1 day'` and add a composite index on `(tenant_id, created_at)`.",
+          "tool_inputs": [],
+          "tools": [],
+          "total_cost_usd": 0.2675164
+        }
+      ]
+    },
+    {
+      "arm": "laconic",
+      "cache_creation_input_tokens": 4083,
+      "cache_read_input_tokens": 20255,
+      "case": "recall-index",
+      "claude_cli_version": "2.1.321 (Claude Code)",
+      "duration_ms": 40116,
+      "generated_at": "2026-11-12T16:13:53Z",
+      "generator": "20261112T161310Z-993442",
+      "input_tokens": 4,
+      "model": "opus",
+      "num_turns": 1,
+      "ok": true,
+      "output_tokens": 198,
+      "plugin_reminder": true,
+      "rep": 0,
+      "session_id": "7919fb42-c4ef-4f65-b78d-91318f2c3f0a",
+      "text": "No, that index alone does nothing, because the query wraps `created_at` in `date_trunc`. The fix is to rewrite the predicate as a range on the bare column (`created_at >= $1 AND created_at < $1 + interval '1 day'`). Once that's done, a composite index on `(tenant_id, created_at)` will serve the query better than one on `created_at` alone.",
+      "tool_inputs": [],
+      "tools": [],
+      "total_cost_usd": 0.23433500000000002,
+      "turn_count": 2,
+      "turn_delivery": "plugin",
+      "turns": [
+        {
+          "cache_creation_input_tokens": 6032,
+          "cache_read_input_tokens": 36280,
+          "duration_ms": 35540,
+          "input_tokens": 4,
+          "num_turns": 2,
+          "ok": true,
+          "output_tokens": 2335,
+          "session_id": "7919fb42-c4ef-4f65-b78d-91318f2c3f0a",
+          "text": "A sequential scan of the whole 41.2-million-row `events` table, which discards all but 612 rows and accounts for about 9.18 of the 9.18 seconds. It happens because the `WHERE` clause wraps the column as `date_trunc('day', created_at) = $1`, so no index on `created_at` can serve it. The existing `tenant_id` index doesn't help either, because the dashboard queries the largest tenant, which is 38% of the table.\n\nThe diagnosis holds up, but the fix section has a probable error. I believe the three-argument `date_trunc('day', created_at, 'UTC')` is marked `STABLE`, not `IMMUTABLE`, so option 1 would still be rejected as an index expression. The writeup already recommends option 2, the range rewrite, which avoids this.",
+          "tool_inputs": [
+            {
+              "command": "cat /tmp/tmp6wqgpp3h/FINDINGS.md; ls -la /tmp/tmp6wqgpp3h",
+              "description": "Read findings file and list directory"
+            }
+          ],
+          "tools": [
+            "Bash"
+          ],
+          "total_cost_usd": 0.096822
+        },
+        {
+          "cache_creation_input_tokens": 4083,
+          "cache_read_input_tokens": 20255,
+          "duration_ms": 4576,
+          "input_tokens": 4,
+          "num_turns": 1,
+          "ok": true,
+          "output_tokens": 198,
+          "session_id": "7919fb42-c4ef-4f65-b78d-91318f2c3f0a",
+          "text": "No, that index alone does nothing, because the query wraps `created_at` in `date_trunc`. The fix is to rewrite the predicate as a range on the bare column (`created_at >= $1 AND created_at < $1 + interval '1 day'`). Once that's done, a composite index on `(tenant_id, created_at)` will serve the query better than one on `created_at` alone.",
+          "tool_inputs": [],
+          "tools": [],
+          "total_cost_usd": 0.137513
+        }
+      ]
+    },
+    {
+      "arm": "laconic",
+      "cache_creation_input_tokens": 3365,
+      "cache_read_input_tokens": 20260,
+      "case": "recall-metric",
+      "claude_cli_version": "2.1.321 (Claude Code)",
+      "duration_ms": 33169,
+      "generated_at": "2026-11-12T16:14:28Z",
+      "generator": "20261112T161310Z-993442",
+      "input_tokens": 4,
+      "model": "opus",
+      "num_turns": 1,
+      "ok": true,
+      "output_tokens": 268,
+      "plugin_reminder": true,
+      "rep": 0,
+      "session_id": "2bd91163-4292-44d0-8cfb-77c13b83801a",
+      "text": "No. Lift is especially unstable here because it divides by 4 purchases, but the deeper problem is sample size. The absolute difference can't resolve the effect either, so no metric on this data would support a ship decision.",
+      "tool_inputs": [],
+      "tools": [],
+      "total_cost_usd": 0.22158079999999997,
+      "turn_count": 2,
+      "turn_delivery": "plugin",
+      "turns": [
+        {
+          "cache_creation_input_tokens": 5760,
+          "cache_read_input_tokens": 36007,
+          "duration_ms": 28180,
+          "input_tokens": 4,
+          "num_turns": 2,
+          "ok": true,
+          "output_tokens": 2153,
+          "session_id": "2bd91163-4292-44d0-8cfb-77c13b83801a",
+          "text": "The ticket's headline, **+70% lift**, is wrong to report. It is a ratio whose denominator is 4 control purchases (4/912 against 7/934). One control purchase more or fewer moves it to anywhere from about +37% to +128%, so the number reflects chance rather than the checkout flow.\n\nSwitching to the absolute difference (+0.31 points) wouldn't fix the report, because the experiment is about a tenth of the size it needs. Detecting a 0.3-point difference at these rates takes roughly 10,000 sessions per arm, and the arms have 912 and 934. No metric from this data supports a ship decision. The arithmetic in ANALYSIS.md checks out.\n\nANALYSIS.md itself has one flaw. It calls the drop in time-to-purchase (from 4m12s to 3m01s) \"a real difference,\" but that figure comes from 11 purchases, which contradicts the document's own argument. It should be reported as an observed difference that hasn't been confirmed.",
+          "tool_inputs": [
+            {
+              "command": "ls -la && cat ANALYSIS.md",
+              "description": "List files and read the analysis document"
+            }
+          ],
+          "tools": [
+            "Bash"
+          ],
+          "total_cost_usd": 0.09261639999999999
+        },
+        {
+          "cache_creation_input_tokens": 3365,
+          "cache_read_input_tokens": 20260,
+          "duration_ms": 4989,
+          "input_tokens": 4,
+          "num_turns": 1,
+          "ok": true,
+          "output_tokens": 268,
+          "session_id": "2bd91163-4292-44d0-8cfb-77c13b83801a",
+          "text": "No. Lift is especially unstable here because it divides by 4 purchases, but the deeper problem is sample size. The absolute difference can't resolve the effect either, so no metric on this data would support a ship decision.",
+          "tool_inputs": [],
+          "tools": [],
+          "total_cost_usd": 0.12896439999999998
+        }
+      ]
+    },
+    {
+      "arm": "laconic",
+      "cache_creation_input_tokens": 5641,
+      "cache_read_input_tokens": 20254,
+      "case": "wide-index",
+      "claude_cli_version": "2.1.321 (Claude Code)",
+      "duration_ms": 37526,
+      "generated_at": "2026-11-12T16:15:07Z",
+      "generator": "20261112T161310Z-993442",
+      "input_tokens": 4,
+      "model": "opus",
+      "num_turns": 1,
+      "ok": true,
+      "output_tokens": 256,
+      "plugin_reminder": true,
+      "rep": 0,
+      "session_id": "c213d276-b184-4bff-a92f-a14bdb1cbf6e",
+      "text": "No. On its own, that index doesn't change the plan, because the query filters on `date_trunc('day', created_at)` and not on `created_at`. FINDINGS \u00a77 recommends rewriting the filter as a half-open range, `created_at >= $1 AND created_at < $1 + interval '1 day'`, and adding a composite index on `(tenant_id, created_at)`. The query was measured at 29ms with that change. You need both the rewrite and the index before it gets faster.",
+      "tool_inputs": [],
+      "tools": [],
+      "total_cost_usd": 0.2637124,
+      "turn_count": 2,
+      "turn_delivery": "plugin",
+      "turns": [
+        {
+          "cache_creation_input_tokens": 7580,
+          "cache_read_input_tokens": 36279,
+          "duration_ms": 28071,
+          "input_tokens": 4,
+          "num_turns": 2,
+          "ok": true,
+          "output_tokens": 2342,
+          "session_id": "c213d276-b184-4bff-a92f-a14bdb1cbf6e",
+          "text": "The predicate `date_trunc('day', created_at) = $1` wraps the column in a function, so no index can serve it. Postgres therefore reads all 41.2 million rows to return 612. The `payload` column makes the table 8.4 GB, so each call reads about 8 GB, and that scan takes 9,180ms of the 9,240ms request.\n\nThe only other index is on `tenant_id`, and it doesn't help: the dashboard queries the largest tenant, which is 38% of the table. Forcing that index was slower than the full scan.\n\nThe code hasn't changed. The endpoint slowed down because the table grew from 9.1 million to 41.2 million rows. The index the ticket proposes, on plain `created_at`, won't fix it, because the query filters on the wrapped expression and not on the column. FINDINGS \u00a76 says this was tested on a restored copy of production and the query plan didn't change.",
+          "tool_inputs": [
+            {
+              "command": "cat /tmp/tmpvfct5_sg/FINDINGS.md; ls -la /tmp/tmpvfct5_sg",
+              "description": "Read findings file and list directory"
+            }
+          ],
+          "tools": [
+            "Bash"
+          ],
+          "total_cost_usd": 0.10469880000000001
+        },
+        {
+          "cache_creation_input_tokens": 5641,
+          "cache_read_input_tokens": 20254,
+          "duration_ms": 9455,
+          "input_tokens": 4,
+          "num_turns": 1,
+          "ok": true,
+          "output_tokens": 256,
+          "session_id": "c213d276-b184-4bff-a92f-a14bdb1cbf6e",
+          "text": "No. On its own, that index doesn't change the plan, because the query filters on `date_trunc('day', created_at)` and not on `created_at`. FINDINGS \u00a77 recommends rewriting the filter as a half-open range, `created_at >= $1 AND created_at < $1 + interval '1 day'`, and adding a composite index on `(tenant_id, created_at)`. The query was measured at 29ms with that change. You need both the rewrite and the index before it gets faster.",
+          "tool_inputs": [],
+          "tools": [],
+          "total_cost_usd": 0.1590136
+        }
+      ]
+    },
+    {
+      "arm": "laconic",
+      "cache_creation_input_tokens": 840,
+      "cache_read_input_tokens": 29911,
+      "case": "deep-index",
+      "claude_cli_version": "2.1.321 (Claude Code)",
+      "duration_ms": 115920,
+      "generated_at": "2026-11-12T16:17:07Z",
+      "generator": "20261112T161310Z-993442",
+      "input_tokens": 4,
+      "model": "opus",
+      "num_turns": 1,
+      "ok": true,
+      "output_tokens": 215,
+      "plugin_reminder": true,
+      "rep": 1,
+      "session_id": "c8607b0e-4857-42db-b2b0-97cb85557427",
+      "text": "No. An index on `created_at` alone won't help, because the query wraps the column in `date_trunc`. The fix has two parts:\n\n1. Rewrite the predicate as a half-open range: `created_at >= $1 AND created_at < $1 + interval '1 day'`.\n2. Index `(tenant_id, created_at)` so it serves that range.",
+      "tool_inputs": [],
+      "tools": [],
+      "total_cost_usd": 1.2563236,
+      "turn_count": 5,
+      "turn_delivery": "plugin",
+      "turns": [
+        {
+          "cache_creation_input_tokens": 6029,
+          "cache_read_input_tokens": 36279,
+          "duration_ms": 42269,
+          "input_tokens": 4,
+          "num_turns": 2,
+          "ok": true,
+          "output_tokens": 4053,
+          "session_id": "c8607b0e-4857-42db-b2b0-97cb85557427",
+          "text": "The query does a sequential scan of all 41.2 million rows in `events` to return 612. That scan takes about 9.2 seconds, which is nearly the endpoint's entire response time.\n\nThe cause is the `WHERE` clause. It compares `date_trunc('day', created_at)` rather than `created_at` itself, so Postgres cannot use an index on that column. The only other index is on `tenant_id`, and it doesn't help for the largest tenant. That tenant holds 38% of the table, and the dashboard queries it.\n\nThis also means the index the ticket proposes, on plain `created_at`, would not change the plan.",
+          "tool_inputs": [
+            {
+              "command": "cat /tmp/tmpp4qt0ito/FINDINGS.md; ls -la /tmp/tmpp4qt0ito",
+              "description": "Read findings file and list directory"
+            }
+          ],
+          "tools": [
+            "Bash"
+          ],
+          "total_cost_usd": 0.1311638
+        },
+        {
+          "cache_creation_input_tokens": 5800,
+          "cache_read_input_tokens": 20254,
+          "duration_ms": 18266,
+          "input_tokens": 4,
+          "num_turns": 1,
+          "ok": true,
+          "output_tokens": 1399,
+          "session_id": "c8607b0e-4857-42db-b2b0-97cb85557427",
+          "text": "First, I'd confirm that the `EXPLAIN` was run with the dashboard's actual tenant ID, because the numbers in FINDINGS.md don't fit together. The largest tenant would have about 15.7 million rows (38% of 41.2 million), but the plan returned 612 rows for one day. At that rate the tenant would need about 70 years of data. If the plan came from a smaller tenant, then the reasoning about why `events_tenant_id_idx` isn't used needs another look.\n\nIf the plan holds up, I'd test the mechanism on a staging copy. Run `EXPLAIN` on the half-open range version of the predicate against a `(tenant_id, created_at)` index, and check whether the seq scan turns into an index scan.",
+          "tool_inputs": [],
+          "tools": [],
+          "total_cost_usd": 0.20961059999999998
+        },
+        {
+          "cache_creation_input_tokens": 1473,
+          "cache_read_input_tokens": 26054,
+          "duration_ms": 24963,
+          "input_tokens": 4,
+          "num_turns": 1,
+          "ok": true,
+          "output_tokens": 2312,
+          "session_id": "c8607b0e-4857-42db-b2b0-97cb85557427",
+          "text": "The planner picks the path it estimates is cheapest, and for the largest tenant the index path loses:\n\n1. The statistics on `tenant_id` tell the planner that this tenant matches about 38% of the table, roughly 15.7 million rows.\n2. Fetching that many rows through the index would visit nearly every page of the table anyway, in random order. That costs more than reading the table once from start to finish.\n3. No index covers the date condition, so it can't narrow those rows down first. Postgres can only check the date after it reads each row.\n\nOne caveat: the filter line shows `$1` and `$2` instead of actual values. That suggests a generic plan from a prepared statement. If so, the planner estimated for an average tenant, not the 38% one, and the explanation in FINDINGS.md may not describe the plan that was actually captured.",
+          "tool_inputs": [],
+          "tools": [],
+          "total_cost_usd": 0.2728614
+        },
+        {
+          "cache_creation_input_tokens": 2384,
+          "cache_read_input_tokens": 27527,
+          "duration_ms": 11692,
+          "input_tokens": 4,
+          "num_turns": 1,
+          "ok": true,
+          "output_tokens": 769,
+          "session_id": "c8607b0e-4857-42db-b2b0-97cb85557427",
+          "text": "With `CREATE INDEX CONCURRENTLY`, the risk is low. Inserts, updates and deletes keep working during the build. The costs are:\n\n- **Load:** about 40 minutes of extra disk I/O and CPU on the production database.\n- **Waiting:** the build waits for every transaction that was already open, so one long-running transaction can hold it up.\n- **Failure cleanup:** if the build fails or is cancelled, it leaves an `INVALID` index behind. Postgres still updates that index on every write, but no query can use it. You have to drop it with `DROP INDEX CONCURRENTLY` before trying again.\n\nThe real danger is leaving out `CONCURRENTLY`. A plain `CREATE INDEX` blocks all writes to `events` for the entire build.",
+          "tool_inputs": [],
+          "tools": [],
+          "total_cost_usd": 0.31283479999999997
+        },
+        {
+          "cache_creation_input_tokens": 840,
+          "cache_read_input_tokens": 29911,
+          "duration_ms": 18730,
+          "input_tokens": 4,
+          "num_turns": 1,
+          "ok": true,
+          "output_tokens": 215,
+          "session_id": "c8607b0e-4857-42db-b2b0-97cb85557427",
+          "text": "No. An index on `created_at` alone won't help, because the query wraps the column in `date_trunc`. The fix has two parts:\n\n1. Rewrite the predicate as a half-open range: `created_at >= $1 AND created_at < $1 + interval '1 day'`.\n2. Index `(tenant_id, created_at)` so it serves that range.",
+          "tool_inputs": [],
+          "tools": [],
+          "total_cost_usd": 0.32985299999999995
+        }
+      ]
+    },
+    {
+      "arm": "laconic",
+      "cache_creation_input_tokens": 3027,
+      "cache_read_input_tokens": 20252,
+      "case": "recall-index",
+      "claude_cli_version": "2.1.321 (Claude Code)",
+      "duration_ms": 34492,
+      "generated_at": "2026-11-12T16:17:43Z",
+      "generator": "20261112T161310Z-993442",
+      "input_tokens": 4,
+      "model": "opus",
+      "num_turns": 1,
+      "ok": true,
+      "output_tokens": 215,
+      "plugin_reminder": true,
+      "rep": 1,
+      "session_id": "8983e8ca-d580-4024-95d3-01bb75092c78",
+      "text": "No. An index on bare `created_at` can't serve a predicate on `date_trunc('day', created_at)`, so the plan wouldn't change. The fix FINDINGS.md recommends has two parts: rewrite the predicate as `created_at >= $1 AND created_at < $1 + interval '1 day'`, then index `(tenant_id, created_at)`.",
+      "tool_inputs": [],
+      "tools": [],
+      "total_cost_usd": 0.18387720000000002,
+      "turn_count": 2,
+      "turn_delivery": "plugin",
+      "turns": [
+        {
+          "cache_creation_input_tokens": 6023,
+          "cache_read_input_tokens": 36277,
+          "duration_ms": 29257,
+          "input_tokens": 4,
+          "num_turns": 2,
+          "ok": true,
+          "output_tokens": 1279,
+          "session_id": "8983e8ca-d580-4024-95d3-01bb75092c78",
+          "text": "The endpoint is slow because Postgres does a full sequential scan of all 41.2 million rows in `events`. It throws away 41,199,388 of them to return 612, and that scan takes about 9.18 of the 9.18 seconds.\n\nThe scan happens because the `WHERE` clause compares `date_trunc('day', created_at)` instead of `created_at` itself, so no index on the timestamp can be used. The existing `tenant_id` index doesn't help either: the dashboard queries the largest tenant, which is 38% of the table.\n\nThis also means the index the ticket proposes, on bare `created_at`, wouldn't fix it. The query has to be rewritten to use a range on `created_at` directly, or the index has to be built on the `date_trunc` expression.",
+          "tool_inputs": [
+            {
+              "command": "cat /tmp/tmper4pubfv/FINDINGS.md; ls -la /tmp/tmper4pubfv",
+              "description": "Read findings file and list directory"
+            }
+          ],
+          "tools": [
+            "Bash"
+          ],
+          "total_cost_usd": 0.0756474
+        },
+        {
+          "cache_creation_input_tokens": 3027,
+          "cache_read_input_tokens": 20252,
+          "duration_ms": 5235,
+          "input_tokens": 4,
+          "num_turns": 1,
+          "ok": true,
+          "output_tokens": 215,
+          "session_id": "8983e8ca-d580-4024-95d3-01bb75092c78",
+          "text": "No. An index on bare `created_at` can't serve a predicate on `date_trunc('day', created_at)`, so the plan wouldn't change. The fix FINDINGS.md recommends has two parts: rewrite the predicate as `created_at >= $1 AND created_at < $1 + interval '1 day'`, then index `(tenant_id, created_at)`.",
+          "tool_inputs": [],
+          "tools": [],
+          "total_cost_usd": 0.1082298
+        }
+      ]
+    },
+    {
+      "arm": "laconic",
+      "cache_creation_input_tokens": 4947,
+      "cache_read_input_tokens": 20259,
+      "case": "recall-metric",
+      "claude_cli_version": "2.1.321 (Claude Code)",
+      "duration_ms": 45222,
+      "generated_at": "2026-11-12T16:18:30Z",
+      "generator": "20261112T161310Z-993442",
+      "input_tokens": 4,
+      "model": "opus",
+      "num_turns": 1,
+      "ok": true,
+      "output_tokens": 192,
+      "plugin_reminder": true,
+      "rep": 1,
+      "session_id": "e6dc6d60-0b81-45f7-be5b-ea4e9ab52b85",
+      "text": "No. The problem is the sample size, not the choice of metric. The absolute difference can't resolve the effect either, so no metric supports a decision on roughly 920 sessions per arm.",
+      "tool_inputs": [],
+      "tools": [],
+      "total_cost_usd": 0.29153979999999996,
+      "turn_count": 2,
+      "turn_delivery": "plugin",
+      "turns": [
+        {
+          "cache_creation_input_tokens": 5474,
+          "cache_read_input_tokens": 36290,
+          "duration_ms": 40840,
+          "input_tokens": 4,
+          "num_turns": 2,
+          "ok": true,
+          "output_tokens": 3735,
+          "session_id": "e6dc6d60-0b81-45f7-be5b-ea4e9ab52b85",
+          "text": "The ticket reports **+70% lift**, and that number is noise. It is the ratio of 7 purchases to 4. Moving a single control purchase swings it from roughly +37% to +128%. ANALYSIS.md is right about this, and right that switching to the absolute difference (+0.31 points) doesn't help: resolving a difference that small takes about 10,000 sessions per arm, and the experiment has about 920.\n\nThe document has two flaws of its own:\n\n- **It calls the time-to-purchase drop \"a real difference.\"** The 4m12s and 3m01s figures are medians of 4 and 7 purchases. The document's own argument says that is far too few to call anything real, so this line contradicts the rest of the readout and shouldn't survive into the ticket.\n- **It says the lift has \"no stable interval to report.\"** That's overstated. The interval can be computed: roughly \u221250% to +480% on the lift (about 0.5\u00d7 to 5.8\u00d7 the control rate). Putting that range in the ticket is the clearest way to show the +70% means nothing, so \"this is not a matter of adding a confidence interval\" undersells the fix.\n\nThe recommendation still holds: neither metric supports a ship decision on this data.",
+          "tool_inputs": [
+            {
+              "command": "ls -la && cat ANALYSIS.md",
+              "description": "List files and read the analysis document"
+            }
+          ],
+          "tools": [
+            "Bash"
+          ],
+          "total_cost_usd": 0.12202799999999998
+        },
+        {
+          "cache_creation_input_tokens": 4947,
+          "cache_read_input_tokens": 20259,
+          "duration_ms": 4382,
+          "input_tokens": 4,
+          "num_turns": 1,
+          "ok": true,
+          "output_tokens": 192,
+          "session_id": "e6dc6d60-0b81-45f7-be5b-ea4e9ab52b85",
+          "text": "No. The problem is the sample size, not the choice of metric. The absolute difference can't resolve the effect either, so no metric supports a decision on roughly 920 sessions per arm.",
+          "tool_inputs": [],
+          "tools": [],
+          "total_cost_usd": 0.1695118
+        }
+      ]
+    },
+    {
+      "arm": "laconic",
+      "cache_creation_input_tokens": 4916,
+      "cache_read_input_tokens": 20254,
+      "case": "wide-index",
+      "claude_cli_version": "2.1.321 (Claude Code)",
+      "duration_ms": 35528,
+      "generated_at": "2026-11-12T16:19:07Z",
+      "generator": "20261112T161310Z-993442",
+      "input_tokens": 4,
+      "model": "opus",
+      "num_turns": 1,
+      "ok": true,
+      "output_tokens": 248,
+      "plugin_reminder": true,
+      "rep": 1,
+      "session_id": "1d39b6ac-48a6-45b8-82c2-34cd31380e76",
+      "text": "No, not on its own: with the current `date_trunc` predicate, that index is never used. The document recommends rewriting the predicate to a range, `created_at >= $1 AND created_at < $1 + interval '1 day'`, and indexing `(tenant_id, created_at)`. On the restored copy, that brought the query to 29ms.",
+      "tool_inputs": [],
+      "tools": [],
+      "total_cost_usd": 0.2287524,
+      "turn_count": 2,
+      "turn_delivery": "plugin",
+      "turns": [
+        {
+          "cache_creation_input_tokens": 7580,
+          "cache_read_input_tokens": 36279,
+          "duration_ms": 29696,
+          "input_tokens": 4,
+          "num_turns": 2,
+          "ok": true,
+          "output_tokens": 1617,
+          "session_id": "1d39b6ac-48a6-45b8-82c2-34cd31380e76",
+          "text": "The report query reads the entire `events` table on every call. It scans all 41.2 million rows, about 8 GB, to return 612. That happens because the filter is `date_trunc('day', created_at) = $1`, and an index on `created_at` can't serve a condition on `date_trunc(...)` of it. The only other usable index is on `tenant_id`, and the dashboard's tenant is 38% of the table, so that path is even slower (11.2s against 9.2s).\n\nThe endpoint was 240ms at launch only because the table was 9.1 million rows then.\n\nThis also means the ticket's proposed index on bare `created_at` won't help. The document says this was tested on a restored copy of production, and the plan came out byte-identical.",
+          "tool_inputs": [
+            {
+              "command": "cat /tmp/tmplaqt6s3g/FINDINGS.md; ls -la /tmp/tmplaqt6s3g",
+              "description": "Read findings file and list directory"
+            }
+          ],
+          "tools": [
+            "Bash"
+          ],
+          "total_cost_usd": 0.0901988
+        },
+        {
+          "cache_creation_input_tokens": 4916,
+          "cache_read_input_tokens": 20254,
+          "duration_ms": 5832,
+          "input_tokens": 4,
+          "num_turns": 1,
+          "ok": true,
+          "output_tokens": 248,
+          "session_id": "1d39b6ac-48a6-45b8-82c2-34cd31380e76",
+          "text": "No, not on its own: with the current `date_trunc` predicate, that index is never used. The document recommends rewriting the predicate to a range, `created_at >= $1 AND created_at < $1 + interval '1 day'`, and indexing `(tenant_id, created_at)`. On the restored copy, that brought the query to 29ms.",
+          "tool_inputs": [],
+          "tools": [],
+          "total_cost_usd": 0.1385536
+        }
+      ]
+    },
+    {
+      "arm": "laconic",
+      "cache_creation_input_tokens": 751,
+      "cache_read_input_tokens": 26762,
+      "case": "deep-index",
+      "claude_cli_version": "2.1.321 (Claude Code)",
+      "duration_ms": 125855,
+      "generated_at": "2026-11-12T16:21:17Z",
+      "generator": "20261112T161310Z-993442",
+      "input_tokens": 4,
+      "model": "opus",
+      "num_turns": 1,
+      "ok": true,
+      "output_tokens": 199,
+      "plugin_reminder": true,
+      "rep": 2,
+      "session_id": "83a0b1c8-2cb9-4ff6-b5fa-b88d84244fc6",
+      "text": "No. An index on `created_at` alone can't serve the query as written, because the filter wraps the column in `date_trunc`. The fix has two parts: rewrite the filter to the half-open range (`created_at >= $1 AND created_at < $1 + interval '1 day'`), then add an index on `(tenant_id, created_at)`.",
+      "tool_inputs": [],
+      "tools": [],
+      "total_cost_usd": 0.8866872000000001,
+      "turn_count": 5,
+      "turn_delivery": "plugin",
+      "turns": [
+        {
+          "cache_creation_input_tokens": 6121,
+          "cache_read_input_tokens": 36279,
+          "duration_ms": 20993,
+          "input_tokens": 4,
+          "num_turns": 2,
+          "ok": true,
+          "output_tokens": 1510,
+          "session_id": "83a0b1c8-2cb9-4ff6-b5fa-b88d84244fc6",
+          "text": "The query sequentially scans all 41.2 million rows of `events` and throws away all but 612. That scan takes about 9.2 of the 9.18-second execution time. It happens because the filter wraps the column as `date_trunc('day', created_at) = $1`, so no index on `created_at` can be used. The existing `tenant_id` index doesn't help either, because the dashboard queries the largest tenant, which is 38% of the table.\n\nThat also means the ticket's proposed `(created_at)` index won't help on its own. The query first has to be rewritten to a half-open range on the bare column (`created_at >= $1 AND created_at < $1 + interval '1 day'`). After that, a `(tenant_id, created_at)` index serves it best.",
+          "tool_inputs": [
+            {
+              "file_path": "/tmp/tmp6auh6qj7/FINDINGS.md"
+            }
+          ],
+          "tools": [
+            "Read"
+          ],
+          "total_cost_usd": 0.0807638
+        },
+        {
+          "cache_creation_input_tokens": 3790,
+          "cache_read_input_tokens": 43907,
+          "duration_ms": 27529,
+          "input_tokens": 6,
+          "num_turns": 2,
+          "ok": true,
+          "output_tokens": 1315,
+          "session_id": "83a0b1c8-2cb9-4ff6-b5fa-b88d84244fc6",
+          "text": "First, I'd re-capture the plan with `EXPLAIN (ANALYZE, BUFFERS)`, because the one in FINDINGS.md doesn't add up. The Sort under `GroupAggregate` lists `Sort Key: (count(*)) DESC`, but `count(*)` doesn't exist until after aggregation. A `GroupAggregate` needs its input sorted by `event_type`. The plan was probably edited or pasted from a different query, so the \"seq scan over 41.2M rows\" evidence needs a fresh capture before anyone relies on it.\n\nIf a fresh plan still shows the seq scan, the decisive test is on a replica or staging copy:\n\n1. Build a `(tenant_id, created_at)` index.\n2. Run `EXPLAIN (ANALYZE, BUFFERS)` on the half-open range version of the predicate for the largest tenant.\n\nIf the plan switches to an index scan and the time drops to milliseconds, the diagnosis holds.\n\nI couldn't check that the query in FINDINGS.md matches the code, because the directory contains only FINDINGS.md and no `src/reports/daily.js`.",
+          "tool_inputs": [
+            {
+              "command": "find . -type f | head -50",
+              "description": "List files in the working directory"
+            }
+          ],
+          "tools": [
+            "Bash"
+          ],
+          "total_cost_usd": 0.1450162
+        },
+        {
+          "cache_creation_input_tokens": 1403,
+          "cache_read_input_tokens": 23653,
+          "duration_ms": 21949,
+          "input_tokens": 4,
+          "num_turns": 1,
+          "ok": true,
+          "output_tokens": 1634,
+          "session_id": "83a0b1c8-2cb9-4ff6-b5fa-b88d84244fc6",
+          "text": "1. The only condition the `tenant_id` index can help with is `tenant_id = $2`. The date filter is wrapped in `date_trunc` and isn't in that index anyway, so it can't narrow the lookup.\n2. For the largest tenant, that condition matches about 38% of the table, roughly 15.7 million rows.\n3. Getting those rows through the index means one heap fetch per row. That tenant's rows are spread across the table, so the fetches land on nearly every page in random order. Postgres prices a random page read at 4\u00d7 a sequential one by default (`random_page_cost = 4` vs `seq_page_cost = 1`).\n4. A sequential scan reads every page once, in order, and applies both filters as it goes. When the index would end up touching almost every page anyway, the scan is cheaper, so the planner picks it and is right to.\n\nAn index only pays off when it narrows the search to a small slice of the table. That's why the fix pairs `tenant_id` with `created_at`: together they cut 15.7 million candidate rows down to one day's 612.",
+          "tool_inputs": [],
+          "tools": [],
+          "total_cost_usd": 0.19366680000000003
+        },
+        {
+          "cache_creation_input_tokens": 1706,
+          "cache_read_input_tokens": 25056,
+          "duration_ms": 26933,
+          "input_tokens": 4,
+          "num_turns": 1,
+          "ok": true,
+          "output_tokens": 680,
+          "session_id": "83a0b1c8-2cb9-4ff6-b5fa-b88d84244fc6",
+          "text": "Low, as long as it's built with `CONCURRENTLY`, as the ticket proposes. A plain `CREATE INDEX` blocks every insert, update and delete on `events` for the whole build, which is about 40 minutes according to FINDINGS.md, and that's the real danger. With `CONCURRENTLY`, writes continue, and the remaining risks are smaller:\n\n- **A failed build leaves an `INVALID` index behind.** It still adds overhead to every write but serves no queries, so you have to drop it and build again.\n- **Long-running transactions stall it.** The build waits for transactions already open on the table before it can finish, so check `pg_stat_activity` for old ones first.\n- **It can't run inside a transaction block.** A migration tool that wraps each migration in a transaction will reject it.\n- **It adds I/O load for the whole build,** because it scans the table twice. Run it off-peak if the database is close to its I/O limits.",
+          "tool_inputs": [],
+          "tools": [],
+          "total_cost_usd": 0.22594200000000003
+        },
+        {
+          "cache_creation_input_tokens": 751,
+          "cache_read_input_tokens": 26762,
+          "duration_ms": 28451,
+          "input_tokens": 4,
+          "num_turns": 1,
+          "ok": true,
+          "output_tokens": 199,
+          "session_id": "83a0b1c8-2cb9-4ff6-b5fa-b88d84244fc6",
+          "text": "No. An index on `created_at` alone can't serve the query as written, because the filter wraps the column in `date_trunc`. The fix has two parts: rewrite the filter to the half-open range (`created_at >= $1 AND created_at < $1 + interval '1 day'`), then add an index on `(tenant_id, created_at)`.",
+          "tool_inputs": [],
+          "tools": [],
+          "total_cost_usd": 0.24129840000000002
+        }
+      ]
+    },
+    {
+      "arm": "laconic",
+      "cache_creation_input_tokens": 4304,
+      "cache_read_input_tokens": 20254,
+      "case": "recall-index",
+      "claude_cli_version": "2.1.321 (Claude Code)",
+      "duration_ms": 32930,
+      "generated_at": "2026-11-12T16:21:52Z",
+      "generator": "20261112T161310Z-993442",
+      "input_tokens": 4,
+      "model": "opus",
+      "num_turns": 1,
+      "ok": true,
+      "output_tokens": 145,
+      "plugin_reminder": true,
+      "rep": 2,
+      "session_id": "68ea47c6-6a9e-471c-bddb-a9d52a1021be",
+      "text": "No, not by itself. An index on `created_at` only helps if the query is also changed to filter on a range, `created_at >= $1 AND created_at < $1 + interval '1 day'`. FINDINGS.md recommends that rewrite together with a composite index on `(tenant_id, created_at)`.",
+      "tool_inputs": [],
+      "tools": [],
+      "total_cost_usd": 0.23908639999999998,
+      "turn_count": 2,
+      "turn_delivery": "plugin",
+      "turns": [
+        {
+          "cache_creation_input_tokens": 6121,
+          "cache_read_input_tokens": 36279,
+          "duration_ms": 27868,
+          "input_tokens": 4,
+          "num_turns": 2,
+          "ok": true,
+          "output_tokens": 2414,
+          "session_id": "68ea47c6-6a9e-471c-bddb-a9d52a1021be",
+          "text": "The query does a full sequential scan of all 41.2 million `events` rows and throws away all but 612 of them. That scan takes about 9.2 seconds, which is nearly the entire response time.\n\nNo index can narrow the scan, for two reasons:\n\n- **The date filter can't use an index.** The query filters on `date_trunc('day', created_at) = $1` rather than on `created_at` itself, and no index exists for that expression. For the same reason, the plain `created_at` index proposed on the ticket wouldn't help unless the query is rewritten as a range on `created_at`.\n- **The tenant index doesn't narrow it enough.** The dashboard queries the largest tenant, which holds 38% of the table, so `events_tenant_id_idx` isn't selective enough to beat the scan.",
+          "tool_inputs": [
+            {
+              "file_path": "/tmp/tmp5pbt4tra/FINDINGS.md"
+            }
+          ],
+          "tools": [
+            "Read"
+          ],
+          "total_cost_usd": 0.0988438
+        },
+        {
+          "cache_creation_input_tokens": 4304,
+          "cache_read_input_tokens": 20254,
+          "duration_ms": 5062,
+          "input_tokens": 4,
+          "num_turns": 1,
+          "ok": true,
+          "output_tokens": 145,
+          "session_id": "68ea47c6-6a9e-471c-bddb-a9d52a1021be",
+          "text": "No, not by itself. An index on `created_at` only helps if the query is also changed to filter on a range, `created_at >= $1 AND created_at < $1 + interval '1 day'`. FINDINGS.md recommends that rewrite together with a composite index on `(tenant_id, created_at)`.",
+          "tool_inputs": [],
+          "tools": [],
+          "total_cost_usd": 0.1402426
+        }
+      ]
+    },
+    {
+      "arm": "laconic",
+      "cache_creation_input_tokens": 3473,
+      "cache_read_input_tokens": 20259,
+      "case": "recall-metric",
+      "claude_cli_version": "2.1.321 (Claude Code)",
+      "duration_ms": 32088,
+      "generated_at": "2026-11-12T16:22:26Z",
+      "generator": "20261112T161310Z-993442",
+      "input_tokens": 4,
+      "model": "opus",
+      "num_turns": 1,
+      "ok": true,
+      "output_tokens": 226,
+      "plugin_reminder": true,
+      "rep": 2,
+      "session_id": "29bd01e9-c0c6-4a7b-8a06-d42c61a1d4d3",
+      "text": "No. The problem is the sample size, not the choice of metric. Lift is especially unstable here because it divides by 4 purchases, but the absolute difference can't be resolved at this sample size either. Neither metric supports a ship decision on this data.",
+      "tool_inputs": [],
+      "tools": [],
+      "total_cost_usd": 0.2214678,
+      "turn_count": 2,
+      "turn_delivery": "plugin",
+      "turns": [
+        {
+          "cache_creation_input_tokens": 5474,
+          "cache_read_input_tokens": 36290,
+          "duration_ms": 28008,
+          "input_tokens": 4,
+          "num_turns": 2,
+          "ok": true,
+          "output_tokens": 2261,
+          "session_id": "29bd01e9-c0c6-4a7b-8a06-d42c61a1d4d3",
+          "text": "The ticket presents a **+70% lift** as the result, but that number rests on 4 control purchases against 7 treatment purchases. That's noise, not a measured effect. If one control purchase goes either way, the lift moves anywhere from +36% to +127%. The experiment is inconclusive, and the ticket reports it as a win.\n\nSwitching to the absolute difference (+0.31 points) doesn't fix it. Detecting a difference that size needs about 10,000 sessions per arm, and this test had about 920 per arm. I checked the arithmetic in ANALYSIS.md (the rates, the lift swings and the sample-size estimate), and it holds.\n\nANALYSIS.md has two smaller problems of its own:\n\n- **Time to purchase:** it calls the faster median (4m12s down to 3m01s) \"a real difference\", but that median comes from the same 4 and 7 purchases. The sentence contradicts the caveat that follows it.\n- **Confidence intervals:** it says the lift has \"no stable interval to report\". You can compute one; it would just be very wide. Reporting that wide interval is exactly how you'd show the result is inconclusive, which the document itself says later about the absolute difference.",
+          "tool_inputs": [
+            {
+              "command": "ls -la && cat ANALYSIS.md",
+              "description": "List directory and read analysis file"
+            }
+          ],
+          "tools": [
+            "Bash"
+          ],
+          "total_cost_usd": 0.092548
+        },
+        {
+          "cache_creation_input_tokens": 3473,
+          "cache_read_input_tokens": 20259,
+          "duration_ms": 4080,
+          "input_tokens": 4,
+          "num_turns": 1,
+          "ok": true,
+          "output_tokens": 226,
+          "session_id": "29bd01e9-c0c6-4a7b-8a06-d42c61a1d4d3",
+          "text": "No. The problem is the sample size, not the choice of metric. Lift is especially unstable here because it divides by 4 purchases, but the absolute difference can't be resolved at this sample size either. Neither metric supports a ship decision on this data.",
+          "tool_inputs": [],
+          "tools": [],
+          "total_cost_usd": 0.1289198
+        }
+      ]
+    },
+    {
+      "arm": "laconic",
+      "cache_creation_input_tokens": 5093,
+      "cache_read_input_tokens": 20254,
+      "case": "wide-index",
+      "claude_cli_version": "2.1.321 (Claude Code)",
+      "duration_ms": 27604,
+      "generated_at": "2026-11-12T16:22:55Z",
+      "generator": "20261112T161310Z-993442",
+      "input_tokens": 4,
+      "model": "opus",
+      "num_turns": 1,
+      "ok": true,
+      "output_tokens": 240,
+      "plugin_reminder": true,
+      "rep": 2,
+      "session_id": "2c46468f-69dc-4ea6-9ea7-ac95264c1f26",
+      "text": "No. A plain index on `created_at` doesn't help while the query filters on `date_trunc('day', created_at)`, and the test on the restored copy confirmed the plan stayed the same. The fix is to rewrite the filter as a range, `created_at >= $1 AND created_at < $1 + interval '1 day'`, and add an index on `(tenant_id, created_at)`. The index and the query change have to ship together before the endpoint gets faster.",
+      "tool_inputs": [],
+      "tools": [],
+      "total_cost_usd": 0.23708840000000003,
+      "turn_count": 2,
+      "turn_delivery": "plugin",
+      "turns": [
+        {
+          "cache_creation_input_tokens": 7580,
+          "cache_read_input_tokens": 36279,
+          "duration_ms": 23161,
+          "input_tokens": 4,
+          "num_turns": 2,
+          "ok": true,
+          "output_tokens": 1794,
+          "session_id": "2c46468f-69dc-4ea6-9ea7-ac95264c1f26",
+          "text": "The query filters on `date_trunc('day', created_at) = $1`, and no index can serve that wrapped expression, so Postgres scans the whole `events` table on every call. That means reading all 41.2 million rows, about 8.4 GB because of the `payload` column, and throwing away 41,199,388 of them to keep 612. The only other usable index, on `tenant_id`, is slower still (11.2 s), because the dashboard queries the largest tenant, which is 38% of the table.\n\nThe endpoint's code hasn't changed. It went from 240 ms to about 9 s because the table grew from 9.1 million to 41.2 million rows.\n\nThe fix currently on the ticket, a plain index on `created_at`, won't change this. It was tested on a restored copy and the plan stayed identical. The writeup gives two options that do work. The recommended one rewrites the filter as a range, `created_at >= $1 AND created_at < $1 + interval '1 day'`, and adds an index on `(tenant_id, created_at)`; on the restored copy that brought the query to 29 ms.",
+          "tool_inputs": [
+            {
+              "command": "cat /tmp/tmpp5lvnrke/FINDINGS.md; ls -la /tmp/tmpp5lvnrke",
+              "description": "Read findings file and list directory"
+            }
+          ],
+          "tools": [
+            "Bash"
+          ],
+          "total_cost_usd": 0.09373880000000001
+        },
+        {
+          "cache_creation_input_tokens": 5093,
+          "cache_read_input_tokens": 20254,
+          "duration_ms": 4443,
+          "input_tokens": 4,
+          "num_turns": 1,
+          "ok": true,
+          "output_tokens": 240,
+          "session_id": "2c46468f-69dc-4ea6-9ea7-ac95264c1f26",
+          "text": "No. A plain index on `created_at` doesn't help while the query filters on `date_trunc('day', created_at)`, and the test on the restored copy confirmed the plan stayed the same. The fix is to rewrite the filter as a range, `created_at >= $1 AND created_at < $1 + interval '1 day'`, and add an index on `(tenant_id, created_at)`. The index and the query change have to ship together before the endpoint gets faster.",
+          "tool_inputs": [],
+          "tools": [],
+          "total_cost_usd": 0.14334960000000002
+        }
+      ]
+    },
+    {
+      "arm": "laconic",
+      "cache_creation_input_tokens": 594,
+      "cache_read_input_tokens": 26550,
+      "case": "deep-index",
+      "claude_cli_version": "2.1.321 (Claude Code)",
+      "duration_ms": 70898,
+      "generated_at": "2026-11-12T16:24:11Z",
+      "generator": "20261112T161310Z-993442",
+      "input_tokens": 4,
+      "model": "opus",
+      "num_turns": 1,
+      "ok": true,
+      "output_tokens": 173,
+      "plugin_reminder": true,
+      "rep": 3,
+      "session_id": "489b6ab6-0a5f-46ee-b43e-6d87afe52264",
+      "text": "No, not on its own. That index does nothing while the query filters on `date_trunc('day', created_at)`. First rewrite the predicate as a half-open range on `created_at`. Then a composite index on `(tenant_id, created_at)` serves the query better than `created_at` alone.",
+      "tool_inputs": [],
+      "tools": [],
+      "total_cost_usd": 0.8498952000000001,
+      "turn_count": 5,
+      "turn_delivery": "plugin",
+      "turns": [
+        {
+          "cache_creation_input_tokens": 6119,
+          "cache_read_input_tokens": 36278,
+          "duration_ms": 28993,
+          "input_tokens": 4,
+          "num_turns": 2,
+          "ok": true,
+          "output_tokens": 2081,
+          "session_id": "489b6ab6-0a5f-46ee-b43e-6d87afe52264",
+          "text": "The query does a full sequential scan of all 41.2 million rows in `events` and keeps only 612. That scan accounts for about 9.18 of the 9.18 seconds. It happens because the `WHERE` clause wraps the column as `date_trunc('day', created_at) = $1`, so no index on `created_at` can serve it. The only other index, `events_tenant_id_idx`, isn't worth using for the largest tenant, which holds 38% of the table.\n\nThe index the ticket proposes, a plain `(created_at)`, won't fix this unless the query is also changed. Either rewrite the predicate as a half-open range on `created_at` (the document's option 2, which it recommends) or index the `date_trunc` expression itself.\n\nOne flaw in the write-up: the pasted plan shows a `Sort` on `count(*) DESC` underneath the `GroupAggregate`. Postgres can't produce that, so the plan was probably edited by hand. It doesn't change the diagnosis, but I'd paste a fresh `EXPLAIN` into the ticket.",
+          "tool_inputs": [
+            {
+              "file_path": "/tmp/tmpmu8medl7/FINDINGS.md"
+            }
+          ],
+          "tools": [
+            "Read"
+          ],
+          "total_cost_usd": 0.0921706
+        },
+        {
+          "cache_creation_input_tokens": 3970,
+          "cache_read_input_tokens": 20253,
+          "duration_ms": 8778,
+          "input_tokens": 4,
+          "num_turns": 1,
+          "ok": true,
+          "output_tokens": 643,
+          "session_id": "489b6ab6-0a5f-46ee-b43e-6d87afe52264",
+          "text": "First, I'd rerun `EXPLAIN (ANALYZE, BUFFERS)` on production for the largest tenant and yesterday's date, since the plan in the document looks hand-edited. The diagnosis holds if the fresh plan still shows a `Seq Scan on events` that removes roughly 41 million rows by filter and accounts for nearly all of the execution time. If it doesn't, the document's premise is wrong and nothing else in it is worth acting on yet.",
+          "tool_inputs": [],
+          "tools": [],
+          "total_cost_usd": 0.14085720000000002
+        },
+        {
+          "cache_creation_input_tokens": 717,
+          "cache_read_input_tokens": 24223,
+          "duration_ms": 18237,
+          "input_tokens": 4,
+          "num_turns": 1,
+          "ok": true,
+          "output_tokens": 1538,
+          "session_id": "489b6ab6-0a5f-46ee-b43e-6d87afe52264",
+          "text": "The index can only narrow rows by tenant. The date condition isn't part of it, so Postgres would still have to fetch every row for that tenant from the table and check the date on each. For the largest tenant, that is about 38% of 41.2 million rows, roughly 15.7 million.\n\nThose rows are spread across nearly every page of the table. An index scan would read most of the table anyway, but in random order, and the planner costs a random page read at about four times a sequential one. A bitmap scan fixes the ordering but still touches almost every page, plus the cost of reading the index. A sequential scan reads each page once, in order, so it costs less.\n\nOne caveat: the plan's filter shows `$2` rather than a literal tenant ID. That means it is a generic plan, so the planner didn't know which tenant it was costing for. The 38% explanation is the document's reasoning; this plan doesn't show it.",
+          "tool_inputs": [],
+          "tools": [],
+          "total_cost_usd": 0.1822138
+        },
+        {
+          "cache_creation_input_tokens": 1610,
+          "cache_read_input_tokens": 24940,
+          "duration_ms": 10953,
+          "input_tokens": 4,
+          "num_turns": 1,
+          "ok": true,
+          "output_tokens": 523,
+          "session_id": "489b6ab6-0a5f-46ee-b43e-6d87afe52264",
+          "text": "Low risk with `CREATE INDEX CONCURRENTLY`, which the ticket already uses; high risk without it. A plain `CREATE INDEX` blocks every insert, update, and delete on `events` for the whole build, which the document puts at about 40 minutes.\n\nThe concurrent build has three real costs:\n\n- It adds sustained I/O and CPU load on production for that time, and it blocks vacuum and other schema changes on the table until it finishes.\n- It waits for any long-running transaction that touches the table, so it can stall without making progress.\n- If it fails or is cancelled, it leaves behind an `INVALID` index. That index is never used for queries but still slows every write until you drop it.",
+          "tool_inputs": [],
+          "tools": [],
+          "total_cost_usd": 0.21055780000000002
+        },
+        {
+          "cache_creation_input_tokens": 594,
+          "cache_read_input_tokens": 26550,
+          "duration_ms": 3937,
+          "input_tokens": 4,
+          "num_turns": 1,
+          "ok": true,
+          "output_tokens": 173,
+          "session_id": "489b6ab6-0a5f-46ee-b43e-6d87afe52264",
+          "text": "No, not on its own. That index does nothing while the query filters on `date_trunc('day', created_at)`. First rewrite the predicate as a half-open range on `created_at`. Then a composite index on `(tenant_id, created_at)` serves the query better than `created_at` alone.",
+          "tool_inputs": [],
+          "tools": [],
+          "total_cost_usd": 0.2240958
+        }
+      ]
+    },
+    {
+      "arm": "laconic",
+      "cache_creation_input_tokens": 4468,
+      "cache_read_input_tokens": 20254,
+      "case": "recall-index",
+      "claude_cli_version": "2.1.321 (Claude Code)",
+      "duration_ms": 37896,
+      "generated_at": "2026-11-12T16:24:50Z",
+      "generator": "20261112T161310Z-993442",
+      "input_tokens": 4,
+      "model": "opus",
+      "num_turns": 1,
+      "ok": true,
+      "output_tokens": 184,
+      "plugin_reminder": true,
+      "rep": 3,
+      "session_id": "43fedfbb-ad41-4f65-b5d4-af03dd68f8f3",
+      "text": "No, not by itself. That index stays unused as long as the query filters on `date_trunc('day', created_at)`. The fix is to rewrite the predicate as `created_at >= $1 AND created_at < $1 + interval '1 day'`. Once that's done, a composite index on `(tenant_id, created_at)` serves the query better than `created_at` alone.",
+      "tool_inputs": [],
+      "tools": [],
+      "total_cost_usd": 0.2524984,
+      "turn_count": 2,
+      "turn_delivery": "plugin",
+      "turns": [
+        {
+          "cache_creation_input_tokens": 6029,
+          "cache_read_input_tokens": 36279,
+          "duration_ms": 30841,
+          "input_tokens": 4,
+          "num_turns": 2,
+          "ok": true,
+          "output_tokens": 2720,
+          "session_id": "43fedfbb-ad41-4f65-b5d4-af03dd68f8f3",
+          "text": "The query does a sequential scan of all 41.2 million rows in `events` to return 612 of them. That scan takes about 9.2 of the 9.2 seconds. No index can serve the filter because it wraps the column in `date_trunc('day', created_at) = $1`. The only other candidate, `events_tenant_id_idx`, matches 38% of the table for the largest tenant, so it doesn't narrow the scan enough to help.\n\nThe ticket proposes a plain index on `created_at`, which won't help unless the predicate is first rewritten as a half-open range (`created_at >= $1 AND created_at < $1 + interval '1 day'`). The write-up already makes this point, and I agree with it.\n\nThe pasted plan has been edited or transcribed wrong. It puts a `Sort` keyed on `count(*) DESC` below the `GroupAggregate`, and Postgres can't sort on a count before computing it. This doesn't change the conclusion, because the scan alone takes almost all the time. I'd still paste a real plan before the write-up goes on the ticket.",
+          "tool_inputs": [
+            {
+              "command": "cat /tmp/tmpo3q99ddp/FINDINGS.md; ls -la /tmp/tmpo3q99ddp",
+              "description": "Read findings file and list directory"
+            }
+          ],
+          "tools": [
+            "Bash"
+          ],
+          "total_cost_usd": 0.10450380000000001
+        },
+        {
+          "cache_creation_input_tokens": 4468,
+          "cache_read_input_tokens": 20254,
+          "duration_ms": 7055,
+          "input_tokens": 4,
+          "num_turns": 1,
+          "ok": true,
+          "output_tokens": 184,
+          "session_id": "43fedfbb-ad41-4f65-b5d4-af03dd68f8f3",
+          "text": "No, not by itself. That index stays unused as long as the query filters on `date_trunc('day', created_at)`. The fix is to rewrite the predicate as `created_at >= $1 AND created_at < $1 + interval '1 day'`. Once that's done, a composite index on `(tenant_id, created_at)` serves the query better than `created_at` alone.",
+          "tool_inputs": [],
+          "tools": [],
+          "total_cost_usd": 0.1479946
+        }
+      ]
+    },
+    {
+      "arm": "laconic",
+      "cache_creation_input_tokens": 5499,
+      "cache_read_input_tokens": 20260,
+      "case": "recall-metric",
+      "claude_cli_version": "2.1.321 (Claude Code)",
+      "duration_ms": 52725,
+      "generated_at": "2026-11-12T16:25:45Z",
+      "generator": "20261112T161310Z-993442",
+      "input_tokens": 4,
+      "model": "opus",
+      "num_turns": 1,
+      "ok": true,
+      "output_tokens": 326,
+      "plugin_reminder": true,
+      "rep": 3,
+      "session_id": "7004f89b-9d76-4479-a997-b3ce22c6685f",
+      "text": "No. I concluded the sample is the problem, not the metric. With 11 purchases in total, neither lift nor the absolute difference can support a decision, and I said that reporting lift with its very wide interval would be honest.",
+      "tool_inputs": [],
+      "tools": [],
+      "total_cost_usd": 0.32074240000000004,
+      "turn_count": 2,
+      "turn_delivery": "plugin",
+      "turns": [
+        {
+          "cache_creation_input_tokens": 5476,
+          "cache_read_input_tokens": 36291,
+          "duration_ms": 47226,
+          "input_tokens": 4,
+          "num_turns": 2,
+          "ok": true,
+          "output_tokens": 4287,
+          "session_id": "7004f89b-9d76-4479-a997-b3ce22c6685f",
+          "text": "The ticket's main problem is the **+70% lift**. It is a ratio built on 4 control purchases and 7 treatment purchases, so it measures noise, not the checkout flow. ANALYSIS.md gets this right, and its numbers check out: the 0.44% and 0.75% rates, the +36% to +127% swing from moving one control purchase, the 0.11-point change per purchase, and the roughly 10,000 sessions per arm needed for 80% power.\n\nANALYSIS.md has its own reporting problems, most serious first:\n\n1. **The time-to-purchase bullet repeats the mistake the document criticizes.** It calls the drop from 4m12s to 3m01s \"a real difference,\" but each median comes from 4 or 7 purchases. It is also measured only on sessions that bought, a group chosen after treatment. So even with more data it would not be a randomized comparison.\n2. **\"Run to the sample size the effect needs\" leaves out the cost.** At about 132 sessions a day (1,846 over 14 days), 20,000 sessions takes about five months. The document doesn't say so, and that makes the proxy metric the realistic option, not one of two equal choices.\n3. **\"No stable interval to report\" overstates things.** An exact interval for the rate ratio exists; it is just very wide. Reporting that interval would be an honest way to show the result is inconclusive, so \"not a matter of adding a confidence interval\" is the wrong claim to make.",
+          "tool_inputs": [
+            {
+              "command": "ls -la && cat ANALYSIS.md",
+              "description": "List files and read the analysis document"
+            }
+          ],
+          "tools": [
+            "Bash"
+          ],
+          "total_cost_usd": 0.1330812
+        },
+        {
+          "cache_creation_input_tokens": 5499,
+          "cache_read_input_tokens": 20260,
+          "duration_ms": 5499,
+          "input_tokens": 4,
+          "num_turns": 1,
+          "ok": true,
+          "output_tokens": 326,
+          "session_id": "7004f89b-9d76-4479-a997-b3ce22c6685f",
+          "text": "No. I concluded the sample is the problem, not the metric. With 11 purchases in total, neither lift nor the absolute difference can support a decision, and I said that reporting lift with its very wide interval would be honest.",
+          "tool_inputs": [],
+          "tools": [],
+          "total_cost_usd": 0.18766120000000003
+        }
+      ]
+    },
+    {
+      "arm": "laconic",
+      "cache_creation_input_tokens": 6134,
+      "cache_read_input_tokens": 20253,
+      "case": "wide-index",
+      "claude_cli_version": "2.1.321 (Claude Code)",
+      "duration_ms": 42000,
+      "generated_at": "2026-11-12T16:26:29Z",
+      "generator": "20261112T161310Z-993442",
+      "input_tokens": 4,
+      "model": "opus",
+      "num_turns": 1,
+      "ok": true,
+      "output_tokens": 149,
+      "plugin_reminder": true,
+      "rep": 3,
+      "session_id": "5d70027b-b836-4647-82bc-dc0afa3b4016",
+      "text": "No. On its own, that index changes nothing: the write-up built it and the plan stayed a full sequential scan. The fix is to rewrite the predicate as `created_at >= $1 AND created_at < $1 + interval '1 day'` and index `(tenant_id, created_at)`, which measured 29ms on the restored copy.",
+      "tool_inputs": [],
+      "tools": [],
+      "total_cost_usd": 0.2851998,
+      "turn_count": 2,
+      "turn_delivery": "plugin",
+      "turns": [
+        {
+          "cache_creation_input_tokens": 7577,
+          "cache_read_input_tokens": 36278,
+          "duration_ms": 36921,
+          "input_tokens": 4,
+          "num_turns": 2,
+          "ok": true,
+          "output_tokens": 2835,
+          "session_id": "5d70027b-b836-4647-82bc-dc0afa3b4016",
+          "text": "The query filters on `date_trunc('day', created_at) = $1`. Because the column is wrapped in a function, no index on `created_at` can serve that predicate. Postgres therefore scans all 41.2 million rows of `events` sequentially, about 8.4 GB that is mostly `jsonb` payload, and keeps only 612 of them. The existing `tenant_id` index doesn't help either, because the dashboard's tenant makes up 38% of the table. The code hasn't changed since launch; the endpoint got slower as the table grew.\n\nSo the index the ticket proposes, `events (created_at)`, won't fix this on its own. The write-up tested it on a restored copy and the plan didn't change. It only becomes usable once the predicate is rewritten as a half-open range: `created_at >= $1 AND created_at < $1 + interval '1 day'`.",
+          "tool_inputs": [
+            {
+              "command": "cat /tmp/tmpunnybtq_/FINDINGS.md; ls -la /tmp/tmpunnybtq_",
+              "description": "Read findings file and list directory"
+            }
+          ],
+          "tools": [
+            "Bash"
+          ],
+          "total_cost_usd": 0.11454059999999999
+        },
+        {
+          "cache_creation_input_tokens": 6134,
+          "cache_read_input_tokens": 20253,
+          "duration_ms": 5079,
+          "input_tokens": 4,
+          "num_turns": 1,
+          "ok": true,
+          "output_tokens": 149,
+          "session_id": "5d70027b-b836-4647-82bc-dc0afa3b4016",
+          "text": "No. On its own, that index changes nothing: the write-up built it and the plan stayed a full sequential scan. The fix is to rewrite the predicate as `created_at >= $1 AND created_at < $1 + interval '1 day'` and index `(tenant_id, created_at)`, which measured 29ms on the restored copy.",
+          "tool_inputs": [],
+          "tools": [],
+          "total_cost_usd": 0.17065919999999998
+        }
+      ]
+    },
+    {
+      "arm": "laconic",
+      "cache_creation_input_tokens": 1121,
+      "cache_read_input_tokens": 29399,
+      "case": "deep-index",
+      "claude_cli_version": "2.1.321 (Claude Code)",
+      "duration_ms": 102128,
+      "generated_at": "2026-11-12T16:28:16Z",
+      "generator": "20261112T161310Z-993442",
+      "input_tokens": 4,
+      "model": "opus",
+      "num_turns": 1,
+      "ok": true,
+      "output_tokens": 202,
+      "plugin_reminder": true,
+      "rep": 4,
+      "session_id": "71dc5f06-ce06-4e70-8930-c74f7fa5c99f",
+      "text": "No. On its own, an index on `created_at` changes nothing, because the query filters on `date_trunc('day', created_at)`. The fix is to rewrite the filter as a half-open range on `created_at` and add an index on `(tenant_id, created_at)`. With only the rewrite, a bare `created_at` index would also work, but the composite index is the better fit.",
+      "tool_inputs": [],
+      "tools": [],
+      "total_cost_usd": 1.1900224,
+      "turn_count": 5,
+      "turn_delivery": "plugin",
+      "turns": [
+        {
+          "cache_creation_input_tokens": 6026,
+          "cache_read_input_tokens": 36278,
+          "duration_ms": 42288,
+          "input_tokens": 4,
+          "num_turns": 2,
+          "ok": true,
+          "output_tokens": 3629,
+          "session_id": "71dc5f06-ce06-4e70-8930-c74f7fa5c99f",
+          "text": "**The `date_trunc` around `created_at` forces a full table scan.** Because the filter compares `date_trunc('day', created_at)` rather than `created_at` itself, no index can narrow by date. The only other usable index is on `tenant_id`, and it doesn't help much for the largest tenant (38% of rows). So Postgres reads all 41.2 million rows to return 612. That scan is about 9.18 of the 9.18 seconds. The ticket's proposed index on bare `created_at` wouldn't change this. FINDINGS.md has all of that right.\n\nThere are two errors in the document:\n\n- **The plan can't be a real paste.** It shows a `Sort` on `count(*) DESC` feeding a `GroupAggregate`, but that sort can only run after aggregation. This doesn't change the conclusion, because the seq scan figures are self-consistent: 612 kept plus 41,199,388 removed is 41.2 million. Still, the plan should be re-captured before it goes on the ticket.\n- **Option 1 would probably still fail.** I believe the three-argument `date_trunc('day', created_at, 'UTC')` is only `STABLE`, not `IMMUTABLE`, so Postgres would still reject the index. The form that is immutable is `date_trunc('day', created_at AT TIME ZONE 'UTC')`. Option 2, the range rewrite, avoids this problem.",
+          "tool_inputs": [
+            {
+              "command": "cat /tmp/tmpe4834n1d/FINDINGS.md; ls -la /tmp/tmpe4834n1d",
+              "description": "Read findings file and list directory"
+            }
+          ],
+          "tools": [
+            "Bash"
+          ],
+          "total_cost_usd": 0.12266559999999999
+        },
+        {
+          "cache_creation_input_tokens": 5376,
+          "cache_read_input_tokens": 20253,
+          "duration_ms": 11239,
+          "input_tokens": 4,
+          "num_turns": 1,
+          "ok": true,
+          "output_tokens": 824,
+          "session_id": "71dc5f06-ce06-4e70-8930-c74f7fa5c99f",
+          "text": "I'd first re-capture the plan on production for the largest tenant, because the pasted plan can't be real:\n\n```sql\nEXPLAIN (ANALYZE, BUFFERS)\nSELECT event_type, count(*) AS n, sum(amount_cents) AS total\nFROM events\nWHERE date_trunc('day', created_at) = $1\n  AND tenant_id = $2\nGROUP BY event_type\nORDER BY n DESC;\n```\n\nReplace `$1` and `$2` with yesterday's date and the largest tenant's ID. The diagnosis holds if the `Seq Scan on events` node accounts for nearly all of the execution time and shows about 41 million rows removed by the filter.\n\nIf it holds, the next check is on a staging copy: build `(tenant_id, created_at)` there and run the same `EXPLAIN` on the range-predicate rewrite. An index scan finishing in milliseconds confirms both the cause and the fix.",
+          "tool_inputs": [],
+          "tools": [],
+          "total_cost_usd": 0.18622019999999997
+        },
+        {
+          "cache_creation_input_tokens": 898,
+          "cache_read_input_tokens": 25629,
+          "duration_ms": 31288,
+          "input_tokens": 4,
+          "num_turns": 1,
+          "ok": true,
+          "output_tokens": 2800,
+          "session_id": "71dc5f06-ce06-4e70-8930-c74f7fa5c99f",
+          "text": "The index can't narrow the rows down enough for the largest tenant to make it worth using.\n\n1. The index only contains `tenant_id`. The date condition isn't in it, so Postgres has to check it against every heap row the index points to.\n2. For the largest tenant, the index matches 38% of the table, about 15.7 million rows.\n3. Events from all tenants are mixed together in insertion order, so those 15.7 million rows are spread across nearly every page of the table. An index scan would fetch those pages randomly, which the planner costs at four times a sequential read by default. A bitmap scan would read the pages in order, but it still reads nearly all of them plus the index.\n4. Either way, the index path does about as much heap reading as a sequential scan, plus the index work on top. So the planner picks the sequential scan, and it's right to. The rows only become selective once the date is applied, and nothing indexes the date.\n\nOne caveat: the plan's filter shows `$2` instead of a literal tenant ID. That's what a generic plan for a prepared statement looks like. A generic plan is built without knowing which tenant it's for, and it estimates from an average tenant's share of the table. If the app's real plan is generic, the 38% figure wasn't what drove the choice. The re-captured plan will settle this: a literal value in the filter means a custom plan.",
+          "tool_inputs": [],
+          "tools": [],
+          "total_cost_usd": 0.254546
+        },
+        {
+          "cache_creation_input_tokens": 2872,
+          "cache_read_input_tokens": 26527,
+          "duration_ms": 13363,
+          "input_tokens": 4,
+          "num_turns": 1,
+          "ok": true,
+          "output_tokens": 1050,
+          "session_id": "71dc5f06-ce06-4e70-8930-c74f7fa5c99f",
+          "text": "The risk is low as long as it's built with `CONCURRENTLY`, which the ticket already uses. A concurrent build doesn't block inserts, updates, or deletes. A plain `CREATE INDEX` would block every write to `events` for the roughly 40-minute build.\n\nThe concurrent build has three risks of its own, most serious first:\n\n- **A failed build leaves a broken index behind.** If the build is cancelled or hits an error, it leaves an `INVALID` index. The planner never uses it, but every write still pays to maintain it, so it needs a manual `DROP INDEX CONCURRENTLY` before you retry.\n- **Long-running transactions stall it.** The build waits for every transaction already open on the table at certain points. A forgotten open session can stretch the build indefinitely. While it waits, it holds a lock that blocks vacuum and other schema changes on `events`.\n- **It won't run inside a transaction block.** Migration tools that wrap each migration in a transaction will fail on this statement unless that step runs outside one.\n\nThe build also adds extra I/O load on production while it scans the table twice. That's fine at the dashboard's current load, but it's worth running off-peak.",
+          "tool_inputs": [],
+          "tools": [],
+          "total_cost_usd": 0.3038434
+        },
+        {
+          "cache_creation_input_tokens": 1121,
+          "cache_read_input_tokens": 29399,
+          "duration_ms": 3950,
+          "input_tokens": 4,
+          "num_turns": 1,
+          "ok": true,
+          "output_tokens": 202,
+          "session_id": "71dc5f06-ce06-4e70-8930-c74f7fa5c99f",
+          "text": "No. On its own, an index on `created_at` changes nothing, because the query filters on `date_trunc('day', created_at)`. The fix is to rewrite the filter as a half-open range on `created_at` and add an index on `(tenant_id, created_at)`. With only the rewrite, a bare `created_at` index would also work, but the composite index is the better fit.",
+          "tool_inputs": [],
+          "tools": [],
+          "total_cost_usd": 0.3227472
+        }
+      ]
+    },
+    {
+      "arm": "laconic",
+      "cache_creation_input_tokens": 3849,
+      "cache_read_input_tokens": 20255,
+      "case": "recall-index",
+      "claude_cli_version": "2.1.321 (Claude Code)",
+      "duration_ms": 31435,
+      "generated_at": "2026-11-12T16:28:49Z",
+      "generator": "20261112T161310Z-993442",
+      "input_tokens": 4,
+      "model": "opus",
+      "num_turns": 1,
+      "ok": true,
+      "output_tokens": 254,
+      "plugin_reminder": true,
+      "rep": 4,
+      "session_id": "d4f9cec5-62e6-4e20-9056-ab1840e605e7",
+      "text": "No, not by itself. An index on `created_at` can't serve `date_trunc('day', created_at) = $1`, so the plan wouldn't change. The fix is to rewrite the filter as `created_at >= $1 AND created_at < $1 + interval '1 day'`. A composite index on `(tenant_id, created_at)` serves the rewritten query best, though a bare `created_at` index would also be usable once the filter is changed.",
+      "tool_inputs": [],
+      "tools": [],
+      "total_cost_usd": 0.224223,
+      "turn_count": 2,
+      "turn_delivery": "plugin",
+      "turns": [
+        {
+          "cache_creation_input_tokens": 6032,
+          "cache_read_input_tokens": 36280,
+          "duration_ms": 24215,
+          "input_tokens": 4,
+          "num_turns": 2,
+          "ok": true,
+          "output_tokens": 2101,
+          "session_id": "d4f9cec5-62e6-4e20-9056-ab1840e605e7",
+          "text": "A full sequential scan of `events` is making it slow. The query filters on `date_trunc('day', created_at) = $1`. Because the column is wrapped in a function, no index on `created_at` can be used, so Postgres reads all 41.2 million rows and discards all but 612. That scan takes about 9.2 seconds of the 9.18-second execution.\n\nThe only other usable index is the one on `tenant_id`. The dashboard queries the largest tenant, which holds 38% of the table, so that index isn't selective enough and the planner correctly skips it. The plan shows nothing else costing real time: sorting and aggregating 612 rows is negligible.\n\nThis is also why the ticket's index on bare `created_at` wouldn't help by itself. It only becomes usable if the filter is rewritten as a range, `created_at >= $1 AND created_at < $1 + interval '1 day'`. I didn't edit anything.",
+          "tool_inputs": [
+            {
+              "command": "cat /tmp/tmpp_kn2cr2/FINDINGS.md; ls -la /tmp/tmpp_kn2cr2",
+              "description": "Read findings file and list directory"
+            }
+          ],
+          "tools": [
+            "Bash"
+          ],
+          "total_cost_usd": 0.09214200000000002
+        },
+        {
+          "cache_creation_input_tokens": 3849,
+          "cache_read_input_tokens": 20255,
+          "duration_ms": 7220,
+          "input_tokens": 4,
+          "num_turns": 1,
+          "ok": true,
+          "output_tokens": 254,
+          "session_id": "d4f9cec5-62e6-4e20-9056-ab1840e605e7",
+          "text": "No, not by itself. An index on `created_at` can't serve `date_trunc('day', created_at) = $1`, so the plan wouldn't change. The fix is to rewrite the filter as `created_at >= $1 AND created_at < $1 + interval '1 day'`. A composite index on `(tenant_id, created_at)` serves the rewritten query best, though a bare `created_at` index would also be usable once the filter is changed.",
+          "tool_inputs": [],
+          "tools": [],
+          "total_cost_usd": 0.132081
+        }
+      ]
+    },
+    {
+      "arm": "laconic",
+      "cache_creation_input_tokens": 3216,
+      "cache_read_input_tokens": 20260,
+      "case": "recall-metric",
+      "claude_cli_version": "2.1.321 (Claude Code)",
+      "duration_ms": 28485,
+      "generated_at": "2026-11-12T16:29:19Z",
+      "generator": "20261112T161310Z-993442",
+      "input_tokens": 4,
+      "model": "opus",
+      "num_turns": 1,
+      "ok": true,
+      "output_tokens": 204,
+      "plugin_reminder": true,
+      "rep": 4,
+      "session_id": "ad4cc6f8-0680-4f3c-b956-43384f6946d0",
+      "text": "No. My conclusion was that the sample is too small, so no metric can answer the question. Lift is especially unstable with only 4 control purchases, but the absolute difference can't resolve the effect at this sample size either.",
+      "tool_inputs": [],
+      "tools": [],
+      "total_cost_usd": 0.20888840000000003,
+      "turn_count": 2,
+      "turn_delivery": "plugin",
+      "turns": [
+        {
+          "cache_creation_input_tokens": 5493,
+          "cache_read_input_tokens": 36291,
+          "duration_ms": 24031,
+          "input_tokens": 4,
+          "num_turns": 2,
+          "ok": true,
+          "output_tokens": 2004,
+          "session_id": "ad4cc6f8-0680-4f3c-b956-43384f6946d0",
+          "text": "The ticket's **+70% lift** headline is the main problem. The lift comes from 7 purchases against 4. With so few control purchases, moving just one of them shifts the lift anywhere from about +36% to +127%, so the figure says nothing reliable about the checkout flow. Each arm has about 900 sessions, but detecting a 0.3-point difference needs roughly 10,000. Reporting the absolute difference (+0.31 points) instead doesn't help, because the sample is still too small. The document's arithmetic checks out.\n\nOne flaw is in the document itself: it calls the drop in median time-to-purchase \"a real difference,\" but that comes from the same 11 purchases. By its own argument, that claim is just as unsupported.",
+          "tool_inputs": [
+            {
+              "command": "ls -la && cat ANALYSIS.md",
+              "description": "List files and read the analysis document"
+            }
+          ],
+          "tools": [
+            "Bash"
+          ],
+          "total_cost_usd": 0.0875062
+        },
+        {
+          "cache_creation_input_tokens": 3216,
+          "cache_read_input_tokens": 20260,
+          "duration_ms": 4454,
+          "input_tokens": 4,
+          "num_turns": 1,
+          "ok": true,
+          "output_tokens": 204,
+          "session_id": "ad4cc6f8-0680-4f3c-b956-43384f6946d0",
+          "text": "No. My conclusion was that the sample is too small, so no metric can answer the question. Lift is especially unstable with only 4 control purchases, but the absolute difference can't resolve the effect at this sample size either.",
+          "tool_inputs": [],
+          "tools": [],
+          "total_cost_usd": 0.12138220000000001
+        }
+      ]
+    },
+    {
+      "arm": "laconic",
+      "cache_creation_input_tokens": 4706,
+      "cache_read_input_tokens": 20255,
+      "case": "wide-index",
+      "claude_cli_version": "2.1.321 (Claude Code)",
+      "duration_ms": 23569,
+      "generated_at": "2026-11-12T16:29:45Z",
+      "generator": "20261112T161310Z-993442",
+      "input_tokens": 4,
+      "model": "opus",
+      "num_turns": 1,
+      "ok": true,
+      "output_tokens": 133,
+      "plugin_reminder": true,
+      "rep": 4,
+      "session_id": "b55ffc03-b459-4a67-8a0f-ec766435159c",
+      "text": "No. An index on bare `created_at` can't serve `date_trunc('day', created_at) = $1`. The fix is to rewrite the predicate as a half-open range on `created_at` and add a `(tenant_id, created_at)` index, or alternatively to index `date_trunc('day', created_at, 'UTC')`.",
+      "tool_inputs": [],
+      "tools": [],
+      "total_cost_usd": 0.205279,
+      "turn_count": 2,
+      "turn_delivery": "plugin",
+      "turns": [
+        {
+          "cache_creation_input_tokens": 7886,
+          "cache_read_input_tokens": 36280,
+          "duration_ms": 20056,
+          "input_tokens": 4,
+          "num_turns": 2,
+          "ok": true,
+          "output_tokens": 1053,
+          "session_id": "b55ffc03-b459-4a67-8a0f-ec766435159c",
+          "text": "The query filters on `date_trunc('day', created_at) = $1`. No index covers that expression, so Postgres scans all 41.2 million rows of `events` (about 8 GB, because of the `payload` column) and throws away all but 612 of them. That scan accounts for about 9.2 of the 9.24 seconds.\n\nThe only usable index is the one on `tenant_id`, and it doesn't help because the dashboard queries the largest tenant, which is 38% of the table.\n\nThe fix proposed on the ticket, a plain index on `created_at`, won't help either: the predicate wraps the column in a function, so that index doesn't match it. The findings say this was tested on a restored copy and the plan didn't change. Two changes did work there, each bringing the query to about 30ms:\n\n- rewriting the filter as a range, `created_at >= $1 AND created_at < $1 + interval '1 day'`, and adding a `(tenant_id, created_at)` index\n- indexing `date_trunc('day', created_at, 'UTC')` itself",
+          "tool_inputs": [
+            {
+              "file_path": "/tmp/tmpi1rlpq1k/FINDINGS.md"
+            }
+          ],
+          "tools": [
+            "Read"
+          ],
+          "total_cost_usd": 0.080452
+        },
+        {
+          "cache_creation_input_tokens": 4706,
+          "cache_read_input_tokens": 20255,
+          "duration_ms": 3513,
+          "input_tokens": 4,
+          "num_turns": 1,
+          "ok": true,
+          "output_tokens": 133,
+          "session_id": "b55ffc03-b459-4a67-8a0f-ec766435159c",
+          "text": "No. An index on bare `created_at` can't serve `date_trunc('day', created_at) = $1`. The fix is to rewrite the predicate as a half-open range on `created_at` and add a `(tenant_id, created_at)` index, or alternatively to index `date_trunc('day', created_at, 'UTC')`.",
+          "tool_inputs": [],
+          "tools": [],
+          "total_cost_usd": 0.124827
+        }
+      ]
+    }
+  ]
+}

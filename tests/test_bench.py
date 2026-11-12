@@ -7466,6 +7466,10 @@ _expected_concurrent = {
     # merged into one snapshot a side.
     "round-134-control.json", "round-134-edit.json",
     "round-134-rep-control.json", "round-134-rep-edit.json",
+    # Round 136's first sample: two shards a side from two trees, the bounds
+    # shard running its session cells after its single-turn cells, merged into
+    # one snapshot a side. Its primary failed, so no replication was generated.
+    "round-136-control.json", "round-136-edit.json",
     # #558's rate measurement: four simultaneous shards declaring
     # --concurrency 4, one per model and opus split by rep, then two more
     # haiku shards over reps 24 to 39 once opus finished; merged into one.

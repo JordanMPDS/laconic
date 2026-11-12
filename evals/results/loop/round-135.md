@@ -141,3 +141,61 @@ the length condition already covers.
 ---
 
 ## Results
+
+**GONE. [#500] closes.**
+
+60 runs, 0 failed, on CLI 2.1.321 throughout, at `rules_cksum` 2816272927
+and `cases_cksum` 347447098, from 538520f with a clean tree. It is the
+registered command run twice. The first run stopped at a usage limit after
+25 answers (11:00 to 11:13 UTC), and the same command resumed by key at
+12:27 and wrote the other 35 by 12:52. `concurrency.py` reconstructs one run
+in flight on each arm, as declared, and `release.py` finds no release span.
+Generation cost $7.81: $2.86 laconic and $4.96 baseline.
+
+```
+$ python3 evals/pilot/score_relay.py unseen evals/snapshots/loop/round-135.json
+rules_cksum 2816272927  cli 2.1.321 (Claude Code)
+## Round 135: does #500 fire on specs no rule was drafted against?
+   baseline unseen-trust/opus    n=10  median prose  692 (3.91x reference)  median relayed 16.0  long 10  relaying 10
+   baseline unseen-pricing/opus  n=10  median prose  594 (4.07x reference)  median relayed 17.0  long 10  relaying 10
+   baseline unseen-limits/opus   n=10  median prose  554 (3.24x reference)  median relayed 16.0  long 10  relaying 10
+   laconic  unseen-trust/opus    n=10  median prose  228 (1.29x reference)  median relayed  0.0  long  0  relaying  0
+   laconic  unseen-pricing/opus  n=10  median prose  182 (1.25x reference)  median relayed  0.0  long  0  relaying  0
+   laconic  unseen-limits/opus   n=10  median prose  206 (1.20x reference)  median relayed  0.0  long  0  relaying  0
+   unseen-trust/opus    baseline long 10, relaying 10 of 10: valid
+   unseen-pricing/opus  baseline long 10, relaying 10 of 10: valid
+   unseen-limits/opus   baseline long 10, relaying 10 of 10: valid
+   laconic over 30 valid answers: >= 300 prose words 0 (upper 0.095), >= 2 planted identifiers 0 (upper 0.095), GONE under 0.30
+## GONE
+```
+
+**Validity.** All three cases are valid, each at 10 of 10 baseline answers
+on both conditions, so the positive control is at ceiling. The pre-mortem's
+likeliest failure, `unseen-pricing` drawing short answers without rules,
+did not arrive: its baseline answers ran 545 to 672 prose words.
+
+**The reading.** None of the 30 `laconic` answers reaches 300 prose words,
+and none carries two planted identifiers. Each condition's upper bound is
+0.095, under the registered 0.30.
+
+The ranges, which decide nothing:
+
+| case | baseline prose | laconic prose | baseline relayed | laconic relayed |
+|---|--:|--:|--:|--:|
+| `unseen-trust` | 616 to 827 | 200 to 259 | 12 to 20 | 0 in all 10 |
+| `unseen-pricing` | 545 to 672 | 165 to 217 | 7 to 20 | 0 in 6, 1 in 4 |
+| `unseen-limits` | 517 to 664 | 172 to 235 | 12 to 19 | 0 in 9, 1 in 1 |
+
+The pre-mortem expected the identifier condition to be the close one, and it
+was not. The five single identifiers are `2,000` in four `unseen-pricing`
+answers and `ratelimit.enforce` in one `unseen-limits` answer.
+
+**Disclosed.** The answers run 1.20 to 1.29 times their frozen references.
+Round 134 read 1.1 to 1.3 on the `relay-*` cells, so the remaining length
+over the shortest correct answer is the same on specs no rule was drafted
+against. That ratio was never a fire bar and the registration said it
+decides nothing. The result covers opus, and new specs of the shape #500
+reported, as the registration's "What GONE would not show" says.
+
+**What follows.** [#500] closes on this evidence. Round 136 has to carry a
+candidate (`tools/candidate-due.sh`), from another open `rules` issue.

@@ -9,6 +9,7 @@
     python3 evals/pilot/score_relay.py identifiers <control.json> <edit.json>
     python3 evals/pilot/score_relay.py longer <control.json> <edit.json>
     python3 evals/pilot/score_relay.py nevercut <control.json> <edit.json>
+    python3 evals/pilot/score_relay.py unseen <snapshot.json>
     python3 evals/pilot/score_relay.py --selftest
 
 #500 is a bare "explain <stage A> and <stage B>" answered at 620 words after
@@ -50,6 +51,19 @@ same statistic as `words` with the sides swapped, so an answer that trades
 **Bound, `nevercut`:** on every `BOUNDS` cell whose case lists never-cut
 keywords, the share of answers carrying all of them may not fall, one-sided
 Fisher, because `explain-index` needs `date_trunc` verbatim.
+
+**Round 135, `unseen`:** round 126's bar, unchanged, on `UNSEEN`, three specs
+written after round 134 that no rule was drafted against. The snapshot holds
+two arms. A case is valid only if the no-rules `baseline` arm reaches
+`VALID` of its 10 answers on both conditions, since a case that does not
+draw the defect without rules cannot show it is gone with them; the reading
+needs two valid cases. On the valid cases' `laconic` answers it reads FIRES
+on round 126's bar (half the answers on each condition), GONE when each
+condition's one-sided 95% Clopper-Pearson upper bound is under `GONE`, and
+OPEN otherwise. Each condition is bounded on its own, so an answer that drops
+every identifier and relays the spec in paraphrase is still caught by its
+length. `REFERENCE` holds one answer per case, written before generation; its
+ratio is printed and decides nothing.
 """
 
 import json
@@ -97,6 +111,85 @@ RELAY = {
         "user-media-prod", "purge=1", "purge_ledger", "PRV-104", "PRV-105",
         "PRV-110", "identity-oncall", "purge_verify", "04:00", "DB-RB-03",
         "61,000"),
+    "unseen-trust": (
+        "hsm-sec-2", "r2-cross-r1.pem", "ca-bundle-2026q4", "baseimg-nightly",
+        "02:15", "gw-stable", "int-r1-07", "trust-audit", "trust_audit_results",
+        "bundle_rev", "int-r2-01", "PKI-201", "PKI-202", "pki-oncall",
+        "pki.issue_from_r2", "ca-bundle-2027q1", "CHG-9120", "tls_chain_root",
+        "PKI-301", "PKI-305"),
+    "unseen-pricing": (
+        "team_v3_2026", "team_v2_2024", "grandfathered=true",
+        "billing_subscriptions", "plan_mix_report", "04:30", "plan_mix_daily",
+        "pricing-v3", "BIL-120", "BIL-121", "invoice-svc", "billing-oncall",
+        "mig-notice-v3", "migrate_v2_to_v3", "2,000", "V3-BRIDGE", "BIL-210",
+        "BIL-215", "team-plan-rollout", "quote_override"),
+    "unseen-limits": (
+        "quota-gate", "rl-redis-3", "rl.would_reject", "rl_rollup",
+        "rl_would_reject_15m", "rl_daily_digest", "03:45", "rl-heads-up-v1",
+        "API-150", "API-151", "api-oncall", "rl-observe-board",
+        "ratelimit.enforce", "rl_exceptions.yaml", "DEVREL-88", "API-210",
+        "API-211", "ratelimit-rollout", "CHG-7731"),
+}
+# Round 135 (#500): written after round 134 and read by no rule's drafter.
+UNSEEN = tuple(("unseen-" + s, "opus") for s in ("trust", "pricing", "limits"))
+# Of a case's 10 baseline answers, on each condition, for the case to count.
+VALID = 5
+# A per-answer rate at which round 126's bar fires on 0.017 of draws: below it
+# the bar's own design would withdraw an edit, so the defect is not there.
+GONE = 0.30
+# Frozen before generation. Each explains both parts and the caveat and names
+# none of its fixture's planted identifiers; `selftest` checks both.
+REFERENCE = {
+    "unseen-trust": (
+        "In the cross-signing stage, the new root R2 is created and R1 vouches "
+        "for it with a cross-certificate, so anything that trusts only R1 can "
+        "still validate R2 chains. A trust bundle holding both roots goes out "
+        "to every service image and, on their monthly check-in, to the field "
+        "gateways. Certificates are still issued from R1, so nothing depends "
+        "on R2 yet. The stage passes when every service endpoint accepts R2, "
+        "at least 99.5% of gateways have the new bundle, and 50 canary "
+        "certificates from R2 have run 14 days without a handshake failure.\n\n"
+        "R1's retirement then moves issuance to R2, drops R1 from the bundle "
+        "45 days later, and finally revokes the cross-certificate and "
+        "destroys R1's key.\n\n"
+        "The caveat is in that 99.5%: it counts only gateways that checked in "
+        "during the last 30 days, and 2.3% of the fleet goes more than 90 days "
+        "between check-ins. Those keep working through the cross-certificate "
+        "until the revocation, then cannot reach the control plane to get the "
+        "new bundle and need a site visit. The revocation is the one step "
+        "that cannot be undone."),
+    "unseen-pricing": (
+        "During the grandfather period, new customers can buy only Team v3 at "
+        "$15 a seat, while existing v2 customers keep renewing at $12 and may "
+        "opt in to v3 early. It lasts at least 60 days and passes if v3 "
+        "converts within 10% of v2's rate, churns no more than v2's 2.1% a "
+        "month, and pricing tickets stay under 150 a week.\n\n"
+        "The forced migration then gives each remaining v2 customer 60 days' "
+        "notice and moves them to v3 at their next renewal, with three months "
+        "of credit for anyone whose bill rises more than 30%. Custom-quote "
+        "accounts are left to their account managers.\n\n"
+        "The caveat is annual contracts. Their price is fixed for the term, so "
+        "they move only when they renew, and they hold 38% of v2 seats. The "
+        "migration therefore takes about a year, not 60 days, and the early "
+        "revenue uplift and the 90-day retention figure describe monthly "
+        "customers only."),
+    "unseen-limits": (
+        "In observe mode, the new limiter counts every request against its "
+        "key's limit of 600 a minute and records the ones it would have "
+        "rejected, but serves all of them. Owners of keys that would be "
+        "rejected often are warned so they can fix retry loops. It runs at "
+        "least 21 days, including a month-end peak, and passes if under 0.5% "
+        "of keys would be rejected on more than 1% of their requests and the "
+        "limiter adds under 2 ms at p99.\n\n"
+        "Enforce mode then turns rejection on, with a 429 for requests over "
+        "the limit, one tier a week: free, then paid, then enterprise. Some "
+        "keys get custom limits by signed exception, and each tier can be "
+        "rolled back to observe mode within a minute.\n\n"
+        "The caveat is that observe mode undercounts at peak. The limiter "
+        "fails open when Redis is slow, and Redis is slowest exactly when keys "
+        "hit their limits, so 8% of month-end requests went uncounted in the "
+        "pilot. Its figures are a floor, and the first enforced month-end is "
+        "the first real measurement."),
 }
 NAMED = (("relay-migration", "opus"), ("relay-retention", "opus"))
 # The counts are tight enough that round 132's length bullet moved them 1.4
@@ -256,6 +349,81 @@ def readability(control, edit):
     return not fall("pooled", *t)
 
 
+def arm_runs(path):
+    snap = json.loads(Path(path).read_text())
+    out = {}
+    for r in snap["runs"]:
+        if r.get("ok", True):
+            out.setdefault(r.get("arm"), {}).setdefault(
+                (r["case"], r["model"]), []).append(r)
+    return snap.get("metadata", {}), out
+
+
+def upper(x, n, alpha=0.05):
+    """One-sided Clopper-Pearson upper bound on a rate of x in n."""
+    if x >= n:
+        return 1.0
+    lo, hi = x / n, 1.0
+    for _ in range(60):
+        mid = (lo + hi) / 2
+        tail = sum(math.comb(n, i) * mid ** i * (1 - mid) ** (n - i)
+                   for i in range(x + 1))
+        lo, hi = (mid, hi) if tail > alpha else (lo, mid)
+    return hi
+
+
+def conditions(rs):
+    return (sum(words(r) >= LONG for r in rs),
+            sum(relayed(r) >= RELAYED for r in rs))
+
+
+def unseen(arms):
+    """Round 135's reading: FIRES, GONE, OPEN, or INVALID."""
+    base, lac = arms.get("baseline", {}), arms.get("laconic", {})
+    print("## Round 135: does #500 fire on specs no rule was drafted against?")
+    for arm, cells in (("baseline", base), ("laconic", lac)):
+        for c in UNSEEN:
+            cr = cells.get(c, [])
+            ref = words({"text": REFERENCE[c[0]]})
+            med = sfl.median([words(r) for r in cr]) if cr else 0
+            long_, relay = conditions(cr)
+            print("   %-8s %-20s n=%2d  median prose %4.0f (%.2fx reference)"
+                  "  median relayed %4.1f  long %2d  relaying %2d" % (
+                      arm, "/".join(c), len(cr), med, med / ref,
+                      sfl.median([relayed(r) for r in cr]) if cr else 0,
+                      long_, relay))
+    valid = []
+    for c in UNSEEN:
+        cr = base.get(c, [])
+        long_, relay = conditions(cr)
+        ok = len(cr) == 10 and long_ >= VALID and relay >= VALID
+        print("   %-20s baseline long %2d, relaying %2d of %2d: %s" % (
+            "/".join(c), long_, relay, len(cr), "valid" if ok else "INVALID"))
+        if ok:
+            valid.append(c)
+    if len(valid) < 2:
+        print("## INVALID: fewer than two cases draw the defect without rules")
+        return "INVALID"
+    if any(len(lac.get(c, [])) != 10 for c in valid):
+        print("## INVALID: a valid case lacks its 10 laconic answers")
+        return "INVALID"
+    rs = [r for c in valid for r in lac[c]]
+    n = len(rs)
+    long_, relay = conditions(rs)
+    ul, ur = upper(long_, n), upper(relay, n)
+    print("   laconic over %d valid answers: >= %d prose words %d (upper %.3f),"
+          " >= %d planted identifiers %d (upper %.3f), GONE under %.2f" % (
+              n, LONG, long_, ul, RELAYED, relay, ur, GONE))
+    if 2 * long_ >= n and 2 * relay >= n:
+        verdict = "FIRES"
+    elif ul < GONE and ur < GONE:
+        verdict = "GONE"
+    else:
+        verdict = "OPEN"
+    print("## %s" % verdict)
+    return verdict
+
+
 def selftest():
     fixtures = Path(__file__).resolve().parent
     for case, planted in RELAY.items():
@@ -321,6 +489,31 @@ def selftest():
     assert nevercut(kept, kept)
     assert nevercut(dropped, kept)
     assert not nevercut(kept, dropped)
+
+    for case, planted in RELAY.items():
+        prompt = (fixtures / case / "prompt.md").read_text().lower()
+        assert not [s for s in planted if s.lower() in prompt], case
+    for case, ref in REFERENCE.items():
+        assert relayed({"case": case, "text": ref}) == 0, case
+    # The counts the registration quotes, against relay-rollout's 163.
+    assert {c: words({"text": r}) for c, r in REFERENCE.items()} == {
+        "unseen-trust": 177, "unseen-pricing": 146, "unseen-limits": 171}
+    assert set(REFERENCE) == {c for c, _ in UNSEEN}
+    assert abs(upper(0, 30) - 0.0950) < 1e-3
+    assert upper(4, 30) < GONE <= upper(5, 30)
+
+    def arm(n, ids, k=10):
+        return {c: [run(c[0], n, ids) for _ in range(k)] for c in UNSEEN}
+    drawn = arm(400, 3)
+    assert unseen({"baseline": drawn, "laconic": arm(200, 0)}) == "GONE"
+    assert unseen({"baseline": drawn, "laconic": drawn}) == "FIRES"
+    assert unseen({"baseline": arm(200, 3), "laconic": arm(200, 0)}) == "INVALID"
+    assert unseen({"baseline": drawn, "laconic": arm(200, 0, 9)}) == "INVALID"
+    some = {c: [run(c[0], 400 if i < 2 else 200, 0) for i in range(10)]
+            for c in UNSEEN}
+    assert unseen({"baseline": drawn, "laconic": some}) == "OPEN"
+    one = {**arm(200, 3), UNSEEN[0]: drawn[UNSEEN[0]]}
+    assert unseen({"baseline": one, "laconic": arm(200, 0)}) == "INVALID"
     print("selftest ok")
 
 
@@ -328,6 +521,11 @@ def main(argv):
     if argv == ["--selftest"]:
         selftest()
         return 0
+    if len(argv) == 2 and argv[0] == "unseen":
+        meta, arms = arm_runs(argv[1])
+        print("rules_cksum %s  cli %s" % (meta.get("rules_cksum"),
+                                          meta.get("claude_cli_version")))
+        return {"GONE": 0, "FIRES": 1, "OPEN": 1}.get(unseen(arms), 2)
     if len(argv) == 2 and argv[0] == "precheck":
         meta, cells = sfl.runs(argv[1])
         print("rules_cksum %s  cli %s" % (meta.get("rules_cksum"),

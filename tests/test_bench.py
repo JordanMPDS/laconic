@@ -7462,6 +7462,10 @@ _expected_concurrent = {
     # it was judged.
     "round-133-control.json", "round-133-edit.json",
     "round-133-rep-control.json", "round-133-rep-edit.json",
+    # Round 134's first sample and replication: round 126's four-shard design,
+    # merged into one snapshot a side.
+    "round-134-control.json", "round-134-edit.json",
+    "round-134-rep-control.json", "round-134-rep-edit.json",
     # #558's rate measurement: four simultaneous shards declaring
     # --concurrency 4, one per model and opus split by rep, then two more
     # haiku shards over reps 24 to 39 once opus finished; merged into one.

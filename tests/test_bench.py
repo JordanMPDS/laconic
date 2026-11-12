@@ -54,6 +54,17 @@ def check(label, cond):
         fails += 1
 
 
+def stub_calls(counter, proc, want):
+    """How many calls a stub's counter file holds, with the run's stderr
+    printed beside a count that is not `want`: a judge attempt that failed
+    and was retried is said only there (#595)."""
+    n = int(counter.read_text().strip() or 0) if counter.exists() else 0
+    if n != want:
+        print("  the stub counted %d call(s), not %d. The run's stderr:\n%s"
+              % (n, want, proc.stderr.rstrip() or "  (empty)"))
+    return n
+
+
 GOOD_JSON = json.dumps({
     "is_error": False, "result": "the answer", "num_turns": 1,
     "total_cost_usd": 0.0096, "duration_ms": 2089,
@@ -1887,6 +1898,9 @@ with tempfile.TemporaryDirectory() as td_retry:
     flaky = Path(td_retry) / "flaky-claude.sh"
     flaky.write_text(
         "#!/usr/bin/env bash\n"
+        # Not counted: judge.py probes the version before every call (#450),
+        # and a probe that failed would read as the retry this test is for.
+        '[ "$1" = "--version" ] && { echo "0.0.0 (stub)"; exit 0; }\n'
         'n=$(cat "%s" 2>/dev/null || echo 0)\n'
         "n=$((n+1))\n"
         'printf \'%%s\' "$n" > "%s"\n'
@@ -1919,7 +1933,9 @@ with tempfile.TemporaryDirectory() as td_retry:
     )
     check("judge subprocess ran cleanly against the flaky stub", proc.returncode == 0)
     check("judge retries once on a failed call (stub invoked exactly twice)",
-          counter.exists() and counter.read_text().strip() == "2")
+          stub_calls(counter, proc, 2) == 2)
+    check("and says which attempt failed, though the retry succeeded (#595)",
+          "judge attempt failed (sonnet): exit 3" in proc.stderr)
     written = json.loads(out_path.read_text())
     check("judge records a real result after the retry succeeds, not 'judge call failed'",
           written["judgments"][0]["reason"] != bench_judge.REASON_JUDGE_CALL_FAILED)
@@ -5413,12 +5429,15 @@ with tempfile.TemporaryDirectory() as td_jobs:
     stub.write_text(
         "#!/usr/bin/env bash\n"
         '[ "$1" = "--version" ] && { echo "0.0.0 (stub)"; exit 0; }\n'
-        # mkdir, not flock: flock is util-linux and macOS has none.
-        'L="%s.lock"; until mkdir "$L" 2>/dev/null; do sleep 0.01; done\n'
+        # A noclobber redirect, which bash opens O_EXCL itself. Not mkdir:
+        # uutils' mkdir, Ubuntu's since 26.04, lets two racing calls both
+        # succeed, and the lost counts failed this file on CI (#595). Not
+        # flock either: that is util-linux, and macOS has none.
+        'L="%s.lock"; until (set -C; : > "$L") 2>/dev/null; do sleep 0.01; done\n'
         'n=$(cat "%s" 2>/dev/null || echo 0)\n'
         "n=$((n+1))\n"
         'printf \'%%s\' "$n" > "%s"\n'
-        'rmdir "$L"\n'
+        'rm -f "$L"\n'
         # Each invocation is its own process, so $$ names it uniquely. Holding
         # the marker across a short sleep is what makes overlap observable at
         # all: without it every call could still be strictly sequential and
@@ -5464,8 +5483,9 @@ with tempfile.TemporaryDirectory() as td_jobs:
           all(j["verdict"] == "pass" for j in _pj))
     check("judge: every parallel judgment is priced (#68 survives the port)",
           all(j.get("usage", {}).get("output_tokens") == 1 for j in _pj))
-    check("judge: the stub was called once per run, so no work was duplicated",
-          counter.read_text().strip() == "8")
+    _jn = stub_calls(counter, proc, 8)
+    check("judge: the stub was called once per run, so no work was duplicated "
+          "(%d calls for 8 runs)" % _jn, _jn == 8)
     # The point of #71. Without it every check above passes on a sequential
     # loop, so this is the only one that would fail if the pool were reverted.
     _peak = max(int(x) for x in concurrency.read_text().split())
@@ -5479,8 +5499,10 @@ with tempfile.TemporaryDirectory() as td_jobs:
          "--results", str(snap_path), "--out", str(out_path)],
         capture_output=True, text=True,
     )
+    # Measured from the first pass's count, so a miscount in that pass fails
+    # the check above and not this one as well (#595).
     check("judge: resuming a finished parallel pass spends nothing",
-          proc2.returncode == 0 and counter.read_text().strip() == "8")
+          proc2.returncode == 0 and stub_calls(counter, proc2, _jn) == _jn)
     check("judge: and adds no second record for any key",
           len(json.loads(out_path.read_text())["judgments"]) == 8)
 
@@ -5638,9 +5660,9 @@ with tempfile.TemporaryDirectory() as td_cj:
     stub.write_text(
         "#!/usr/bin/env bash\n"
         '[ "$1" = "--version" ] && { echo "0.0.0 (stub)"; exit 0; }\n'
-        'L="%s.lock"; until mkdir "$L" 2>/dev/null; do sleep 0.01; done\n'
+        'L="%s.lock"; until (set -C; : > "$L") 2>/dev/null; do sleep 0.01; done\n'
         'n=$(cat "%s" 2>/dev/null || echo 0); n=$((n+1)); printf \'%%s\' "$n" > "%s"\n'
-        'rmdir "$L"\n'
+        'rm -f "$L"\n'
         "cat <<'JSON'\n"
         '{"type":"system","subtype":"init","tools":[]}\n'
         '{"type":"result","is_error":false,"result":"{\\"verdict\\":\\"pass\\",\\"quote\\":\\"\\",'
@@ -5716,8 +5738,9 @@ with tempfile.TemporaryDirectory() as td_cj:
     check("judge: a carried key the source does not cover is judged normally",
           _by[("floor", "terse-control", "haiku", 2)]["reason"] == "fresh")
     # 3 laconic + the one uncovered carried key = 4 calls, not 9.
-    check("judge: only the uncarried runs were bought (4 calls, not 9)",
-          calls.read_text().strip() == "4")
+    _cn = stub_calls(calls, proc, 4)
+    check("judge: only the uncarried runs were bought (%d calls, want 4 not 9)" % _cn,
+          _cn == 4)
 
     _prov = _w["metadata"]["carried_judgments_from"]
     check("judge: the carry is stamped with what it copied",
@@ -5742,7 +5765,7 @@ with tempfile.TemporaryDirectory() as td_cj:
     )
     _w2 = json.loads(out_path.read_text())
     check("judge: re-running a carried pass spends nothing",
-          proc2.returncode == 0 and calls.read_text().strip() == "4")
+          proc2.returncode == 0 and stub_calls(calls, proc2, _cn) == _cn)
     check("judge: and the carry does not overwrite what this round judged",
           {(j["case"], j["arm"], j["model"], j["rep"]): j["reason"]
            for j in _w2["judgments"]}[("floor", "terse-control", "haiku", 2)] == "fresh")
@@ -6682,10 +6705,10 @@ with tempfile.TemporaryDirectory() as td_log:
 # making the remaining items call nothing.
 _JUDGE_SEQ_STUB = """#!/usr/bin/env bash
 [ "$1" = "--version" ] && { echo "0.0.0 (stub)"; exit 0; }
-until mkdir "$CFILE.lock" 2>/dev/null; do sleep 0.01; done
+until (set -C; : > "$CFILE.lock") 2>/dev/null; do sleep 0.01; done
 n=$(( $(cat "$CFILE" 2>/dev/null || echo 0) + 1 ))
 echo "$n" > "$CFILE"
-rmdir "$CFILE.lock"
+rm -f "$CFILE.lock"
 if [ "$n" = "$OK_CALL" ]; then
   echo '{"type":"system","subtype":"init","tools":[]}'
   echo '{"type":"result","is_error":false,"result":"{\\"verdict\\":\\"pass\\",\\"quote\\":\\"\\",\\"reason\\":\\"r\\"}","num_turns":1,"usage":{"output_tokens":1}}'

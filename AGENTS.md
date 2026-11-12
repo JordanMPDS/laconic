@@ -46,7 +46,7 @@ one that catches stale generated files, and it is the easiest to skip by acciden
 - **Every slice has to fit in 10,000 characters.** Claude Code caps a hook's plain
   stdout there, and over the cap the model gets a file path and a 2,000-character
   preview instead of the rules while the hook still exits 0. `tests/test_laconic.sh`
-  fails any slice over 9,500, so an edit that trips it still ships: cut characters
+  fails any slice over 9,700, so an edit that trips it still ships: cut characters
   elsewhere, or raise the budget deliberately, never past the cap.
 - **A new deterministic detector names the rule it implements and the level that
   rule enters at.** `metrics.POLICY_RANK` holds the rank and `metrics.POLICY_RULE`
